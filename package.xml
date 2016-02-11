@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <package>
+
   <name>mrs_odometry</name>
   <version>1.0.0</version>
   <description>The mrs_odometry package</description>
@@ -41,4 +42,5 @@
     <nodelet plugin="${prefix}/odometry.xml" />
     <nodelet plugin="${prefix}/rtk_republisher.xml" />
   </export>
+
 </package>
