@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<package>
+  <name>mrs_odometry</name>
+  <version>1.0.0</version>
+  <description>The mrs_odometry package</description>
+
+  <maintainer email="tomas.baca@fel.cvut.cz">Tomas Baca</maintainer>
+
+  <!-- One license tag required, multiple allowed, one license per tag -->
+  <!-- Commonly used license strings: -->
+  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>mrs_estimation</build_depend>
+  <build_depend>quadrotor_msgs</build_depend>
+  <build_depend>mrs_nmea_navsat_driver</build_depend>
+  <build_depend>object_detection</build_depend>
+  <build_depend>cross_detector</build_depend>
+  <build_depend>visual_servoing</build_depend>
+
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>cmake_modules</run_depend>
+  <run_depend>mrs_estimation</run_depend>
+  <run_depend>mrs_nmea_navsat_driver</run_depend>
+  <run_depend>object_detection</run_depend>
+  <run_depend>cross_detector</run_depend>
+  <run_depend>visual_servoing</run_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+  </export>
+</package>
