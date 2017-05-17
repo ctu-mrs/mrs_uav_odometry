@@ -23,8 +23,6 @@
   <build_depend>mrs_estimation</build_depend>
   <build_depend>quadrotor_msgs</build_depend>
   <build_depend>mrs_nmea_navsat_driver</build_depend>
-  <build_depend>object_detection</build_depend>
-  <build_depend>cross_detector</build_depend>
   <build_depend>visual_servoing</build_depend>
 
   <run_depend>geometry_msgs</run_depend>
@@ -36,8 +34,6 @@
   <run_depend>cmake_modules</run_depend>
   <run_depend>mrs_estimation</run_depend>
   <run_depend>mrs_nmea_navsat_driver</run_depend>
-  <run_depend>object_detection</run_depend>
-  <run_depend>cross_detector</run_depend>
   <run_depend>visual_servoing</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->

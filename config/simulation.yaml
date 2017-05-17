@@ -18,10 +18,6 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-crossAltitudeBufferSize: 10
-crossAltitudeValidAltitude: 20.0
-crossAltitudeMaxDifference: 3.0
-
 objectAltitudeBufferSize: 100
 objectAltitudeValidAltitude: 5.0
 objectAltitudeMaxDifference: 1.0
@@ -51,12 +47,8 @@ altitude:
   TrgMaxQ: 100000
   TrgMinQ: 0.02
 
-  CrossMaxQ: 20000
-  CrossMinQ: 0.1
-
   # rate for changing the measurement covariance
   TrgQChangeRate: 1000  
-  CrossQChangeRate: 1000  
 
   rtkQ: 0.1
   objectQ: 0.1
@@ -69,12 +61,6 @@ altitude:
   # failsafe for object altitude fusion
   object_altitude_max_down_difference: 0.5
   object_altitude_max_abs_difference: 1.0
-
-  # failsafe for cross altitude fusion
-  # those limits should be set with care
-  # the failsafe kalman will be confused in the car landing experiment
-  cross_altitude_max_down_difference: 3.0
-  cross_altitude_max_abs_difference: 5.0
 
 lateral:
 

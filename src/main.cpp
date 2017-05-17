@@ -18,9 +18,7 @@
 #include <string>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <stdexcept>
-#include <cross_detector/cross_alt.h>
-#include <nmea_navsat_driver/GpsLocal.h>
-#include <object_detection/ObjectWithType.h>
+#include <mrs_nmea_navsat_driver/GpsLocal.h>
 
 #define USE_TERARANGER 1
 
@@ -59,16 +57,12 @@ class mrsOdometry {
     // Pixhawk odometry subscriber and callback
     ros::Subscriber sub_pixhawk_;
     ros::Subscriber rtk_gps_sub_;
-    ros::Subscriber cross_altitude_sub;
-    ros::Subscriber object_altitude_sub;
 
   private:
 
     ros::ServiceServer ser_reset_home_;
     ros::ServiceServer ser_averaging_;
     ros::ServiceServer ser_teraranger_;
-    ros::ServiceServer ser_cross_altitude_;
-    ros::ServiceServer ser_object_altitude_;
     ros::ServiceServer ser_toggle_rtk_altitude;
 
   private:
@@ -80,17 +74,15 @@ class mrsOdometry {
     nav_msgs::Odometry odom_pixhawk_previous_;
 
     std::mutex mutex_rtk;
-    nmea_navsat_driver::GpsLocal rtk_odom_previous;
-    nmea_navsat_driver::GpsLocal rtk_odom;
+    mrs_nmea_navsat_driver::GpsLocal rtk_odom_previous;
+    mrs_nmea_navsat_driver::GpsLocal rtk_odom;
 
     void odometryCallback(const nav_msgs::OdometryConstPtr& msg);
     void global_position_callback(const nav_msgs::OdometryConstPtr& msg);
     bool resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-    bool toggleCrossAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-    bool toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     bool toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-    void rtkCallback(const nmea_navsat_driver::GpsLocalConstPtr &msg);
+    void rtkCallback(const mrs_nmea_navsat_driver::GpsLocalConstPtr &msg);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -174,49 +166,38 @@ class mrsOdometry {
 
   private:
 
-    // for fusing cross altitude
-    bool cross_altitude_enabled;
-    bool got_cross_altitude;
-    cross_detector::cross_alt cross_altitude;
-    std::mutex mutex_cross_altitude;
-    void crossAltitudeCallback(const cross_detector::cross_altConstPtr &msg);
-    TrgFilter * crossAltitudeFilter;
-    int cross_filter_buffer_size;
-    double cross_max_valid_altitude;
-    double cross_filter_max_difference;
-    ros::Time cross_altitude_last_update;
-    double CrossMaxQ, CrossMinQ, CrossQChangeRate;
-    double rtk_max_down_difference_;
-    double rtk_max_abs_difference_;
-    double cross_altitude_max_down_difference_;
-    double cross_altitude_max_abs_difference_;
-
-  private:
-
-    // for fusing object altitude
-    bool object_altitude_enabled;
-    bool got_object_altitude;
-    object_detection::ObjectWithType object_altitude;
-    std::mutex mutex_object_altitude;
-    void objectAltitudeCallback(const object_detection::ObjectWithTypeConstPtr &msg);
-    TrgFilter * objectAltitudeFilter;
-    int object_filter_buffer_size;
-    double object_max_valid_altitude;
-    double object_filter_max_difference;
-    ros::Time object_altitude_last_update;
-    double objectQ;
-    double static_object_height_, dynamic_object_height_;
-    double object_altitude_max_down_difference_;
-    double object_altitude_max_abs_difference_;
-    double mobius_z_offset_;
-
-  private:
-
     // for fusing rtk altitude
     bool rtk_altitude_enabled;
     double rtk_altitude_integral;
     std::thread rtk_rate_thread;
     double rtkQ;
+    double rtk_max_down_difference_;
+    double rtk_max_abs_difference_;
+
+
+  private:
+
+    // ############### stuff for adding another source of altitude data ###############
+    
+    /* bool object_altitude_enabled; */
+    /* bool got_object_altitude; */
+    /* object_detection::ObjectWithType object_altitude; */
+    /* std::mutex mutex_object_altitude; */
+    /* void objectAltitudeCallback(const object_detection::ObjectWithTypeConstPtr &msg); */
+    /* TrgFilter * objectAltitudeFilter; */
+    /* int object_filter_buffer_size; */
+    /* double object_max_valid_altitude; */
+    /* double object_filter_max_difference; */
+    /* ros::Time object_altitude_last_update; */
+    /* double objectQ; */
+    /* double static_object_height_, dynamic_object_height_; */
+    /* double object_altitude_max_down_difference_; */
+    /* double object_altitude_max_abs_difference_; */
+    /* double mobius_z_offset_; */
+
+    /* ros::Subscriber object_altitude_sub; */
+    /* bool toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); */
+    /* ros::ServiceServer ser_object_altitude_; */
 
 };
 
@@ -242,12 +223,6 @@ mrsOdometry::mrsOdometry() {
   // subscriber for terarangers range
   sub_terarangerone_= nh_.subscribe("terarangerone", 1, &mrsOdometry::terarangerCallback, this, ros::TransportHints().tcpNoDelay());
 
-  // subscriber for cross altitude
-  cross_altitude_sub = nh_.subscribe("cross_altitude", 1, &mrsOdometry::crossAltitudeCallback, this, ros::TransportHints().tcpNoDelay());
-
-  // subscriber for object altitude
-  object_altitude_sub = nh_.subscribe("object_altitude", 1, &mrsOdometry::objectAltitudeCallback, this, ros::TransportHints().tcpNoDelay());
-
   // subscriber for differential gps
   rtk_gps_sub_ = nh_.subscribe("rtk_gps", 1, &mrsOdometry::rtkCallback, this, ros::TransportHints().tcpNoDelay());
 
@@ -263,14 +238,13 @@ mrsOdometry::mrsOdometry() {
   // subscribe for teraranger toggle service
   ser_teraranger_ = nh_.advertiseService("toggle_teraranger", &mrsOdometry::toggleTerarangerCallback, this);
 
-  // subscribe for cross_altitude toggle service
-  ser_cross_altitude_ = nh_.advertiseService("toggle_cross_altitude", &mrsOdometry::toggleCrossAltitudeCallback, this);
-
-  // subscribe for object_altitude toggle service
-  ser_object_altitude_ = nh_.advertiseService("toggle_object_altitude", &mrsOdometry::toggleObjectAltitudeCallback, this);
-
   // toggling fusing of rtk altitude
   ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude", &mrsOdometry::toggleRtkAltitudeCallback, this);
+
+  // subscriber for object altitude
+  /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &mrsOdometry::objectAltitudeCallback, this, ros::TransportHints().tcpNoDelay()); */
+  // subscribe for object_altitude toggle service
+  /* ser_object_altitude_ = nh_.advertiseService("toggle_object_altitude", &mrsOdometry::toggleObjectAltitudeCallback, this); */
 
   // publisher for tf
   broadcaster_ = new tf::TransformBroadcaster();
@@ -296,8 +270,7 @@ mrsOdometry::mrsOdometry() {
   got_home_position_fix = false;
   got_rtk_counter = 0;
 
-  got_cross_altitude = false;
-  got_object_altitude = false;
+  // got_object_altitude = false;
 
 #if USE_TERARANGER == 1
   got_range = false;
@@ -315,21 +288,15 @@ mrsOdometry::mrsOdometry() {
   nh_.param("trgFilterMaxValidAltitude", trg_max_valid_altitude, 8.0);
   nh_.param("trgFilterMaxDifference", trg_filter_max_difference, 3.0);
 
-  nh_.param("crossAltitudeBufferSize", cross_filter_buffer_size, 20);
-  nh_.param("crossAltitudeValidAltitude", cross_max_valid_altitude, 8.0);
-  nh_.param("crossAltitudeMaxDifference", cross_filter_max_difference, 3.0);
-
-  nh_.param("objectAltitudeBufferSize", object_filter_buffer_size, 20);
-  nh_.param("objectAltitudeValidAltitude", object_max_valid_altitude, 8.0);
-  nh_.param("objectAltitudeMaxDifference", object_filter_max_difference, 3.0);
-  nh_.param("altitude/objectQ", objectQ, 1.0);
-
-  nh_.param("staticObjectHeight", static_object_height_, 0.2);
-  nh_.param("dynamicObjectHeight", dynamic_object_height_, 0.2);
+  /* nh_.param("objectAltitudeBufferSize", object_filter_buffer_size, 20); */
+  /* nh_.param("objectAltitudeValidAltitude", object_max_valid_altitude, 8.0); */
+  /* nh_.param("objectAltitudeMaxDifference", object_filter_max_difference, 3.0); */
+  /* nh_.param("altitude/objectQ", objectQ, 1.0); */
+  /* nh_.param("staticObjectHeight", static_object_height_, 0.2); */
+  /* nh_.param("dynamicObjectHeight", dynamic_object_height_, 0.2); */
+  /* nh_.param("mobius_z_offset_", trg_z_offset_, 0.0); */
 
   nh_.param("trg_z_offset", trg_z_offset_, 0.0);
-  nh_.param("mobius_z_offset_", trg_z_offset_, 0.0);
-  nh_.param("trg_z_offset", mobius_z_offset_, 0.0);
 
   nh_.param("home_utm_x", home_utm_x, 0.0);
   nh_.param("home_utm_y", home_utm_y, 0.0);
@@ -421,23 +388,18 @@ mrsOdometry::mrsOdometry() {
 
   nh_.param("altitude/TrgMaxQ", TrgMaxQ, 1000.0);
   nh_.param("altitude/TrgMinQ", TrgMinQ, 1.0);
-  nh_.param("altitude/CrossMaxQ", CrossMaxQ, 1000.0);
-  nh_.param("altitude/CrossMinQ", CrossMinQ, 1.0);
   nh_.param("altitude/TrgQChangeRate", TrgQChangeRate, 1.0);
-  nh_.param("altitude/CrossQChangeRate", CrossQChangeRate, 1.0);
   nh_.param("altitude/rtkQ", rtkQ, 1.0);
 
   // failsafes for altitude fusion
   nh_.param("altitude/rtk_max_down_difference", rtk_max_down_difference_, 1.0);
   nh_.param("altitude/rtk_max_abs_difference", rtk_max_abs_difference_, 5.0);
-  nh_.param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_, 1.0);
-  nh_.param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_, 5.0);
-  nh_.param("altitude/cross_altitude_max_down_difference", cross_altitude_max_down_difference_, 3.0);
-  nh_.param("altitude/cross_altitude_max_abs_difference", cross_altitude_max_abs_difference_, 3.0);
+
+  /* nh_.param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_, 1.0); */
+  /* nh_.param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_, 5.0); */
 
   terarangerFilter = new TrgFilter(trg_filter_buffer_size, 0, false, trg_max_valid_altitude, trg_filter_max_difference);
-  crossAltitudeFilter = new TrgFilter(cross_filter_buffer_size, 0, false, cross_max_valid_altitude, cross_filter_max_difference);
-  objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference);
+  /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   main_altitude_kalman = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
   failsafe_teraranger_kalman = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
@@ -446,7 +408,7 @@ mrsOdometry::mrsOdometry() {
   main_altitude_kalman->setState(0, 0.3);
   failsafe_teraranger_kalman->setState(0, 0.3);
 
-  ROS_INFO_STREAM("Altitude Kalman Filter was initiated with following parameters: n: " << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A1 << ", B: " << B1 << ", R: " << R1 << ", Q: " << Q1 << ", P: " << P1 << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate << ", CrossQChangeRate: " << CrossQChangeRate);
+  ROS_INFO_STREAM("Altitude Kalman Filter was initiated with following parameters: n: " << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A1 << ", B: " << B1 << ", R: " << R1 << ", Q: " << Q1 << ", P: " << P1 << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate);
 
   ROS_INFO("Altitude kalman prepared");
 
@@ -529,7 +491,6 @@ mrsOdometry::mrsOdometry() {
   trg_last_update = ros::Time::now();
 
   teraranger_enabled = true;
-  cross_altitude_enabled = false;
   rtk_altitude_enabled = false;
 
   // create threads
@@ -555,8 +516,7 @@ bool mrsOdometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std
 
     ROS_INFO("Rtk altitude enabled.");
     teraranger_enabled = false;
-    cross_altitude_enabled = false;
-    object_altitude_enabled = false;
+    /* object_altitude_enabled = false; */
 
   } else {
 
@@ -566,28 +526,7 @@ bool mrsOdometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std
   return true;
 }
 
-bool mrsOdometry::toggleCrossAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  cross_altitude_enabled = req.data;
-
-  res.success = true;
-  res.message = (cross_altitude_enabled ? "Cross altitude enabled" : "Cross altitude disabled");
-
-  if (cross_altitude_enabled) {
-
-    ROS_INFO("Cross altitude enabled.");
-    teraranger_enabled = false;
-    rtk_altitude_enabled = false;
-    object_altitude_enabled = false;
-
-  } else {
-
-    ROS_INFO("Cross altitude disabled.");
-  }
-
-  return true;
-}
-
+/*
 bool mrsOdometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   object_altitude_enabled = req.data;
@@ -600,7 +539,6 @@ bool mrsOdometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, 
     ROS_INFO("Object altitude enabled.");
     teraranger_enabled = false;
     rtk_altitude_enabled = false;
-    cross_altitude_enabled = false;
 
   } else {
 
@@ -609,6 +547,7 @@ bool mrsOdometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, 
 
   return true;
 }
+*/
 
 bool mrsOdometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -620,7 +559,6 @@ bool mrsOdometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_
   if (teraranger_enabled) {
 
     ROS_INFO("Teraranger enabled.");
-    cross_altitude_enabled = false;
     rtk_altitude_enabled = false;
 
   } else {
@@ -678,7 +616,7 @@ void mrsOdometry::rtkRateThread(void) {
   }
 }
 
-void mrsOdometry::rtkCallback(const nmea_navsat_driver::GpsLocalConstPtr &msg) {
+void mrsOdometry::rtkCallback(const mrs_nmea_navsat_driver::GpsLocalConstPtr &msg) {
 
   mutex_rtk.lock();
   {
@@ -1154,6 +1092,7 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
   }
 }
 
+/*
 void mrsOdometry::objectAltitudeCallback(const object_detection::ObjectWithTypeConstPtr &msg) {
 
   mutex_object_altitude.lock();
@@ -1267,122 +1206,7 @@ void mrsOdometry::objectAltitudeCallback(const object_detection::ObjectWithTypeC
     }
   }
 }
-
-void mrsOdometry::crossAltitudeCallback(const cross_detector::cross_altConstPtr &msg) {
-
-  mutex_cross_altitude.lock();
-  {
-    cross_altitude = *msg;
-  }
-  mutex_cross_altitude.unlock();
-
-  got_cross_altitude = true;
-
-  ROS_INFO_THROTTLE(1, "Receiving cross altitude");
-
-  // ALTITUDE KALMAN FILTER
-  // deside on measurement's covariance
-  MatrixXd mesCov;
-  mesCov = MatrixXd::Zero(altitude_p, altitude_p);
-
-  double measurement = 0;
-  measurement = msg->altitude;
-
-  ros::Duration interval;
-
-  // cross altitude filtration
-  if (uav_is_flying()) {
-
-    interval = ros::Time::now() - cross_altitude.header.stamp;
-    mutex_main_altitude_kalman.lock();
-    {
-      measurement = crossAltitudeFilter->getValue(measurement, main_altitude_kalman->getState(0), interval);
-    }
-    mutex_main_altitude_kalman.unlock();
-  }
-
-  if (!std::isfinite(measurement)) {
-
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (cross)!!!");
-    return;
-  }
-
-  { // Update the variance of the measurement
-    // set the default covariation
-    mesCov << Q3(0, 0);
-
-    if (measurement <= 0 || measurement > cross_max_valid_altitude) {
-      // enlarge the measurement covariance
-      Q3(0, 0) = Q3(0, 0) + CrossQChangeRate;
-
-    } else {
-      // ensmall the measurement covariance
-      Q3(0, 0) = Q3(0, 0) - CrossQChangeRate;
-    }
-
-    // saturate the measurement covariance
-    if (Q3(0, 0) > CrossMaxQ) {
-      Q3(0, 0) = CrossMaxQ;
-    } else if (Q3(0, 0) < CrossMinQ) {
-      Q3(0, 0) = CrossMinQ;
-    }
-  }
-
-  //////////////////// Fuse cross altitude ////////////////////
-  if (cross_altitude_enabled) {
-
-    // if cross altitude is too above failsafe kalman, switch to fusing teraranger
-    if ((measurement - failsafe_teraranger_kalman->getState(0)) > cross_altitude_max_down_difference_) {
-
-      cross_altitude_enabled = false;
-      teraranger_enabled = true;
-      ROS_ERROR("Cross altitude is above failsafe kalman by more than %2.2f m!", cross_altitude_max_down_difference_);
-      ROS_ERROR("Switching back to fusing teraranger!");
-      return;
-    }
-
-    // if object altitude is too above failsafe kalman, switch to fusing teraranger
-    if (fabs(failsafe_teraranger_kalman->getState(0) - measurement) > cross_altitude_max_abs_difference_) {
-
-      cross_altitude_enabled = false;
-      teraranger_enabled = true;
-      ROS_ERROR("Cross altitude differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
-      ROS_ERROR("Switching back to fusing teraranger!");
-      return;
-    }
-
-    if (measurement > 0.2) {
-
-      mutex_main_altitude_kalman.lock();
-      {
-
-        double correction = 0;
-
-        correction = measurement - main_altitude_kalman->getState(0);
-
-        // saturate the correction
-        if (!std::isfinite(correction)) {
-          correction = 0;
-          ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
-        } else if (correction > max_altitude_correction_) {
-          correction = max_altitude_correction_;
-        } else if (correction < -max_altitude_correction_) {
-          correction = -max_altitude_correction_;
-        }
-
-        // set the measurement vector
-        VectorXd mes(1);
-        mes << main_altitude_kalman->getState(0) + correction;
-
-        main_altitude_kalman->setMeasurement(mes, mesCov);
-        main_altitude_kalman->doCorrection();
-      }
-      mutex_main_altitude_kalman.unlock();
-
-      ROS_INFO_THROTTLE(1, "Fusing cross altitude");
-    }
-  }
-}
+*/
 
 bool mrsOdometry::averagingCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 

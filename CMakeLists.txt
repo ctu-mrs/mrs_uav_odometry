@@ -15,21 +15,14 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   quadrotor_msgs
   mrs_nmea_navsat_driver
-  object_detection
-  cross_detector
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11")
 
-#find_package(Eigen3)
-#find_package(PkgConfig)
-#pkg_search_module(Eigen3 REQUIRED eigen3)
-#if(NOT EIGEN3_FOUND)
-  # Fallback to cmake_modules
-  find_package(Eigen REQUIRED)
-  set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
-  set(EIGEN3_LIBRARIES ${EIGEN_LIBRARIES})
-#endif()
+# include Eigen3
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -37,7 +30,6 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 ## Generate messages in the 'msg' folder
 # add_message_files(
 #   FILES
-#   cross_pos.msg
 # )
 
 ## Generate added messages and services with any dependencies listed here
@@ -63,7 +55,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 catkin_package(
 	INCLUDE_DIRS include
 #  LIBRARIES cross_detector
-	CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_nmea_navsat_driver object_detection
+	CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_nmea_navsat_driver
 #  DEPENDS system_libi
   DEPENDS Eigen
 )
@@ -78,7 +70,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
+  ${Eigen_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -94,7 +86,7 @@ add_executable(odometry src/main.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(odometry
 	${catkin_LIBRARIES}
-	${EIGEN3_LIBRARIES}
+	${Eigen_LIBRARIES}
 	trgfilter
 )
 
@@ -103,13 +95,5 @@ add_executable(rtk_republisher src/rtk_republisher.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(rtk_republisher
-	${catkin_LIBRARIES}
-)
-
-## Declare a C++ executable
-add_executable(rtk_type_printer src/rtk_type_printer.cpp)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(rtk_type_printer
 	${catkin_LIBRARIES}
 )

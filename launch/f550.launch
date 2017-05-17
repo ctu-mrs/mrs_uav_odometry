@@ -25,7 +25,6 @@
 			<remap from="~global_position" to="mavros/global_position/local" />
 			<remap from="~tracker_status" to="trackers_manager/status" />
       <remap from="~rtk_gps" to="rtk_gps/local" />
-      <remap from="~cross_altitude" to="cross_detector/altitude" />
       <remap from="~object_altitude" to="landing_object_controller/current_target" />
 
       <!-- Publishers --> 
@@ -33,7 +32,6 @@
 
       <!-- Services --> 
 			<remap from="~toggle_teraranger" to="~toggle_teraranger" />
-			<remap from="~toggle_cross_altitude" to="~toggle_cross_altitude" />
       <remap from="~toggle_rtk_altitude" to="~toggle_rtk_altitude" />
 
     </node>
