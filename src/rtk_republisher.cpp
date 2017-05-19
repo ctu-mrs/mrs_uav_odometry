@@ -1,7 +1,7 @@
 // some ros includes
 #include <ros/ros.h>
 #include <ros/package.h>
-#include <mrs_nmea_navsat_driver/GpsLocal.h>
+#include <mrs_msgs/RtkGpsLocal.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mutex>
@@ -43,7 +43,7 @@ void mainThread(void) {
 
   ros::Rate r(rate_);
 
-  mrs_nmea_navsat_driver::GpsLocal pose;
+  mrs_msgs::RtkGpsLocal pose;
 
   while (ros::ok()) {
 
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
   global_odom_subscriber = nh_.subscribe("odom_in", 1, &odomCallback, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
-  rtk_publisher = nh_.advertise<mrs_nmea_navsat_driver::GpsLocal>("rtk_out", 1); 
+  rtk_publisher = nh_.advertise<mrs_msgs::RtkGpsLocal>("rtk_out", 1); 
 
   // launch the thread
   main_thread = std::thread(&mainThread);

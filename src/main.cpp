@@ -18,7 +18,7 @@
 #include <string>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <stdexcept>
-#include <mrs_nmea_navsat_driver/GpsLocal.h>
+#include <mrs_msgs/RtkGpsLocal.h>
 
 #define USE_TERARANGER 1
 
@@ -74,15 +74,15 @@ class mrsOdometry {
     nav_msgs::Odometry odom_pixhawk_previous_;
 
     std::mutex mutex_rtk;
-    mrs_nmea_navsat_driver::GpsLocal rtk_odom_previous;
-    mrs_nmea_navsat_driver::GpsLocal rtk_odom;
+    mrs_msgs::RtkGpsLocal rtk_odom_previous;
+    mrs_msgs::RtkGpsLocal rtk_odom;
 
     void odometryCallback(const nav_msgs::OdometryConstPtr& msg);
     void global_position_callback(const nav_msgs::OdometryConstPtr& msg);
     bool resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     bool toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-    void rtkCallback(const mrs_nmea_navsat_driver::GpsLocalConstPtr &msg);
+    void rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -616,7 +616,7 @@ void mrsOdometry::rtkRateThread(void) {
   }
 }
 
-void mrsOdometry::rtkCallback(const mrs_nmea_navsat_driver::GpsLocalConstPtr &msg) {
+void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
   mutex_rtk.lock();
   {

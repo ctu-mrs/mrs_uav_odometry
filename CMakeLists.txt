@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_estimation
   cmake_modules
   quadrotor_msgs
-  mrs_nmea_navsat_driver
+  mrs_msgs
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11")
@@ -24,30 +24,6 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
-################################################
-## Declare ROS messages, services and actions ##
-################################################
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
-
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -55,7 +31,7 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 catkin_package(
 	INCLUDE_DIRS include
 #  LIBRARIES cross_detector
-	CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_nmea_navsat_driver
+	CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_msgs
 #  DEPENDS system_libi
   DEPENDS Eigen
 )
@@ -72,11 +48,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${Eigen_INCLUDE_DIRS}
 )
-
-## Declare a C++ library
-#add_library(detector
-#   src/detector.cpp
-#)
 
 add_library(trgfilter src/trgfilter.cpp)
 
