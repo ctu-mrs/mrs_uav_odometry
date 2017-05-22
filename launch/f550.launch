@@ -10,9 +10,9 @@
     <!-- Teraranger -->
     <include file="$(find terarangerone)/launch/test.launch" />
 
-    <node name="mrs_odom" pkg="mrs_odom" type="odometry" output="screen" >
+    <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
 
-			<rosparam file="$(find mrs_odom)/config/f550.yaml" />
+			<rosparam file="$(find mrs_odometry)/config/f550.yaml" />
       <rosparam file="$(find mrs_main)/config/arena_current.yaml" />
 
       <!-- parameter -->

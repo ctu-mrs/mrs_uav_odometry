@@ -4,9 +4,9 @@
 
   <group ns="$(arg uav_name)">
 
-    <node name="rtk_republisher" pkg="mrs_odom" type="rtk_republisher" output="screen" >
+    <node name="rtk_republisher" pkg="mrs_odometry" type="rtk_republisher" output="screen" >
       
-      <rosparam file="$(find mrs_odom)/config/rtk_republisher.yaml" />
+      <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
 
       <!-- Subscribers --> 
       <remap from="~odom_in" to="ground_truth" />

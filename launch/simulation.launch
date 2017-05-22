@@ -2,13 +2,13 @@
 
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   
-  <include file="$(find mrs_odom)/launch/rtk_republisher.launch" />
+  <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <group ns="$(arg uav_name)">
 
-    <node name="mrs_odom" pkg="mrs_odom" type="odometry" output="screen" >
+    <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
 
-			<rosparam file="$(find mrs_odom)/config/simulation.yaml" />
+			<rosparam file="$(find mrs_odometry)/config/simulation.yaml" />
       <rosparam file="$(find mrs_main)/config/arena_simulation.yaml" />
 
       <!-- parameter -->
