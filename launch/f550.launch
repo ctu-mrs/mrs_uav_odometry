@@ -1,6 +1,7 @@
 <launch>
 
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
 
   <group ns="$(arg uav_name)">
 
@@ -13,7 +14,7 @@
     <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
 
 			<rosparam file="$(find mrs_odometry)/config/f550.yaml" />
-      <rosparam file="$(find mrs_main)/config/arena_current.yaml" />
+      <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
