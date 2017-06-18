@@ -1329,7 +1329,7 @@ void mrsOdometry::publishMessage() {
   mutex_main_altitude_kalman.unlock();
 #endif
 
-  ROS_ERROR_THROTTLE(0.5, "Main altitude: %2.2f, Failsafe: %2.2f", main_altitude_kalman->getState(0), failsafe_teraranger_kalman->getState(0));
+  ROS_INFO_THROTTLE(1.0, "Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0), failsafe_teraranger_kalman->getState(0));
 
   // add orientation offset
   if (use_orientation_offset) {
