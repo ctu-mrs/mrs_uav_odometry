@@ -63,6 +63,7 @@ class mrsOdometry {
     ros::ServiceServer ser_reset_home_;
     ros::ServiceServer ser_averaging_;
     ros::ServiceServer ser_teraranger_;
+    ros::ServiceServer ser_garmin_;
     ros::ServiceServer ser_toggle_rtk_altitude;
 
   private:
@@ -81,6 +82,7 @@ class mrsOdometry {
     void global_position_callback(const nav_msgs::OdometryConstPtr& msg);
     bool resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+    bool toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     bool toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     void rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg);
 
@@ -97,6 +99,18 @@ class mrsOdometry {
     double trg_max_valid_altitude;
     double trg_filter_max_difference;
     ros::Time trg_last_update;
+    double TrgMaxQ, TrgMinQ, TrgQChangeRate;
+
+    // Garmin altitude subscriber and callback
+    ros::Subscriber sub_garmin_;
+    sensor_msgs::Range range_garmin_;
+    void garminCallback(const sensor_msgs::RangeConstPtr& msg);
+    TrgFilter * garminFilter;
+    int garmin_filter_buffer_size;
+    double garmin_max_valid_altitude;
+    double garmin_filter_max_difference;
+    ros::Time garmin_last_update;
+    double GarminMaxQ, GarminMinQ, GarminQChangeRate;
 
     bool got_odom, got_range, got_global_position, got_rtk;
     int got_rtk_counter;
@@ -123,7 +137,6 @@ class mrsOdometry {
     LinearKF * failsafe_teraranger_kalman;
     std::mutex mutex_main_altitude_kalman;
     std::mutex mutex_failsafe_altitude_kalman;
-    double TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
     // lateral kalman
     int lateral_n, lateral_m, lateral_p;
@@ -154,6 +167,7 @@ class mrsOdometry {
 
     // disabling teraranger on the flight
     bool teraranger_enabled;
+    bool garmin_enabled;
 
     // slow odom thread
     std::thread slow_odom_thread;
@@ -163,6 +177,7 @@ class mrsOdometry {
 
     // for fusing rtk altitude
     double trg_z_offset_;
+    double garmin_z_offset_;
 
   private:
 
@@ -223,6 +238,9 @@ mrsOdometry::mrsOdometry() {
   // subscriber for terarangers range
   sub_terarangerone_= nh_.subscribe("terarangerone", 1, &mrsOdometry::terarangerCallback, this, ros::TransportHints().tcpNoDelay());
 
+  // subscriber for garmin range
+  sub_garmin_= nh_.subscribe("garmin", 1, &mrsOdometry::garminCallback, this, ros::TransportHints().tcpNoDelay());
+
   // subscriber for differential gps
   rtk_gps_sub_ = nh_.subscribe("rtk_gps", 1, &mrsOdometry::rtkCallback, this, ros::TransportHints().tcpNoDelay());
 
@@ -235,8 +253,8 @@ mrsOdometry::mrsOdometry() {
   // subscribe for averaging service
   ser_averaging_ = nh_.advertiseService("average_current_position", &mrsOdometry::averagingCallback, this);
 
-  // subscribe for teraranger toggle service
-  ser_teraranger_ = nh_.advertiseService("toggle_teraranger", &mrsOdometry::toggleTerarangerCallback, this);
+  // subscribe for garmin toggle service
+  ser_garmin_ = nh_.advertiseService("toggle_garmin", &mrsOdometry::toggleGarminCallback, this);
 
   // toggling fusing of rtk altitude
   ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude", &mrsOdometry::toggleRtkAltitudeCallback, this);
@@ -297,6 +315,7 @@ mrsOdometry::mrsOdometry() {
   /* nh_.param("mobius_z_offset_", trg_z_offset_, 0.0); */
 
   nh_.param("trg_z_offset", trg_z_offset_, 0.0);
+  nh_.param("garmin_z_offset", garmin_z_offset_, 0.0);
 
   nh_.param("home_utm_x", home_utm_x, 0.0);
   nh_.param("home_utm_y", home_utm_y, 0.0);
@@ -389,6 +408,11 @@ mrsOdometry::mrsOdometry() {
   nh_.param("altitude/TrgMaxQ", TrgMaxQ, 1000.0);
   nh_.param("altitude/TrgMinQ", TrgMinQ, 1.0);
   nh_.param("altitude/TrgQChangeRate", TrgQChangeRate, 1.0);
+
+  nh_.param("altitude/GarminMaxQ", GarminMaxQ, 1000.0);
+  nh_.param("altitude/GarminMinQ", GarminMinQ, 1.0);
+  nh_.param("altitude/GarminQChangeRate", GarminQChangeRate, 1.0);
+
   nh_.param("altitude/rtkQ", rtkQ, 1.0);
 
   // failsafes for altitude fusion
@@ -399,6 +423,7 @@ mrsOdometry::mrsOdometry() {
   /* nh_.param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_, 5.0); */
 
   terarangerFilter = new TrgFilter(trg_filter_buffer_size, 0, false, trg_max_valid_altitude, trg_filter_max_difference);
+  garminFilter = new TrgFilter(garmin_filter_buffer_size, 0, false, garmin_max_valid_altitude, garmin_filter_max_difference);
   /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   main_altitude_kalman = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
@@ -491,6 +516,7 @@ mrsOdometry::mrsOdometry() {
   trg_last_update = ros::Time::now();
 
   teraranger_enabled = true;
+  garmin_enabled = true;
   rtk_altitude_enabled = false;
 
   // create threads
@@ -516,6 +542,7 @@ bool mrsOdometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std
 
     ROS_INFO("Rtk altitude enabled.");
     teraranger_enabled = false;
+    garmin_enabled = false;
     /* object_altitude_enabled = false; */
 
   } else {
@@ -564,6 +591,26 @@ bool mrsOdometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_
   } else {
 
     ROS_INFO("Teraranger disabled");
+  }
+
+  return true;
+}
+
+bool mrsOdometry::toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  garmin_enabled = req.data;
+
+  res.success = true;
+  res.message = (garmin_enabled ? "Garmin enabled" : "Garmin disabled");
+
+  if (garmin_enabled) {
+
+    ROS_INFO("Garmin enabled.");
+    rtk_altitude_enabled = false;
+
+  } else {
+
+    ROS_INFO("Garmin disabled");
   }
 
   return true;
@@ -700,7 +747,8 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
       rtk_altitude_enabled = false;
       teraranger_enabled = true;
-      ROS_WARN("We lost RTK fix, switching back to fusing teraranger.");
+      garmin_enabled = true;
+      ROS_WARN("We lost RTK fix, switching back to fusing teraranger and garmin.");
       return;
     }
 
@@ -1088,6 +1136,101 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
       mutex_main_altitude_kalman.unlock();
 
       ROS_INFO_THROTTLE(1, "Fusing teraranger");
+    }
+  }
+}
+
+void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
+
+  range_garmin_ = *msg;
+
+  if (!got_odom) {
+
+    return;
+  }
+
+  // getting roll, pitch, yaw
+  double roll, pitch, yaw;
+  geometry_msgs::Quaternion quat;
+  mutex_odom.lock();
+  {
+    quat = odom_pixhawk.pose.pose.orientation;
+  }
+  mutex_odom.unlock();
+  tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+  tf::Matrix3x3(qt).getRPY(roll, pitch, yaw);
+
+  double measurement = 0;
+  // compensate for tilting of the sensor
+  measurement = range_garmin_.range*cos(roll)*cos(pitch) + garmin_z_offset_;
+
+  if (!std::isfinite(measurement)) {
+
+    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (garmin)!!!");
+    return;
+  }
+
+  got_range = true;
+
+  // deside on measurement's covariance
+  MatrixXd mesCov;
+  mesCov = MatrixXd::Zero(altitude_p, altitude_p);
+
+  //////////////////// Filter out garmin measurement ////////////////////
+
+  { // Update variance of Kalman measurement
+    // set the default covariation
+    mesCov << Q1(0, 0);
+
+    if (measurement <= 0 || measurement > garmin_max_valid_altitude) {
+      // enlarge the measurement covariance
+      Q1(0, 0) = Q1(0, 0) + GarminQChangeRate;
+
+    } else {
+      // ensmall the measurement covariance
+      Q1(0, 0) = Q1(0, 0) - GarminQChangeRate;
+    }
+
+    // saturate the measurement covariance
+    if (Q1(0, 0) > GarminMaxQ) {
+      Q1(0, 0) = GarminMaxQ;
+    } else if (Q1(0, 0) < GarminMinQ) {
+      Q1(0, 0) = GarminMinQ;
+    }
+  }
+
+  //////////////////// Fuse main altitude kalman ////////////////////
+  if (garmin_enabled) {
+
+    // fuse the measurement only when garminFilter produced positive value, i.e. feasible value
+    if (measurement > 0.2) {
+
+      // create a correction value
+      double correction;
+      correction = measurement - main_altitude_kalman->getState(0);
+
+      // saturate the correction
+      if (!std::isfinite(correction)) {
+        correction = 0;
+        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
+      } else if (correction > max_altitude_correction_) {
+        correction = max_altitude_correction_;
+      } else if (correction < -max_altitude_correction_) {
+        correction = -max_altitude_correction_;
+      }
+
+      // set the measurement vector
+      VectorXd mes(1);
+      mes << main_altitude_kalman->getState(0) + correction;
+
+      mutex_main_altitude_kalman.lock();
+      {
+        main_altitude_kalman->setMeasurement(mes, mesCov);
+        main_altitude_kalman->doCorrection();
+      }
+      mutex_main_altitude_kalman.unlock();
+
+      ROS_INFO_THROTTLE(1, "Fusing garmin");
     }
   }
 }

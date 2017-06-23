@@ -11,6 +11,9 @@
     <!-- Teraranger -->
     <include file="$(find terarangerone)/launch/test.launch" />
 
+    <!-- Garmin -->
+    <include file="$(find garmin_rangefinder)/launch/test.launch" />
+
     <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
 
 			<rosparam file="$(find mrs_odometry)/config/f550.yaml" />
@@ -23,6 +26,7 @@
       <!-- Subscribers --> 
       <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" />
 			<remap from="~terarangerone" to="teraranger/range" />
+			<remap from="~garmin" to="garmin/range" />
 			<remap from="~global_position" to="mavros/global_position/local" />
 			<remap from="~tracker_status" to="trackers_manager/status" />
       <remap from="~rtk_gps" to="rtk_gps/local" />
