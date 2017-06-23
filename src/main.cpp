@@ -1058,7 +1058,7 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
   mutex_failsafe_altitude_kalman.unlock();
 
   { // Update variance of Kalman measurement
-    // set the default covariation
+    // set the default covariance
     mesCov << Q1(0, 0);
 
     if (measurement <= 0 || measurement > trg_max_valid_altitude) {
@@ -1142,6 +1142,8 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
 
 void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
 
+  ROS_INFO("A");
+
   range_garmin_ = *msg;
 
   if (!got_odom) {
@@ -1164,6 +1166,8 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
   // compensate for tilting of the sensor
   measurement = range_garmin_.range*cos(roll)*cos(pitch) + garmin_z_offset_;
 
+  ROS_INFO("M");
+
   if (!std::isfinite(measurement)) {
 
     ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (garmin)!!!");
@@ -1177,9 +1181,18 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
   mesCov = MatrixXd::Zero(altitude_p, altitude_p);
 
   //////////////////// Filter out garmin measurement ////////////////////
+  // garmin filtration
+  if (uav_is_flying()) {
+
+    ros::Duration interval;
+    interval = ros::Time::now() - range_garmin_.header.stamp;
+    measurement = garminFilter->getValue(measurement, main_altitude_kalman->getState(0), interval);
+  }
+
+  ROS_INFO("F");
 
   { // Update variance of Kalman measurement
-    // set the default covariation
+    // set the default covariance
     mesCov << Q1(0, 0);
 
     if (measurement <= 0 || measurement > garmin_max_valid_altitude) {
@@ -1198,6 +1211,8 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       Q1(0, 0) = GarminMinQ;
     }
   }
+
+  ROS_INFO("G");
 
   //////////////////// Fuse main altitude kalman ////////////////////
   if (garmin_enabled) {
@@ -1233,6 +1248,8 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       ROS_INFO_THROTTLE(1, "Fusing garmin");
     }
   }
+
+  ROS_INFO("Z");
 }
 
 /*
