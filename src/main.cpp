@@ -302,9 +302,14 @@ mrsOdometry::mrsOdometry() {
   nh_.param("rate", rate_, -1);
   nh_.param("simulation", simulation_, false);
   nh_.param("slow_odom_rate", slow_odom_rate, 1.0);
+
   nh_.param("trgFilterBufferSize", trg_filter_buffer_size, 20);
   nh_.param("trgFilterMaxValidAltitude", trg_max_valid_altitude, 8.0);
   nh_.param("trgFilterMaxDifference", trg_filter_max_difference, 3.0);
+
+  nh_.param("garminFilterBufferSize", garmin_filter_buffer_size, 20);
+  nh_.param("garminFilterMaxValidAltitude", garmin_max_valid_altitude, 8.0);
+  nh_.param("garminFilterMaxDifference", garmin_filter_max_difference, 3.0);
 
   /* nh_.param("objectAltitudeBufferSize", object_filter_buffer_size, 20); */
   /* nh_.param("objectAltitudeValidAltitude", object_max_valid_altitude, 8.0); */
@@ -1135,14 +1140,12 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1, "Fusing teraranger");
+      ROS_INFO_THROTTLE(1, "Fusing Teraranger");
     }
   }
 }
 
 void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
-
-  ROS_INFO("A");
 
   range_garmin_ = *msg;
 
@@ -1166,8 +1169,6 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
   // compensate for tilting of the sensor
   measurement = range_garmin_.range*cos(roll)*cos(pitch) + garmin_z_offset_;
 
-  ROS_INFO("M");
-
   if (!std::isfinite(measurement)) {
 
     ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (garmin)!!!");
@@ -1189,8 +1190,6 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
     measurement = garminFilter->getValue(measurement, main_altitude_kalman->getState(0), interval);
   }
 
-  ROS_INFO("F");
-
   { // Update variance of Kalman measurement
     // set the default covariance
     mesCov << Q1(0, 0);
@@ -1211,8 +1210,6 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       Q1(0, 0) = GarminMinQ;
     }
   }
-
-  ROS_INFO("G");
 
   //////////////////// Fuse main altitude kalman ////////////////////
   if (garmin_enabled) {
@@ -1245,11 +1242,9 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1, "Fusing garmin");
+      ROS_INFO_THROTTLE(1, "Fusing Garmin");
     }
   }
-
-  ROS_INFO("Z");
 }
 
 /*
