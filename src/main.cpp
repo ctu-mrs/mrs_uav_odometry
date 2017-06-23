@@ -21,6 +21,7 @@
 #include <mrs_msgs/RtkGpsLocal.h>
 
 #define USE_TERARANGER 1
+#define STRING_EQUAL 0
 
 using namespace Eigen;
 using namespace std;
@@ -429,6 +430,8 @@ mrsOdometry::mrsOdometry() {
 
   terarangerFilter = new TrgFilter(trg_filter_buffer_size, 0, false, trg_max_valid_altitude, trg_filter_max_difference);
   garminFilter = new TrgFilter(garmin_filter_buffer_size, 0, false, garmin_max_valid_altitude, garmin_filter_max_difference);
+
+  ROS_INFO("Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   main_altitude_kalman = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
@@ -959,16 +962,17 @@ bool mrsOdometry::uav_is_flying() {
 
   if (got_tracker_status) {
 
-    if (tracker_status.tracker != "std_trackers/NullTracker") {
-
-      return true;
-    } else {
+    if (std::string(tracker_status.tracker).compare("std_trackers/NullTracker") == STRING_EQUAL) {
 
       return false;
+    } else {
+
+      return true;
     }
+
   } else {
 
-    return true;
+    return false;
   }
 }
 
@@ -1215,7 +1219,7 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
   if (garmin_enabled) {
 
     // fuse the measurement only when garminFilter produced positive value, i.e. feasible value
-    if (measurement > 0.2) {
+    if (measurement > 0.01) {
 
       // create a correction value
       double correction;

@@ -3,9 +3,9 @@ slow_odom_rate: 2 # [Hz]
 
 averagingNumSamples: 20
 
-# for fusing object altitude
-staticObjectHeight: 0.2 # [m]
-dynamicObjectHeight: 0.2 # [m]
+# # for fusing object altitude
+# staticObjectHeight: 0.2 # [m]
+# dynamicObjectHeight: 0.2 # [m]
 
 useDifferentialGps: true
 max_rtk_correction: 0.25 # [m]
@@ -19,13 +19,9 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-GarminFilterBufferSize: 100
-GarminFilterMaxValidAltitude: 25.0
-GarminFilterMaxDifference: 3.0
-
-objectAltitudeBufferSize: 100
-objectAltitudeValidAltitude: 5.0
-objectAltitudeMaxDifference: 1.0
+garminFilterBufferSize: 100
+garminFilterMaxValidAltitude: 25.0
+garminFilterMaxDifference: 3.0
 
 orientationOffset:
 
@@ -52,20 +48,20 @@ altitude:
   TrgMaxQ: 100000
   TrgMinQ: 0.5
 
+  GarminMaxQ: 100000
+  GarminMinQ: 0.5
+
   # rate for changing the measurement covariance
   TrgQChangeRate: 1000  
+  GarminQChangeRate: 1000  
 
   rtkQ: 0.1
-  objectQ: 0.1
+  # objectQ: 0.1
 
   # failsafe for rtk fusion
   # TODO those need to be difference for landing and grasping tasks
   rtk_max_down_difference: 1.0
   rtk_max_abs_difference: 5.0
-
-  # failsafe for object altitude fusion
-  object_altitude_max_down_difference: 0.5
-  object_altitude_max_abs_difference: 1.0
 
 lateral:
 
