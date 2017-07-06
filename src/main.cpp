@@ -194,7 +194,7 @@ class mrsOdometry {
   private:
 
     // ############### stuff for adding another source of altitude data ###############
-    
+
     /* bool object_altitude_enabled; */
     /* bool got_object_altitude; */
     /* object_detection::ObjectWithType object_altitude; */

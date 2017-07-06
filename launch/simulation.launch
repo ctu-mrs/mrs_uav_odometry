@@ -2,33 +2,33 @@
 
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="world_file" default="$(find mrs_main)/config/world_simulation.yaml"/>
-  
+
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <group ns="$(arg uav_name)">
 
     <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
 
-			<rosparam file="$(find mrs_odometry)/config/simulation.yaml" />
+      <rosparam file="$(find mrs_odometry)/config/simulation.yaml" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="true"/>
 
-      <!-- Subscribers --> 
+      <!-- Subscribers -->
       <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" />
-			<remap from="~terarangerone" to="teraranger/range" />
-			<remap from="~global_position" to="mavros/global_position/local" />
-			<remap from="~tracker_status" to="trackers_manager/status" />
+      <remap from="~terarangerone" to="teraranger/range" />
+      <remap from="~global_position" to="mavros/global_position/local" />
+      <remap from="~tracker_status" to="trackers_manager/status" />
       <remap from="~rtk_gps" to="rtk_gps/local" />
       <remap from="~object_altitude" to="landing_object_controller/current_target" />
 
-      <!-- Publishers --> 
+      <!-- Publishers -->
       <remap from="~new_odom" to="~new_odom" />
 
-      <!-- Services --> 
-			<remap from="~toggle_teraranger" to="~toggle_teraranger" />
+      <!-- Services -->
+      <remap from="~toggle_teraranger" to="~toggle_teraranger" />
       <remap from="~toggle_rtk_altitude" to="~toggle_rtk_altitude" />
 
     </node>
