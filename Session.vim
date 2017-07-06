@@ -2,10 +2,10 @@ let SessionLoad = 1
 if &cp | set nocp | endif
 let s:cpo_save=&cpo
 set cpo&vim
-inoremap <expr> <Down> pumvisible() ? "\" : "\<Down>"
-inoremap <expr> <Up> pumvisible() ? "\" : "\<Up>"
-imap <Nul> <C-Space>
 inoremap <C-Space> 
+imap <Nul> <C-Space>
+inoremap <expr> <Up> pumvisible() ? "\" : "\<Up>"
+inoremap <expr> <Down> pumvisible() ? "\" : "\<Down>"
 imap <S-Tab> <Plug>SuperTabBackward
 inoremap <C-Tab> 	
 snoremap <silent>  c
@@ -18,6 +18,7 @@ snoremap <silent>  :call UltiSnips#ListSnippets()
 nnoremap <silent>  :TmuxNavigateRight
 xnoremap <silent>  :call multiple_cursors#new("v", 0)
 nnoremap <silent>  :call multiple_cursors#new("n", 1)
+map  <Plug>(ctrlp)
 snoremap  "_c
 nnoremap <silent>  :TmuxNavigatePrevious
 nnoremap <silent> '[ :call signature#mark#Goto("prev", "line", "alpha")
@@ -670,17 +671,17 @@ nmap ySs <Plug>YSsurround
 nmap yss <Plug>Yssurround
 nmap yS <Plug>YSurround
 nmap ys <Plug>Ysurround
-noremap <silent> <Plug>AirlineSelectTab1 :1tabn
-noremap <silent> <Plug>AirlineSelectTab2 :2tabn
-noremap <silent> <Plug>AirlineSelectTab3 :3tabn
-noremap <silent> <Plug>AirlineSelectTab4 :4tabn
-noremap <silent> <Plug>AirlineSelectTab5 :5tabn
-noremap <silent> <Plug>AirlineSelectTab6 :6tabn
-noremap <silent> <Plug>AirlineSelectTab7 :7tabn
-noremap <silent> <Plug>AirlineSelectTab8 :8tabn
-noremap <silent> <Plug>AirlineSelectTab9 :9tabn
-noremap <silent> <Plug>AirlineSelectPrevTab gT
 noremap <silent> <Plug>AirlineSelectNextTab :exe repeat(':tabn|', v:count1)
+noremap <silent> <Plug>AirlineSelectPrevTab gT
+noremap <silent> <Plug>AirlineSelectTab9 :9tabn
+noremap <silent> <Plug>AirlineSelectTab8 :8tabn
+noremap <silent> <Plug>AirlineSelectTab7 :7tabn
+noremap <silent> <Plug>AirlineSelectTab6 :6tabn
+noremap <silent> <Plug>AirlineSelectTab5 :5tabn
+noremap <silent> <Plug>AirlineSelectTab4 :4tabn
+noremap <silent> <Plug>AirlineSelectTab3 :3tabn
+noremap <silent> <Plug>AirlineSelectTab2 :2tabn
+noremap <silent> <Plug>AirlineSelectTab1 :1tabn
 vnoremap <silent> <Plug>NetrwBrowseXVis :call netrw#BrowseXVis()
 nnoremap <silent> <Plug>NetrwBrowseX :call netrw#BrowseX(expand((exists("g:netrw_gx")? g:netrw_gx : '<cfile>')),netrw#CheckIfRemote())
 nnoremap <silent> <Plug>SurroundRepeat .
@@ -692,6 +693,7 @@ nnoremap <expr> <Plug>ReplaceWithRegisterOperator ReplaceWithRegister#OperatorEx
 snoremap <silent> <Del> c
 snoremap <silent> <BS> c
 nmap <silent> <Plug>CommentaryUndo <Plug>Commentary<Plug>Commentary
+nnoremap <silent> <Plug>(ctrlp) :CtrlP
 nmap <silent> <Plug>unimpairedOPrevious <Plug>unimpairedDirectoryPrevious:echohl WarningMSG|echo "[o is deprecated. Use [f"|echohl NONE
 nmap <silent> <Plug>unimpairedONext <Plug>unimpairedDirectoryNext:echohl WarningMSG|echo "]o is deprecated. Use ]f"|echohl NONE
 nnoremap <silent> <Plug>unimpairedTLast :exe "".(v:count ? v:count : "")."tlast"
@@ -758,6 +760,7 @@ set backspace=indent,eol,start
 set clipboard=unnamedplus
 set completefunc=youcompleteme#Complete
 set completeopt=menuone,noinsert,preview
+set cpoptions=aAceFsB
 set eadirection=ver
 set expandtab
 set fileencodings=ucs-bom,utf-8,default,latin1
@@ -770,7 +773,7 @@ set laststatus=2
 set makeprg=catkin\ build\ mrs_odometry
 set omnifunc=youcompleteme#OmniComplete
 set path=.,/usr/include,,,~/git/**,~/.vim/UltiSnips/**
-set runtimepath=~/.vim,~/.vim/plugged/jellybeans.vim/,~/.vim/plugged/vim-fugitive/,~/.vim/plugged/vim-airline/,~/.vim/plugged/vim-airline-themes/,~/.vim/plugged/vimux/,~/.vim/plugged/nerdtree/,~/.vim/plugged/vim-startify/,~/.vim/plugged/vim-signature/,~/.vim/plugged/vim-abolish/,~/.vim/plugged/vim-argwrap/,~/.vim/plugged/vim-python-pep8-indent/,~/.vim/plugged/GoldenView.Vim/,~/.vim/plugged/quick-scope/,~/.vim/plugged/tagbar/,~/.vim/plugged/youcompleteme/,~/.vim/plugged/vim-ros/,~/.vim/plugged/tmuxline.vim/,~/.vim/plugged/vimtex/,~/.vim/plugged/vimwiki/,~/.vim/plugged/MatlabFilesEdition/,~/.vim/plugged/vim-tmux-navigator/,~/.vim/plugged/supertab/,~/.vim/plugged/vim-unimpaired/,~/.vim/plugged/vim-repeat/,~/.vim/plugged/vim-commentary/,~/.vim/plugged/vim-multiple-cursors/,~/.vim/plugged/united-front/,~/.vim/plugged/ultisnips/,~/.vim/plugged/targets.vim/,~/.vim/plugged/ReplaceWithRegister/,~/.vim/plugged/vim-surround/,~/.vim/plugged/vim-exchange/,/usr/share/vim/vimfiles,/usr/share/vim/vim80,/usr/share/vim/vimfiles/after,~/.vim/plugged/vim-signature/after,~/.vim/plugged/vimtex/after,~/.vim/plugged/ultisnips/after,~/.vim/after
+set runtimepath=~/.vim,~/.vim/plugged/jellybeans.vim/,~/.vim/plugged/vim-fugitive/,~/.vim/plugged/vim-airline/,~/.vim/plugged/vim-airline-themes/,~/.vim/plugged/vimux/,~/.vim/plugged/nerdtree/,~/.vim/plugged/vim-startify/,~/.vim/plugged/vim-signature/,~/.vim/plugged/vim-abolish/,~/.vim/plugged/vim-argwrap/,~/.vim/plugged/vim-python-pep8-indent/,~/.vim/plugged/GoldenView.Vim/,~/.vim/plugged/quick-scope/,~/.vim/plugged/tagbar/,~/.vim/plugged/youcompleteme/,~/.vim/plugged/vim-ros/,~/.vim/plugged/tmuxline.vim/,~/.vim/plugged/vimtex/,~/.vim/plugged/vimwiki/,~/.vim/plugged/MatlabFilesEdition/,~/.vim/plugged/vim-tmux-navigator/,~/.vim/plugged/supertab/,~/.vim/plugged/vim-unimpaired/,~/.vim/plugged/ctrlp.vim/,~/.vim/plugged/vim-repeat/,~/.vim/plugged/vim-commentary/,~/.vim/plugged/vim-multiple-cursors/,~/.vim/plugged/united-front/,~/.vim/plugged/ultisnips/,~/.vim/plugged/targets.vim/,~/.vim/plugged/ReplaceWithRegister/,~/.vim/plugged/vim-surround/,~/.vim/plugged/vim-exchange/,/usr/share/vim/vimfiles,/usr/share/vim/vim80,/usr/share/vim/vimfiles/after,~/.vim/plugged/vim-signature/after,~/.vim/plugged/vimtex/after,~/.vim/plugged/ultisnips/after,~/.vim/after
 set scrolloff=10
 set shiftwidth=2
 set shortmess=filnxtToOIc
@@ -800,11 +803,9 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +1 src/main.cpp
-badd +1 config/simulation.yaml
-badd +1 launch/f550.launch
+badd +0 src/main.cpp
+badd +0 config/simulation.yaml
 badd +0 launch/simulation.launch
-badd +0 config/f550.yaml
 argglobal
 silent! argdel *
 $argadd src/main.cpp
@@ -928,22 +929,16 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 2 - ((1 * winheight(0) + 27) / 54)
+let s:l = 1 - ((0 * winheight(0) + 27) / 54)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-2
+1
 normal! 0
 tabedit launch/simulation.launch
 set splitbelow splitright
-wincmd _ | wincmd |
-vsplit
-1wincmd h
-wincmd w
 wincmd t
 set winminheight=1 winheight=1 winminwidth=1 winwidth=1
-exe 'vert 1resize ' . ((&columns * 106 + 106) / 212)
-exe 'vert 2resize ' . ((&columns * 105 + 106) / 212)
 argglobal
 nnoremap <buffer> gf :call ros#launch_goto_file()
 setlocal keymap=
@@ -988,8 +983,8 @@ setlocal foldenable
 setlocal foldexpr=0
 setlocal foldignore=#
 setlocal foldlevel=0
-set foldmarker=#{,#}
-setlocal foldmarker=#{,#}
+set foldmarker=//{,//}
+setlocal foldmarker=//{,//}
 set foldmethod=marker
 setlocal foldmethod=marker
 setlocal foldminlines=1
@@ -1067,144 +1062,10 @@ exe s:l
 normal! zt
 1
 normal! 0
-wincmd w
-argglobal
-edit launch/f550.launch
-nnoremap <buffer> gf :call ros#launch_goto_file()
-setlocal keymap=
-setlocal noarabic
-setlocal autoindent
-setlocal backupcopy=
-setlocal balloonexpr=
-setlocal nobinary
-setlocal nobreakindent
-setlocal breakindentopt=
-setlocal bufhidden=
-setlocal buflisted
-setlocal buftype=
-setlocal nocindent
-setlocal cinkeys=0{,0},0),:,0#,!^F,o,O,e
-setlocal cinoptions=
-setlocal cinwords=if,else,while,do,for,switch
-setlocal colorcolumn=
-setlocal comments=s:<!--,m:\ \ \ \ \ ,e:-->
-setlocal commentstring=<!--%s-->
-setlocal complete=.,w,b,u,t,i
-setlocal concealcursor=
-setlocal conceallevel=0
-setlocal completefunc=youcompleteme#Complete
-setlocal nocopyindent
-setlocal cryptmethod=
-setlocal nocursorbind
-setlocal nocursorcolumn
-setlocal nocursorline
-setlocal define=
-setlocal dictionary=
-setlocal nodiff
-setlocal equalprg=
-setlocal errorformat=
-setlocal expandtab
-if &filetype != 'roslaunch.xml'
-setlocal filetype=roslaunch.xml
-endif
-setlocal fixendofline
-setlocal foldcolumn=0
-setlocal foldenable
-setlocal foldexpr=0
-setlocal foldignore=#
-setlocal foldlevel=0
-set foldmarker=#{,#}
-setlocal foldmarker=#{,#}
-set foldmethod=marker
-setlocal foldmethod=marker
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldtext=foldtext()
-setlocal formatexpr=
-setlocal formatoptions=croql
-setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
-setlocal formatprg=
-setlocal grepprg=
-setlocal iminsert=2
-setlocal imsearch=2
-setlocal include=
-setlocal includeexpr=
-setlocal indentexpr=XmlIndentGet(v:lnum,1)
-setlocal indentkeys=o,O,*<Return>,<>>,<<>,/,{,}
-setlocal noinfercase
-setlocal iskeyword=@,48-57,_,192-255
-setlocal keywordprg=
-set linebreak
-setlocal linebreak
-setlocal nolisp
-setlocal lispwords=
-setlocal nolist
-setlocal makeencoding=
-setlocal makeprg=
-setlocal matchpairs=(:),{:},[:]
-setlocal modeline
-setlocal modifiable
-setlocal nrformats=bin,octal,hex
-set number
-setlocal number
-setlocal numberwidth=4
-setlocal omnifunc=ros#launch_complete
-setlocal path=
-setlocal nopreserveindent
-setlocal nopreviewwindow
-setlocal quoteescape=\\
-setlocal noreadonly
-set relativenumber
-setlocal relativenumber
-setlocal norightleft
-setlocal rightleftcmd=search
-setlocal noscrollbind
-setlocal shiftwidth=2
-setlocal noshortname
-setlocal signcolumn=auto
-setlocal smartindent
-setlocal softtabstop=2
-setlocal nospell
-setlocal spellcapcheck=[.?!]\\_[\\])'\"\	\ ]\\+
-setlocal spellfile=
-setlocal spelllang=en
-setlocal statusline=%!airline#statusline(2)
-setlocal suffixesadd=
-setlocal swapfile
-setlocal synmaxcol=200
-if &syntax != 'roslaunch.xml'
-setlocal syntax=roslaunch.xml
-endif
-setlocal tabstop=2
-setlocal tagcase=
-setlocal tags=
-setlocal textwidth=0
-setlocal thesaurus=
-setlocal noundofile
-setlocal undolevels=-123456
-setlocal nowinfixheight
-setlocal nowinfixwidth
-setlocal wrap
-setlocal wrapmargin=0
-let s:l = 1 - ((0 * winheight(0) + 27) / 54)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-1
-normal! 0
-wincmd w
-exe 'vert 1resize ' . ((&columns * 106 + 106) / 212)
-exe 'vert 2resize ' . ((&columns * 105 + 106) / 212)
 tabedit config/simulation.yaml
 set splitbelow splitright
-wincmd _ | wincmd |
-vsplit
-1wincmd h
-wincmd w
 wincmd t
 set winminheight=1 winheight=1 winminwidth=1 winwidth=1
-exe 'vert 1resize ' . ((&columns * 106 + 106) / 212)
-exe 'vert 2resize ' . ((&columns * 105 + 106) / 212)
 argglobal
 setlocal keymap=
 setlocal noarabic
@@ -1327,133 +1188,6 @@ exe s:l
 normal! zt
 1
 normal! 0
-wincmd w
-argglobal
-edit config/f550.yaml
-setlocal keymap=
-setlocal noarabic
-setlocal autoindent
-setlocal backupcopy=
-setlocal balloonexpr=
-setlocal nobinary
-setlocal nobreakindent
-setlocal breakindentopt=
-setlocal bufhidden=
-setlocal buflisted
-setlocal buftype=
-setlocal nocindent
-setlocal cinkeys=0{,0},0),:,0#,!^F,o,O,e
-setlocal cinoptions=
-setlocal cinwords=if,else,while,do,for,switch
-setlocal colorcolumn=
-setlocal comments=:#
-setlocal commentstring=#\ %s
-setlocal complete=.,w,b,u,t,i
-setlocal concealcursor=
-setlocal conceallevel=0
-setlocal completefunc=youcompleteme#Complete
-setlocal nocopyindent
-setlocal cryptmethod=
-setlocal nocursorbind
-setlocal nocursorcolumn
-setlocal nocursorline
-setlocal define=
-setlocal dictionary=
-setlocal nodiff
-setlocal equalprg=
-setlocal errorformat=
-setlocal expandtab
-if &filetype != 'yaml'
-setlocal filetype=yaml
-endif
-setlocal fixendofline
-setlocal foldcolumn=0
-setlocal foldenable
-setlocal foldexpr=0
-setlocal foldignore=#
-setlocal foldlevel=0
-set foldmarker=#{,#}
-setlocal foldmarker=#{,#}
-set foldmethod=marker
-setlocal foldmethod=marker
-setlocal foldminlines=1
-setlocal foldnestmax=20
-setlocal foldtext=foldtext()
-setlocal formatexpr=
-setlocal formatoptions=croql
-setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
-setlocal formatprg=
-setlocal grepprg=
-setlocal iminsert=2
-setlocal imsearch=2
-setlocal include=
-setlocal includeexpr=
-setlocal indentexpr=GetYAMLIndent(v:lnum)
-setlocal indentkeys=!^F,o,O,0#,0},0],<:>,0-
-setlocal noinfercase
-setlocal iskeyword=@,48-57,_,192-255
-setlocal keywordprg=
-set linebreak
-setlocal linebreak
-setlocal nolisp
-setlocal lispwords=
-setlocal nolist
-setlocal makeencoding=
-setlocal makeprg=
-setlocal matchpairs=(:),{:},[:]
-setlocal modeline
-setlocal modifiable
-setlocal nrformats=bin,octal,hex
-set number
-setlocal number
-setlocal numberwidth=4
-setlocal omnifunc=
-setlocal path=
-setlocal nopreserveindent
-setlocal nopreviewwindow
-setlocal quoteescape=\\
-setlocal noreadonly
-set relativenumber
-setlocal relativenumber
-setlocal norightleft
-setlocal rightleftcmd=search
-setlocal noscrollbind
-setlocal shiftwidth=2
-setlocal noshortname
-setlocal signcolumn=auto
-setlocal nosmartindent
-setlocal softtabstop=2
-setlocal nospell
-setlocal spellcapcheck=[.?!]\\_[\\])'\"\	\ ]\\+
-setlocal spellfile=
-setlocal spelllang=en
-setlocal statusline=%!airline#statusline(2)
-setlocal suffixesadd=
-setlocal swapfile
-setlocal synmaxcol=200
-if &syntax != 'yaml'
-setlocal syntax=yaml
-endif
-setlocal tabstop=2
-setlocal tagcase=
-setlocal tags=
-setlocal textwidth=0
-setlocal thesaurus=
-setlocal noundofile
-setlocal undolevels=-123456
-setlocal nowinfixheight
-setlocal nowinfixwidth
-setlocal wrap
-setlocal wrapmargin=0
-let s:l = 1 - ((0 * winheight(0) + 27) / 54)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-1
-normal! 0
-wincmd w
-exe 'vert 1resize ' . ((&columns * 106 + 106) / 212)
-exe 'vert 2resize ' . ((&columns * 105 + 106) / 212)
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
