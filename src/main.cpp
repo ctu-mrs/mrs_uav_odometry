@@ -19,6 +19,8 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <stdexcept>
 #include <mrs_msgs/RtkGpsLocal.h>
+#include "gps_conversions.h"
+#include <sensor_msgs/NavSatFix.h>
 
 #define USE_TERARANGER 1
 #define STRING_EQUAL 0
@@ -80,7 +82,7 @@ class mrsOdometry {
     mrs_msgs::RtkGpsLocal rtk_odom;
 
     void odometryCallback(const nav_msgs::OdometryConstPtr& msg);
-    void global_position_callback(const nav_msgs::OdometryConstPtr& msg);
+    void global_position_callback(const sensor_msgs::NavSatFix &msg);
     bool resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     bool toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -704,6 +706,9 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     return;
   }
 
+  ros::Duration sleeeep(0.1);
+  sleeeep.sleep();
+
   mutex_lateral_kalman.lock();
   {
     // fill the measurement vector
@@ -986,10 +991,26 @@ void mrsOdometry::startAveraging() {
   averaging_got_samples = 1;
 }
 
-void mrsOdometry::global_position_callback(const nav_msgs::OdometryConstPtr &msg) {
+void mrsOdometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
 
-  utm_position_x = msg->pose.pose.position.x;
-  utm_position_y = msg->pose.pose.position.y;
+  double out_x;
+  double out_y;
+
+  gps_common::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
+
+  if (!std::isfinite(out_x)) {
+    ROS_ERROR("NaN detected in variable \"out_x\"!!!");
+    return;
+  }
+
+  if (!std::isfinite(out_y)) {
+    ROS_ERROR("NaN detected in variable \"out_y\"!!!");
+    return;
+  }
+
+  utm_position_x = out_x;
+  utm_position_y = out_y;
+
   got_global_position = true;
 
   if (averaging) {
