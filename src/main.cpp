@@ -706,9 +706,6 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     return;
   }
 
-  ros::Duration sleeeep(0.1);
-  sleeeep.sleep();
-
   mutex_lateral_kalman.lock();
   {
     // fill the measurement vector
