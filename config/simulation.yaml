@@ -12,6 +12,7 @@ max_rtk_correction: 0.25 # [m]
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
+garmin_z_offset: 0.02 # [m]
 mobius_z_offset_: 0.06 # [m]
 
 trgFilterBufferSize: 100
@@ -21,6 +22,11 @@ trgFilterMaxDifference: 3.0
 objectAltitudeBufferSize: 100
 objectAltitudeValidAltitude: 5.0
 objectAltitudeMaxDifference: 1.0
+
+garminFilterBufferSize: 100
+garminFilterMaxValidAltitude: 25.0
+garminFilterMaxDifference: 3.0
+
 
 orientationOffset:
 
@@ -47,8 +53,12 @@ altitude:
   TrgMaxQ: 100000
   TrgMinQ: 0.02
 
+  GarminMaxQ: 100000
+  GarminMinQ: 0.5
+
   # rate for changing the measurement covariance
-  TrgQChangeRate: 1000
+  TrgQChangeRate: 1000  
+  GarminQChangeRate: 1000  
 
   rtkQ: 0.1
   objectQ: 0.1
