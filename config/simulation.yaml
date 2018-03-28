@@ -3,7 +3,7 @@ slow_odom_rate: 2 # [Hz]
 
 averagingNumSamples: 20
 
-# # for fusing object altitude
+# for fusing object altitude
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
@@ -56,14 +56,17 @@ altitude:
   GarminMinQ: 0.5
 
   # rate for changing the measurement covariance
+  TrgQChangeRate: 1000
+  GarminQChangeRate: 1000
+
+  # rate for changing the measurement covariance
   TrgQChangeRate: 1000  
   GarminQChangeRate: 1000  
-
+  
   rtkQ: 0.1
   # objectQ: 0.1
 
   # failsafe for rtk fusion
-  # TODO those need to be difference for landing and grasping tasks
   rtk_max_down_difference: 1.0
   rtk_max_abs_difference: 5.0
 
