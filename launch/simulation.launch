@@ -17,7 +17,8 @@
       <param name="simulation" type="bool" value="true"/>
 
       <!-- Subscribers -->
-      <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" />
+      <!-- <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" /> -->
+      <remap from="~pixhawk_odom" to="mavros/local_position/odom" />
       <remap from="~terarangerone" to="teraranger/range" />
  			<remap from="~garmin" to="garmin/range" />
       <remap from="~global_position" to="mavros/global_position/global" />
