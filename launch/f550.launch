@@ -28,7 +28,7 @@
 			<remap from="~terarangerone" to="teraranger/range" />
 			<remap from="~garmin" to="garmin/range" />
 			<remap from="~global_position" to="mavros/global_position/global" />
-			<remap from="~tracker_status" to="trackers_manager/status" />
+			<remap from="~tracker_status" to="control_manager/status" />
       <remap from="~rtk_gps" to="rtk_gps/local" />
       <remap from="~object_altitude" to="landing_object_controller/current_target" />
 
