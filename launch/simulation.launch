@@ -5,6 +5,8 @@
 
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
+  <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
+
   <group ns="$(arg uav_name)">
 
     <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
@@ -17,8 +19,7 @@
       <param name="simulation" type="bool" value="true"/>
 
       <!-- Subscribers -->
-      <!-- <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" /> -->
-      <remap from="~pixhawk_odom" to="mavros/local_position/odom" />
+      <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" />
       <remap from="~terarangerone" to="teraranger/range" />
  			<remap from="~garmin" to="garmin/range" />
       <remap from="~global_position" to="mavros/global_position/global" />

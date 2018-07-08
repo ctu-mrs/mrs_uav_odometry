@@ -4,7 +4,7 @@
 #include <mrs_estimation/lkf.h>
 #include <mrs_msgs/RtkGpsLocal.h>
 #include <nav_msgs/Odometry.h>
-#include <quadrotor_msgs/TrackerStatus.h>
+#include <mrs_msgs/TrackerStatus.h>
 #include <ros/ros.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/Range.h>
@@ -119,8 +119,8 @@ private:
   double utm_position_x, utm_position_y;  // current utm position
 
   // subscribing to tracker status
-  quadrotor_msgs::TrackerStatus tracker_status;
-  void tracker_status_callback(const quadrotor_msgs::TrackerStatusConstPtr &msg);
+  mrs_msgs::TrackerStatus tracker_status;
+  void tracker_status_callback(const mrs_msgs::TrackerStatusConstPtr &msg);
   bool got_tracker_status;
   bool uav_is_flying();
 
@@ -937,7 +937,7 @@ void mrsOdometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 }
 
 // callback for tracker status
-void mrsOdometry::tracker_status_callback(const quadrotor_msgs::TrackerStatusConstPtr &msg) {
+void mrsOdometry::tracker_status_callback(const mrs_msgs::TrackerStatusConstPtr &msg) {
 
   tracker_status     = *msg;
   got_tracker_status = true;
@@ -1568,6 +1568,5 @@ int main(int argc, char **argv) {
     ros::spinOnce();
     loop_rate.sleep();
   }
-
   return 0;
 };

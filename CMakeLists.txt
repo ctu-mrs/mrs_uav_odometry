@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   mrs_estimation
   cmake_modules
-  quadrotor_msgs
   mrs_msgs
 )
 
