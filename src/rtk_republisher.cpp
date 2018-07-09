@@ -48,6 +48,8 @@ void mainThread(void) {
   while (ros::ok()) {
 
     if (!got_odom) {
+
+      r.sleep();
       continue;
     }
 
