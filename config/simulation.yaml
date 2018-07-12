@@ -27,15 +27,6 @@ garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
 
-orientationOffset:
-
-  enabled: false
-
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  w: 0.0
-
 altitude:
 
   numberOfVariables: 1

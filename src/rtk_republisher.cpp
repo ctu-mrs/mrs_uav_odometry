@@ -10,6 +10,7 @@
 // subscribers and publishers
 ros::Subscriber global_odom_subscriber;
 ros::Publisher rtk_publisher;
+ros::Publisher odom_publisher;
 
 // publisher rate
 int rate_;
@@ -31,19 +32,27 @@ bool got_odom = false;
 void odomCallback(const nav_msgs::OdometryConstPtr& msg) {
 
   got_odom = true;
+  nav_msgs::Odometry odom_out = *msg;
 
   mutex_odom.lock();
   {
     odom = *msg;
   }
   mutex_odom.unlock();
+
+  /* odom_out.pose.pose.position.x += offset_x_; */
+  /* odom_out.pose.pose.position.y += offset_y_; */
+
+  odom_out.header.frame_id = "local_origin";
+
+  odom_publisher.publish(odom_out);
 }
 
 void mainThread(void) {
 
   ros::Rate r(rate_);
 
-  mrs_msgs::RtkGpsLocal pose;
+  mrs_msgs::RtkGpsLocal rtk_msg_out;
 
   while (ros::ok()) {
 
@@ -53,21 +62,23 @@ void mainThread(void) {
       continue;
     }
 
-    pose.header.stamp = ros::Time::now();
-    pose.header.frame_id = "utm";
+    rtk_msg_out.header.stamp = ros::Time::now();
+    rtk_msg_out.header.frame_id = "utm";
     mutex_odom.lock();
     {
-      pose.position = odom.pose.pose.position;
+      rtk_msg_out.position = odom.pose.pose;
+      rtk_msg_out.velocity = odom.twist.twist;
     }
 
-    pose.position.x += offset_x_;
-    pose.position.y += offset_y_;
+    rtk_msg_out.position.position.x += offset_x_;
+    rtk_msg_out.position.position.y += offset_y_;
 
-    pose.rtk_fix = true;
+    rtk_msg_out.rtk_fix = true;
     
     mutex_odom.unlock();
 
-    rtk_publisher.publish(pose);
+    rtk_publisher.publish(rtk_msg_out);
+
 
     r.sleep();
   }
@@ -88,9 +99,12 @@ int main(int argc, char** argv) {
 
   // PUBLISHERS
   rtk_publisher = nh_.advertise<mrs_msgs::RtkGpsLocal>("rtk_out", 1); 
+  odom_publisher = nh_.advertise<nav_msgs::Odometry>("odometry_out", 1); 
 
   // launch the thread
   main_thread = std::thread(&mainThread);
+
+  ROS_INFO("[%s]: initialized", ros::this_node::getName().c_str());
 
   // needed to make stuff work
   ros::spin();

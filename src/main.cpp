@@ -153,10 +153,6 @@ private:
 
   bool odometry_published;
 
-  // orientation offset
-  bool   use_orientation_offset;
-  double orientation_offset[4];
-
   // use differential gps
   bool   use_differential_gps;
   double max_rtk_correction;
@@ -498,18 +494,6 @@ mrsOdometry::mrsOdometry() {
 
   ROS_INFO("Lateral Kalman prepared");
 
-  // load orientation offset
-
-  nh_.param("orientationOffset/enabled", use_orientation_offset, false);
-
-  nh_.param("orientationOffset/x", orientation_offset[0], 0.0);
-  nh_.param("orientationOffset/y", orientation_offset[1], 0.0);
-  nh_.param("orientationOffset/z", orientation_offset[2], 0.0);
-  nh_.param("orientationOffset/w", orientation_offset[3], 1.0);
-
-  ROS_INFO("Orientation offset %s: x=%2.3f, y=%2.3f, z=%2.3f, w=%2.3f", (use_orientation_offset ? "enabled" : "disabled"), orientation_offset[0],
-           orientation_offset[1], orientation_offset[2], orientation_offset[3]);
-
   // use differential gps
   nh_.param("useDifferentialGps", use_differential_gps, false);
   nh_.param("max_rtk_correction", max_rtk_correction, 0.5);
@@ -691,9 +675,9 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     return;
   }
 
-  if (!std::isfinite(rtk_odom.position.x) || !std::isfinite(rtk_odom.position.y)) {
+if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) {
 
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.x\" or \"rtk_odom.position.y\" (rtk)!!!");
+    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!");
     return;
   }
 
@@ -707,8 +691,8 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
     mutex_rtk.lock();
     {
-      x_correction = rtk_odom.position.x - home_utm_x - lateralKalman->getState(0);
-      y_correction = rtk_odom.position.y - home_utm_y - lateralKalman->getState(1);
+      x_correction = rtk_odom.position.position.x - home_utm_x - lateralKalman->getState(0);
+      y_correction = rtk_odom.position.position.y - home_utm_y - lateralKalman->getState(1);
     }
     mutex_rtk.unlock();
 
@@ -739,6 +723,8 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     lateralKalman->setMeasurement(mes2);
 
     lateralKalman->doCorrection();
+
+    ROS_INFO_THROTTLE(1.0, "[%s]: fusing RTK GPS", ros::this_node::getName().c_str());
   }
   mutex_lateral_kalman.unlock();
 
@@ -758,15 +744,15 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     MatrixXd mesCov;
     mesCov = MatrixXd::Zero(altitude_p, altitude_p);
 
-    if (!std::isfinite(rtk_odom.position.z)) {
+    if (!std::isfinite(rtk_odom.position.position.z)) {
 
-      ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.z\" (rtk_altitude)!!!");
+      ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.position.z\" (rtk_altitude)!!!");
       return;
     }
 
     //////////////////// update rtk integral ////////////////////
     // compute the difference
-    double difference = rtk_odom.position.z - rtk_odom_previous.position.z;
+    double difference = rtk_odom.position.position.z - rtk_odom_previous.position.position.z;
 
     rtk_altitude_integral += difference;
 
@@ -1244,7 +1230,7 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1, "Fusing Garmin");
+      ROS_INFO_THROTTLE(1.0, "[%s]: fusing Garmin rangefinder", ros::this_node::getName().c_str());
     }
   }
 }
@@ -1483,15 +1469,6 @@ void mrsOdometry::publishMessage() {
 #endif
 
   ROS_INFO_THROTTLE(1.0, "Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0), failsafe_teraranger_kalman->getState(0));
-
-  // add orientation offset
-  if (use_orientation_offset) {
-
-    new_odom.pose.pose.orientation.x += orientation_offset[0];
-    new_odom.pose.pose.orientation.y += orientation_offset[1];
-    new_odom.pose.pose.orientation.z += orientation_offset[2];
-    new_odom.pose.pose.orientation.w += orientation_offset[3];
-  }
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
