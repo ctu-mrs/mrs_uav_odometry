@@ -51,19 +51,19 @@ include_directories(
 add_library(trgfilter src/trgfilter.cpp)
 
 ## Declare a C++ executable
-add_executable(odometry src/main.cpp)
+add_executable(Odometry src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(odometry
+target_link_libraries(Odometry
 	${catkin_LIBRARIES}
 	${Eigen_LIBRARIES}
 	trgfilter
 )
 
 ## Declare a C++ executable
-add_executable(rtk_republisher src/rtk_republisher.cpp)
+add_executable(RtkRepublisher src/rtk_republisher.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(rtk_republisher
+target_link_libraries(RtkRepublisher
 	${catkin_LIBRARIES}
 )

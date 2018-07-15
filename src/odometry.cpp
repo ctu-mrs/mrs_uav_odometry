@@ -17,7 +17,6 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include "gps_conversions.h"
 #include "tf/LinearMath/Transform.h"
 #include "trgfilter.h"
@@ -28,13 +27,13 @@
 using namespace Eigen;
 using namespace std;
 
-/**
- * @brief The mrsOdometry class
- */
-class mrsOdometry {
+namespace mrs_odometry
+{
+
+class Odometry {
 
 public:
-  mrsOdometry();          // definition of constructor
+  Odometry();             // definition of constructor
   void publishMessage();  // definition of callback function
   int  rate_;
 
@@ -162,11 +161,10 @@ private:
   bool teraranger_enabled;
   bool garmin_enabled;
 
-  // slow odom thread
-  std::thread slow_odom_thread;
-  double      slow_odom_rate;
-  void        slowOdomThread(void);
-  void        rtkRateThread(void);
+  ros::Timer slow_odom_timer;
+  double     slow_odom_rate;
+  void slowOdomTimer(const ros::TimerEvent &event);
+  void rtkRateTimer(const ros::TimerEvent &event);
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -174,13 +172,16 @@ private:
 
 private:
   // for fusing rtk altitude
-  bool        rtk_altitude_enabled;
-  double      rtk_altitude_integral;
-  std::thread rtk_rate_thread;
-  double      rtkQ;
-  double      rtk_max_down_difference_;
-  double      rtk_max_abs_difference_;
+  bool       rtk_altitude_enabled;
+  double     rtk_altitude_integral;
+  ros::Timer rtk_rate_timer;
+  double     rtkQ;
+  double     rtk_max_down_difference_;
+  double     rtk_max_abs_difference_;
 
+private:
+  ros::Timer main_timer;
+  void mainTimer(const ros::TimerEvent &event);
 
 private:
   // ############### stuff for adding another source of altitude data ###############
@@ -207,9 +208,9 @@ private:
 };
 
 /**
- * @brief mrsOdometry::mrsOdometry
+ * @brief Odometry::Odometry
  */
-mrsOdometry::mrsOdometry() {
+Odometry::Odometry() {
 
   nh_ = ros::NodeHandle("~");
   nh_.param("uav_name", uav_name, string());
@@ -223,36 +224,36 @@ mrsOdometry::mrsOdometry() {
   // SUBSCRIBERS
 
   // subscriber to odometry and rangefinder topics
-  sub_pixhawk_ = nh_.subscribe("pixhawk_odom", 1, &mrsOdometry::odometryCallback, this, ros::TransportHints().tcpNoDelay());
+  sub_pixhawk_ = nh_.subscribe("pixhawk_odom", 1, &Odometry::odometryCallback, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for terarangers range
-  sub_terarangerone_ = nh_.subscribe("terarangerone", 1, &mrsOdometry::terarangerCallback, this, ros::TransportHints().tcpNoDelay());
+  sub_terarangerone_ = nh_.subscribe("terarangerone", 1, &Odometry::terarangerCallback, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for garmin range
-  sub_garmin_ = nh_.subscribe("garmin", 1, &mrsOdometry::garminCallback, this, ros::TransportHints().tcpNoDelay());
+  sub_garmin_ = nh_.subscribe("garmin", 1, &Odometry::garminCallback, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for differential gps
-  rtk_gps_sub_ = nh_.subscribe("rtk_gps", 1, &mrsOdometry::rtkCallback, this, ros::TransportHints().tcpNoDelay());
+  rtk_gps_sub_ = nh_.subscribe("rtk_gps", 1, &Odometry::rtkCallback, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for utm coordinates
-  sub_global_position_ = nh_.subscribe("global_position", 1, &mrsOdometry::global_position_callback, this, ros::TransportHints().tcpNoDelay());
+  sub_global_position_ = nh_.subscribe("global_position", 1, &Odometry::global_position_callback, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for tracker status
-  sub_tracker_status_ = nh_.subscribe("tracker_status", 1, &mrsOdometry::tracker_status_callback, this, ros::TransportHints().tcpNoDelay());
+  sub_tracker_status_ = nh_.subscribe("tracker_status", 1, &Odometry::tracker_status_callback, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for averaging service
-  ser_averaging_ = nh_.advertiseService("average_current_position", &mrsOdometry::averagingCallback, this);
+  ser_averaging_ = nh_.advertiseService("average_current_position", &Odometry::averagingCallback, this);
 
   // subscribe for garmin toggle service
-  ser_garmin_ = nh_.advertiseService("toggle_garmin", &mrsOdometry::toggleGarminCallback, this);
+  ser_garmin_ = nh_.advertiseService("toggle_garmin", &Odometry::toggleGarminCallback, this);
 
   // toggling fusing of rtk altitude
-  ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude", &mrsOdometry::toggleRtkAltitudeCallback, this);
+  ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude", &Odometry::toggleRtkAltitudeCallback, this);
 
   // subscriber for object altitude
-  /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &mrsOdometry::objectAltitudeCallback, this, ros::TransportHints().tcpNoDelay()); */
+  /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &Odometry::objectAltitudeCallback, this, ros::TransportHints().tcpNoDelay()); */
   // subscribe for object_altitude toggle service
-  /* ser_object_altitude_ = nh_.advertiseService("toggle_object_altitude", &mrsOdometry::toggleObjectAltitudeCallback, this); */
+  /* ser_object_altitude_ = nh_.advertiseService("toggle_object_altitude", &Odometry::toggleObjectAltitudeCallback, this); */
 
   // publisher for tf
   broadcaster_ = new tf::TransformBroadcaster();
@@ -267,7 +268,7 @@ mrsOdometry::mrsOdometry() {
   pub_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("new_pose", 1);
 
   // subscribe for resetting home command
-  ser_reset_home_ = nh_.advertiseService("reset_home", &mrsOdometry::resetHomeCallback, this);
+  ser_reset_home_ = nh_.advertiseService("reset_home", &Odometry::resetHomeCallback, this);
 
   odometry_published    = false;
   got_odom              = false;
@@ -507,12 +508,16 @@ mrsOdometry::mrsOdometry() {
   garmin_enabled       = true;
   rtk_altitude_enabled = false;
 
-  // create threads
-  slow_odom_thread = std::thread(&mrsOdometry::slowOdomThread, this);
-  rtk_rate_thread  = std::thread(&mrsOdometry::rtkRateThread, this);
+  // --------------------------------------------------------------
+  // |                           timers                           |
+  // --------------------------------------------------------------
+
+  slow_odom_timer = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
+  rtk_rate_timer  = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
+  main_timer      = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
 }
 
-bool mrsOdometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool Odometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   // set the intergrated altitude to the current altitude from kalman
   mutex_main_altitude_kalman.lock();
@@ -540,7 +545,7 @@ bool mrsOdometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std
 }
 
 /*
-bool mrsOdometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool Odometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   object_altitude_enabled = req.data;
 
@@ -562,7 +567,7 @@ bool mrsOdometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, 
 }
 */
 
-bool mrsOdometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool Odometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   teraranger_enabled = req.data;
 
@@ -582,7 +587,7 @@ bool mrsOdometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_
   return true;
 }
 
-bool mrsOdometry::toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool Odometry::toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   garmin_enabled = req.data;
 
@@ -603,52 +608,36 @@ bool mrsOdometry::toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs
 }
 
 // published slow odom in reguar intervals
-void mrsOdometry::slowOdomThread(void) {
-
-  ROS_INFO("Slow odom thread started.");
-  ros::Rate r(slow_odom_rate);
+void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
 
   nav_msgs::Odometry temp_odom;
 
-  while (ros::ok()) {
+  mutex_shared_odometry.lock();
+  { temp_odom = shared_odom; }
+  mutex_shared_odometry.unlock();
 
-    mutex_shared_odometry.lock();
-    { temp_odom = shared_odom; }
-    mutex_shared_odometry.unlock();
-
-    try {
-      pub_slow_odom_.publish(temp_odom);
-    }
-    catch (...) {
-      ROS_ERROR("Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
-    }
-    r.sleep();
+  try {
+    pub_slow_odom_.publish(temp_odom);
+  }
+  catch (...) {
+    ROS_ERROR("Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
   }
 }
 
-// thread for checking rtk rate
-void mrsOdometry::rtkRateThread(void) {
+void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
-  ROS_INFO("Rtk rate check thread started.");
-  ros::Rate r(1.0);
+  if (got_rtk) {
 
-  while (ros::ok()) {
+    if (got_rtk_counter < 15) {
 
-    if (got_rtk) {
-
-      if (got_rtk_counter < 15) {
-
-        ROS_ERROR_THROTTLE(1.0, "RTK comming at slow rate (%d Hz)!", got_rtk_counter);
-      }
-
-      got_rtk_counter = 0;
+      ROS_ERROR_THROTTLE(1.0, "RTK comming at slow rate (%d Hz)!", got_rtk_counter);
     }
 
-    r.sleep();
+    got_rtk_counter = 0;
   }
 }
 
-void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
+void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
   mutex_rtk.lock();
   {
@@ -675,7 +664,7 @@ void mrsOdometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     return;
   }
 
-if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) {
+  if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) {
 
     ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!");
     return;
@@ -798,7 +787,7 @@ if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.posi
   }
 }
 
-void mrsOdometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
+void Odometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
   if (got_odom) {
 
@@ -923,18 +912,18 @@ void mrsOdometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 }
 
 // callback for tracker status
-void mrsOdometry::tracker_status_callback(const mrs_msgs::TrackerStatusConstPtr &msg) {
+void Odometry::tracker_status_callback(const mrs_msgs::TrackerStatusConstPtr &msg) {
 
   tracker_status     = *msg;
   got_tracker_status = true;
 }
 
 // true if the uav is "flyable" in the means of whether there is a tracker activate that can fly it
-bool mrsOdometry::uav_is_flying() {
+bool Odometry::uav_is_flying() {
 
   if (got_tracker_status) {
 
-    if (std::string(tracker_status.tracker).compare("std_trackers/NullTracker") == STRING_EQUAL) {
+    if (std::string(tracker_status.tracker).compare("mrs_mav_manager/NullTracker") == STRING_EQUAL) {
 
       return false;
     } else {
@@ -948,7 +937,7 @@ bool mrsOdometry::uav_is_flying() {
   }
 }
 
-void mrsOdometry::startAveraging() {
+void Odometry::startAveraging() {
 
   ROS_INFO("startAveraging() called");
 
@@ -958,7 +947,7 @@ void mrsOdometry::startAveraging() {
   averaging_got_samples = 1;
 }
 
-void mrsOdometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
+void Odometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
 
   double out_x;
   double out_y;
@@ -999,7 +988,7 @@ void mrsOdometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
   }
 }
 
-void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
+void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   range_terarangerone_ = *msg;
 
@@ -1135,7 +1124,7 @@ void mrsOdometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
   }
 }
 
-void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
+void Odometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   range_garmin_ = *msg;
 
@@ -1236,7 +1225,7 @@ void mrsOdometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
 }
 
 /*
-void mrsOdometry::objectAltitudeCallback(const object_detection::ObjectWithTypeConstPtr &msg) {
+void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeConstPtr &msg) {
 
   mutex_object_altitude.lock();
   {
@@ -1351,7 +1340,7 @@ void mrsOdometry::objectAltitudeCallback(const object_detection::ObjectWithTypeC
 }
 */
 
-bool mrsOdometry::averagingCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool Odometry::averagingCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   startAveraging();
 
@@ -1361,7 +1350,7 @@ bool mrsOdometry::averagingCallback(std_srvs::Trigger::Request &req, std_srvs::T
   return true;
 }
 
-bool mrsOdometry::resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool Odometry::resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (uav_is_flying()) {
 
@@ -1389,9 +1378,9 @@ bool mrsOdometry::resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::T
 }
 
 /**
- * @brief mrsOdometry::publishMessage
+ * @brief Odometry::publishMessage
  */
-void mrsOdometry::publishMessage() {
+void Odometry::publishMessage() {
 
   // if there are some data missing, return
   if (use_differential_gps) {
@@ -1532,18 +1521,19 @@ void mrsOdometry::publishMessage() {
   }
 }
 
+void Odometry::mainTimer(const ros::TimerEvent &event) {
+
+  publishMessage();
+}
+
 int main(int argc, char **argv) {
 
   ros::init(argc, argv, "mrs_odom");
   ROS_INFO("Node initialized.");
-  mrsOdometry odom;
-  ros::Rate   loop_rate(odom.rate_);
 
-  while (ros::ok()) {
+  Odometry odom;
+  ros::spin();
 
-    odom.publishMessage();
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
   return 0;
 };
+}
