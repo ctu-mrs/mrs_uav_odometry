@@ -4,7 +4,7 @@
 
   <group ns="$(arg uav_name)">
 
-    <node name="rtk_republisher" pkg="mrs_odometry" type="rtk_republisher" output="screen" >
+    <node name="rtk_republisher" pkg="mrs_odometry" type="RtkRepublisher" output="screen" >
       
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
 

@@ -9,7 +9,7 @@
 
   <group ns="$(arg uav_name)">
 
-    <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
+    <node name="mrs_odometry" pkg="mrs_odometry" type="Odometry" output="screen" >
 
       <rosparam file="$(find mrs_odometry)/config/simulation.yaml" />
       <rosparam file="$(arg world_file)" />
@@ -21,7 +21,7 @@
       <!-- Subscribers -->
       <remap from="~pixhawk_odom" to="mavros_interface/converted_mavros_odom" />
       <remap from="~terarangerone" to="teraranger/range" />
- 			<remap from="~garmin" to="garmin/range" />
+      <remap from="~garmin" to="garmin/range" />
       <remap from="~global_position" to="mavros/global_position/global" />
       <remap from="~tracker_status" to="control_manager/tracker_status" />
       <remap from="~rtk_gps" to="rtk_gps/local" />

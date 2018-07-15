@@ -1525,15 +1525,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   publishMessage();
 }
+}
 
 int main(int argc, char **argv) {
 
-  ros::init(argc, argv, "mrs_odom");
+  ros::init(argc, argv, "mrs_odometry");
   ROS_INFO("Node initialized.");
 
-  Odometry odom;
+  mrs_odometry::Odometry odom;
   ros::spin();
 
   return 0;
 };
-}

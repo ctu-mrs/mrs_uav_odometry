@@ -14,7 +14,7 @@
     <!-- Garmin -->
     <include file="$(find garmin_rangefinder)/launch/test.launch" />
 
-    <node name="mrs_odometry" pkg="mrs_odometry" type="odometry" output="screen" >
+    <node name="mrs_odometry" pkg="mrs_odometry" type="Odometry" output="screen" >
 
 			<rosparam file="$(find mrs_odometry)/config/f550.yaml" />
       <rosparam file="$(arg world_file)" />
