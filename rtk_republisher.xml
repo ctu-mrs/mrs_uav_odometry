@@ -1,0 +1,5 @@
+<library path="lib/libRtkRepublisher">
+  <class name="mrs_odometry/RtkRepublisher" type="mrs_odometry::RtkRepublisher" base_class_type="nodelet::Nodelet">
+    <description>RtkRepublisher nodelet</description>
+  </class>
+</library>

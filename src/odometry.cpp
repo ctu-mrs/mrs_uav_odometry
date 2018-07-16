@@ -1,3 +1,6 @@
+#include <ros/ros.h>
+#include <nodelet/nodelet.h>
+
 #include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -13,6 +16,7 @@
 #include <std_srvs/Trigger.h>
 #include <tf/transform_broadcaster.h>
 #include <Eigen/Eigen>
+#include <math.h>
 #include <cmath>
 #include <mutex>
 #include <stdexcept>
@@ -30,10 +34,12 @@ using namespace std;
 namespace mrs_odometry
 {
 
-class Odometry {
+class Odometry : public nodelet::Nodelet {
 
 public:
-  Odometry();             // definition of constructor
+  virtual void onInit();
+
+public:
   void publishMessage();  // definition of callback function
   int  rate_;
 
@@ -207,17 +213,15 @@ private:
   /* ros::ServiceServer ser_object_altitude_; */
 };
 
-/**
- * @brief Odometry::Odometry
- */
-Odometry::Odometry() {
+void Odometry::onInit() {
 
-  nh_ = ros::NodeHandle("~");
+  ros::NodeHandle nh_ = nodelet::Nodelet::getPrivateNodeHandle();
+
   nh_.param("uav_name", uav_name, string());
 
   if (uav_name.empty()) {
 
-    ROS_ERROR("UAV_NAME is empty");
+    NODELET_ERROR("[Odometry]: UAV_NAME is empty");
     ros::shutdown();
   }
 
@@ -325,13 +329,13 @@ Odometry::Odometry() {
     nh_.param("use_home_position", set_home_on_start, false);
 
     if (set_home_on_start)
-      ROS_INFO("SetHomeOnStart enabled");
+      NODELET_INFO("[Odometry]: SetHomeOnStart enabled");
     else
-      ROS_INFO("SetHomeOnStart disabled");
+      NODELET_INFO("[Odometry]: SetHomeOnStart disabled");
   }
 
   if (set_home_on_start)
-    ROS_INFO("Setting home position on %.5f %.5f", home_utm_x, home_utm_y);
+    NODELET_INFO("[Odometry]: Setting home position on %.5f %.5f", home_utm_x, home_utm_y);
 
   averaging = false;
 
@@ -421,7 +425,7 @@ Odometry::Odometry() {
   terarangerFilter = new TrgFilter(trg_filter_buffer_size, 0, false, trg_max_valid_altitude, trg_filter_max_difference);
   garminFilter     = new TrgFilter(garmin_filter_buffer_size, 0, false, garmin_max_valid_altitude, garmin_filter_max_difference);
 
-  ROS_INFO("Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
+  NODELET_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   main_altitude_kalman       = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
@@ -431,11 +435,11 @@ Odometry::Odometry() {
   main_altitude_kalman->setState(0, 0.3);
   failsafe_teraranger_kalman->setState(0, 0.3);
 
-  ROS_INFO_STREAM("Altitude Kalman Filter was initiated with following parameters: n: "
-                  << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A1 << ", B: " << B1 << ", R: " << R1 << ", Q: " << Q1
-                  << ", P: " << P1 << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate);
+  NODELET_INFO_STREAM("[Odometry]: Altitude Kalman Filter was initiated with following parameters: n: "
+                      << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A1 << ", B: " << B1 << ", R: " << R1 << ", Q: " << Q1
+                      << ", P: " << P1 << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate);
 
-  ROS_INFO("Altitude kalman prepared");
+  NODELET_INFO("[Odometry]: Altitude kalman prepared");
 
   // declare and initialize variables for the altitude KF
   nh_.param("lateral/numberOfVariables", lateral_n, -1);
@@ -493,14 +497,14 @@ Odometry::Odometry() {
 
   lateralKalman = new LinearKF(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
 
-  ROS_INFO("Lateral Kalman prepared");
+  NODELET_INFO("[Odometry]: Lateral Kalman prepared");
 
   // use differential gps
   nh_.param("useDifferentialGps", use_differential_gps, false);
   nh_.param("max_rtk_correction", max_rtk_correction, 0.5);
   nh_.param("max_altitude_correction", max_altitude_correction_, 0.5);
 
-  ROS_INFO("Differential GPS %s", use_differential_gps ? "enabled" : "disabled");
+  NODELET_INFO("[Odometry]: Differential GPS %s", use_differential_gps ? "enabled" : "disabled");
 
   trg_last_update = ros::Time::now();
 
@@ -531,14 +535,14 @@ bool Odometry::toggleRtkAltitudeCallback(std_srvs::SetBool::Request &req, std_sr
 
   if (rtk_altitude_enabled) {
 
-    ROS_INFO("Rtk altitude enabled.");
+    NODELET_INFO("[Odometry]: Rtk altitude enabled.");
     teraranger_enabled = false;
     garmin_enabled     = false;
     /* object_altitude_enabled = false; */
 
   } else {
 
-    ROS_INFO("Rtk altitude disabled.");
+    NODELET_INFO("[Odometry]: Rtk altitude disabled.");
   }
 
   return true;
@@ -554,13 +558,13 @@ bool Odometry::toggleObjectAltitudeCallback(std_srvs::SetBool::Request &req, std
 
   if (object_altitude_enabled) {
 
-    ROS_INFO("Object altitude enabled.");
+    NODELET_INFO("[Odometry]: Object altitude enabled.");
     teraranger_enabled = false;
     rtk_altitude_enabled = false;
 
   } else {
 
-    ROS_INFO("Object altitude disabled.");
+    NODELET_INFO("[Odometry]: Object altitude disabled.");
   }
 
   return true;
@@ -576,12 +580,12 @@ bool Odometry::toggleTerarangerCallback(std_srvs::SetBool::Request &req, std_srv
 
   if (teraranger_enabled) {
 
-    ROS_INFO("Teraranger enabled.");
+    NODELET_INFO("[Odometry]: Teraranger enabled.");
     rtk_altitude_enabled = false;
 
   } else {
 
-    ROS_INFO("Teraranger disabled");
+    NODELET_INFO("[Odometry]: Teraranger disabled");
   }
 
   return true;
@@ -596,12 +600,12 @@ bool Odometry::toggleGarminCallback(std_srvs::SetBool::Request &req, std_srvs::S
 
   if (garmin_enabled) {
 
-    ROS_INFO("Garmin enabled.");
+    NODELET_INFO("[Odometry]: Garmin enabled.");
     rtk_altitude_enabled = false;
 
   } else {
 
-    ROS_INFO("Garmin disabled");
+    NODELET_INFO("[Odometry]: Garmin disabled");
   }
 
   return true;
@@ -620,7 +624,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
     pub_slow_odom_.publish(temp_odom);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
+    NODELET_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
   }
 }
 
@@ -630,7 +634,7 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
     if (got_rtk_counter < 15) {
 
-      ROS_ERROR_THROTTLE(1.0, "RTK comming at slow rate (%d Hz)!", got_rtk_counter);
+      NODELET_ERROR_THROTTLE(1.0, "[Odometry]: RTK comming at slow rate (%d Hz)!", got_rtk_counter);
     }
 
     got_rtk_counter = 0;
@@ -651,7 +655,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
   }
   mutex_rtk.unlock();
 
-  if (!got_rtk) {
+  if (!got_odom || !got_rtk || (set_home_on_start && !got_global_position)) {
 
     return;
   }
@@ -666,7 +670,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
   if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) {
 
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!");
+    NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!");
     return;
   }
 
@@ -688,7 +692,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     // saturate the x_correction
     if (!std::isfinite(x_correction)) {
       x_correction = 0;
-      ROS_ERROR("NaN detected in variable \"x_correction\", setting it to 0!!!");
+      NODELET_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
     } else if (x_correction > max_rtk_correction) {
       x_correction = max_rtk_correction;
     } else if (x_correction < -max_rtk_correction) {
@@ -698,7 +702,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     // saturate the y_correction
     if (!std::isfinite(y_correction)) {
       y_correction = 0;
-      ROS_ERROR("NaN detected in variable \"y_correction\", setting it to 0!!!");
+      NODELET_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
     } else if (y_correction > max_rtk_correction) {
       y_correction = max_rtk_correction;
     } else if (y_correction < -max_rtk_correction) {
@@ -713,7 +717,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
     lateralKalman->doCorrection();
 
-    ROS_INFO_THROTTLE(1.0, "[%s]: fusing RTK GPS", ros::this_node::getName().c_str());
+    NODELET_WARN_ONCE("[Odometry]: fusing RTK GPS");
   }
   mutex_lateral_kalman.unlock();
 
@@ -724,7 +728,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
       rtk_altitude_enabled = false;
       teraranger_enabled   = true;
       garmin_enabled       = true;
-      ROS_WARN("We lost RTK fix, switching back to fusing teraranger and garmin.");
+      NODELET_WARN("[Odometry]: We lost RTK fix, switching back to fusing teraranger and garmin.");
       return;
     }
 
@@ -735,7 +739,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
     if (!std::isfinite(rtk_odom.position.position.z)) {
 
-      ROS_ERROR_THROTTLE(1, "NaN detected in variable \"rtk_odom.position.position.z\" (rtk_altitude)!!!");
+      NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.z\" (rtk_altitude)!!!");
       return;
     }
 
@@ -753,8 +757,8 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
         rtk_altitude_enabled = false;
         teraranger_enabled   = true;
-        ROS_ERROR("RTK kalman is above failsafe kalman by more than %2.2f m!", rtk_max_down_difference_);
-        ROS_ERROR("Switching back to fusing teraranger!");
+        NODELET_ERROR("[Odometry]: RTK kalman is above failsafe kalman by more than %2.2f m!", rtk_max_down_difference_);
+        NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
         return;
       }
     }
@@ -764,8 +768,8 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
       rtk_altitude_enabled = false;
       teraranger_enabled   = true;
-      ROS_ERROR("RTK kalman differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
-      ROS_ERROR("Switching back to fusing teraranger!");
+      NODELET_ERROR("[Odometry]: RTK kalman differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
+      NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
       return;
     }
 
@@ -783,7 +787,7 @@ void Odometry::rtkCallback(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
     }
     mutex_main_altitude_kalman.unlock();
 
-    ROS_INFO_THROTTLE(1, "Fusing rtk altitude");
+    NODELET_WARN_ONCE("[Odometry]: Fusing rtk altitude");
   }
 }
 
@@ -837,7 +841,7 @@ void Odometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
   if (fabs(interval2.toSec()) < 0.001) {
 
-    ROS_WARN("Odometry messages came within 0.001 s");
+    NODELET_WARN("[Odometry]: Odometry messages came within 0.001 s");
     return;
   }
 
@@ -939,7 +943,7 @@ bool Odometry::uav_is_flying() {
 
 void Odometry::startAveraging() {
 
-  ROS_INFO("startAveraging() called");
+  NODELET_INFO("[Odometry]: startAveraging() called");
 
   averaging             = true;
   gpos_average_x        = utm_position_x;
@@ -955,12 +959,12 @@ void Odometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
   gps_common::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
 
   if (!std::isfinite(out_x)) {
-    ROS_ERROR("NaN detected in variable \"out_x\"!!!");
+    NODELET_ERROR("[Odometry]: NaN detected in variable \"out_x\"!!!");
     return;
   }
 
   if (!std::isfinite(out_y)) {
-    ROS_ERROR("NaN detected in variable \"out_y\"!!!");
+    NODELET_ERROR("[Odometry]: NaN detected in variable \"out_y\"!!!");
     return;
   }
 
@@ -978,12 +982,12 @@ void Odometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
     if (averaging_got_samples++ >= averaging_num_samples) {
 
       averaging = false;
-      ROS_INFO("Averaged current position is: %.5f %.5f", gpos_average_x, gpos_average_y);
+      NODELET_INFO("[Odometry]: Averaged current position is: %.5f %.5f", gpos_average_x, gpos_average_y);
       done_averaging = true;
 
     } else {
 
-      ROS_INFO("Sample %d of %d of GPS: %.5f %.5f", averaging_got_samples, averaging_num_samples, gpos_average_x, gpos_average_y);
+      NODELET_INFO("[Odometry]: Sample %d of %d of GPS: %.5f %.5f", averaging_got_samples, averaging_num_samples, gpos_average_x, gpos_average_y);
     }
   }
 }
@@ -992,7 +996,7 @@ void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   range_terarangerone_ = *msg;
 
-  if (!got_odom) {
+  if (!got_odom || (set_home_on_start && !got_global_position)) {
 
     return;
   }
@@ -1012,7 +1016,7 @@ void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   if (!std::isfinite(measurement)) {
 
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (teraranger)!!!");
+    NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"measurement\" (teraranger)!!!");
     return;
   }
 
@@ -1075,7 +1079,7 @@ void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
+        NODELET_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
       }
 
       // set the measurement vector
@@ -1101,7 +1105,7 @@ void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
+        NODELET_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
       } else if (correction > max_altitude_correction_) {
         correction = max_altitude_correction_;
       } else if (correction < -max_altitude_correction_) {
@@ -1119,7 +1123,7 @@ void Odometry::terarangerCallback(const sensor_msgs::RangeConstPtr &msg) {
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1, "Fusing Teraranger");
+      NODELET_WARN_ONCE("[Odometry]: Fusing Teraranger");
     }
   }
 }
@@ -1128,7 +1132,7 @@ void Odometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   range_garmin_ = *msg;
 
-  if (!got_odom) {
+  if (!got_odom || (set_home_on_start && !got_global_position)) {
 
     return;
   }
@@ -1148,7 +1152,7 @@ void Odometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
 
   if (!std::isfinite(measurement)) {
 
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (garmin)!!!");
+    NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"measurement\" (garmin)!!!");
     return;
   }
 
@@ -1201,7 +1205,7 @@ void Odometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
+        NODELET_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
       } else if (correction > max_altitude_correction_) {
         correction = max_altitude_correction_;
       } else if (correction < -max_altitude_correction_) {
@@ -1219,7 +1223,7 @@ void Odometry::garminCallback(const sensor_msgs::RangeConstPtr &msg) {
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1.0, "[%s]: fusing Garmin rangefinder", ros::this_node::getName().c_str());
+      NODELET_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
     }
   }
 }
@@ -1235,7 +1239,7 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
 
   got_object_altitude = true;
 
-  ROS_INFO_THROTTLE(1, "Receiving object altitude");
+  NODELET_INFO_THROTTLE(1, "[Odometry]: Receiving object altitude");
 
   // ALTITUDE KALMAN FILTER
   // deside on measurement's covariance
@@ -1264,7 +1268,7 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
 
   if (!std::isfinite(measurement)) {
 
-    ROS_ERROR_THROTTLE(1, "NaN detected in variable \"measurement\" (object)!!!");
+    NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"measurement\" (object)!!!");
     return;
   }
 
@@ -1291,8 +1295,8 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
 
       object_altitude_enabled = false;
       teraranger_enabled = true;
-      ROS_ERROR("Object altitude is above failsafe kalman by more than %2.2f m!", object_altitude_max_down_difference_);
-      ROS_ERROR("Switching back to fusing teraranger!");
+      NODELET_ERROR("[Odometry]: Object altitude is above failsafe kalman by more than %2.2f m!", object_altitude_max_down_difference_);
+      NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
       return;
     }
 
@@ -1301,8 +1305,8 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
 
       object_altitude_enabled = false;
       teraranger_enabled = true;
-      ROS_ERROR("Object altitude differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
-      ROS_ERROR("Switching back to fusing teraranger!");
+      NODELET_ERROR("[Odometry]: Object altitude differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
+      NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
       return;
     }
 
@@ -1318,7 +1322,7 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
         // saturate the correction
         if (!std::isfinite(correction)) {
           correction = 0;
-          ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
+          NODELET_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
         } else if (correction > max_altitude_correction_) {
           correction = max_altitude_correction_;
         } else if (correction < -max_altitude_correction_) {
@@ -1334,7 +1338,7 @@ void Odometry::objectAltitudeCallback(const object_detection::ObjectWithTypeCons
       }
       mutex_main_altitude_kalman.unlock();
 
-      ROS_INFO_THROTTLE(1, "Fusing object altitude");
+      NODELET_INFO_THROTTLE(1, "[Odometry]: Fusing object altitude");
     }
   }
 }
@@ -1357,7 +1361,7 @@ bool Odometry::resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trig
     res.success = false;
     res.message = "Cannot reset home, set motors off!";
 
-    ROS_WARN("Tried to reset home while the UAV has motors ON!");
+    NODELET_WARN("[Odometry]: Tried to reset home while the UAV has motors ON!");
 
   } else {
 
@@ -1371,7 +1375,7 @@ bool Odometry::resetHomeCallback(std_srvs::Trigger::Request &req, std_srvs::Trig
     res.success = true;
     res.message = "home reseted";
 
-    ROS_INFO("Local origin shifted to current position.");
+    NODELET_INFO("[Odometry]: Local origin shifted to current position.");
   }
 
   return true;
@@ -1384,14 +1388,15 @@ void Odometry::publishMessage() {
 
   // if there are some data missing, return
   if (use_differential_gps) {
-    if (!got_odom || !got_range || !got_global_position) {
-      ROS_INFO_THROTTLE(1, "Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s", got_odom ? "TRUE" : "FALSE",
-                        got_range ? "TRUE" : "FALSE", got_global_position ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
+    if (!got_odom || !got_range || (set_home_on_start && !got_global_position) || !got_rtk) {
+      NODELET_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
+                            got_odom ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_global_position ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
       return;
     }
   } else {
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position)) {
-      ROS_INFO_THROTTLE(1, "Waiting for data from sensors - received? pixhawk: %s, ranger: %s", got_odom ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE");
+      NODELET_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s", got_odom ? "TRUE" : "FALSE",
+                            got_range ? "TRUE" : "FALSE");
       return;
     }
   }
@@ -1410,7 +1415,7 @@ void Odometry::publishMessage() {
       start_position_average_x = gpos_average_x;
       start_position_average_y = gpos_average_y;
       got_home_position_fix    = true;
-      ROS_INFO("Finished averaging of home position.");
+      NODELET_INFO("[Odometry]: Finished averaging of home position.");
 
       // when we have defined our home position, set local origin offset
       if (set_home_on_start) {
@@ -1457,7 +1462,9 @@ void Odometry::publishMessage() {
   mutex_main_altitude_kalman.unlock();
 #endif
 
-  ROS_INFO_THROTTLE(1.0, "Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0), failsafe_teraranger_kalman->getState(0));
+  if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) {
+    NODELET_WARN_THROTTLE(1.0, "[Odometry]: Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0),failsafe_teraranger_kalman->getState(0));
+  }
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
@@ -1496,7 +1503,7 @@ void Odometry::publishMessage() {
     pub_odom_.publish(new_odom);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
+    NODELET_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
   }
 
   // publish the pose
@@ -1505,7 +1512,7 @@ void Odometry::publishMessage() {
     pub_pose_.publish(newPose);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", pub_pose_.getTopic().c_str());
+    NODELET_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_pose_.getTopic().c_str());
   }
 
   // publish TF
@@ -1517,7 +1524,7 @@ void Odometry::publishMessage() {
         new_odom.header.stamp, "local_origin", string("fcu_") + uav_name));
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing TF.");
+    NODELET_ERROR("[Odometry]: Exception caught during publishing TF.");
   }
 }
 
@@ -1527,13 +1534,5 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 }
 }
 
-int main(int argc, char **argv) {
-
-  ros::init(argc, argv, "mrs_odometry");
-  ROS_INFO("Node initialized.");
-
-  mrs_odometry::Odometry odom;
-  ros::spin();
-
-  return 0;
-};
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(mrs_odometry::Odometry, nodelet::Nodelet)

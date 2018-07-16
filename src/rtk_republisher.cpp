@@ -1,6 +1,6 @@
-// some ros includes
 #include <ros/ros.h>
-#include <ros/package.h>
+#include <nodelet/nodelet.h>
+
 #include <mrs_msgs/RtkGpsLocal.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -9,10 +9,10 @@
 namespace mrs_odometry
 {
 
-class RtkRepublisher {
+class RtkRepublisher : public nodelet::Nodelet {
 
 public:
-  RtkRepublisher();
+  virtual void onInit();
 
 private:
   ros::NodeHandle nh_;
@@ -44,9 +44,9 @@ private:
 };
 
 // constructor
-RtkRepublisher::RtkRepublisher() {
+void RtkRepublisher::onInit() {
 
-  nh_ = ros::NodeHandle("~");
+  ros::NodeHandle nh_ = nodelet::Nodelet::getPrivateNodeHandle();
 
   nh_.param("rate", rate_, 5);
   nh_.param("offset_x", offset_x_, 0.0);
@@ -65,7 +65,7 @@ RtkRepublisher::RtkRepublisher() {
 
   main_timer = nh_.createTimer(ros::Rate(rate_), &RtkRepublisher::mainTimer, this);
 
-  ROS_INFO("[%s]: initialized", ros::this_node::getName().c_str());
+  NODELET_INFO("[RtkRepublisher]: [%s]: initialized", ros::this_node::getName().c_str());
 }
 
 // is called every time new Odometry comes in
@@ -114,15 +114,5 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 }
 }
 
-int main(int argc, char** argv) {
-
-  // initialize node and create no handle
-  ros::init(argc, argv, "rtk_republisher");
-
-  mrs_odometry::RtkRepublisher rtk_republisher;
-
-  // needed to make stuff work
-  ros::spin();
-
-  return 0;
-}
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(mrs_odometry::RtkRepublisher, nodelet::Nodelet)

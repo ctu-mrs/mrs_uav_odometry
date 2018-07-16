@@ -14,7 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_estimation
   cmake_modules
   mrs_msgs
-)
+  nodelet
+  )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -fno-diagnostics-color")
 
@@ -28,12 +29,11 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 ###################################
 
 catkin_package(
-	INCLUDE_DIRS include
-#  LIBRARIES cross_detector
-	CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_msgs
-#  DEPENDS system_libi
+  INCLUDE_DIRS include
+  LIBRARIES Odometry RtkRepublisher
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_msgs
   DEPENDS Eigen
-)
+  )
 
 ###########
 ## Build ##
@@ -46,24 +46,24 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${Eigen_INCLUDE_DIRS}
-)
+  )
 
 add_library(trgfilter src/trgfilter.cpp)
 
 ## Declare a C++ executable
-add_executable(Odometry src/odometry.cpp)
+add_library(Odometry src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
-	${catkin_LIBRARIES}
-	${Eigen_LIBRARIES}
-	trgfilter
-)
+  ${catkin_LIBRARIES}
+  ${Eigen_LIBRARIES}
+  trgfilter
+  )
 
 ## Declare a C++ executable
-add_executable(RtkRepublisher src/rtk_republisher.cpp)
+add_library(RtkRepublisher src/rtk_republisher.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(RtkRepublisher
-	${catkin_LIBRARIES}
-)
+  ${catkin_LIBRARIES}
+  )
