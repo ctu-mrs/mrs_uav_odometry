@@ -4,7 +4,7 @@
 
   <group ns="$(arg uav_name)">
 
-    <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="load mrs_odometry/RtkRepublisher mrs_nodelet_manager" output="screen">
+    <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="load mrs_odometry/RtkRepublisher $(arg uav_name)_nodelet_manager" output="screen">
 
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
 
