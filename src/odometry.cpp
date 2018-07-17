@@ -21,7 +21,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include "gps_conversions.h"
+#include <mrs_lib/GpsConversions.h>
 #include "tf/LinearMath/Transform.h"
 #include "trgfilter.h"
 
@@ -133,18 +133,18 @@ private:
   double local_origin_offset_x, local_origin_offset_y;
 
   // altitude kalman
-  int        altitude_n, altitude_m, altitude_p;
-  MatrixXd   A1, B1, R1, Q1, Q3, P1;
-  mrs_lib::Lkf * main_altitude_kalman;
-  mrs_lib::Lkf * failsafe_teraranger_kalman;
-  std::mutex mutex_main_altitude_kalman;
-  std::mutex mutex_failsafe_altitude_kalman;
+  int           altitude_n, altitude_m, altitude_p;
+  MatrixXd      A1, B1, R1, Q1, Q3, P1;
+  mrs_lib::Lkf *main_altitude_kalman;
+  mrs_lib::Lkf *failsafe_teraranger_kalman;
+  std::mutex    mutex_main_altitude_kalman;
+  std::mutex    mutex_failsafe_altitude_kalman;
 
   // lateral kalman
-  int        lateral_n, lateral_m, lateral_p;
-  MatrixXd   A2, B2, R2, Q2, P2;
-  mrs_lib::Lkf * lateralKalman;
-  std::mutex mutex_lateral_kalman;
+  int           lateral_n, lateral_m, lateral_p;
+  MatrixXd      A2, B2, R2, Q2, P2;
+  mrs_lib::Lkf *lateralKalman;
+  std::mutex    mutex_lateral_kalman;
 
   // averaging of home position
   double gpos_average_x, gpos_average_y;
@@ -956,7 +956,7 @@ void Odometry::global_position_callback(const sensor_msgs::NavSatFix &msg) {
   double out_x;
   double out_y;
 
-  gps_common::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
+  mrs_lib::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
 
   if (!std::isfinite(out_x)) {
     NODELET_ERROR("[Odometry]: NaN detected in variable \"out_x\"!!!");
@@ -1463,7 +1463,8 @@ void Odometry::publishMessage() {
 #endif
 
   if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) {
-    NODELET_WARN_THROTTLE(1.0, "[Odometry]: Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0),failsafe_teraranger_kalman->getState(0));
+    NODELET_WARN_THROTTLE(1.0, "[Odometry]: Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0),
+                          failsafe_teraranger_kalman->getState(0));
   }
 
   // if odometry has not been published yet, initialize lateralKF
