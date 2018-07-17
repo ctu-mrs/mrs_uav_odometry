@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   nav_msgs
   tf
-  mrs_estimation
+  mrs_lib
   cmake_modules
   mrs_msgs
   nodelet
@@ -31,7 +31,7 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES Odometry RtkRepublisher
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_estimation mrs_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_lib mrs_msgs
   DEPENDS Eigen
   )
 

@@ -4,7 +4,7 @@
 #include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <mrs_estimation/lkf.h>
+#include <mrs_lib/Lkf.h>
 #include <mrs_msgs/RtkGpsLocal.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/TrackerStatus.h>
@@ -135,15 +135,15 @@ private:
   // altitude kalman
   int        altitude_n, altitude_m, altitude_p;
   MatrixXd   A1, B1, R1, Q1, Q3, P1;
-  LinearKF * main_altitude_kalman;
-  LinearKF * failsafe_teraranger_kalman;
+  mrs_lib::Lkf * main_altitude_kalman;
+  mrs_lib::Lkf * failsafe_teraranger_kalman;
   std::mutex mutex_main_altitude_kalman;
   std::mutex mutex_failsafe_altitude_kalman;
 
   // lateral kalman
   int        lateral_n, lateral_m, lateral_p;
   MatrixXd   A2, B2, R2, Q2, P2;
-  LinearKF * lateralKalman;
+  mrs_lib::Lkf * lateralKalman;
   std::mutex mutex_lateral_kalman;
 
   // averaging of home position
@@ -428,8 +428,8 @@ void Odometry::onInit() {
   NODELET_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
-  main_altitude_kalman       = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
-  failsafe_teraranger_kalman = new LinearKF(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
+  main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
+  failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
 
   // initialize the altitude for standing uav
   main_altitude_kalman->setState(0, 0.3);
@@ -495,7 +495,7 @@ void Odometry::onInit() {
     }
   }
 
-  lateralKalman = new LinearKF(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
+  lateralKalman = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
 
   NODELET_INFO("[Odometry]: Lateral Kalman prepared");
 
