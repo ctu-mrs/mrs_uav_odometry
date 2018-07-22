@@ -46,7 +46,7 @@ private:
 // constructor
 void RtkRepublisher::onInit() {
 
-  ros::NodeHandle nh_ = nodelet::Nodelet::getPrivateNodeHandle();
+  ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   nh_.param("rate", rate_, 5);
   nh_.param("offset_x", offset_x_, 0.0);

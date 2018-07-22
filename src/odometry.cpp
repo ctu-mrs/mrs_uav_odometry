@@ -215,7 +215,7 @@ private:
 
 void Odometry::onInit() {
 
-  ros::NodeHandle nh_ = nodelet::Nodelet::getPrivateNodeHandle();
+  ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   nh_.param("uav_name", uav_name, string());
 
