@@ -14,7 +14,7 @@
       <rosparam file="$(find mrs_odometry)/config/simulation.yaml" />
       <rosparam file="$(arg world_file)" />
 
-      <!-- parameter -->
+      <!-- Parameters -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="true"/>
 
@@ -29,6 +29,7 @@
 
       <!-- Publishers -->
       <remap from="~new_odom" to="~new_odom" />
+      <remap from="~profiler" to="profiler" />
 
       <!-- Services -->
       <remap from="~toggle_teraranger" to="~toggle_teraranger" />
