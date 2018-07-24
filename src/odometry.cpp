@@ -75,6 +75,7 @@ private:
   nav_msgs::Odometry odom_pixhawk;
   std::mutex         mutex_odom;
   nav_msgs::Odometry odom_pixhawk_previous_;
+  ros::Time          odom_pixhawk_last_update;
 
   std::mutex            mutex_rtk;
   mrs_msgs::RtkGpsLocal rtk_odom_previous;
@@ -216,6 +217,8 @@ private:
 void Odometry::onInit() {
 
   ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
+
+  ros::Time::waitForValid();
 
   nh_.param("uav_name", uav_name, string());
 
@@ -506,7 +509,8 @@ void Odometry::onInit() {
 
   NODELET_INFO("[Odometry]: Differential GPS %s", use_differential_gps ? "enabled" : "disabled");
 
-  trg_last_update = ros::Time::now();
+  trg_last_update          = ros::Time::now();
+  odom_pixhawk_last_update = ros::Time::now();
 
   teraranger_enabled   = true;
   garmin_enabled       = true;
@@ -811,15 +815,22 @@ void Odometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
     }
     mutex_odom.unlock();
 
-    got_odom = true;
+    got_odom                 = true;
+    odom_pixhawk_last_update = ros::Time::now();
     return;
   }
+
+  odom_pixhawk_last_update = ros::Time::now();
 
   if (!got_range) {
 
     mutex_odom.unlock();
     return;
   }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -1400,6 +1411,23 @@ void Odometry::publishMessage() {
     }
   }
 
+  // --------------------------------------------------------------
+  // |           check if the odometry is still comming           |
+  // --------------------------------------------------------------
+
+  mutex_odom.lock();
+  {
+    if ((ros::Time::now() - odom_pixhawk_last_update).toSec() > 0.1) {
+
+      ROS_ERROR("[Odometry]: mavros odometry has not come for > 0.1 s, interrupting");
+      got_odom = false;
+      mutex_odom.unlock();
+      return;
+
+    }
+  }
+  mutex_odom.unlock();
+
   if (!got_home_position_fix) {
 
     if (!averaging && !averaging_started) {
@@ -1529,6 +1557,10 @@ void Odometry::publishMessage() {
 }
 
 void Odometry::mainTimer(const ros::TimerEvent &event) {
+
+  // --------------------------------------------------------------
+  // |              publish the new odometry message              |
+  // --------------------------------------------------------------
 
   publishMessage();
 }
