@@ -823,10 +823,9 @@ void Odometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
-
-  mutex_odom.lock();
-  { odom_pixhawk.header.stamp = ros::Time::now(); }
-  mutex_odom.unlock();
+  /* mutex_odom.lock(); */
+  /* { odom_pixhawk.header.stamp = ros::Time::now(); } */
+  /* mutex_odom.unlock(); */
   /* } */
 
   // set the input vector

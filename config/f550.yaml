@@ -7,7 +7,7 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-useDifferentialGps: true
+useDifferentialGps: false
 max_rtk_correction: 0.25 # [m]
 max_altitude_correction: 0.25 # [m]
 
