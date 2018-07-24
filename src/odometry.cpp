@@ -841,7 +841,7 @@ void Odometry::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
   if (fabs(interval2.toSec()) < 0.001) {
 
-    NODELET_WARN("[Odometry]: Odometry messages came within 0.001 s");
+    NODELET_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
     return;
   }
 
