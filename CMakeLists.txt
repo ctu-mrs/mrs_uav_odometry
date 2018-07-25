@@ -48,7 +48,7 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(trgfilter src/trgfilter.cpp)
+add_library(range_filter src/range_filter.cpp)
 
 ## Declare a C++ executable
 add_library(Odometry src/odometry.cpp)
@@ -57,7 +57,7 @@ add_library(Odometry src/odometry.cpp)
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
-  trgfilter
+  range_filter
   )
 
 ## Declare a C++ executable

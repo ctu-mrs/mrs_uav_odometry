@@ -23,7 +23,7 @@
 #include <string>
 #include <mrs_lib/GpsConversions.h>
 #include "tf/LinearMath/Transform.h"
-#include "trgfilter.h"
+#include <range_filter.h>
 #include <mrs_lib/Profiler.h>
 
 #define USE_TERARANGER 1
@@ -100,7 +100,7 @@ private:
   ros::Subscriber    sub_terarangerone_;
   sensor_msgs::Range range_terarangerone_;
   void callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
-  TrgFilter *terarangerFilter;
+  RangeFilter *terarangerFilter;
   int        trg_filter_buffer_size;
   double     trg_max_valid_altitude;
   double     trg_filter_max_difference;
@@ -111,7 +111,7 @@ private:
   ros::Subscriber    sub_garmin_;
   sensor_msgs::Range range_garmin_;
   void callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-  TrgFilter *garminFilter;
+  RangeFilter *garminFilter;
   int        garmin_filter_buffer_size;
   double     garmin_max_valid_altitude;
   double     garmin_filter_max_difference;
@@ -439,11 +439,11 @@ void Odometry::onInit() {
   /* nh_.param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_, 1.0); */
   /* nh_.param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_, 5.0); */
 
-  terarangerFilter = new TrgFilter(trg_filter_buffer_size, 0, false, trg_max_valid_altitude, trg_filter_max_difference);
-  garminFilter     = new TrgFilter(garmin_filter_buffer_size, 0, false, garmin_max_valid_altitude, garmin_filter_max_difference);
+  terarangerFilter = new RangeFilter(trg_filter_buffer_size, trg_max_valid_altitude, trg_filter_max_difference);
+  garminFilter     = new RangeFilter(garmin_filter_buffer_size, garmin_max_valid_altitude, garmin_filter_max_difference);
 
   NODELET_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
-  /* objectAltitudeFilter = new TrgFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
+  /* objectAltitudeFilter = new RangeFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
   failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1);
@@ -904,7 +904,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
       ros::Duration interval;
       interval    = ros::Time::now() - range_terarangerone_.header.stamp;
-      measurement = terarangerFilter->getValue(measurement, failsafe_teraranger_kalman->getState(0), interval);
+      measurement = terarangerFilter->getValue(measurement, interval);
     }
   }
   mutex_failsafe_altitude_kalman.unlock();
@@ -1040,7 +1040,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     ros::Duration interval;
     interval    = ros::Time::now() - range_garmin_.header.stamp;
-    measurement = garminFilter->getValue(measurement, main_altitude_kalman->getState(0), interval);
+    measurement = garminFilter->getValue(measurement, interval);
   }
 
   {  // Update variance of Kalman measurement

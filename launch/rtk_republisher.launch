@@ -8,7 +8,7 @@
 
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
 
-      <!-- Subscribers --> 
+      <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
       <remap from="~rtk_out" to="rtk_gps/local" />
 
