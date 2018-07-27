@@ -30,7 +30,7 @@
       <!-- Publishers -->
       <remap from="~new_odom" to="~new_odom" />
       <remap from="~profiler" to="profiler" />
-      <remap from="~rtk_local_out" to="rtk_local" />
+      <remap from="~rtk_local_out" to="~rtk_local" />
 
       <!-- Services -->
       <remap from="~toggle_teraranger" to="~toggle_teraranger" />
