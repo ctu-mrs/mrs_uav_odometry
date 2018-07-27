@@ -56,6 +56,7 @@ private:
   ros::Publisher pub_odom_;
   ros::Publisher pub_slow_odom_;
   ros::Publisher pub_pose_;
+  ros::Publisher pub_rtk_local;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -90,7 +91,7 @@ private:
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  void callbackRtkGps(const mrs_msgs::RtkGpsLocalConstPtr &msg);
+  void callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -254,7 +255,7 @@ void Odometry::onInit() {
   sub_garmin_ = nh_.subscribe("garmin", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for differential gps
-  rtk_gps_sub_ = nh_.subscribe("rtk_gps", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
+  rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for utm coordinates
   sub_global_position_ = nh_.subscribe("global_position", 1, &Odometry::callbackGlobalPosition, this, ros::TransportHints().tcpNoDelay());
@@ -287,6 +288,9 @@ void Odometry::onInit() {
 
   // publisher for new pose
   pub_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("new_pose", 1);
+
+  // republisher for rtk local
+  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGpsLocal>("rtk_local_out", 1);
 
   // subscribe for resetting home command
   ser_reset_home_ = nh_.advertiseService("reset_home", &Odometry::callbackResetHome, this);
@@ -1271,12 +1275,24 @@ bool Odometry::callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trig
 
 //{ callbackRtkGps()
 
-void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
+void Odometry::callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg) {
+
+  // convert it to UTM
+  mrs_msgs::RtkGpsLocal msg_utm;
+  mrs_lib::UTM(msg->latitude, msg->longitude, &msg_utm.position.position.x, &msg_utm.position.position.y);
+  msg_utm.header.stamp = msg->header.stamp;
+  msg_utm.header.frame_id = "utm";
+
+  if (msg->status.status == msg->status.STATUS_FIX) {
+    msg_utm.rtk_fix = true;
+  } else {
+    msg_utm.rtk_fix = false;
+  }
 
   mutex_rtk.lock();
   {
     rtk_odom_previous = rtk_odom;
-    rtk_odom          = *msg;
+    rtk_odom          = msg_utm;
 
     if (++got_rtk_counter > 2) {
 
@@ -1292,10 +1308,19 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsLocalConstPtr &msg) {
 
   routine_rtk_callback->start();
 
-  // check whether we have rtk fix
-  got_rtk_fix = msg->rtk_fix;
+  // --------------------------------------------------------------
+  // |                    publish the rtk_local                   |
+  // --------------------------------------------------------------
 
-  // continue to lateral and altitude fusin only when we got a fix
+  mrs_msgs::RtkGpsLocal rtk_local_out = msg_utm;
+  rtk_local_out.position.position.x -= home_utm_x;
+  rtk_local_out.position.position.y -= home_utm_y;
+  pub_rtk_local.publish(rtk_local_out);
+
+  // check whether we have rtk fix
+  got_rtk_fix = msg_utm.rtk_fix;
+
+  // continue to lateral and altitude fusion only when we got a fix
   if (!got_rtk_fix) {
 
     routine_rtk_callback->end();

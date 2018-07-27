@@ -22,12 +22,13 @@
       <remap from="~garmin" to="garmin/range" />
       <remap from="~global_position" to="mavros/global_position/global" />
       <remap from="~tracker_status" to="control_manager/tracker_status" />
-      <remap from="~rtk_gps" to="rtk_gps/local" />
+      <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~object_altitude" to="landing_object_controller/current_target" />
 
       <!-- Publishers -->
       <remap from="~new_odom" to="~new_odom" />
       <remap from="~profiler" to="profiler" />
+      <remap from="~rtk_local_out" to="rtk_local" />
 
       <!-- Services -->
       <remap from="~toggle_teraranger" to="~toggle_teraranger" />
