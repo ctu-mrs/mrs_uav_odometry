@@ -1283,6 +1283,16 @@ void Odometry::callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg) {
   msg_utm.header.stamp = msg->header.stamp;
   msg_utm.header.frame_id = "utm";
 
+  if (!std::isfinite(msg->latitude)) {
+    ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->latitude\"!!!");
+    return;
+  }
+
+  if (!std::isfinite(msg->longitude)) {
+    ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->longitude\"!!!");
+    return;
+  }
+
   if (msg->status.status == msg->status.STATUS_FIX) {
     msg_utm.rtk_fix = true;
   } else {
