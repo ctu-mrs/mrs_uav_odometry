@@ -26,6 +26,8 @@
 #include <range_filter.h>
 #include <mrs_lib/Profiler.h>
 
+#include <stdio.h>
+
 #define USE_TERARANGER 1
 #define STRING_EQUAL 0
 
@@ -1293,7 +1295,7 @@ void Odometry::callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg) {
     return;
   }
 
-  if (msg->status.status == 4 || msg->status.status == 5) {
+  if (int(msg->status.status) >= 1 && int(msg->status.status) <= 2) {
     msg_utm.rtk_fix = true;
   } else {
     msg_utm.rtk_fix = false;
