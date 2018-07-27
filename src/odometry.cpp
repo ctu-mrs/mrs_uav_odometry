@@ -1293,7 +1293,7 @@ void Odometry::callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg) {
     return;
   }
 
-  if (msg->status.status == msg->status.STATUS_FIX) {
+  if (msg->status.status == 4 || msg->status.status == 5) {
     msg_utm.rtk_fix = true;
   } else {
     msg_utm.rtk_fix = false;
