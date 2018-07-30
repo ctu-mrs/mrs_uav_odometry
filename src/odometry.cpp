@@ -5,7 +5,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mrs_lib/Lkf.h>
-#include <mrs_msgs/RtkGpsLocal.h>
+#include <mrs_msgs/RtkGps.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/TrackerStatus.h>
 #include <ros/ros.h>
@@ -83,9 +83,9 @@ private:
   nav_msgs::Odometry odom_pixhawk_previous_;
   ros::Time          odom_pixhawk_last_update;
 
-  std::mutex            mutex_rtk;
-  mrs_msgs::RtkGpsLocal rtk_odom_previous;
-  mrs_msgs::RtkGpsLocal rtk_odom;
+  std::mutex       mutex_rtk;
+  mrs_msgs::RtkGps rtk_odom_previous;
+  mrs_msgs::RtkGps rtk_odom;
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
@@ -104,22 +104,22 @@ private:
   sensor_msgs::Range range_terarangerone_;
   void callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
   RangeFilter *terarangerFilter;
-  int        trg_filter_buffer_size;
-  double     trg_max_valid_altitude;
-  double     trg_filter_max_difference;
-  ros::Time  trg_last_update;
-  double     TrgMaxQ, TrgMinQ, TrgQChangeRate;
+  int          trg_filter_buffer_size;
+  double       trg_max_valid_altitude;
+  double       trg_filter_max_difference;
+  ros::Time    trg_last_update;
+  double       TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
   // Garmin altitude subscriber and callback
   ros::Subscriber    sub_garmin_;
   sensor_msgs::Range range_garmin_;
   void callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
   RangeFilter *garminFilter;
-  int        garmin_filter_buffer_size;
-  double     garmin_max_valid_altitude;
-  double     garmin_filter_max_difference;
-  ros::Time  garmin_last_update;
-  double     GarminMaxQ, GarminMinQ, GarminQChangeRate;
+  int          garmin_filter_buffer_size;
+  double       garmin_max_valid_altitude;
+  double       garmin_filter_max_difference;
+  ros::Time    garmin_last_update;
+  double       GarminMaxQ, GarminMinQ, GarminQChangeRate;
 
   bool got_odom, got_range, got_global_position, got_rtk;
   int  got_rtk_counter;
@@ -292,7 +292,7 @@ void Odometry::onInit() {
   pub_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("new_pose", 1);
 
   // republisher for rtk local
-  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGpsLocal>("rtk_local_out", 1);
+  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
 
   // subscribe for resetting home command
   ser_reset_home_ = nh_.advertiseService("reset_home", &Odometry::callbackResetHome, this);
@@ -1279,199 +1279,199 @@ bool Odometry::callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trig
 
 void Odometry::callbackRtkGps(const sensor_msgs::NavSatFixConstPtr &msg) {
 
-  // convert it to UTM
-  mrs_msgs::RtkGpsLocal msg_utm;
-  mrs_lib::UTM(msg->latitude, msg->longitude, &msg_utm.position.position.x, &msg_utm.position.position.y);
-  msg_utm.header.stamp = msg->header.stamp;
-  msg_utm.header.frame_id = "utm";
+  /* // convert it to UTM */
+  /* mrs_msgs::RtkGps msg_utm; */
+  /* /1* mrs_lib::UTM(msg->latitude, msg->longitude, &msg_utm.position.position.x, &msg_utm.position.position.y); *1/ */
+  /* msg_utm.header.stamp    = msg->header.stamp; */
+  /* msg_utm.header.frame_id = "utm"; */
 
-  if (!std::isfinite(msg->latitude)) {
-    ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->latitude\"!!!");
-    return;
-  }
+  /* if (!std::isfinite(msg->latitude)) { */
+  /*   ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->latitude\"!!!"); */
+  /*   return; */
+  /* } */
 
-  if (!std::isfinite(msg->longitude)) {
-    ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->longitude\"!!!");
-    return;
-  }
+  /* if (!std::isfinite(msg->longitude)) { */
+  /*   ROS_ERROR_THROTTLE(1.0, "NaN detected in variable \"msg->longitude\"!!!"); */
+  /*   return; */
+  /* } */
 
-  if (int(msg->status.status) >= 1 && int(msg->status.status) <= 2) {
-    msg_utm.rtk_fix = true;
-  } else {
-    msg_utm.rtk_fix = false;
-  }
+  /* if (int(msg->status.status) >= 1 && int(msg->status.status) <= 2) { */
+  /*   msg_utm.rtk_fix = true; */
+  /* } else { */
+  /*   msg_utm.rtk_fix = false; */
+  /* } */
 
-  mutex_rtk.lock();
-  {
-    rtk_odom_previous = rtk_odom;
-    rtk_odom          = msg_utm;
+  /* mutex_rtk.lock(); */
+  /* { */
+  /*   rtk_odom_previous = rtk_odom; */
+  /*   rtk_odom          = msg_utm; */
 
-    if (++got_rtk_counter > 2) {
+  /*   if (++got_rtk_counter > 2) { */
 
-      got_rtk = true;
-    }
-  }
-  mutex_rtk.unlock();
+  /*     got_rtk = true; */
+  /*   } */
+  /* } */
+  /* mutex_rtk.unlock(); */
 
-  if (!got_odom || !got_rtk || (set_home_on_start && !got_global_position)) {
+  /* if (!got_odom || !got_rtk || (set_home_on_start && !got_global_position)) { */
 
-    return;
-  }
+  /*   return; */
+  /* } */
 
-  routine_rtk_callback->start();
+  /* routine_rtk_callback->start(); */
 
-  // --------------------------------------------------------------
-  // |                    publish the rtk_local                   |
-  // --------------------------------------------------------------
+  /* // -------------------------------------------------------------- */
+  /* // |                    publish the rtk_local                   | */
+  /* // -------------------------------------------------------------- */
 
-  mrs_msgs::RtkGpsLocal rtk_local_out = msg_utm;
-  rtk_local_out.position.position.x -= home_utm_x;
-  rtk_local_out.position.position.y -= home_utm_y;
-  pub_rtk_local.publish(rtk_local_out);
+  /* mrs_msgs::RtkGps rtk_local_out = msg_utm; */
+  /* rtk_local_out.position.position.x -= home_utm_x; */
+  /* rtk_local_out.position.position.y -= home_utm_y; */
+  /* pub_rtk_local.publish(rtk_local_out); */
 
-  // check whether we have rtk fix
-  got_rtk_fix = msg_utm.rtk_fix;
+  /* // check whether we have rtk fix */
+  /* got_rtk_fix = msg_utm.rtk_fix; */
 
-  // continue to lateral and altitude fusion only when we got a fix
-  if (!got_rtk_fix) {
+  /* // continue to lateral and altitude fusion only when we got a fix */
+  /* if (!got_rtk_fix) { */
 
-    routine_rtk_callback->end();
-    return;
-  }
+  /*   routine_rtk_callback->end(); */
+  /*   return; */
+  /* } */
 
-  if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) {
+  /* if (!std::isfinite(rtk_odom.position.position.x) || !std::isfinite(rtk_odom.position.position.y)) { */
 
-    NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!");
+  /*   NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.x\" or \"rtk_odom.position.jposition.y\" (rtk)!!!"); */
 
-    routine_rtk_callback->end();
-    return;
-  }
+  /*   routine_rtk_callback->end(); */
+  /*   return; */
+  /* } */
 
-  mutex_lateral_kalman.lock();
-  {
-    // fill the measurement vector
-    VectorXd mes2 = VectorXd::Zero(lateral_p);
+  /* mutex_lateral_kalman.lock(); */
+  /* { */
+  /*   // fill the measurement vector */
+  /*   VectorXd mes2 = VectorXd::Zero(lateral_p); */
 
-    double x_correction = 0;
-    double y_correction = 0;
+  /*   double x_correction = 0; */
+  /*   double y_correction = 0; */
 
-    mutex_rtk.lock();
-    {
-      x_correction = rtk_odom.position.position.x - home_utm_x - lateralKalman->getState(0);
-      y_correction = rtk_odom.position.position.y - home_utm_y - lateralKalman->getState(1);
-    }
-    mutex_rtk.unlock();
+  /*   mutex_rtk.lock(); */
+  /*   { */
+  /*     x_correction = rtk_odom.pose.position.x - home_utm_x - lateralKalman->getState(0); */
+  /*     y_correction = rtk_odom.pose.position.y - home_utm_y - lateralKalman->getState(1); */
+  /*   } */
+  /*   mutex_rtk.unlock(); */
 
-    // saturate the x_correction
-    if (!std::isfinite(x_correction)) {
-      x_correction = 0;
-      NODELET_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
-    } else if (x_correction > max_rtk_correction) {
-      x_correction = max_rtk_correction;
-    } else if (x_correction < -max_rtk_correction) {
-      x_correction = -max_rtk_correction;
-    }
+  /*   // saturate the x_correction */
+  /*   if (!std::isfinite(x_correction)) { */
+  /*     x_correction = 0; */
+  /*     NODELET_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!"); */
+  /*   } else if (x_correction > max_rtk_correction) { */
+  /*     x_correction = max_rtk_correction; */
+  /*   } else if (x_correction < -max_rtk_correction) { */
+  /*     x_correction = -max_rtk_correction; */
+  /*   } */
 
-    // saturate the y_correction
-    if (!std::isfinite(y_correction)) {
-      y_correction = 0;
-      NODELET_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
-    } else if (y_correction > max_rtk_correction) {
-      y_correction = max_rtk_correction;
-    } else if (y_correction < -max_rtk_correction) {
-      y_correction = -max_rtk_correction;
-    }
+  /*   // saturate the y_correction */
+  /*   if (!std::isfinite(y_correction)) { */
+  /*     y_correction = 0; */
+  /*     NODELET_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!"); */
+  /*   } else if (y_correction > max_rtk_correction) { */
+  /*     y_correction = max_rtk_correction; */
+  /*   } else if (y_correction < -max_rtk_correction) { */
+  /*     y_correction = -max_rtk_correction; */
+  /*   } */
 
-    mes2 << lateralKalman->getState(0) + x_correction,  // apply offsetting from desired center
-        lateralKalman->getState(1) + y_correction;      // apply offsetting from desired center
+  /*   mes2 << lateralKalman->getState(0) + x_correction,  // apply offsetting from desired center */
+  /*       lateralKalman->getState(1) + y_correction;      // apply offsetting from desired center */
 
-    // set the measurement to kalman filter
-    lateralKalman->setMeasurement(mes2);
+  /*   // set the measurement to kalman filter */
+  /*   lateralKalman->setMeasurement(mes2); */
 
-    lateralKalman->doCorrection();
+  /*   lateralKalman->doCorrection(); */
 
-    NODELET_WARN_ONCE("[Odometry]: fusing RTK GPS");
-  }
-  mutex_lateral_kalman.unlock();
+  /*   NODELET_WARN_ONCE("[Odometry]: fusing RTK GPS"); */
+  /* } */
+  /* mutex_lateral_kalman.unlock(); */
 
-  if (rtk_altitude_enabled) {
+  /* if (rtk_altitude_enabled) { */
 
-    if (!got_rtk_fix) {
+  /*   if (!got_rtk_fix) { */
 
-      rtk_altitude_enabled = false;
-      teraranger_enabled   = true;
-      garmin_enabled       = true;
-      NODELET_WARN("[Odometry]: We lost RTK fix, switching back to fusing teraranger and garmin.");
+  /*     rtk_altitude_enabled = false; */
+  /*     teraranger_enabled   = true; */
+  /*     garmin_enabled       = true; */
+  /*     NODELET_WARN("[Odometry]: We lost RTK fix, switching back to fusing teraranger and garmin."); */
 
-      routine_rtk_callback->end();
-      return;
-    }
+  /*     routine_rtk_callback->end(); */
+  /*     return; */
+  /*   } */
 
-    // ALTITUDE KALMAN FILTER
-    // deside on measurement's covariance
-    MatrixXd mesCov;
-    mesCov = MatrixXd::Zero(altitude_p, altitude_p);
+  /*   // ALTITUDE KALMAN FILTER */
+  /*   // deside on measurement's covariance */
+  /*   MatrixXd mesCov; */
+  /*   mesCov = MatrixXd::Zero(altitude_p, altitude_p); */
 
-    if (!std::isfinite(rtk_odom.position.position.z)) {
+  /*   if (!std::isfinite(rtk_odom.pose.position.z)) { */
 
-      NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.z\" (rtk_altitude)!!!");
+  /*     NODELET_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_odom.position.position.z\" (rtk_altitude)!!!"); */
 
-      routine_rtk_callback->end();
-      return;
-    }
+  /*     routine_rtk_callback->end(); */
+  /*     return; */
+  /*   } */
 
-    //////////////////// update rtk integral ////////////////////
-    // compute the difference
-    double difference = rtk_odom.position.position.z - rtk_odom_previous.position.position.z;
+  /*   //////////////////// update rtk integral //////////////////// */
+  /*   // compute the difference */
+  /*   double difference = rtk_odom.pose.position.z - rtk_odom_previous.pose.position.z; */
 
-    rtk_altitude_integral += difference;
+  /*   rtk_altitude_integral += difference; */
 
-    //////////////////// Compare integral against failsafe kalman ////////////////////
-    if (failsafe_teraranger_kalman->getState(0) < 5) {  // only when near to the ground
+  /*   //////////////////// Compare integral against failsafe kalman //////////////////// */
+  /*   if (failsafe_teraranger_kalman->getState(0) < 5) {  // only when near to the ground */
 
-      // if rtk integral is too above failsafe kalman, switch to fusing teraranger
-      if ((rtk_altitude_integral - failsafe_teraranger_kalman->getState(0)) > rtk_max_down_difference_) {
+  /*     // if rtk integral is too above failsafe kalman, switch to fusing teraranger */
+  /*     if ((rtk_altitude_integral - failsafe_teraranger_kalman->getState(0)) > rtk_max_down_difference_) { */
 
-        rtk_altitude_enabled = false;
-        teraranger_enabled   = true;
-        NODELET_ERROR("[Odometry]: RTK kalman is above failsafe kalman by more than %2.2f m!", rtk_max_down_difference_);
-        NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
+  /*       rtk_altitude_enabled = false; */
+  /*       teraranger_enabled   = true; */
+  /*       NODELET_ERROR("[Odometry]: RTK kalman is above failsafe kalman by more than %2.2f m!", rtk_max_down_difference_); */
+  /*       NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!"); */
 
-        routine_rtk_callback->end();
-        return;
-      }
-    }
+  /*       routine_rtk_callback->end(); */
+  /*       return; */
+  /*     } */
+  /*   } */
 
-    // if rtk integral is too above failsafe kalman, switch to fusing teraranger
-    if (fabs(failsafe_teraranger_kalman->getState(0) - rtk_altitude_integral) > rtk_max_abs_difference_) {
+  /*   // if rtk integral is too above failsafe kalman, switch to fusing teraranger */
+  /*   if (fabs(failsafe_teraranger_kalman->getState(0) - rtk_altitude_integral) > rtk_max_abs_difference_) { */
 
-      rtk_altitude_enabled = false;
-      teraranger_enabled   = true;
-      NODELET_ERROR("[Odometry]: RTK kalman differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
-      NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!");
+  /*     rtk_altitude_enabled = false; */
+  /*     teraranger_enabled   = true; */
+  /*     NODELET_ERROR("[Odometry]: RTK kalman differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_); */
+  /*     NODELET_ERROR("[Odometry]: Switching back to fusing teraranger!"); */
 
-      routine_rtk_callback->end();
-      return;
-    }
+  /*     routine_rtk_callback->end(); */
+  /*     return; */
+  /*   } */
 
-    // set the measurement vector
-    VectorXd mes(1);
-    mes << rtk_altitude_integral;
+  /*   // set the measurement vector */
+  /*   VectorXd mes(1); */
+  /*   mes << rtk_altitude_integral; */
 
-    // set variance of gps measurement
-    mesCov << rtkQ;
+  /*   // set variance of gps measurement */
+  /*   mesCov << rtkQ; */
 
-    mutex_main_altitude_kalman.lock();
-    {
-      main_altitude_kalman->setMeasurement(mes, mesCov);
-      main_altitude_kalman->doCorrection();
-    }
-    mutex_main_altitude_kalman.unlock();
+  /*   mutex_main_altitude_kalman.lock(); */
+  /*   { */
+  /*     main_altitude_kalman->setMeasurement(mes, mesCov); */
+  /*     main_altitude_kalman->doCorrection(); */
+  /*   } */
+  /*   mutex_main_altitude_kalman.unlock(); */
 
-    NODELET_WARN_ONCE("[Odometry]: Fusing rtk altitude");
-  }
+  /*   NODELET_WARN_ONCE("[Odometry]: Fusing rtk altitude"); */
+  /* } */
 
-  routine_rtk_callback->end();
+  /* routine_rtk_callback->end(); */
 }
 
 //}
@@ -1514,7 +1514,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-  
+
   routine_odometry_callback->start();
 
   // use our ros::Time as a time stamp for simulation, fixes problems

@@ -30,7 +30,7 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES Odometry RtkRepublisher
+  LIBRARIES Odometry
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_lib mrs_msgs
   DEPENDS Eigen
   )
@@ -60,10 +60,10 @@ target_link_libraries(Odometry
   range_filter
   )
 
-## Declare a C++ executable
-add_library(RtkRepublisher src/rtk_republisher.cpp)
+# ## Declare a C++ executable
+# add_library(RtkRepublisher src/rtk_republisher.cpp)
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(RtkRepublisher
-  ${catkin_LIBRARIES}
-  )
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(RtkRepublisher
+#   ${catkin_LIBRARIES}
+#   )

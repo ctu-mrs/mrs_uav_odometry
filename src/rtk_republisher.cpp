@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 
-#include <mrs_msgs/RtkGpsLocal.h>
+#include <mrs_msgs/RtkGps.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mutex>
@@ -56,7 +56,7 @@ void RtkRepublisher::onInit() {
   global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::odomCallback, this, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
-  rtk_publisher  = nh_.advertise<mrs_msgs::RtkGpsLocal>("rtk_out", 1);
+  rtk_publisher  = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
   odom_publisher = nh_.advertise<nav_msgs::Odometry>("odometry_out", 1);
 
   // --------------------------------------------------------------
@@ -88,7 +88,7 @@ void RtkRepublisher::odomCallback(const nav_msgs::OdometryConstPtr& msg) {
 
 void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 
-  mrs_msgs::RtkGpsLocal rtk_msg_out;
+  mrs_msgs::RtkGps rtk_msg_out;
 
   if (!got_odom) {
 
@@ -99,12 +99,12 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.header.frame_id = "utm";
   mutex_odom.lock();
   {
-    rtk_msg_out.position = odom.pose.pose;
+    rtk_msg_out.pose = odom.pose.pose;
     rtk_msg_out.velocity = odom.twist.twist;
   }
 
-  rtk_msg_out.position.position.x += offset_x_;
-  rtk_msg_out.position.position.y += offset_y_;
+  rtk_msg_out.pose.position.x += offset_x_;
+  rtk_msg_out.pose.position.y += offset_y_;
 
   rtk_msg_out.rtk_fix = true;
 
