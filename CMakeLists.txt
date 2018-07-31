@@ -60,10 +60,10 @@ target_link_libraries(Odometry
   range_filter
   )
 
-# ## Declare a C++ executable
-# add_library(RtkRepublisher src/rtk_republisher.cpp)
+## Declare a C++ executable
+add_library(RtkRepublisher src/rtk_republisher.cpp)
 
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(RtkRepublisher
-#   ${catkin_LIBRARIES}
-#   )
+## Specify libraries to link a library or executable target against
+target_link_libraries(RtkRepublisher
+  ${catkin_LIBRARIES}
+  )
