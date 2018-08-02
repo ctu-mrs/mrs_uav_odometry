@@ -9,6 +9,8 @@
 namespace mrs_odometry
 {
 
+//{ class RtkRepublisher
+
 class RtkRepublisher : public nodelet::Nodelet {
 
 public:
@@ -16,6 +18,7 @@ public:
 
 private:
   ros::NodeHandle nh_;
+  bool            is_initialized = false;
 
 private:
   // subscribers and publishers
@@ -25,6 +28,8 @@ private:
 
   // publisher rate
   int rate_;
+
+  double offset_x_, offset_y_;
 
   // mutex for locking the position info
   std::mutex mutex_odom;
@@ -36,24 +41,43 @@ private:
   bool               got_odom = false;
 
 private:
-  void odomCallback(const nav_msgs::OdometryConstPtr& msg);
+  void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
   void mainTimer(const ros::TimerEvent& event);
 };
 
-// constructor
+//}
+
+// --------------------------------------------------------------
+// |                      internal routines                     |
+// --------------------------------------------------------------
+
+//{ onInit()
+
 void RtkRepublisher::onInit() {
 
   ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   nh_.param("rate", rate_, -1);
+  nh_.param("offset_x", offset_x_, -10e15);
+  nh_.param("offset_y", offset_y_, -10e15);
 
   if (rate_ < 0) {
-    ROS_INFO("[RtkRepublisher]: the 'rate' parameter was not specified!"); 
+    ROS_INFO("[RtkRepublisher]: the 'rate' parameter was not specified!");
+    return;
+  }
+
+  if (offset_x_ < 0) {
+    ROS_INFO("[RtkRepublisher]: the 'offset_x' parameter was not specified!");
+    return;
+  }
+
+  if (offset_y_ < 0) {
+    ROS_INFO("[RtkRepublisher]: the 'offset_y' parameter was not specified!");
     return;
   }
 
   // SUBSCRIBERS
-  global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::odomCallback, this, ros::TransportHints().tcpNoDelay());
+  global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
   rtk_publisher = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
@@ -65,10 +89,22 @@ void RtkRepublisher::onInit() {
   main_timer = nh_.createTimer(ros::Rate(rate_), &RtkRepublisher::mainTimer, this);
 
   ROS_INFO("[RtkRepublisher]: [%s]: initialized", ros::this_node::getName().c_str());
+
+  is_initialized = true;
 }
 
-// is called every time new Odometry comes in
-void RtkRepublisher::odomCallback(const nav_msgs::OdometryConstPtr& msg) {
+//}
+
+// --------------------------------------------------------------
+// |                          callbacks                         |
+// --------------------------------------------------------------
+
+//{ callbackOdometry()
+
+void RtkRepublisher::callbackOdometry(const nav_msgs::OdometryConstPtr& msg) {
+
+  if (!is_initialized)
+    return;
 
   got_odom = true;
 
@@ -77,7 +113,18 @@ void RtkRepublisher::odomCallback(const nav_msgs::OdometryConstPtr& msg) {
   mutex_odom.unlock();
 }
 
+//}
+
+// --------------------------------------------------------------
+// |                           timers                           |
+// --------------------------------------------------------------
+
+//{ mainTimer()
+
 void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
+
+  if (!is_initialized)
+    return;
 
   mrs_msgs::RtkGps rtk_msg_out;
 
@@ -92,17 +139,21 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   // copy the position, orientation and velocity
   mutex_odom.lock();
   {
-    rtk_msg_out.pose     = odom.pose.pose;
-    rtk_msg_out.velocity = odom.twist.twist;
+    rtk_msg_out.pose  = odom.pose;
+    rtk_msg_out.twist = odom.twist;
   }
   mutex_odom.unlock();
 
-  rtk_msg_out.status.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
+  rtk_msg_out.pose.pose.position.x += offset_x_;
+  rtk_msg_out.pose.pose.position.y += offset_y_;
+
+  rtk_msg_out.status.status     = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
   rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
 
   rtk_publisher.publish(rtk_msg_out);
 }
 
+//}
 }
 
 #include <pluginlib/class_list_macros.h>

@@ -10,7 +10,7 @@
 
       <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
-      <remap from="~rtk_out" to="rtk_gps/local" />
+      <remap from="~rtk_out" to="rtk_gps/global" />
 
     </node>
 
