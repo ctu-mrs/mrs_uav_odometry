@@ -59,10 +59,10 @@ private:
   ros::NodeHandle nh_;
 
 private:
-  ros::Publisher pub_odom_;
-  ros::Publisher pub_slow_odom_;
-  ros::Publisher pub_pose_;
+  ros::Publisher pub_odom_; // the main fused odometry
+  ros::Publisher pub_slow_odom_; // the main fused odometry, just slow
   ros::Publisher pub_rtk_local;
+  ros::Publisher pub_rtk_local_odom;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -505,14 +505,17 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   // publisher for new odometry
-  pub_odom_      = nh_.advertise<nav_msgs::Odometry>("new_odom", 1);
-  pub_slow_odom_ = nh_.advertise<nav_msgs::Odometry>("slow_odom", 1);
-
-  // publisher for new pose
-  pub_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("new_pose", 1);
+  pub_odom_      = nh_.advertise<nav_msgs::Odometry>("new_odom_out", 1);
+  pub_slow_odom_ = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
 
   // republisher for rtk local
-  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local", 1);
+  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
+
+  // republisher for rtk local odometry (e.g. for rviz)
+  pub_rtk_local_odom = nh_.advertise<nav_msgs::Odometry>("rtk_local_odom_out", 1);
+
+  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
+
 
   // publisher for tf
   broadcaster_ = new tf::TransformBroadcaster();
@@ -522,34 +525,34 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   // subscriber to odometry and rangefinder topics
-  sub_pixhawk_ = nh_.subscribe("pixhawk_odom", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
+  sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for terarangers range
-  sub_terarangerone_ = nh_.subscribe("terarangerone", 1, &Odometry::callbackTeraranger, this, ros::TransportHints().tcpNoDelay());
+  sub_terarangerone_ = nh_.subscribe("teraranger_in", 1, &Odometry::callbackTeraranger, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for garmin range
-  sub_garmin_ = nh_.subscribe("garmin", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
+  sub_garmin_ = nh_.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for differential gps
   rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for utm coordinates
-  sub_global_position_ = nh_.subscribe("global_position", 1, &Odometry::callbackGlobalPosition, this, ros::TransportHints().tcpNoDelay());
+  sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackGlobalPosition, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for tracker status
-  sub_tracker_status_ = nh_.subscribe("tracker_status", 1, &Odometry::callbackTrackerStatus, this, ros::TransportHints().tcpNoDelay());
+  sub_tracker_status_ = nh_.subscribe("tracker_status_in", 1, &Odometry::callbackTrackerStatus, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for averaging service
-  ser_averaging_ = nh_.advertiseService("average_current_position", &Odometry::callbackAveraging, this);
+  ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
 
   // subscribe for garmin toggle service
-  ser_garmin_ = nh_.advertiseService("toggle_garmin", &Odometry::callbackToggleGarmin, this);
+  ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
 
   // toggling fusing of rtk altitude
-  ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude", &Odometry::callbackToggleRtkHeight, this);
+  ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude_in", &Odometry::callbackToggleRtkHeight, this);
 
   // subscribe for resetting home command
-  ser_reset_home_ = nh_.advertiseService("reset_home", &Odometry::callbackResetHome, this);
+  ser_reset_home_ = nh_.advertiseService("reset_home_in", &Odometry::callbackResetHome, this);
 
   // subscriber for object altitude
   /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &Odometry::callbackObjectHeight, this, ros::TransportHints().tcpNoDelay()); */
@@ -757,19 +760,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // publish the odometry
   try {
-    pub_odom_.publish(new_odom);
+    pub_odom_.publish(boost::shared_ptr<nav_msgs::Odometry>(new nav_msgs::Odometry(new_odom)));
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
-  }
-
-  // publish the pose
-  newPose.pose = new_odom.pose.pose;
-  try {
-    pub_pose_.publish(newPose);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_pose_.getTopic().c_str());
   }
 
   // publish TF
@@ -796,14 +790,14 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  nav_msgs::Odometry temp_odom;
+  nav_msgs::Odometry slow_odom;
 
   mutex_shared_odometry.lock();
-  { temp_odom = shared_odom; }
+  { slow_odom = shared_odom; }
   mutex_shared_odometry.unlock();
 
   try {
-    pub_slow_odom_.publish(temp_odom);
+    pub_slow_odom_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(slow_odom)));
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
@@ -1369,14 +1363,32 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   routine_rtk_callback->start();
 
   // | ------------- offset the rtk to local_origin ------------- |
-
   rtk_local.pose.pose.position.x -= home_utm_x;
   rtk_local.pose.pose.position.y -= home_utm_y;
 
   rtk_local.header.frame_id = "local_origin";
 
-  // publish the rtk_local
-  pub_rtk_local.publish(rtk_local);
+  // | ------------------ publish the rtk local ----------------- |
+  mrs_msgs::RtkGps rtk_local_out = rtk_local;
+
+  try {
+    pub_rtk_local.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_local_out)));
+  } catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local.getTopic().c_str());
+  }
+  // | ------------- publish the rtk local odometry ------------- |
+  nav_msgs::Odometry rtk_local_odom_out;
+  rtk_local_odom_out.header = rtk_local.header;
+  rtk_local_odom_out.pose = rtk_local.pose;
+  rtk_local_odom_out.twist = rtk_local.twist;
+
+  try {
+    pub_rtk_local_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(rtk_local_odom_out)));
+  } catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom.getTopic().c_str());
+  }
+
+  // | ----------------------------- --------------------------- |
 
   // check whether we have rtk fix
   got_rtk_fix = (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;

@@ -150,7 +150,11 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.status.status     = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
   rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
 
-  rtk_publisher.publish(rtk_msg_out);
+  try {
+    rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));
+  } catch (...) {
+    ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", rtk_publisher.getTopic().c_str());
+  }
 }
 
 //}
