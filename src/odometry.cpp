@@ -59,8 +59,8 @@ private:
   ros::NodeHandle nh_;
 
 private:
-  ros::Publisher pub_odom_; // the main fused odometry
-  ros::Publisher pub_slow_odom_; // the main fused odometry, just slow
+  ros::Publisher pub_odom_;       // the main fused odometry
+  ros::Publisher pub_slow_odom_;  // the main fused odometry, just slow
   ros::Publisher pub_rtk_local;
   ros::Publisher pub_rtk_local_odom;
 
@@ -103,27 +103,30 @@ private:
   nav_msgs::Odometry shared_odom;
   std::mutex         mutex_shared_odometry;
 
+  nav_msgs::Odometry rtk_local_odom;
+  std::mutex         mutex_rtk_local_odom;
+
   // Teraranger altitude subscriber and callback
   ros::Subscriber    sub_terarangerone_;
   sensor_msgs::Range range_terarangerone_;
-  void callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
-  RangeFilter *terarangerFilter;
-  int          trg_filter_buffer_size;
-  double       trg_max_valid_altitude;
-  double       trg_filter_max_difference;
-  ros::Time    trg_last_update;
-  double       TrgMaxQ, TrgMinQ, TrgQChangeRate;
+  void               callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
+  RangeFilter *      terarangerFilter;
+  int                trg_filter_buffer_size;
+  double             trg_max_valid_altitude;
+  double             trg_filter_max_difference;
+  ros::Time          trg_last_update;
+  double             TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
   // Garmin altitude subscriber and callback
   ros::Subscriber    sub_garmin_;
   sensor_msgs::Range range_garmin_;
-  void callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-  RangeFilter *garminFilter;
-  int          garmin_filter_buffer_size;
-  double       garmin_max_valid_altitude;
-  double       garmin_filter_max_difference;
-  ros::Time    garmin_last_update;
-  double       GarminMaxQ, GarminMinQ, GarminQChangeRate;
+  void               callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
+  RangeFilter *      garminFilter;
+  int                garmin_filter_buffer_size;
+  double             garmin_max_valid_altitude;
+  double             garmin_filter_max_difference;
+  ros::Time          garmin_last_update;
+  double             GarminMaxQ, GarminMinQ, GarminQChangeRate;
 
   bool got_odom, got_range, got_global_position, got_rtk;
   int  got_rtk_counter;
@@ -136,9 +139,9 @@ private:
 
   // subscribing to tracker status
   mrs_msgs::TrackerStatus tracker_status;
-  void callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg);
-  bool got_tracker_status;
-  bool isUavFlying();
+  void                    callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg);
+  bool                    got_tracker_status;
+  bool                    isUavFlying();
 
   // offset to adjust the local origin
   double local_origin_offset_x, local_origin_offset_y;
@@ -164,13 +167,14 @@ private:
   int    averaging_num_samples;
   void   startAveraging();
   int    averaging_got_samples;
-  bool callbackAveraging(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool got_home_position_fix;
+  bool   callbackAveraging(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool   got_home_position_fix;
 
   bool odometry_published;
 
   // use differential gps
-  bool   use_differential_gps;
+  bool   use_differential_gps = false;
+  bool   pass_rtk_as_new_odom = false;
   double max_rtk_correction;
   double max_altitude_correction_;
 
@@ -180,8 +184,8 @@ private:
 
   ros::Timer slow_odom_timer;
   int        slow_odom_rate;
-  void slowOdomTimer(const ros::TimerEvent &event);
-  void rtkRateTimer(const ros::TimerEvent &event);
+  void       slowOdomTimer(const ros::TimerEvent &event);
+  void       rtkRateTimer(const ros::TimerEvent &event);
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -198,7 +202,7 @@ private:
 
 private:
   ros::Timer main_timer;
-  void mainTimer(const ros::TimerEvent &event);
+  void       mainTimer(const ros::TimerEvent &event);
 
 private:
   mrs_lib::Profiler *profiler;
@@ -260,7 +264,7 @@ void Odometry::onInit() {
   got_home_position_fix = false;
   got_rtk_counter       = 0;
 
-// got_object_altitude = false;
+  // got_object_altitude = false;
 
 #if USE_TERARANGER == 1
   got_range = false;
@@ -426,9 +430,9 @@ void Odometry::onInit() {
   A2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
   if (lateral_m > 0)
     B2 = Eigen::MatrixXd::Zero(lateral_n, lateral_m);
-  R2   = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
-  Q2   = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
-  P2   = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  R2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
+  Q2 = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  P2 = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
 
   tempIdx = 0;
   nh_.getParam("lateral/A", tempList);
@@ -477,9 +481,15 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
 
   // use differential gps
-  nh_.param("useDifferentialGps", use_differential_gps, false);
+  nh_.param("use_differential_gps", use_differential_gps, false);
+  nh_.param("pass_rtk_as_new_odom", pass_rtk_as_new_odom, false);
   nh_.param("max_rtk_correction", max_rtk_correction, 0.5);
   nh_.param("max_altitude_correction", max_altitude_correction_, 0.5);
+
+  if (pass_rtk_as_new_odom && !use_differential_gps) {
+    ROS_ERROR("[Odometry]: cant have pass_rtk_as_new_odom TRUE when use_differential_gps FALSE"); 
+    ros::shutdown();
+  }
 
   ROS_INFO("[Odometry]: Differential GPS %s", use_differential_gps ? "enabled" : "disabled");
 
@@ -754,13 +764,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     new_odom.pose.pose.position.y += local_origin_offset_y;
   }
 
+  // publish the odometry
+  if (pass_rtk_as_new_odom) {
+    mutex_rtk_local_odom.lock();
+    {
+      new_odom = rtk_local_odom;
+    }
+    mutex_rtk_local_odom.unlock();
+  }
+
   mutex_shared_odometry.lock();
   { shared_odom = new_odom; }
   mutex_shared_odometry.unlock();
 
-  // publish the odometry
   try {
-    pub_odom_.publish(boost::shared_ptr<nav_msgs::Odometry>(new nav_msgs::Odometry(new_odom)));
+    pub_odom_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(new_odom)));
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
@@ -1373,20 +1391,25 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
   try {
     pub_rtk_local.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_local_out)));
-  } catch (...) {
+  }
+  catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local.getTopic().c_str());
   }
   // | ------------- publish the rtk local odometry ------------- |
-  nav_msgs::Odometry rtk_local_odom_out;
-  rtk_local_odom_out.header = rtk_local.header;
-  rtk_local_odom_out.pose = rtk_local.pose;
-  rtk_local_odom_out.twist = rtk_local.twist;
-
-  try {
-    pub_rtk_local_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(rtk_local_odom_out)));
-  } catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom.getTopic().c_str());
+  mutex_rtk_local_odom.lock();
+  {
+    rtk_local_odom.header = rtk_local.header;
+    rtk_local_odom.pose   = rtk_local.pose;
+    rtk_local_odom.twist  = rtk_local.twist;
+    
+    try {
+      pub_rtk_local_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(rtk_local_odom)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom.getTopic().c_str());
+    }
   }
+  mutex_rtk_local_odom.unlock();
 
   // | ----------------------------- --------------------------- |
 
@@ -1807,7 +1830,7 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 }
 
 //}
-}
+}  // namespace mrs_odometry
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_odometry::Odometry, nodelet::Nodelet)
