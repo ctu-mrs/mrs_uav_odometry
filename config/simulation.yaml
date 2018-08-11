@@ -48,13 +48,9 @@ altitude:
   GarminMinQ: 0.5
 
   # rate for changing the measurement covariance
-  TrgQChangeRate: 1000
-  GarminQChangeRate: 1000
-
-  # rate for changing the measurement covariance
   TrgQChangeRate: 1000  
   GarminQChangeRate: 1000  
-  
+
   rtkQ: 0.1
   # objectQ: 0.1
 
