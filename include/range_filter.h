@@ -13,7 +13,7 @@ public:
   double getValue(double input, ros::Duration interval);
 
 private:
-  bool isValid(double input, ros::Duration interval);
+  bool                isValid(double input, ros::Duration interval);
   std::vector<double> buffer;
   int                 buffer_size;
   int                 next;

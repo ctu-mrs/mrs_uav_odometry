@@ -487,7 +487,7 @@ void Odometry::onInit() {
   nh_.param("max_altitude_correction", max_altitude_correction_, 0.5);
 
   if (pass_rtk_as_new_odom && !use_differential_gps) {
-    ROS_ERROR("[Odometry]: cant have pass_rtk_as_new_odom TRUE when use_differential_gps FALSE"); 
+    ROS_ERROR("[Odometry]: cant have pass_rtk_as_new_odom TRUE when use_differential_gps FALSE");
     ros::shutdown();
   }
 
@@ -767,9 +767,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // publish the odometry
   if (pass_rtk_as_new_odom) {
     mutex_rtk_local_odom.lock();
-    {
-      new_odom = rtk_local_odom;
-    }
+    { new_odom = rtk_local_odom; }
     mutex_rtk_local_odom.unlock();
   }
 
@@ -1401,7 +1399,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_local_odom.header = rtk_local.header;
     rtk_local_odom.pose   = rtk_local.pose;
     rtk_local_odom.twist  = rtk_local.twist;
-    
+
     try {
       pub_rtk_local_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(rtk_local_odom)));
     }

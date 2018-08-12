@@ -15,7 +15,7 @@ RangeFilter::RangeFilter(int buffer_size, double trg_max_valid_altitude, double 
   this->buffer_size = buffer_size;
 
   buffer.resize(buffer_size);
-  next      = 0;
+  next = 0;
   ROS_INFO("[RangeFilter]: initialized, buffer size: %d", buffer_size);
 }
 

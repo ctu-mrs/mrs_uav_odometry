@@ -152,13 +152,14 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 
   try {
     rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));
-  } catch (...) {
+  }
+  catch (...) {
     ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", rtk_publisher.getTopic().c_str());
   }
 }
 
 //}
-}
+}  // namespace mrs_odometry
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_odometry::RtkRepublisher, nodelet::Nodelet)
