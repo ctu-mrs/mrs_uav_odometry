@@ -7,7 +7,8 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-useDifferentialGps: true
+use_differential_gps: false
+pass_rtk_as_new_odom: false # dangerous outside simulation!
 max_rtk_correction: 0.25 # [m]
 max_altitude_correction: 0.25 # [m]
 
@@ -26,15 +27,6 @@ trgFilterMaxDifference: 3.0
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
-
-orientationOffset:
-
-  enabled: false
-
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  w: 0.0
 
 altitude:
 
@@ -56,13 +48,9 @@ altitude:
   GarminMinQ: 0.5
 
   # rate for changing the measurement covariance
-  TrgQChangeRate: 1000
-  GarminQChangeRate: 1000
-
-  # rate for changing the measurement covariance
   TrgQChangeRate: 1000  
   GarminQChangeRate: 1000  
-  
+
   rtkQ: 0.1
   # objectQ: 0.1
 

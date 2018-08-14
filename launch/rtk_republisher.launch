@@ -4,13 +4,13 @@
 
   <group ns="$(arg uav_name)">
 
-    <node name="rtk_republisher" pkg="mrs_odometry" type="rtk_republisher" output="screen" >
-      
+    <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="load mrs_odometry/RtkRepublisher $(arg uav_name)_nodelet_manager" output="screen">
+
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
 
-      <!-- Subscribers --> 
+      <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
-      <remap from="~rtk_out" to="rtk_gps/local" />
+      <remap from="~rtk_out" to="rtk_gps/global" />
 
     </node>
 
