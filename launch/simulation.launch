@@ -34,6 +34,7 @@
 
       <!-- Services -->
       <remap from="~toggle_teraranger_in" to="~toggle_teraranger" />
+      <remap from="~toggle_garmin_in" to="~toggle_garmin" />
       <remap from="~toggle_rtk_altitude_in" to="~toggle_rtk_altitude" />
 
     </node>
