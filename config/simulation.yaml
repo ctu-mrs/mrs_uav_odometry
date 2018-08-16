@@ -7,8 +7,8 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-use_differential_gps: false
-pass_rtk_as_new_odom: false # dangerous outside simulation!
+use_differential_gps: true
+pass_rtk_as_new_odom: true # dangerous outside simulation!
 max_rtk_correction: 0.25 # [m]
 max_altitude_correction: 0.25 # [m]
 

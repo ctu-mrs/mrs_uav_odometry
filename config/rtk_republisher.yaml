@@ -1,4 +1,4 @@
-rate: 20 # [Hz]
+rate: 100 # [Hz]
 
 offset_x: 465710.758973
 offset_y: 5249465.43086
