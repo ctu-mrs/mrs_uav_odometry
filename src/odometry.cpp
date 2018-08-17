@@ -1346,7 +1346,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     mrs_lib::UTM(msg->gps.latitude, msg->gps.longitude, &rtk_utm.pose.pose.position.x, &rtk_utm.pose.pose.position.y);
     rtk_utm.header.frame_id      = "utm";
     rtk_utm.pose.pose.position.z = msg->gps.altitude;
-    rtk_utm.pose.covariance      = msg->gps.covariance;
+    // | ----------------------- #TODO fixme ---------------------- |
+    /* rtk_utm.pose.covariance      = msg->gps.covariance; */ 
     rtk_utm.fix_type             = msg->fix_type;
     rtk_utm.status               = msg->status;
 
