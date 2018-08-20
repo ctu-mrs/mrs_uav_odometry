@@ -1,9 +1,12 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
+#include <dynamic_reconfigure/server.h>
 
 #include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+
+#include <mavros_msgs/AttitudeTarget.h>
 
 #include <nav_msgs/Odometry.h>
 
@@ -23,6 +26,7 @@
 #include <mrs_lib/GpsConversions.h>
 
 #include <range_filter.h>
+#include "mrs_odometry/lkfConfig.h"
 
 #include "tf/LinearMath/Transform.h"
 #include <tf/transform_broadcaster.h>
@@ -34,8 +38,9 @@
 #include <mutex>
 #include <stdexcept>
 
-#define USE_TERARANGER 1
+#define USE_RANGEFINDER 1
 #define STRING_EQUAL 0
+#define btoa(x) ((x) ? "true" : "false")
 
 namespace mrs_odometry
 {
@@ -55,6 +60,15 @@ public:
 private:
   std::string uav_name;
   bool        simulation_;
+  bool        _rosbag;
+  bool        use_gt_orientation_;
+  bool        _fuse_rtk_position;
+  bool        _fuse_icp_position;
+  bool        _fuse_mavros_velocity;
+  bool        _fuse_optflow_velocity;
+  bool        _fuse_icp_velocity;
+  bool        _fuse_mavros_tilts;
+  bool        _publish_fused_odom;
 
   ros::NodeHandle nh_;
 
@@ -63,6 +77,9 @@ private:
   ros::Publisher pub_slow_odom_;  // the main fused odometry, just slow
   ros::Publisher pub_rtk_local;
   ros::Publisher pub_rtk_local_odom;
+  ros::Publisher pub_orientation_gt_;
+  ros::Publisher pub_orientation_mavros_;
+  ros::Publisher pub_target_attitude_global_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -70,35 +87,90 @@ private:
 
   // Pixhawk odometry subscriber and callback
   ros::Subscriber sub_pixhawk_;
+  ros::Subscriber sub_optflow_;
   ros::Subscriber rtk_gps_sub_;
+  ros::Subscriber icp_relative_sub_;
+  ros::Subscriber icp_global_sub_;
+  ros::Subscriber sub_target_attitude_;
+  ros::Subscriber sub_ground_truth_;
 
 private:
   ros::ServiceServer ser_reset_home_;
+  ros::ServiceServer ser_reset_lateral_kalman_;
   ros::ServiceServer ser_averaging_;
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
   ros::ServiceServer ser_toggle_rtk_altitude;
+  ros::ServiceServer ser_toggle_rtk_pos_fusion;
+  ros::ServiceServer ser_toggle_icp_pos_fusion;
+  ros::ServiceServer ser_toggle_icp_vel_fusion;
+  ros::ServiceServer ser_toggle_mavros_vel_fusion;
+  ros::ServiceServer ser_toggle_mavros_tilts_fusion;
 
 private:
   tf::TransformBroadcaster *broadcaster_;
 
+  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server;
+  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f;
+
   nav_msgs::Odometry odom_pixhawk;
   std::mutex         mutex_odom;
-  nav_msgs::Odometry odom_pixhawk_previous_;
+  nav_msgs::Odometry odom_pixhawk_previous;
   ros::Time          odom_pixhawk_last_update;
 
+  nav_msgs::Odometry odom_optflow;
+  std::mutex         mutex_optflow;
+  nav_msgs::Odometry odom_optflow_previous;
+  ros::Time          odom_optflow_last_update;
+
+  geometry_msgs::Vector3Stamped orientation_mavros;
+  geometry_msgs::Vector3Stamped orientation_gt;
+
+  mavros_msgs::AttitudeTarget target_attitude;
+  mavros_msgs::AttitudeTarget target_attitude_previous;
+  std::mutex                  mutex_target_attitude;
+
   std::mutex       mutex_rtk;
+  mrs_msgs::RtkGps rtk_odom_previous;
+  mrs_msgs::RtkGps rtk_odom;
+
+  std::mutex         mutex_icp;
+  nav_msgs::Odometry icp_odom;
+  nav_msgs::Odometry icp_odom_previous;
+
+  std::mutex         mutex_icp_global;
+  nav_msgs::Odometry icp_global_odom;
+  nav_msgs::Odometry icp_global_odom_previous;
+
+  std::mutex         mutex_ground_truth;
+  nav_msgs::Odometry ground_truth;
+
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
+  void callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
   bool callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackResetLateralKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+
+
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
 
+  void callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg);
+  void callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg);
+  void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
+  void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
+  void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
+  void getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
   std::mutex         mutex_shared_odometry;
@@ -128,9 +200,13 @@ private:
   ros::Time          garmin_last_update;
   double             GarminMaxQ, GarminMinQ, GarminQChangeRate;
 
-  bool got_odom, got_range, got_global_position, got_rtk;
+  bool got_odom, got_optflow, got_range, got_global_position, got_rtk, got_icp, got_icp_global, got_target_attitude;
+  int  got_icp_counter;
+  int  got_icp_global_counter;
   int  got_rtk_counter;
   bool got_rtk_fix;
+
+  geometry_msgs::Vector3Stamped target_attitude_global;
 
   // for setting home position
   bool   set_home_on_start;
@@ -156,9 +232,11 @@ private:
 
   // lateral kalman
   int             lateral_n, lateral_m, lateral_p;
-  Eigen::MatrixXd A2, B2, R2, Q2, P2;
-  mrs_lib::Lkf *  lateralKalman;
-  std::mutex      mutex_lateral_kalman;
+  Eigen::MatrixXd A2, B2, R2, Q2, P2, P_vel, P_pos, P_ang;
+  Eigen::MatrixXd Q_pos_rtk, Q_pos_icp, Q_vel_icp, Q_vel_mavros, Q_vel_optflow, Q_ang;
+  mrs_lib::Lkf *  lateralKalmanX;
+  mrs_lib::Lkf *  lateralKalmanY;
+  std::mutex      mutex_lateral_kalman_x, mutex_lateral_kalman_y;
 
   // averaging of home position
   double gpos_average_x, gpos_average_y;
@@ -210,6 +288,9 @@ private:
   mrs_lib::Routine * routine_odometry_callback;
   mrs_lib::Routine * routine_garmin_callback;
   mrs_lib::Routine * routine_rtk_callback;
+  mrs_lib::Routine * routine_icp_callback;
+  mrs_lib::Routine * routine_icp_global_callback;
+
 
 private:
   // ############### stuff for adding another source of altitude data ###############
@@ -257,6 +338,7 @@ void Odometry::onInit() {
 
   odometry_published    = false;
   got_odom              = false;
+  got_optflow           = false;
   got_rtk               = false;
   got_rtk_fix           = false;
   got_global_position   = false;
@@ -266,7 +348,7 @@ void Odometry::onInit() {
 
   // got_object_altitude = false;
 
-#if USE_TERARANGER == 1
+#if USE_RANGEFINDER == 1
   got_range = false;
 #else
   got_range = true;
@@ -426,13 +508,58 @@ void Odometry::onInit() {
   nh_.param("lateral/numberOfVariables", lateral_n, -1);
   nh_.param("lateral/numberOfInputs", lateral_m, -1);
   nh_.param("lateral/numberOfMeasurements", lateral_p, -1);
+  nh_.param("lateral/fuse_rtk_position", _fuse_rtk_position, true);
+  nh_.param("lateral/fuse_icp_position", _fuse_icp_position, true);
+  nh_.param("lateral/fuse_mavros_velocity", _fuse_mavros_velocity, true);
+  nh_.param("lateral/fuse_optflow_velocity", _fuse_optflow_velocity, true);
+  nh_.param("lateral/fuse_icp_velocity", _fuse_icp_velocity, true);
+  nh_.param("lateral/fuse_mavros_tilts", _fuse_mavros_tilts, true);
+  ROS_INFO(
+      "Fusing measurements:\nRTK position:\t\t%s\nICP position:\t\t%s\nMavros velocity:\t%s\nOptflow velocity:\t%s\nICP velocity:\t\t%s\nMavros tilts:\t\t%s",
+      btoa(_fuse_rtk_position), btoa(_fuse_icp_position), btoa(_fuse_mavros_velocity), btoa(_fuse_optflow_velocity), btoa(_fuse_icp_velocity),
+      btoa(_fuse_mavros_tilts));
 
   A2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
   if (lateral_m > 0)
     B2 = Eigen::MatrixXd::Zero(lateral_n, lateral_m);
-  R2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
-  Q2 = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
-  P2 = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  R2            = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
+  Q2            = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  P2            = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  P_pos         = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  P_vel         = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  P_ang         = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
+  Q_pos_rtk     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_pos_icp     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_vel_mavros  = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_vel_optflow = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_vel_icp     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_ang         = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+
+  P_pos(0, 0) = 1;
+  P_vel(0, 1) = 1;
+  P_ang(0, 5) = 1;
+
+  // start dynamic reconfigure server
+  f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
+  server.setCallback(f);
+
+  nh_.getParam("lateral/Q_pos_rtk", tempList);
+  Q_pos_rtk(0, 0) = tempList[0];
+
+  nh_.getParam("lateral/Q_pos_icp", tempList);
+  Q_pos_icp(0, 0) = tempList[0];
+
+  nh_.getParam("lateral/Q_vel_mavros", tempList);
+  Q_vel_mavros(0, 0) = tempList[0];
+
+  nh_.getParam("lateral/Q_vel_optflow", tempList);
+  Q_vel_optflow(0, 0) = tempList[0];
+
+  nh_.getParam("lateral/Q_vel_icp", tempList);
+  Q_vel_icp(0, 0) = tempList[0];
+
+  nh_.getParam("lateral/Q_ang", tempList);
+  Q_ang(0, 0) = tempList[0];
 
   tempIdx = 0;
   nh_.getParam("lateral/A", tempList);
@@ -476,12 +603,14 @@ void Odometry::onInit() {
     }
   }
 
-  lateralKalman = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
+  lateralKalmanX = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
+  lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q2, P2);
 
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
 
   // use differential gps
   nh_.param("use_differential_gps", use_differential_gps, false);
+  nh_.param("publish_fused_odom", _publish_fused_odom, false);
   nh_.param("pass_rtk_as_new_odom", pass_rtk_as_new_odom, false);
   nh_.param("max_rtk_correction", max_rtk_correction, 0.5);
   nh_.param("max_altitude_correction", max_altitude_correction_, 0.5);
@@ -530,12 +659,23 @@ void Odometry::onInit() {
   // publisher for tf
   broadcaster_ = new tf::TransformBroadcaster();
 
+  // publishers for roll pitch yaw orientations in local_origin frame
+  pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global", 1);
+  pub_orientation_gt_         = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt", 1);
+  pub_orientation_mavros_     = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros", 1);
+
   // --------------------------------------------------------------
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
-  // subscriber to odometry and rangefinder topics
+  // subsribe to target attitude
+  sub_target_attitude_ = nh_.subscribe("target_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
+
+  // subscriber to mavros odometry
   sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
+
+  // subscriber to optflow odometry
+  sub_optflow_ = nh_.subscribe("optflow_odom_in", 1, &Odometry::callbackOptflowOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for terarangers range
   sub_terarangerone_ = nh_.subscribe("teraranger_in", 1, &Odometry::callbackTeraranger, this, ros::TransportHints().tcpNoDelay());
@@ -544,7 +684,22 @@ void Odometry::onInit() {
   sub_garmin_ = nh_.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for differential gps
-  rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
+  if (use_differential_gps) {
+    rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
+  }
+
+  // subscriber for ground truth
+  sub_ground_truth_ = nh_.subscribe("ground_truth_in", 1, &Odometry::callbackGroundTruth, this, ros::TransportHints().tcpNoDelay());
+
+  // subscriber for icp relative odometry
+  if (_fuse_icp_velocity) {
+    icp_relative_sub_ = nh_.subscribe("icp_relative_in", 1, &Odometry::callbackIcpRelative, this, ros::TransportHints().tcpNoDelay());
+  }
+
+  // subscriber for icp global odometry
+  if (_fuse_icp_position) {
+    icp_global_sub_ = nh_.subscribe("icp_absolute_in", 1, &Odometry::callbackIcpAbsolute, this, ros::TransportHints().tcpNoDelay());
+  }
 
   // subscribe for utm coordinates
   sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackGlobalPosition, this, ros::TransportHints().tcpNoDelay());
@@ -561,8 +716,26 @@ void Odometry::onInit() {
   // toggling fusing of rtk altitude
   ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude_in", &Odometry::callbackToggleRtkHeight, this);
 
+  // toggling fusing of rtk position
+  ser_toggle_rtk_pos_fusion = nh_.advertiseService("toggle_rtk_pos_fusion_in", &Odometry::callbackToggleRtkPosition, this);
+
+  // toggling fusing of icp position
+  ser_toggle_icp_pos_fusion = nh_.advertiseService("toggle_icp_pos_fusion_in", &Odometry::callbackToggleIcpPosition, this);
+
+  // toggling fusing of icp velocity
+  ser_toggle_icp_vel_fusion = nh_.advertiseService("toggle_icp_vel_fusion_in", &Odometry::callbackToggleIcpVelocity, this);
+
+  // toggling fusing of mavros velocity
+  ser_toggle_mavros_vel_fusion = nh_.advertiseService("toggle_mavros_vel_fusion_in", &Odometry::callbackToggleMavrosVelocity, this);
+
+  // toggling fusing of mavros tilts
+  ser_toggle_mavros_tilts_fusion = nh_.advertiseService("toggle_mavros_tilts_fusion_in", &Odometry::callbackToggleMavrosTilts, this);
+
   // subscribe for resetting home command
   ser_reset_home_ = nh_.advertiseService("reset_home_in", &Odometry::callbackResetHome, this);
+
+  // subscribe for resetting lateral kalman filter command
+  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetLateralKalman, this);
 
   // subscriber for object altitude
   /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &Odometry::callbackObjectHeight, this, ros::TransportHints().tcpNoDelay()); */
@@ -724,7 +897,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::PoseStamped newPose;
   newPose.header = new_odom.header;
 
-#if USE_TERARANGER == 1
+#if USE_RANGEFINDER == 1
   // update the altitude state
   mutex_main_altitude_kalman.lock();
   { new_odom.pose.pose.position.z = main_altitude_kalman->getState(0); }
@@ -739,24 +912,26 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
 
-    mutex_lateral_kalman.lock();
-    {
-      lateralKalman->setState(0, new_odom.pose.pose.position.x + local_origin_offset_x);
-      lateralKalman->setState(1, new_odom.pose.pose.position.y + local_origin_offset_y);
-    }
-    mutex_lateral_kalman.unlock();
+    mutex_lateral_kalman_x.lock();
+    { lateralKalmanX->setState(0, new_odom.pose.pose.position.x + local_origin_offset_x); }
+    mutex_lateral_kalman_x.unlock();
+    mutex_lateral_kalman_y.lock();
+    { lateralKalmanY->setState(0, new_odom.pose.pose.position.y + local_origin_offset_y); }
+    mutex_lateral_kalman_y.unlock();
+
     odometry_published = true;
   }
 
   // when using differential gps, get the position states from lateralKalman
-  if (use_differential_gps) {
+  if (_publish_fused_odom) {
 
-    mutex_lateral_kalman.lock();
-    {
-      new_odom.pose.pose.position.x = lateralKalman->getState(0);
-      new_odom.pose.pose.position.y = lateralKalman->getState(1);
-    }
-    mutex_lateral_kalman.unlock();
+    mutex_lateral_kalman_x.lock();
+    { new_odom.pose.pose.position.x = lateralKalmanX->getState(0); }
+    mutex_lateral_kalman_x.unlock();
+
+    mutex_lateral_kalman_y.lock();
+    { new_odom.pose.pose.position.y = lateralKalmanY->getState(0); }
+    mutex_lateral_kalman_y.unlock();
 
   } else {
 
@@ -845,6 +1020,140 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 // --------------------------------------------------------------
 // |                          callbacks                         |
 // --------------------------------------------------------------
+
+//{ callbackTargetAttitude()
+void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
+
+  ros::Time target_attitude_time = ros::Time::now();
+  int       sec                  = target_attitude_time.toSec();
+  int       nsec                 = target_attitude_time.toNSec() - sec * 1e9;
+
+  if (got_target_attitude) {
+
+    mutex_target_attitude.lock();
+    {
+      target_attitude_previous          = target_attitude;
+      target_attitude.header.stamp.sec  = sec;
+      target_attitude.header.stamp.nsec = nsec;
+      target_attitude                   = *msg;
+    }
+    mutex_target_attitude.unlock();
+
+  } else {
+
+    mutex_target_attitude.lock();
+    {
+      target_attitude                   = *msg;
+      target_attitude.header.stamp.sec  = sec;
+      target_attitude.header.stamp.nsec = nsec;
+      target_attitude_previous          = *msg;
+    }
+    mutex_target_attitude.unlock();
+
+    got_target_attitude = true;
+  }
+
+  // compute the time between two last odometries
+  ros::Duration interval2;
+  mutex_target_attitude.lock();
+  { interval2 = target_attitude.header.stamp - target_attitude_previous.header.stamp; }
+  mutex_target_attitude.unlock();
+
+  if (fabs(interval2.toSec()) < 0.001) {
+
+    ROS_WARN("Attitude messages came within 0.001 s");
+    return;
+  }
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  // rotations in inertial frame
+  double rot_x, rot_y, rot_z;
+  mutex_target_attitude.lock();
+  { getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); }
+  // For model testing
+  /* { getGlobalRot(ground_truth.pose.pose.orientation, rot_x, rot_y, rot_z); } */
+  mutex_target_attitude.unlock();
+  target_attitude_global.header   = target_attitude.header;
+  target_attitude_global.vector.x = rot_x;
+  target_attitude_global.vector.y = rot_y;
+  target_attitude_global.vector.z = rot_z;
+  pub_target_attitude_global_.publish(target_attitude_global);
+
+  // x prediction
+  mutex_lateral_kalman_x.lock();
+  {
+    // set the input vector
+    Eigen::VectorXd input;
+    input = Eigen::VectorXd::Zero(lateral_m);
+    input << rot_y;
+
+    if (!std::isfinite(input(0, 0))) {
+      ROS_WARN_THROTTLE(1, "NaN detected in pitch!!! setting to 0.0");
+      input << 0.0;
+    }
+
+    // Saturate tilt
+    /* if (input(0, 0) > _max_tilt) { */
+    /*   ROS_WARN_THROTTLE(1.0, "Pitch too large. Saturating: %f -> %f", input(0, 0), _max_tilt); */
+    /*   input(0, 0) = _max_tilt; */
+    /* } */
+
+    /* if (input(0, 0) < -_max_tilt) { */
+    /*   ROS_WARN_THROTTLE(1.0, "Pitch too large. Saturating: %f -> %f", input(0, 0), -_max_tilt); */
+    /*   input(0, 0) = -_max_tilt; */
+    /* } */
+
+    Eigen::MatrixXd newA = lateralKalmanX->getA();
+    newA(0, 1)           = interval2.toSec();
+    newA(1, 2)           = interval2.toSec();
+    lateralKalmanX->setA(newA);
+
+    lateralKalmanX->setInput(input);
+
+    lateralKalmanX->iterateWithoutCorrection();
+  }
+  mutex_lateral_kalman_x.unlock();
+
+  // y prediction
+  mutex_lateral_kalman_y.lock();
+  {
+    // set the input vector
+    Eigen::VectorXd input;
+    input = Eigen::VectorXd::Zero(lateral_m);
+    input << -rot_x;
+
+    if (!std::isfinite(input(0, 0))) {
+      ROS_WARN_THROTTLE(1, "NaN detected in roll!!! setting to 0.0");
+      input << 0.0;
+    }
+
+    /* if (input(0, 0) > _max_tilt) { */
+    /*   ROS_WARN_THROTTLE(1.0, "Roll too large. Saturating: %f -> %f", input(0, 0), _max_tilt); */
+    /*   input(0, 0) = _max_tilt; */
+    /* } */
+
+    /* if (input(0, 0) < - _max_tilt) { */
+    /*   ROS_WARN_THROTTLE(1.0, "Roll too large. Saturating: %f -> %f", input(0, 0), - _max_tilt); */
+    /*   input(0, 0) = - _max_tilt; */
+    /* } */
+
+    Eigen::MatrixXd newA = lateralKalmanX->getA();
+    newA(0, 1)           = interval2.toSec();
+    newA(1, 2)           = interval2.toSec();
+    lateralKalmanX->setA(newA);
+
+    lateralKalmanY->setInput(input);
+
+    lateralKalmanY->iterateWithoutCorrection();
+  }
+  mutex_lateral_kalman_y.unlock();
+
+  trg_last_update = ros::Time::now();
+
+  ROS_INFO_ONCE("[Odometry]: Iterating lateral Kalman filter with target_attitude at input");
+}
+//}
 
 //{ callbackGlobalPosition()
 
@@ -1321,6 +1630,41 @@ bool Odometry::callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trig
 
 //}
 
+//{ callbackResetLateralKalman()
+
+bool Odometry::callbackResetLateralKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  mutex_lateral_kalman_x.lock();
+  { local_origin_offset_x = -lateralKalmanX->getState(0); }
+  mutex_lateral_kalman_x.unlock();
+
+  mutex_lateral_kalman_y.lock();
+  { local_origin_offset_y = -lateralKalmanY->getState(0); }
+  mutex_lateral_kalman_y.unlock();
+
+  ROS_INFO("[Odometry]: Local origin shifted to current position.");
+
+  mutex_lateral_kalman_x.lock();
+  { lateralKalmanX->reset(Eigen::VectorXd::Zero(lateral_p)); }
+  mutex_lateral_kalman_x.unlock();
+
+  mutex_lateral_kalman_y.lock();
+  { lateralKalmanY->reset(Eigen::VectorXd::Zero(lateral_p)); }
+  mutex_lateral_kalman_y.unlock();
+
+  res.success = true;
+  res.message = "lateral kalman filter reseted";
+
+  ROS_INFO("[Odometry]: Lateral kalman filter reset.");
+
+  return true;
+}
+
+//}
+
 //{ callbackRtkGps()
 
 void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
@@ -1347,9 +1691,9 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_utm.header.frame_id      = "utm";
     rtk_utm.pose.pose.position.z = msg->gps.altitude;
     // | ----------------------- #TODO fixme ---------------------- |
-    /* rtk_utm.pose.covariance      = msg->gps.covariance; */ 
-    rtk_utm.fix_type             = msg->fix_type;
-    rtk_utm.status               = msg->status;
+    /* rtk_utm.pose.covariance      = msg->gps.covariance; */
+    rtk_utm.fix_type = msg->fix_type;
+    rtk_utm.status   = msg->status;
 
   } else if (msg->header.frame_id.compare("utm") == STRING_EQUAL) {
 
@@ -1430,52 +1774,74 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     return;
   }
 
-  mutex_lateral_kalman.lock();
-  {
-    // fill the measurement vector
-    Eigen::VectorXd mes2 = Eigen::VectorXd::Zero(lateral_p);
-
-    double x_correction = 0;
-    double y_correction = 0;
-
-    mutex_rtk.lock();
+  if (_fuse_rtk_position) {
+    // fuse rtk gps x position
+    mutex_lateral_kalman_x.lock();
     {
-      x_correction = rtk_local.pose.pose.position.x - lateralKalman->getState(0);
-      y_correction = rtk_local.pose.pose.position.y - lateralKalman->getState(1);
+      // fill the measurement vector
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+      double x_correction = 0;
+
+      mutex_rtk.lock();
+      { x_correction = rtk_local.pose.pose.position.x - lateralKalmanX->getState(0); }
+      mutex_rtk.unlock();
+
+      // saturate the x_correction
+      if (!std::isfinite(x_correction)) {
+        x_correction = 0;
+        ROS_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
+      } else if (x_correction > max_rtk_correction) {
+        x_correction = max_rtk_correction;
+      } else if (x_correction < -max_rtk_correction) {
+        x_correction = -max_rtk_correction;
+      }
+
+      mes_lat << lateralKalmanX->getState(0) + x_correction;  // apply offsetting from desired center
+
+      lateralKalmanX->setP(P_pos);
+
+      // set the measurement to kalman filter
+      lateralKalmanX->setMeasurement(mes_lat, Q_pos_rtk);
+
+      lateralKalmanX->doCorrection();
     }
-    mutex_rtk.unlock();
+    mutex_lateral_kalman_x.unlock();
 
-    // saturate the x_correction
-    if (!std::isfinite(x_correction)) {
-      x_correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
-    } else if (x_correction > max_rtk_correction) {
-      x_correction = max_rtk_correction;
-    } else if (x_correction < -max_rtk_correction) {
-      x_correction = -max_rtk_correction;
+    // fuse rtk gps y position
+    mutex_lateral_kalman_y.lock();
+    {
+      // fill the measurement vector
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+      double y_correction = 0;
+
+      mutex_rtk.lock();
+      { y_correction = rtk_local.pose.pose.position.y - lateralKalmanY->getState(0); }
+      mutex_rtk.unlock();
+
+      // saturate the y_correction
+      if (!std::isfinite(y_correction)) {
+        y_correction = 0;
+        ROS_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
+      } else if (y_correction > max_rtk_correction) {
+        y_correction = max_rtk_correction;
+      } else if (y_correction < -max_rtk_correction) {
+        y_correction = -max_rtk_correction;
+      }
+
+      mes_lat << lateralKalmanY->getState(0) + y_correction;  // apply offsetting from desired center
+
+      lateralKalmanY->setP(P_pos);
+      // set the measurement to kalman filter
+      lateralKalmanY->setMeasurement(mes_lat, Q_pos_rtk);
+
+      lateralKalmanY->doCorrection();
+
+      ROS_WARN_ONCE("[Odometry]: fusing RTK GPS");
     }
-
-    // saturate the y_correction
-    if (!std::isfinite(y_correction)) {
-      y_correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
-    } else if (y_correction > max_rtk_correction) {
-      y_correction = max_rtk_correction;
-    } else if (y_correction < -max_rtk_correction) {
-      y_correction = -max_rtk_correction;
-    }
-
-    mes2 << lateralKalman->getState(0) + x_correction,  // apply offsetting from desired center
-        lateralKalman->getState(1) + y_correction;      // apply offsetting from desired center
-
-    // set the measurement to kalman filter
-    lateralKalman->setMeasurement(mes2);
-
-    lateralKalman->doCorrection();
-
-    ROS_WARN_ONCE("[Odometry]: fusing RTK GPS");
+    mutex_lateral_kalman_y.unlock();
   }
-  mutex_lateral_kalman.unlock();
 
   if (rtk_altitude_enabled) {
 
@@ -1559,6 +1925,217 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
 //}
 
+//{ callbackIcpRelative()
+
+void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (got_icp) {
+
+    mutex_icp.lock();
+    {
+      icp_odom_previous = icp_odom;
+      icp_odom          = *msg;
+    }
+    mutex_icp.unlock();
+
+  } else {
+
+    mutex_icp.lock();
+    {
+      icp_odom_previous = *msg;
+      icp_odom          = *msg;
+    }
+    mutex_icp.unlock();
+
+    got_icp = true;
+    return;
+  }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  routine_icp_callback->start();
+
+  // compute the time between two last odometries
+  ros::Duration interval2;
+  mutex_icp.lock();
+  { interval2 = icp_odom.header.stamp - icp_odom.header.stamp; }
+  mutex_icp.unlock();
+
+  if (fabs(interval2.toSec()) < 0.001) {
+
+    ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
+
+    routine_icp_callback->end();
+    return;
+  }
+
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  if (_fuse_icp_velocity) {
+
+    // set the measurement vector
+    Eigen::VectorXd mes_icp = Eigen::VectorXd::Zero(lateral_p);
+    // fuse lateral kalman x velocity
+    mutex_icp.lock();
+    { mes_icp << odom_pixhawk.twist.twist.linear.x; }
+    mutex_icp.unlock();
+
+    mutex_lateral_kalman_x.lock();
+    {
+      lateralKalmanX->setP(P_vel);
+
+      lateralKalmanX->setMeasurement(mes_icp, Q_vel_icp);
+
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // fuse lateral kalman y velocity
+    mutex_icp.lock();
+    { mes_icp << odom_pixhawk.twist.twist.linear.y; }
+    mutex_icp.unlock();
+
+    mutex_lateral_kalman_y.lock();
+    {
+      lateralKalmanY->setP(P_vel);
+
+      lateralKalmanY->setMeasurement(mes_icp, Q_vel_icp);
+
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
+
+    ROS_WARN_ONCE("[Odometry]: fusing ICP velocity");
+  }
+}
+//}
+
+//{ callbackIcpAbsolute()
+
+void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (got_icp_global) {
+
+    mutex_icp_global.lock();
+    {
+      icp_global_odom = icp_global_odom;
+      icp_global_odom = *msg;
+    }
+    mutex_icp_global.unlock();
+
+  } else {
+
+    mutex_icp_global.lock();
+    {
+      icp_global_odom = *msg;
+      icp_global_odom = *msg;
+    }
+    mutex_icp_global.unlock();
+
+    got_icp_global = true;
+    return;
+  }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  routine_icp_global_callback->start();
+
+  // compute the time between two last odometries
+  ros::Duration interval2;
+  mutex_icp_global.lock();
+  { interval2 = icp_global_odom.header.stamp - icp_global_odom.header.stamp; }
+  mutex_icp_global.unlock();
+
+  if (fabs(interval2.toSec()) < 0.001) {
+
+    ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
+
+    routine_icp_global_callback->end();
+    return;
+  }
+
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  if (_fuse_icp_position) {
+
+    // set the measurement vector
+    Eigen::VectorXd mes_icp_global = Eigen::VectorXd::Zero(lateral_p);
+
+    double x_correction = 0;
+
+    // fuse lateral kalman x position
+    mutex_icp_global.lock();
+    { x_correction = odom_pixhawk.pose.pose.position.x - lateralKalmanX->getState(0); }
+    mutex_icp_global.unlock();
+
+    // saturate the x_correction
+    if (!std::isfinite(x_correction)) {
+      x_correction = 0;
+      ROS_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
+    } else if (x_correction > max_rtk_correction) {
+      x_correction = max_rtk_correction;
+    } else if (x_correction < -max_rtk_correction) {
+      x_correction = -max_rtk_correction;
+    }
+
+    mutex_lateral_kalman_x.lock();
+    {
+      mes_icp_global << lateralKalmanX->getState(0) + x_correction;  // apply offsetting from desired center
+
+      lateralKalmanX->setP(P_pos);
+
+      lateralKalmanX->setMeasurement(mes_icp_global, Q_pos_icp);
+
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    double y_correction = 0;
+
+    // fuse lateral kalman x position
+    mutex_icp_global.lock();
+    { y_correction = odom_pixhawk.pose.pose.position.y - lateralKalmanY->getState(0); }
+    mutex_icp_global.unlock();
+
+    // saturate the x_correction
+    if (!std::isfinite(y_correction)) {
+      y_correction = 0;
+      ROS_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
+    } else if (y_correction > max_rtk_correction) {
+      y_correction = max_rtk_correction;
+    } else if (y_correction < -max_rtk_correction) {
+      y_correction = -max_rtk_correction;
+    }
+
+    mutex_lateral_kalman_y.lock();
+    {
+      mes_icp_global << lateralKalmanY->getState(0) + y_correction;  // apply offsetting from desired center
+
+      lateralKalmanY->setP(P_pos);
+
+      lateralKalmanY->setMeasurement(mes_icp_global, Q_pos_icp);
+
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
+
+    ROS_WARN_ONCE("[Odometry]: fusing ICP position");
+  }
+}
+//}
+
 //{ callbackMavrosOdometry()
 
 void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
@@ -1570,8 +2147,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     mutex_odom.lock();
     {
-      odom_pixhawk_previous_ = odom_pixhawk;
-      odom_pixhawk           = *msg;
+      odom_pixhawk_previous = odom_pixhawk;
+      odom_pixhawk          = *msg;
     }
     mutex_odom.unlock();
 
@@ -1579,8 +2156,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     mutex_odom.lock();
     {
-      odom_pixhawk_previous_ = *msg;
-      odom_pixhawk           = *msg;
+      odom_pixhawk_previous = *msg;
+      odom_pixhawk          = *msg;
     }
     mutex_odom.unlock();
 
@@ -1617,7 +2194,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // compute the time between two last odometries
   ros::Duration interval2;
   mutex_odom.lock();
-  { interval2 = odom_pixhawk.header.stamp - odom_pixhawk_previous_.header.stamp; }
+  { interval2 = odom_pixhawk.header.stamp - odom_pixhawk_previous.header.stamp; }
   mutex_odom.unlock();
 
   if (fabs(interval2.toSec()) < 0.001) {
@@ -1630,7 +2207,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // set the input computed from two consecutive positions
   mutex_odom.lock();
-  { input << (odom_pixhawk.pose.pose.position.z - odom_pixhawk_previous_.pose.pose.position.z) / interval2.toSec(); }
+  { input << (odom_pixhawk.pose.pose.position.z - odom_pixhawk_previous.pose.pose.position.z) / interval2.toSec(); }
   mutex_odom.unlock();
 
   //////////////////// Fuse MAIN ALT. KALMAN ////////////////////
@@ -1672,30 +2249,211 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   mutex_failsafe_altitude_kalman.unlock();
 
   //////////////////// Fuse Lateral Kalman ////////////////////
-  mutex_lateral_kalman.lock();
-  {
-    // set the input vector
-    input = Eigen::VectorXd::Zero(lateral_m);
 
+  if (_fuse_mavros_velocity) {
+
+    // set the measurement vector
+    Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+    // fuse lateral kalman x velocity
     mutex_odom.lock();
-    {
-      input << (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous_.pose.pose.position.x) / interval2.toSec(),
-          (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous_.pose.pose.position.y) / interval2.toSec();
-    }
+    { mes_lat << (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec(); }
+    /* { mes_lat << odom_pixhawk.twist.twist.linear.x; } */
     mutex_odom.unlock();
 
-    lateralKalman->setInput(input);
+    mutex_lateral_kalman_x.lock();
+    {
 
-    B2(0, 0) = interval2.toSec();
-    B2(1, 1) = interval2.toSec();
+      lateralKalmanX->setP(P_vel);
 
-    lateralKalman->setB(B2);
+      lateralKalmanX->setMeasurement(mes_lat, Q_vel_mavros);
 
-    lateralKalman->iterateWithoutCorrection();
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // fuse lateral kalman y velocity
+    mutex_odom.lock();
+    { mes_lat << (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec(); }
+    /* { mes_lat << odom_pixhawk.twist.twist.linear.y; } */
+    mutex_odom.unlock();
+
+    mutex_lateral_kalman_y.lock();
+    {
+      lateralKalmanY->setP(P_vel);
+
+      lateralKalmanY->setMeasurement(mes_lat, Q_vel_mavros);
+
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
 
     trg_last_update = ros::Time::now();
+
+    ROS_WARN_ONCE("[Odometry]: fusing Mavros velocity");
   }
-  mutex_lateral_kalman.unlock();
+
+  // rotations in inertial frame
+  double rot_x, rot_y, rot_z;
+  mutex_odom.lock();
+  { getGlobalRot(odom_pixhawk.pose.pose.orientation, rot_x, rot_y, rot_z); }
+  mutex_odom.unlock();
+
+  // publish orientation for debugging
+  orientation_mavros.header   = odom_pixhawk.header;
+  orientation_mavros.vector.x = rot_x;
+  orientation_mavros.vector.y = rot_y;
+  orientation_mavros.vector.z = rot_z;
+  pub_orientation_mavros_.publish(orientation_mavros);
+
+  if (_fuse_mavros_tilts) {
+
+    // x correction
+    mutex_lateral_kalman_x.lock();
+    {
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+      mes_lat << rot_y;  // rotation around y-axis corresponds to acceleration in x-axis
+
+      lateralKalmanX->setP(P_ang);
+
+      // set the measurement to kalman filter
+      lateralKalmanX->setMeasurement(mes_lat, Q_ang);
+
+      /* lateralKalmanX->iterate(); */
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // y correction
+    mutex_lateral_kalman_y.lock();
+    {
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+      mes_lat << -rot_x;  // rotation around x-axis corresponds to negative acceleration in y-axis
+
+      lateralKalmanY->setP(P_ang);
+
+      // set the measurement to kalman filter
+      lateralKalmanY->setMeasurement(mes_lat, Q_ang);
+
+      /* lateralKalmanY->iterate(); */
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
+
+
+    ROS_WARN_ONCE("[Odometry]: fusing Mavros tilts");
+
+  }  // end if (_fuse_mavros_tilts)
+
+  routine_odometry_callback->end();
+}
+
+//}
+
+//{ callbackOptflowOdometry()
+
+void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (got_optflow) {
+
+    mutex_optflow.lock();
+    {
+      odom_optflow_previous = odom_optflow;
+      odom_optflow          = *msg;
+    }
+    mutex_optflow.unlock();
+
+  } else {
+
+    mutex_optflow.lock();
+    {
+      odom_optflow_previous = *msg;
+      odom_optflow          = *msg;
+    }
+    mutex_optflow.unlock();
+
+    got_optflow              = true;
+    odom_optflow_last_update = ros::Time::now();
+    return;
+  }
+
+  odom_optflow_last_update = ros::Time::now();
+
+  if (!got_range) {
+
+    mutex_odom.unlock();
+    return;
+  }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  routine_odometry_callback->start();
+
+  // use our ros::Time as a time stamp for simulation, fixes problems
+  /* if (simulation_) { */
+  /* mutex_odom.lock(); */
+  /* { odom_pixhawk.header.stamp = ros::Time::now(); } */
+  /* mutex_odom.unlock(); */
+  /* } */
+
+  // compute the time between two last odometries
+  ros::Duration interval2;
+  mutex_odom.lock();
+  { interval2 = odom_pixhawk.header.stamp - odom_pixhawk_previous.header.stamp; }
+  mutex_odom.unlock();
+
+  if (fabs(interval2.toSec()) < 0.001) {
+
+    ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
+
+    routine_odometry_callback->end();
+    return;
+  }
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  if (_fuse_optflow_velocity) {
+
+    // set the measurement vector
+    Eigen::VectorXd mes_optflow = Eigen::VectorXd::Zero(lateral_p);
+
+    // fuse lateral kalman x velocity
+    mutex_optflow.lock();
+    { mes_optflow << odom_optflow.twist.twist.linear.x; }
+    mutex_optflow.unlock();
+
+    mutex_lateral_kalman_x.lock();
+    {
+
+      lateralKalmanX->setP(P_vel);
+
+      lateralKalmanX->setMeasurement(mes_optflow, Q_vel_optflow);
+
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // fuse lateral kalman y velocity
+    mutex_optflow.lock();
+    { mes_optflow << odom_optflow.twist.twist.linear.y; }
+    mutex_optflow.unlock();
+
+    mutex_lateral_kalman_y.lock();
+    {
+      lateralKalmanY->setP(P_vel);
+
+      lateralKalmanY->setMeasurement(mes_optflow, Q_vel_optflow);
+
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
+
+    ROS_WARN_ONCE("[Odometry]: fusing optical flow velocity");
+  }
 
   routine_odometry_callback->end();
 }
@@ -1743,6 +2501,151 @@ bool Odometry::callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs
 
     ROS_INFO("[Odometry]: Rtk altitude disabled.");
   }
+
+  return true;
+}
+
+//}
+
+//{ callbackToggleRtkPosition()
+
+bool Odometry::callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_rtk_position = req.data;
+
+  if (_fuse_rtk_position) {
+
+    ROS_INFO("[Odometry]: Fusing RTK position enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing RTK position disabled.");
+  }
+
+  ROS_INFO("[Odometry]: Fusing: RTK pos: %s, ICP pos: %s, ICP vel: %s, Mavros vel: %s, Mavros tilts: %s.", btoa(_fuse_rtk_position), btoa(_fuse_icp_position),
+           btoa(_fuse_icp_velocity), btoa(_fuse_mavros_velocity), btoa(_fuse_mavros_tilts));
+
+  res.success = true;
+  res.message = (_fuse_rtk_position ? "Fusing RTK position enabled" : "Fusing RTK position disabled");
+
+  return true;
+}
+
+//}
+
+//{ callbackToggleIcpPosition()
+
+bool Odometry::callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_icp_position = req.data;
+
+  if (_fuse_icp_position) {
+
+    ROS_INFO("[Odometry]: Fusing ICP position enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing ICP position disabled.");
+  }
+
+  ROS_INFO("[Odometry]: Fusing: RTK pos: %s, ICP pos: %s, ICP vel: %s, Mavros vel: %s, Mavros tilts: %s.", btoa(_fuse_rtk_position), btoa(_fuse_icp_position),
+           btoa(_fuse_icp_velocity), btoa(_fuse_mavros_velocity), btoa(_fuse_mavros_tilts));
+
+  res.success = true;
+  res.message = (_fuse_icp_position ? "Fusing ICP position enabled" : "Fusing ICP position disabled");
+
+  return true;
+}
+
+//}
+
+//{ callbackToggleIcpVelocity()
+
+bool Odometry::callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_icp_velocity = req.data;
+
+  if (_fuse_icp_velocity) {
+
+    ROS_INFO("[Odometry]: Fusing ICP velocity enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing ICP velocity disabled.");
+  }
+
+  ROS_INFO("[Odometry]: Fusing: RTK pos: %s, ICP pos: %s, ICP vel: %s, Mavros vel: %s, Mavros tilts: %s.", btoa(_fuse_rtk_position), btoa(_fuse_icp_position),
+           btoa(_fuse_icp_velocity), btoa(_fuse_mavros_velocity), btoa(_fuse_mavros_tilts));
+
+  res.success = true;
+  res.message = (_fuse_icp_velocity ? "Fusing ICP velocity enabled" : "Fusing ICP velocity disabled");
+
+  return true;
+}
+
+//}
+
+//{ callbackToggleMavrosVelocity()
+
+bool Odometry::callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_mavros_velocity = req.data;
+
+  if (_fuse_mavros_velocity) {
+
+    ROS_INFO("[Odometry]: Fusing Mavros velocity enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing Mavros velocity disabled.");
+  }
+
+  ROS_INFO("[Odometry]: Fusing: RTK pos: %s, ICP pos: %s, ICP vel: %s, Mavros vel: %s, Mavros tilts: %s.", btoa(_fuse_rtk_position), btoa(_fuse_icp_position),
+           btoa(_fuse_icp_velocity), btoa(_fuse_mavros_velocity), btoa(_fuse_mavros_tilts));
+
+  res.success = true;
+  res.message = (_fuse_mavros_velocity ? "Fusing Mavros velocity enabled" : "Fusing Mavros velocity disabled");
+
+  return true;
+}
+
+//}
+
+//{ callbackToggleMavrosTilts()
+
+bool Odometry::callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_mavros_tilts = req.data;
+
+  if (_fuse_mavros_tilts) {
+
+    ROS_INFO("[Odometry]: Fusing Mavros tilts enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing Mavros tilts disabled.");
+  }
+
+  ROS_INFO("[Odometry]: Fusing: RTK pos: %s, ICP pos: %s, ICP vel: %s, Mavros vel: %s, Mavros tilts: %s.", btoa(_fuse_rtk_position), btoa(_fuse_icp_position),
+           btoa(_fuse_icp_velocity), btoa(_fuse_mavros_velocity), btoa(_fuse_mavros_tilts));
+
+  res.success = true;
+  res.message = (_fuse_mavros_tilts ? "Fusing Mavros tilts enabled" : "Fusing Mavros tilts disabled");
 
   return true;
 }
@@ -1829,6 +2732,72 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 }
 
 //}
+
+//{ callbackGroundTruth()
+void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
+
+  mutex_ground_truth.lock();
+  { ground_truth = *msg; }
+  mutex_ground_truth.unlock();
+
+  // rotations in inertial frame
+  double rot_x, rot_y, rot_z;
+  getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
+
+  orientation_gt.header   = odom_pixhawk.header;
+  orientation_gt.vector.x = rot_x;
+  orientation_gt.vector.y = rot_y;
+  orientation_gt.vector.z = rot_z;
+  pub_orientation_gt_.publish(orientation_gt);
+}
+//}
+
+//{ callbackReconfigure()
+void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level) {
+  ROS_INFO("Reconfigure Request: Q_pos_rtk: %f,\tQ_pos_icp: %f,\tQ_vel_mavros: %f\tQ_vel_icp: %f\tQ_ang:%f\t R2: %f", config.Q_pos_rtk, config.Q_pos_icp,
+           config.Q_vel_mavros, config.Q_vel_icp, config.Q_ang, config.R_vel);
+  Q_pos_rtk(0, 0)    = config.Q_pos_rtk;
+  Q_pos_icp(0, 0)    = config.Q_pos_icp;
+  Q_vel_mavros(0, 0) = config.Q_vel_mavros;
+  Q_vel_icp(0, 0)    = config.Q_vel_icp;
+  Q_ang(0, 0)        = config.Q_ang;
+  R2(1, 1)           = config.R_vel;
+}
+//}
+
+//{ getGlobalRot()
+void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
+
+  tf::Quaternion q_orig, q_rot, q_new;
+
+  quaternionMsgToTF(q_msg, q_orig);
+
+  // Get roll, pitch, yaw in body frame
+  double r, p, y, r_new, p_new;
+  tf::Matrix3x3(q_orig).getRPY(r, p, y);
+
+  p_new = p * cos(-y) - r * sin(-y);
+  r_new = r * cos(-y) + p * sin(-y);
+
+  // Get quaternion of yaw rotation
+  /* q_rot = tf::createQuaternionFromRPY(0.0, 0.0, y); */
+
+  // Apply yaw rotation
+  /* q_new = q_rot * q_orig; */
+  /* q_new.normalize(); */
+
+  // Get quaternion of yaw rotation
+  /* q_new = tf::createQuaternionFromRPY(r_new, p_new, y); */
+
+  // Get rotations in inertial frame
+  /* tf::Matrix3x3(q_new).getRPY(rx, ry, rz); */
+
+  rx = r_new;
+  ry = p_new;
+  rz = y;
+}
+//}
+
 }  // namespace mrs_odometry
 
 #include <pluginlib/class_list_macros.h>

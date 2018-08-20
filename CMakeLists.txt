@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   mrs_msgs
   nodelet
+  dynamic_reconfigure
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -fno-diagnostics-color")
@@ -27,6 +28,10 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 ###################################
 ## catkin specific configuration ##
 ###################################
+
+generate_dynamic_reconfigure_options(
+  config/lkf.cfg
+  )
 
 catkin_package(
   INCLUDE_DIRS include
@@ -59,6 +64,9 @@ target_link_libraries(Odometry
   ${Eigen_LIBRARIES}
   range_filter
   )
+
+## Add configure headers for dynamic reconfigure
+add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
 
 ## Declare a C++ executable
 add_library(RtkRepublisher src/rtk_republisher.cpp)
