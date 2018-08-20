@@ -1347,9 +1347,9 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_utm.header.frame_id      = "utm";
     rtk_utm.pose.pose.position.z = msg->gps.altitude;
     // | ----------------------- #TODO fixme ---------------------- |
-    /* rtk_utm.pose.covariance      = msg->gps.covariance; */ 
-    rtk_utm.fix_type             = msg->fix_type;
-    rtk_utm.status               = msg->status;
+    /* rtk_utm.pose.covariance      = msg->gps.covariance; */
+    rtk_utm.fix_type = msg->fix_type;
+    rtk_utm.status   = msg->status;
 
   } else if (msg->header.frame_id.compare("utm") == STRING_EQUAL) {
 
