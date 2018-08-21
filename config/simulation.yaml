@@ -98,7 +98,7 @@ lateral:
       0, 0, 1, 0, 0, 0,
       0, 0, 0, 1, 0, 0, 
       0, 0, 0, 0, 1000, 0,
-      0, 0, 0, 0, 0, 1]
+      0, 0, 0, 0, 0, 100]
 
   # measurement covariance
   Q: [1]
@@ -116,8 +116,8 @@ lateral:
 
   Q_pos_rtk: [10]
   Q_pos_icp: [100]
-  Q_vel_mavros: [100]
-  Q_vel_optflow: [10]
+  Q_vel_mavros: [1000]
+  Q_vel_optflow: [50]
   Q_vel_icp: [100]
 
   # roll and pitch measurement covariance

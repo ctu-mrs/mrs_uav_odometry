@@ -4,6 +4,7 @@
 
 #include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #include <mavros_msgs/AttitudeTarget.h>
@@ -118,10 +119,10 @@ private:
   nav_msgs::Odometry odom_pixhawk_previous;
   ros::Time          odom_pixhawk_last_update;
 
-  nav_msgs::Odometry odom_optflow;
-  std::mutex         mutex_optflow;
-  nav_msgs::Odometry odom_optflow_previous;
-  ros::Time          odom_optflow_last_update;
+  geometry_msgs::TwistStamped optflow_twist;
+  std::mutex                  mutex_optflow;
+  geometry_msgs::TwistStamped optflow_twist_previous;
+  ros::Time                   optflow_twist_last_update;
 
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
@@ -149,7 +150,7 @@ private:
   mrs_msgs::RtkGps rtk_local;
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
-  void callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg);
+  void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
   void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
   bool callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackResetLateralKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -675,7 +676,7 @@ void Odometry::onInit() {
   sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber to optflow odometry
-  sub_optflow_ = nh_.subscribe("optflow_odom_in", 1, &Odometry::callbackOptflowOdometry, this, ros::TransportHints().tcpNoDelay());
+  sub_optflow_ = nh_.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for terarangers range
   sub_terarangerone_ = nh_.subscribe("teraranger_in", 1, &Odometry::callbackTeraranger, this, ros::TransportHints().tcpNoDelay());
@@ -2254,11 +2255,27 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // set the measurement vector
     Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
     // fuse lateral kalman x velocity
+    double x_twist = 0.0;
+
     mutex_odom.lock();
-    { mes_lat << (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec(); }
+    { x_twist = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec(); }
     /* { mes_lat << odom_pixhawk.twist.twist.linear.x; } */
     mutex_odom.unlock();
+
+    // check nans and saturate
+    if (!std::isfinite(x_twist)) {
+      x_twist = 0;
+      ROS_ERROR("NaN detected in variable \"x_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (x_twist > 10) {
+      x_twist = 10;
+    } else if (x_twist < -10) {
+      x_twist = -10;
+    }
+
+    mes_lat << x_twist;
 
     mutex_lateral_kalman_x.lock();
     {
@@ -2272,10 +2289,25 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     mutex_lateral_kalman_x.unlock();
 
     // fuse lateral kalman y velocity
+    double y_twist = 0.0;
+
     mutex_odom.lock();
-    { mes_lat << (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec(); }
+    { y_twist = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec(); }
     /* { mes_lat << odom_pixhawk.twist.twist.linear.y; } */
     mutex_odom.unlock();
+
+    // check nans and saturate
+    if (!std::isfinite(y_twist)) {
+      y_twist = 0;
+      ROS_ERROR("NaN detected in variable \"y_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (y_twist > 10) {
+      y_twist = 10;
+    } else if (y_twist < -10) {
+      y_twist = -10;
+    }
+
+    mes_lat << y_twist;
 
     mutex_lateral_kalman_y.lock();
     {
@@ -2311,6 +2343,17 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     mutex_lateral_kalman_x.lock();
     {
       Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+      if (!std::isfinite(rot_y)) {
+        rot_y = 0;
+        ROS_ERROR("NaN detected in variable \"rot_y\", setting it to 0 and returning!!!");
+        return;
+      } else if (rot_y > 1.57) {
+        rot_y = 1.57;
+      } else if (rot_y < -1.57) {
+        rot_y = -1.57;
+      }
+
       mes_lat << rot_y;  // rotation around y-axis corresponds to acceleration in x-axis
 
       lateralKalmanX->setP(P_ang);
@@ -2349,9 +2392,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 //}
 
-//{ callbackOptflowOdometry()
+//{ callbackOptflowTwist()
 
-void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
+void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg) {
 
   if (!is_initialized)
     return;
@@ -2360,8 +2403,8 @@ void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     mutex_optflow.lock();
     {
-      odom_optflow_previous = odom_optflow;
-      odom_optflow          = *msg;
+      optflow_twist_previous = optflow_twist;
+      optflow_twist          = *msg;
     }
     mutex_optflow.unlock();
 
@@ -2369,17 +2412,17 @@ void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     mutex_optflow.lock();
     {
-      odom_optflow_previous = *msg;
-      odom_optflow          = *msg;
+      optflow_twist_previous = *msg;
+      optflow_twist          = *msg;
     }
     mutex_optflow.unlock();
 
-    got_optflow              = true;
-    odom_optflow_last_update = ros::Time::now();
+    got_optflow               = true;
+    optflow_twist_last_update = ros::Time::now();
     return;
   }
 
-  odom_optflow_last_update = ros::Time::now();
+  optflow_twist_last_update = ros::Time::now();
 
   if (!got_range) {
 
@@ -2422,9 +2465,23 @@ void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
     Eigen::VectorXd mes_optflow = Eigen::VectorXd::Zero(lateral_p);
 
     // fuse lateral kalman x velocity
+    double x_twist = 0;
+
     mutex_optflow.lock();
-    { mes_optflow << odom_optflow.twist.twist.linear.x; }
+    { x_twist = optflow_twist.twist.linear.x; }
     mutex_optflow.unlock();
+
+    if (!std::isfinite(x_twist)) {
+      x_twist = 0;
+      ROS_ERROR("NaN detected in variable \"x_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (x_twist > 10) {
+      x_twist = 10;
+    } else if (x_twist < -10) {
+      x_twist = -10;
+    }
+
+    mes_optflow << x_twist;
 
     mutex_lateral_kalman_x.lock();
     {
@@ -2438,9 +2495,23 @@ void Odometry::callbackOptflowOdometry(const nav_msgs::OdometryConstPtr &msg) {
     mutex_lateral_kalman_x.unlock();
 
     // fuse lateral kalman y velocity
+    double y_twist = 0;
+
     mutex_optflow.lock();
-    { mes_optflow << odom_optflow.twist.twist.linear.y; }
+    { y_twist = optflow_twist.twist.linear.y; }
     mutex_optflow.unlock();
+
+    if (!std::isfinite(y_twist)) {
+      y_twist = 0;
+      ROS_ERROR("NaN detected in variable \"y_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (y_twist > 10) {
+      y_twist = 10;
+    } else if (y_twist < -10) {
+      y_twist = -10;
+    }
+
+    mes_optflow << y_twist;
 
     mutex_lateral_kalman_y.lock();
     {
