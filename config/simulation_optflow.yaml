@@ -100,13 +100,6 @@ lateral:
       0, 0, 0, 0, 1000, 0,
       0, 0, 0, 0, 0, 100]
 
-  # measurement covariance
-  Q: [1]
-
-  # measurement mapping
-  P: [0, 1, 0, 0, 0, 0]
-
-
   # Odometry mode: 1-OPTFLOW, 2-GPS, 3-OPTFLOWGPS, 4-RTK, 5-ICP
   odometry_mode: 4
 
