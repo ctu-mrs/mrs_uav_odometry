@@ -24,6 +24,7 @@
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/OdometryMode.h>
 #include <mrs_msgs/ChangeOdometryMode.h>
+#include <mrs_msgs/Float64Stamped.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -87,6 +88,7 @@ private:
   ros::Publisher pub_orientation_mavros_;
   ros::Publisher pub_target_attitude_global_;
   ros::Publisher pub_odometry_diag_;
+  ros::Publisher pub_altitude_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -648,7 +650,8 @@ void Odometry::onInit() {
   // publisher for new odometry
   pub_odom_          = nh_.advertise<nav_msgs::Odometry>("new_odom_out", 1);
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
-  pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag", 1);
+  pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
+  pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -728,7 +731,7 @@ void Odometry::onInit() {
   ser_toggle_mavros_tilts_fusion = nh_.advertiseService("toggle_mavros_tilts_fusion_in", &Odometry::callbackToggleMavrosTilts, this);
 
   // change fusion mode of odometry
-  ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode", &Odometry::callbackChangeOdometryMode, this);
+  ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode_in", &Odometry::callbackChangeOdometryMode, this);
 
   // subscribe for resetting home command
   ser_reset_home_ = nh_.advertiseService("reset_home_in", &Odometry::callbackResetHome, this);
@@ -887,12 +890,19 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   nav_msgs::Odometry new_odom;
+  mrs_msgs::Float64Stamped new_altitude;
   mutex_odom.lock();
-  { new_odom = odom_pixhawk; }
+  {
+    new_odom            = odom_pixhawk;
+    new_altitude.header = odom_pixhawk.header;
+    new_altitude.value = odom_pixhawk.pose.pose.position.z;
+  }
   mutex_odom.unlock();
 
   new_odom.header.frame_id = "local_origin";
   new_odom.child_frame_id  = std::string("fcu_") + uav_name;
+
+  new_altitude.header.frame_id = "local_origin";
 
   geometry_msgs::PoseStamped newPose;
   newPose.header = new_odom.header;
@@ -900,7 +910,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 #if USE_RANGEFINDER == 1
   // update the altitude state
   mutex_main_altitude_kalman.lock();
-  { new_odom.pose.pose.position.z = main_altitude_kalman->getState(0); }
+  {
+    new_odom.pose.pose.position.z = main_altitude_kalman->getState(0);
+    new_altitude.value = main_altitude_kalman->getState(0);
+  }
   mutex_main_altitude_kalman.unlock();
 #endif
 
@@ -952,6 +965,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   try {
     pub_odom_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(new_odom)));
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
+  }
+
+  try {
+    pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
@@ -1152,7 +1172,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   }
 
   double dt = interval2.toSec();
-  
+
   if (!std::isfinite(dt)) {
     dt = 0;
     ROS_ERROR("NaN detected in variable \"dt\", setting it to 0 and returning!!!");

@@ -45,10 +45,21 @@
       <remap from="~new_odom_out" to="~new_odom" />
       <remap from="~profiler_out" to="profiler" />
       <remap from="~rtk_local_out" to="~rtk_local" />
+      <remap from="~odometry_diag_out" to="~diag" />
+      <remap from="~altitude_out" to="~altitude" />
 
       <!-- Services -->
-      <remap from="~toggle_teraranger" to="~toggle_teraranger" />
-      <remap from="~toggle_rtk_altitude" to="~toggle_rtk_altitude" />
+      <remap from="~average_current_position_in" to="~average_current_position" />
+      <remap from="~toggle_garmin_in" to="~toggle_garmin" />
+      <remap from="~toggle_rtk_altitude_in" to="~toggle_rtk_altitude" />
+      <remap from="~toggle_rtk_pos_fusion_in" to="~toggle_rtk_pos_fusion" />
+      <remap from="~toggle_icp_pos_fusion_in" to="~toggle_icp_pos_fusion" />
+      <remap from="~toggle_icp_vel_fusion_in" to="~toggle_icp_vel_fusion" />
+      <remap from="~toggle_mavros_vel_fusion_in" to="~toggle_mavros_vel_fusion" />
+      <remap from="~toggle_mavros_tilts_fusion_in" to="~toggle_mavros_tilts_fusion" />
+      <remap from="~change_odometry_mode_in" to="~change_odometry_mode" />
+      <remap from="~reset_home_in" to="~reset_home" />
+      <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
 
     </node>
 
