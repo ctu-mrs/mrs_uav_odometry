@@ -9,6 +9,8 @@
 
 #include <mavros_msgs/AttitudeTarget.h>
 
+#include <diagnostic_msgs/DiagnosticArray.h>
+
 #include <nav_msgs/Odometry.h>
 
 #include <sensor_msgs/Range.h>
@@ -77,6 +79,10 @@ private:
   bool _fuse_icp_position     = false;
   bool _publish_fused_odom;
 
+  int _max_optflow_altitude;
+  int _max_default_altitude;
+  int _min_satellites;
+
   ros::NodeHandle nh_;
 
 private:
@@ -89,6 +95,7 @@ private:
   ros::Publisher pub_target_attitude_global_;
   ros::Publisher pub_odometry_diag_;
   ros::Publisher pub_altitude_;
+  ros::Publisher pub_max_altitude_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -98,10 +105,11 @@ private:
   ros::Subscriber sub_pixhawk_;
   ros::Subscriber sub_optflow_;
   ros::Subscriber rtk_gps_sub_;
-  ros::Subscriber icp_relative_sub_;
-  ros::Subscriber icp_global_sub_;
+  ros::Subscriber sub_icp_relative__;
+  ros::Subscriber sub_icp_global__;
   ros::Subscriber sub_target_attitude_;
   ros::Subscriber sub_ground_truth_;
+  ros::Subscriber sub_mavros_diagnostic_;
 
 private:
   ros::ServiceServer ser_reset_home_;
@@ -158,6 +166,9 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
+  diagnostic_msgs::DiagnosticArray mavros_diag;
+  std::mutex                       mutex_mavros_diag;
+
   mrs_msgs::OdometryMode _odometry_mode;
   std::mutex             mutex_odometry_mode;
 
@@ -183,6 +194,7 @@ private:
   void        callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
   void        callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void        callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
+  void        callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr &msg);
   void        getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
   void        setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode);
   bool        isValidMode(const mrs_msgs::OdometryMode &mode);
@@ -267,6 +279,12 @@ private:
 
   bool odometry_published;
 
+  // reliability of gps
+  int satellites_visible = 0;
+  int max_altitude;
+  bool gps_reliable = false;
+  bool gps_available = false;
+
   // use differential gps
   bool   use_differential_gps = false;
   bool   pass_rtk_as_new_odom = false;
@@ -279,11 +297,14 @@ private:
 
   ros::Timer slow_odom_timer;
   ros::Timer diag_timer;
+  ros::Timer max_altitude_timer;
   int        slow_odom_rate;
   int        diag_rate;
+  int        max_altitude_rate;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
   void       rtkRateTimer(const ros::TimerEvent &event);
+  void       maxAltitudeTimer(const ros::TimerEvent &event);
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -382,6 +403,7 @@ void Odometry::onInit() {
   nh_.param("simulation", simulation_, false);
   nh_.param("slow_odom_rate", slow_odom_rate, 1);
   nh_.param("diag_rate", diag_rate, 1);
+  nh_.param("max_altitude_rate", max_altitude_rate, 1);
   nh_.param("trgFilterBufferSize", trg_filter_buffer_size, 20);
   nh_.param("trgFilterMaxValidAltitude", trg_max_valid_altitude, 8.0);
   nh_.param("trgFilterMaxDifference", trg_filter_max_difference, 3.0);
@@ -525,6 +547,14 @@ void Odometry::onInit() {
 
   ROS_INFO("[Odometry]: Altitude kalman prepared");
 
+  // GPS reliability
+  nh_.param("max_optflow_altitude", _max_optflow_altitude, 6);
+  nh_.param("max_default_altitude", _max_default_altitude, 20);
+  nh_.param("min_satellites", _min_satellites, 6);
+  nh_.param("gps_available", gps_available, true);
+  gps_reliable = gps_available;
+
+
   // declare and initialize variables for the altitude KF
   nh_.param("lateral/numberOfVariables", lateral_n, -1);
   nh_.param("lateral/numberOfInputs", lateral_m, -1);
@@ -652,6 +682,7 @@ void Odometry::onInit() {
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
   pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
+  pub_max_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -695,16 +726,23 @@ void Odometry::onInit() {
   sub_ground_truth_ = nh_.subscribe("ground_truth_in", 1, &Odometry::callbackGroundTruth, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for icp relative odometry
-  icp_relative_sub_ = nh_.subscribe("icp_relative_in", 1, &Odometry::callbackIcpRelative, this, ros::TransportHints().tcpNoDelay());
+  sub_icp_relative__ = nh_.subscribe("icp_relative_in", 1, &Odometry::callbackIcpRelative, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for icp global odometry
-  icp_global_sub_ = nh_.subscribe("icp_absolute_in", 1, &Odometry::callbackIcpAbsolute, this, ros::TransportHints().tcpNoDelay());
+  sub_icp_global__ = nh_.subscribe("icp_absolute_in", 1, &Odometry::callbackIcpAbsolute, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for utm coordinates
   sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackGlobalPosition, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for tracker status
   sub_tracker_status_ = nh_.subscribe("tracker_status_in", 1, &Odometry::callbackTrackerStatus, this, ros::TransportHints().tcpNoDelay());
+
+  // subscribe for mavros diagnostic
+  sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());
+
+  // --------------------------------------------------------------
+  // |                          services                          |
+  // --------------------------------------------------------------
 
   // subscribe for averaging service
   ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
@@ -748,10 +786,11 @@ void Odometry::onInit() {
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer      = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  slow_odom_timer = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
-  rtk_rate_timer  = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
-  diag_timer      = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
+  main_timer         = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
+  slow_odom_timer    = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
+  rtk_rate_timer     = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
+  diag_timer         = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
+  max_altitude_timer = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
 
   is_initialized = true;
 }
@@ -889,13 +928,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
 
-  nav_msgs::Odometry new_odom;
+  nav_msgs::Odometry       new_odom;
   mrs_msgs::Float64Stamped new_altitude;
   mutex_odom.lock();
   {
     new_odom            = odom_pixhawk;
     new_altitude.header = odom_pixhawk.header;
-    new_altitude.value = odom_pixhawk.pose.pose.position.z;
+    new_altitude.value  = odom_pixhawk.pose.pose.position.z;
   }
   mutex_odom.unlock();
 
@@ -912,7 +951,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mutex_main_altitude_kalman.lock();
   {
     new_odom.pose.pose.position.z = main_altitude_kalman->getState(0);
-    new_altitude.value = main_altitude_kalman->getState(0);
+    new_altitude.value            = main_altitude_kalman->getState(0);
   }
   mutex_main_altitude_kalman.unlock();
 #endif
@@ -1063,6 +1102,29 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
+  }
+}
+
+//}
+
+//{ maxAltitudeTimer()
+
+void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
+
+  if (!is_initialized)
+    return;
+
+  mrs_msgs::Float64Stamped max_altitude_msg;
+  max_altitude_msg.header.frame_id = "local_origin";
+  max_altitude_msg.header.stamp = ros::Time::now();
+
+  max_altitude_msg.value = max_altitude;
+
+  try {
+    pub_max_altitude_.publish(max_altitude_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
   }
 }
 
@@ -2617,6 +2679,44 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
   got_tracker_status = true;
 }
 
+//}
+
+//{ callbackMavrosDiag()
+void Odometry::callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  mutex_mavros_diag.lock();
+  {
+    mavros_diag = *msg;
+
+    satellites_visible = 0;
+
+    for (size_t i = 0; i < mavros_diag.status.size(); i++) {
+      if (mavros_diag.status[i].name.find("GPS") != std::string::npos) {
+        for (size_t j = 0; j < mavros_diag.status[i].values.size(); j++) {
+          if (std::strcmp((mavros_diag.status[i].values[j].key).c_str(), "Satellites visible") == 0) {
+            satellites_visible = std::stoi(mavros_diag.status[i].values[j].value);
+            break;
+          }
+        }
+        break;
+      }
+    }
+  }
+  mutex_mavros_diag.unlock();
+
+  if (max_altitude != _max_optflow_altitude && satellites_visible < _min_satellites) {
+    max_altitude = _max_optflow_altitude;
+    gps_reliable = false;
+    ROS_WARN("[Odometry]: %d satellites visible. GPS unreliable. Setting max altitude to max optflow altitude %d.", satellites_visible, max_altitude);
+  } else if (max_altitude != _max_default_altitude && satellites_visible >= _min_satellites) {
+    max_altitude = _max_default_altitude;
+    gps_reliable = true;
+    ROS_WARN("[Odometry]: %d satellites visible. GPS reliable. Setting max altitude to max allowed altitude %d.", satellites_visible, max_altitude);
+  }
+}
 //}
 
 //{ callbackToggleRtkHeight()
