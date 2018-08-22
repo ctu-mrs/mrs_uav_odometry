@@ -1,7 +1,5 @@
 rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
-diag_rate: 1
-max_altitude_rate: 1
 
 gps_available: true
 optflow_available: false
@@ -10,7 +8,7 @@ lidar_available: false
 
 min_satellites: 6
 max_default_altitude: 30.0
-max_optflow_altitude: 6.0
+max_optflow_altitude: 2.0
 
 averagingNumSamples: 20
 
@@ -122,10 +120,10 @@ lateral:
   # odometry_mode: 4
 
   # Covariances
-  Q_vel_optflow: 10
-  Q_ang: 1000
-  Q_vel_mavros: 100
-  Q_pos_mavros: 100
-  Q_pos_rtk: 10
-  Q_pos_icp: 100
-  Q_vel_icp: 100
+  Q_vel_optflow: [10]
+  Q_ang: [1000]
+  Q_vel_mavros: [100]
+  Q_pos_mavros: [100]
+  Q_pos_rtk: [10]
+  Q_pos_icp: [100]
+  Q_vel_icp: [100]
