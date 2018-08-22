@@ -175,8 +175,6 @@ private:
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
   void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
-  bool callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackResetLateralKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -771,12 +769,6 @@ void Odometry::onInit() {
   // change fusion mode of odometry
   ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode_in", &Odometry::callbackChangeOdometryMode, this);
 
-  // subscribe for resetting home command
-  ser_reset_home_ = nh_.advertiseService("reset_home_in", &Odometry::callbackResetHome, this);
-
-  // subscribe for resetting lateral kalman filter command
-  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetLateralKalman, this);
-
   // subscriber for object altitude
   /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &Odometry::callbackObjectHeight, this, ros::TransportHints().tcpNoDelay()); */
   // subscribe for object_altitude toggle service
@@ -1250,7 +1242,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   if (!std::isfinite(rot_x)) {
     rot_x = 0;
-    ROS_ERROR("NaN detected in variable \"rot_x\", setting it to 0 and returning!!!");
+    ROS_ERROR("NaN detected in Mavros variable \"rot_x\", setting it to 0 and returning!!!");
     return;
   } else if (rot_x > 1.57) {
     rot_x = 1.57;
@@ -1260,7 +1252,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   if (!std::isfinite(rot_y)) {
     rot_y = 0;
-    ROS_ERROR("NaN detected in variable \"rot_y\", setting it to 0 and returning!!!");
+    ROS_ERROR("NaN detected in Mavros variable \"rot_y\", setting it to 0 and returning!!!");
     return;
   } else if (rot_y > 1.57) {
     rot_y = 1.57;
@@ -1272,14 +1264,14 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   if (!std::isfinite(dt)) {
     dt = 0;
-    ROS_ERROR("NaN detected in variable \"dt\", setting it to 0 and returning!!!");
+    ROS_ERROR("NaN detected in Mavros variable \"dt\", setting it to 0 and returning!!!");
     return;
   } else if (dt > 1) {
-    ROS_ERROR("Variable \"dt\" > 1, setting it to 1 and returning!!!");
+    ROS_ERROR("Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
     dt = 1;
     return;
   } else if (dt < -1) {
-    ROS_ERROR("Variable \"dt\" < -1, setting it to -1 and returning!!!");
+    ROS_ERROR("Mavros variable \"dt\" < -1, setting it to -1 and returning!!!");
     dt = -1;
     return;
   }
@@ -1341,12 +1333,12 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
   mrs_lib::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
 
   if (!std::isfinite(out_x)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"out_x\"!!!");
+    ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_x\"!!!");
     return;
   }
 
   if (!std::isfinite(out_y)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"out_y\"!!!");
+    ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_y\"!!!");
     return;
   }
 
@@ -1405,7 +1397,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
   if (!std::isfinite(measurement)) {
 
-    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"measurement\" (teraranger)!!!");
+    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Teraranger variable \"measurement\" (teraranger)!!!");
     return;
   }
 
@@ -1468,7 +1460,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
+        ROS_ERROR("[Odometry]: NaN detected in Teraranger variable \"correction\", setting it to 0!!!");
       }
 
       // set the measurement vector
@@ -1494,7 +1486,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
+        ROS_ERROR("[Odometry]: NaN detected in Teraranger variable \"correction\", setting it to 0!!!");
       } else if (correction > max_altitude_correction_) {
         correction = max_altitude_correction_;
       } else if (correction < -max_altitude_correction_) {
@@ -1550,7 +1542,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   if (!std::isfinite(measurement)) {
 
-    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"measurement\" (garmin)!!!");
+    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Garmin variable \"measurement\" (garmin)!!!");
 
     routine_garmin_callback->end();
     return;
@@ -1605,7 +1597,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"correction\", setting it to 0!!!");
+        ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
       } else if (correction > max_altitude_correction_) {
         correction = max_altitude_correction_;
       } else if (correction < -max_altitude_correction_) {
@@ -1769,75 +1761,6 @@ bool Odometry::callbackAveraging(std_srvs::Trigger::Request &req, std_srvs::Trig
 
 //}
 
-//{ callbackResetHome()
-
-bool Odometry::callbackResetHome(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  if (isUavFlying()) {
-
-    res.success = false;
-    res.message = "Cannot reset home, set motors off!";
-
-    ROS_WARN("[Odometry]: Tried to reset home while the UAV has motors ON!");
-
-  } else {
-
-    mutex_odom.lock();
-    {
-      local_origin_offset_x = -odom_pixhawk.pose.pose.position.x;
-      local_origin_offset_y = -odom_pixhawk.pose.pose.position.y;
-    }
-    mutex_odom.unlock();
-
-    res.success = true;
-    res.message = "home reseted";
-
-    ROS_INFO("[Odometry]: Local origin shifted to current position.");
-  }
-
-  return true;
-}
-
-//}
-
-//{ callbackResetLateralKalman()
-
-bool Odometry::callbackResetLateralKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  mutex_lateral_kalman_x.lock();
-  { local_origin_offset_x = -lateralKalmanX->getState(0); }
-  mutex_lateral_kalman_x.unlock();
-
-  mutex_lateral_kalman_y.lock();
-  { local_origin_offset_y = -lateralKalmanY->getState(0); }
-  mutex_lateral_kalman_y.unlock();
-
-  ROS_INFO("[Odometry]: Local origin shifted to current position.");
-
-  mutex_lateral_kalman_x.lock();
-  { lateralKalmanX->reset(Eigen::VectorXd::Zero(lateral_n)); }
-  mutex_lateral_kalman_x.unlock();
-
-  mutex_lateral_kalman_y.lock();
-  { lateralKalmanY->reset(Eigen::VectorXd::Zero(lateral_n)); }
-  mutex_lateral_kalman_y.unlock();
-
-  res.success = true;
-  res.message = "lateral kalman filter reseted";
-
-  ROS_INFO("[Odometry]: Lateral kalman filter reset.");
-
-  return true;
-}
-
-//}
-
 //{ callbackRtkGps()
 
 void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
@@ -1850,12 +1773,12 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   if (msg->header.frame_id.compare("gps") == STRING_EQUAL) {
 
     if (!std::isfinite(msg->gps.latitude)) {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in variable \"msg->latitude\"!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in RTK variable \"msg->latitude\"!!!");
       return;
     }
 
     if (!std::isfinite(msg->gps.longitude)) {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in variable \"msg->longitude\"!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in RTK variable \"msg->longitude\"!!!");
       return;
     }
 
@@ -1963,7 +1886,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       // saturate the x_correction
       if (!std::isfinite(x_correction)) {
         x_correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
+        ROS_ERROR("[Odometry]: NaN detected in RTK variable \"x_correction\", setting it to 0!!!");
       } else if (x_correction > max_rtk_correction) {
         x_correction = max_rtk_correction;
       } else if (x_correction < -max_rtk_correction) {
@@ -1996,7 +1919,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       // saturate the y_correction
       if (!std::isfinite(y_correction)) {
         y_correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
+        ROS_ERROR("[Odometry]: NaN detected in RTK variable \"y_correction\", setting it to 0!!!");
       } else if (y_correction > max_rtk_correction) {
         y_correction = max_rtk_correction;
       } else if (y_correction < -max_rtk_correction) {
@@ -2036,7 +1959,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     if (!std::isfinite(rtk_local.pose.pose.position.z)) {
 
-      ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.position.position.z\" (rtk_altitude)!!!");
+      ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in RTK variable \"rtk_local.position.position.z\" (rtk_altitude)!!!");
 
       routine_rtk_callback->end();
       return;
@@ -2256,7 +2179,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
     // saturate the x_correction
     if (!std::isfinite(x_correction)) {
       x_correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"x_correction\", setting it to 0!!!");
+      ROS_ERROR("[Odometry]: NaN detected in ICP variable \"x_correction\", setting it to 0!!!");
     } else if (x_correction > max_rtk_correction) {
       x_correction = max_rtk_correction;
     } else if (x_correction < -max_rtk_correction) {
@@ -2285,7 +2208,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
     // saturate the x_correction
     if (!std::isfinite(y_correction)) {
       y_correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"y_correction\", setting it to 0!!!");
+      ROS_ERROR("[Odometry]: NaN detected in ICP variable \"y_correction\", setting it to 0!!!");
     } else if (y_correction > max_rtk_correction) {
       y_correction = max_rtk_correction;
     } else if (y_correction < -max_rtk_correction) {
@@ -2384,6 +2307,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   mutex_odom.unlock();
 
   //////////////////// Fuse MAIN ALT. KALMAN ////////////////////
+  //{ fuse main altitude kalman
   mutex_main_altitude_kalman.lock();
   {
     main_altitude_kalman->setInput(input);
@@ -2401,8 +2325,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
   }
   mutex_main_altitude_kalman.unlock();
+  //}
 
   //////////////////// Fuse FAILSAFE ALT. KALMAN ////////////////////
+  //{ fuse failsafe altitude kalman
   mutex_failsafe_altitude_kalman.lock();
   {
     failsafe_teraranger_kalman->setInput(input);
@@ -2420,81 +2346,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
   }
   mutex_failsafe_altitude_kalman.unlock();
+  //}
 
   //////////////////// Fuse Lateral Kalman ////////////////////
-
-  if (_fuse_mavros_velocity) {
-
-    // set the measurement vector
-    Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
-
-    // fuse lateral kalman x velocity
-    double x_twist = 0.0;
-
-    mutex_odom.lock();
-    { x_twist = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec(); }
-    /* { mes_lat << odom_pixhawk.twist.twist.linear.x; } */
-    mutex_odom.unlock();
-
-    // check nans and saturate
-    if (!std::isfinite(x_twist)) {
-      x_twist = 0;
-      ROS_ERROR("NaN detected in variable \"x_twist\", setting it to 0 and returning!!!");
-      return;
-    } else if (x_twist > 10) {
-      x_twist = 10;
-    } else if (x_twist < -10) {
-      x_twist = -10;
-    }
-
-    mes_lat << x_twist;
-
-    mutex_lateral_kalman_x.lock();
-    {
-
-      lateralKalmanX->setP(P_vel);
-
-      lateralKalmanX->setMeasurement(mes_lat, Q_vel_mavros);
-
-      lateralKalmanX->doCorrection();
-    }
-    mutex_lateral_kalman_x.unlock();
-
-    // fuse lateral kalman y velocity
-    double y_twist = 0.0;
-
-    mutex_odom.lock();
-    { y_twist = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec(); }
-    /* { mes_lat << odom_pixhawk.twist.twist.linear.y; } */
-    mutex_odom.unlock();
-
-    // check nans and saturate
-    if (!std::isfinite(y_twist)) {
-      y_twist = 0;
-      ROS_ERROR("NaN detected in variable \"y_twist\", setting it to 0 and returning!!!");
-      return;
-    } else if (y_twist > 10) {
-      y_twist = 10;
-    } else if (y_twist < -10) {
-      y_twist = -10;
-    }
-
-    mes_lat << y_twist;
-
-    mutex_lateral_kalman_y.lock();
-    {
-      lateralKalmanY->setP(P_vel);
-
-      lateralKalmanY->setMeasurement(mes_lat, Q_vel_mavros);
-
-      lateralKalmanY->doCorrection();
-    }
-    mutex_lateral_kalman_y.unlock();
-
-    trg_last_update = ros::Time::now();
-
-    ROS_WARN_ONCE("[Odometry]: fusing Mavros velocity");
-  }
 
   // rotations in inertial frame
   double rot_x, rot_y, rot_z;
@@ -2509,6 +2363,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   orientation_mavros.vector.z = rot_z;
   pub_orientation_mavros_.publish(orientation_mavros);
 
+  //{ if (_fuse_mavros_tilts)
   if (_fuse_mavros_tilts) {
 
     // x correction
@@ -2518,7 +2373,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       if (!std::isfinite(rot_y)) {
         rot_y = 0;
-        ROS_ERROR("NaN detected in variable \"rot_y\", setting it to 0 and returning!!!");
+        ROS_ERROR("NaN detected in Mavros variable \"rot_y\", setting it to 0 and returning!!!");
         return;
       } else if (rot_y > 1.57) {
         rot_y = 1.57;
@@ -2556,8 +2411,165 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 
     ROS_WARN_ONCE("[Odometry]: fusing Mavros tilts");
+  }
+  //}
 
-  }  // end if (_fuse_mavros_tilts)
+  //{ if (_fuse_mavros_velocity)
+  if (_fuse_mavros_velocity) {
+
+    // set the measurement vector
+    Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+    // fuse lateral kalman x velocity
+    double x_twist = 0.0;
+
+    mutex_odom.lock();
+    { x_twist = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec(); }
+    /* { mes_lat << odom_pixhawk.twist.twist.linear.x; } */
+    mutex_odom.unlock();
+
+    // check nans and saturate
+    if (!std::isfinite(x_twist)) {
+      x_twist = 0;
+      ROS_ERROR("NaN detected in Mavros variable \"x_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (x_twist > 10) {
+      x_twist = 10;
+    } else if (x_twist < -10) {
+      x_twist = -10;
+    }
+
+    mes_lat << x_twist;
+
+    mutex_lateral_kalman_x.lock();
+    {
+
+      lateralKalmanX->setP(P_vel);
+
+      lateralKalmanX->setMeasurement(mes_lat, Q_vel_mavros);
+
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // fuse lateral kalman y velocity
+    double y_twist = 0.0;
+
+    mutex_odom.lock();
+    { y_twist = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec(); }
+    /* { mes_lat << odom_pixhawk.twist.twist.linear.y; } */
+    mutex_odom.unlock();
+
+    // check nans and saturate
+    if (!std::isfinite(y_twist)) {
+      y_twist = 0;
+      ROS_ERROR("NaN detected in Mavros variable \"y_twist\", setting it to 0 and returning!!!");
+      return;
+    } else if (y_twist > 10) {
+      y_twist = 10;
+    } else if (y_twist < -10) {
+      y_twist = -10;
+    }
+
+    mes_lat << y_twist;
+
+    mutex_lateral_kalman_y.lock();
+    {
+      lateralKalmanY->setP(P_vel);
+
+      lateralKalmanY->setMeasurement(mes_lat, Q_vel_mavros);
+
+      lateralKalmanY->doCorrection();
+    }
+    mutex_lateral_kalman_y.unlock();
+
+    trg_last_update = ros::Time::now();
+
+    ROS_WARN_ONCE("[Odometry]: fusing Mavros velocity");
+  }
+  //}
+
+//{ if (_fuse_mavros_position)
+  if (_fuse_mavros_position) {
+
+    if (!got_odom || (set_home_on_start && !got_global_position)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing Mavros position. Global position not averaged.");
+      routine_odometry_callback->end();
+      return;
+    }
+
+    if (!std::isfinite(odom_pixhawk.pose.pose.position.x) || !std::isfinite(odom_pixhawk.pose.pose.position.y)) {
+      ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
+      routine_odometry_callback->end();
+      return;
+    }
+    mutex_lateral_kalman_x.lock();
+    {
+      // fill the measurement vector
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+      double x_correction = 0;
+
+      mutex_odom.lock();
+      { x_correction = odom_pixhawk.pose.pose.position.x - lateralKalmanX->getState(0); }
+      mutex_odom.unlock();
+
+      // saturate the x_correction
+      if (!std::isfinite(x_correction)) {
+        x_correction = 0;
+        ROS_ERROR("[Odometry]: NaN detected in Mavros variable \"x_correction\", setting it to 0!!!");
+      } else if (x_correction > max_rtk_correction) {
+        x_correction = max_rtk_correction;
+      } else if (x_correction < -max_rtk_correction) {
+        x_correction = -max_rtk_correction;
+      }
+
+      mes_lat << lateralKalmanX->getState(0) + x_correction;  // apply offsetting from desired center
+
+      lateralKalmanX->setP(P_pos);
+
+      // set the measurement to kalman filter
+      lateralKalmanX->setMeasurement(mes_lat, Q_pos_mavros);
+
+      lateralKalmanX->doCorrection();
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    // fuse rtk gps y position
+    mutex_lateral_kalman_y.lock();
+    {
+      // fill the measurement vector
+      Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
+
+      double y_correction = 0;
+
+      mutex_odom.lock();
+      { y_correction = odom_pixhawk.pose.pose.position.y - lateralKalmanY->getState(0); }
+      mutex_odom.unlock();
+
+      // saturate the y_correction
+      if (!std::isfinite(y_correction)) {
+        y_correction = 0;
+        ROS_ERROR("[Odometry]: NaN detected in Mavros variable \"y_correction\", setting it to 0!!!");
+      } else if (y_correction > max_rtk_correction) {
+        y_correction = max_rtk_correction;
+      } else if (y_correction < -max_rtk_correction) {
+        y_correction = -max_rtk_correction;
+      }
+
+      mes_lat << lateralKalmanY->getState(0) + y_correction;  // apply offsetting from desired center
+
+      lateralKalmanY->setP(P_pos);
+      // set the measurement to kalman filter
+      lateralKalmanY->setMeasurement(mes_lat, Q_pos_mavros);
+
+      lateralKalmanY->doCorrection();
+
+      ROS_WARN_ONCE("[Odometry]: fusing Mavros GPS");
+    }
+    mutex_lateral_kalman_y.unlock();
+  }
+  //}
 
   routine_odometry_callback->end();
 }
@@ -2645,7 +2657,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
     if (!std::isfinite(x_twist)) {
       x_twist = 0;
-      ROS_ERROR("NaN detected in variable \"x_twist\", setting it to 0 and returning!!!");
+      ROS_ERROR("NaN detected in Optflow variable \"x_twist\", setting it to 0 and returning!!!");
       return;
     } else if (x_twist > 10) {
       x_twist = 10;
@@ -2675,7 +2687,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
     if (!std::isfinite(y_twist)) {
       y_twist = 0;
-      ROS_ERROR("NaN detected in variable \"y_twist\", setting it to 0 and returning!!!");
+      ROS_ERROR("NaN detected in Optflow variable \"y_twist\", setting it to 0 and returning!!!");
       return;
     } else if (y_twist > 10) {
       y_twist = 10;
