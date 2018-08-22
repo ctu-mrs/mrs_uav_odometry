@@ -31,9 +31,10 @@
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
 #include <mrs_lib/GpsConversions.h>
+#include <mrs_lib/ParamLoader.h>
 
 #include <range_filter.h>
-#include "mrs_odometry/lkfConfig.h"
+#include <mrs_odometry/lkfConfig.h>
 
 #include "tf/LinearMath/Transform.h"
 #include <tf/transform_broadcaster.h>
@@ -370,13 +371,9 @@ void Odometry::onInit() {
 
   ROS_INFO("[Odometry]: initializing");
 
-  nh_.param("uav_name", uav_name, std::string());
+  mrs_lib::ParamLoader param_loader(nh_, "Odometry");
 
-  if (uav_name.empty()) {
-
-    ROS_ERROR("[Odometry]: UAV_NAME is empty");
-    ros::shutdown();
-  }
+  param_loader.load_param("uav_name", uav_name);
 
   odometry_published    = false;
   got_odom              = false;
@@ -399,33 +396,33 @@ void Odometry::onInit() {
   utm_position_x = 0;
   utm_position_y = 0;
 
-  nh_.param("rate", rate_, -1);
+  param_loader.load_param("rate", rate_);
 
-  nh_.param("simulation", simulation_, false);
-  nh_.param("slow_odom_rate", slow_odom_rate, 1);
-  nh_.param("diag_rate", diag_rate, 1);
-  nh_.param("max_altitude_rate", max_altitude_rate, 1);
-  nh_.param("trgFilterBufferSize", trg_filter_buffer_size, 20);
-  nh_.param("trgFilterMaxValidAltitude", trg_max_valid_altitude, 8.0);
-  nh_.param("trgFilterMaxDifference", trg_filter_max_difference, 3.0);
+  param_loader.load_param("simulation", simulation_);
+  param_loader.load_param("slow_odom_rate", slow_odom_rate);
+  param_loader.load_param("diag_rate", diag_rate);
+  param_loader.load_param("max_altitude_rate", max_altitude_rate);
+  param_loader.load_param("trgFilterBufferSize", trg_filter_buffer_size);
+  param_loader.load_param("trgFilterMaxValidAltitude", trg_max_valid_altitude);
+  param_loader.load_param("trgFilterMaxDifference", trg_filter_max_difference);
 
-  nh_.param("garminFilterBufferSize", garmin_filter_buffer_size, 20);
-  nh_.param("garminFilterMaxValidAltitude", garmin_max_valid_altitude, 8.0);
-  nh_.param("garminFilterMaxDifference", garmin_filter_max_difference, 3.0);
+  param_loader.load_param("garminFilterBufferSize", garmin_filter_buffer_size);
+  param_loader.load_param("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
+  param_loader.load_param("garminFilterMaxDifference", garmin_filter_max_difference);
 
-  /* nh_.param("objectAltitudeBufferSize", object_filter_buffer_size, 20); */
-  /* nh_.param("objectAltitudeValidAltitude", object_max_valid_altitude, 8.0); */
-  /* nh_.param("objectAltitudeMaxDifference", object_filter_max_difference, 3.0); */
-  /* nh_.param("altitude/objectQ", objectQ, 1.0); */
-  /* nh_.param("staticObjectHeight", static_object_height_, 0.2); */
-  /* nh_.param("dynamicObjectHeight", dynamic_object_height_, 0.2); */
-  /* nh_.param("mobius_z_offset_", trg_z_offset_, 0.0); */
+  /* param_loader.load_param("objectAltitudeBufferSize", object_filter_buffer_size); */
+  /* param_loader.load_param("objectAltitudeValidAltitude", object_max_valid_altitude); */
+  /* param_loader.load_param("objectAltitudeMaxDifference", object_filter_max_difference); */
+  /* param_loader.load_param("altitude/objectQ", objectQ); */
+  /* param_loader.load_param("staticObjectHeight", static_object_height_); */
+  /* param_loader.load_param("dynamicObjectHeight", dynamic_object_height_); */
+  /* param_loader.load_param("mobius_z_offset_", trg_z_offset_); */
 
-  nh_.param("trg_z_offset", trg_z_offset_, 0.0);
-  nh_.param("garmin_z_offset", garmin_z_offset_, 0.0);
+  param_loader.load_param("trg_z_offset", trg_z_offset_);
+  param_loader.load_param("garmin_z_offset", garmin_z_offset_);
 
-  nh_.param("home_utm_x", home_utm_x, 0.0);
-  nh_.param("home_utm_y", home_utm_y, 0.0);
+  param_loader.load_param("home_utm_x", home_utm_x);
+  param_loader.load_param("home_utm_y", home_utm_y);
 
   if (home_utm_x == 0 || home_utm_y == 0) {
 
@@ -433,7 +430,7 @@ void Odometry::onInit() {
 
   } else {
 
-    nh_.param("use_home_position", set_home_on_start, false);
+    param_loader.load_param("use_home_position", set_home_on_start);
 
     if (set_home_on_start)
       ROS_INFO("[Odometry]: SetHomeOnStart enabled");
@@ -450,15 +447,15 @@ void Odometry::onInit() {
   local_origin_offset_y = 0;
 
   // averaging
-  nh_.param("averagingNumSamples", averaging_num_samples, 1);
+  param_loader.load_param("averagingNumSamples", averaging_num_samples);
   averaging_started     = false;
   done_averaging        = false;
   averaging_got_samples = 0;
 
   // declare and initialize variables for the altitude KF
-  nh_.param("altitude/numberOfVariables", altitude_n, -1);
-  nh_.param("altitude/numberOfInputs", altitude_m, -1);
-  nh_.param("altitude/numberOfMeasurements", altitude_p, -1);
+  param_loader.load_param("altitude/numberOfVariables", altitude_n);
+  param_loader.load_param("altitude/numberOfInputs", altitude_m);
+  param_loader.load_param("altitude/numberOfMeasurements", altitude_p);
 
   A1 = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
   B1 = Eigen::MatrixXd::Zero(altitude_n, altitude_m);
@@ -467,67 +464,33 @@ void Odometry::onInit() {
   Q3 = Eigen::MatrixXd::Zero(altitude_p, altitude_p);
   P1 = Eigen::MatrixXd::Zero(altitude_p, altitude_n);
 
-  std::vector<double> tempList;
-  int                 tempIdx = 0;
+  param_loader.load_matrix_static("altitude/A", A1, altitude_n, altitude_n);
+  param_loader.load_matrix_static("altitude/B", B1, altitude_n, altitude_m);
 
-  tempIdx = 0;
-  nh_.getParam("altitude/A", tempList);
-  for (int i = 0; i < altitude_n; i++) {
-    for (int j = 0; j < altitude_n; j++) {
-      A1(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("altitude/R", R1, altitude_n, altitude_n);
 
-  tempIdx = 0;
-  nh_.getParam("altitude/B", tempList);
-  for (int i = 0; i < altitude_n; i++) {
-    for (int j = 0; j < altitude_m; j++) {
-      B1(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  tempIdx = 0;
-  nh_.getParam("altitude/R", tempList);
-  for (int i = 0; i < altitude_n; i++) {
-    for (int j = 0; j < altitude_n; j++) {
-      R1(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  tempIdx = 0;
-  nh_.getParam("altitude/Q", tempList);
-  for (int i = 0; i < altitude_p; i++) {
-    for (int j = 0; j < altitude_p; j++) {
-      Q1(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("altitude/Q", Q1, altitude_p, altitude_p);
 
   Q3 = Q1;
 
-  tempIdx = 0;
-  nh_.getParam("altitude/P", tempList);
-  for (int i = 0; i < altitude_p; i++) {
-    for (int j = 0; j < altitude_n; j++) {
-      P1(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("altitude/P", P1, altitude_p, altitude_n);
 
-  nh_.param("altitude/TrgMaxQ", TrgMaxQ, 1000.0);
-  nh_.param("altitude/TrgMinQ", TrgMinQ, 1.0);
-  nh_.param("altitude/TrgQChangeRate", TrgQChangeRate, 1.0);
+  param_loader.load_param("altitude/TrgMaxQ", TrgMaxQ);
+  param_loader.load_param("altitude/TrgMinQ", TrgMinQ);
+  param_loader.load_param("altitude/TrgQChangeRate", TrgQChangeRate);
 
-  nh_.param("altitude/GarminMaxQ", GarminMaxQ, 1000.0);
-  nh_.param("altitude/GarminMinQ", GarminMinQ, 1.0);
-  nh_.param("altitude/GarminQChangeRate", GarminQChangeRate, 1.0);
+  param_loader.load_param("altitude/GarminMaxQ", GarminMaxQ);
+  param_loader.load_param("altitude/GarminMinQ", GarminMinQ);
+  param_loader.load_param("altitude/GarminQChangeRate", GarminQChangeRate);
 
-  nh_.param("altitude/rtkQ", rtkQ, 1.0);
+  param_loader.load_param("altitude/rtkQ", rtkQ);
 
   // failsafes for altitude fusion
-  nh_.param("altitude/rtk_max_down_difference", rtk_max_down_difference_, 1.0);
-  nh_.param("altitude/rtk_max_abs_difference", rtk_max_abs_difference_, 5.0);
+  param_loader.load_param("altitude/rtk_max_down_difference", rtk_max_down_difference_);
+  param_loader.load_param("altitude/rtk_max_abs_difference", rtk_max_abs_difference_);
 
-  /* nh_.param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_, 1.0); */
-  /* nh_.param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_, 5.0); */
+  /* param_loader.load_param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_); */
+  /* param_loader.load_param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_); */
 
   terarangerFilter = new RangeFilter(trg_filter_buffer_size, trg_max_valid_altitude, trg_filter_max_difference);
   garminFilter     = new RangeFilter(garmin_filter_buffer_size, garmin_max_valid_altitude, garmin_filter_max_difference);
@@ -549,20 +512,20 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Altitude kalman prepared");
 
   // GPS reliability
-  nh_.param("max_optflow_altitude", _max_optflow_altitude, 6.0);
-  nh_.param("max_default_altitude", _max_default_altitude, 20.0);
-  nh_.param("min_satellites", _min_satellites, 6);
-  nh_.param("gps_available", _gps_available, false);
-  nh_.param("optflow_available", _optflow_available, false);
-  nh_.param("rtk_available", _rtk_available, false);
-  nh_.param("lidar_available", _lidar_available, false);
+  param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
+  param_loader.load_param("max_default_altitude", _max_default_altitude);
+  param_loader.load_param("min_satellites", _min_satellites);
+  param_loader.load_param("gps_available", _gps_available);
+  param_loader.load_param("optflow_available", _optflow_available);
+  param_loader.load_param("rtk_available", _rtk_available);
+  param_loader.load_param("lidar_available", _lidar_available);
   gps_reliable = _gps_available;
 
 
   // declare and initialize variables for the altitude KF
-  nh_.param("lateral/numberOfVariables", lateral_n, -1);
-  nh_.param("lateral/numberOfInputs", lateral_m, -1);
-  nh_.param("lateral/numberOfMeasurements", lateral_p, -1);
+  param_loader.load_param("lateral/numberOfVariables", lateral_n);
+  param_loader.load_param("lateral/numberOfInputs", lateral_m);
+  param_loader.load_param("lateral/numberOfMeasurements", lateral_p);
 
 
   A2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
@@ -588,52 +551,21 @@ void Odometry::onInit() {
   /* f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2); */
   /* server.setCallback(f); */
 
-  nh_.getParam("lateral/Q_pos_rtk", tempList);
-  Q_pos_rtk(0, 0) = tempList[0];
+  param_loader.load_param("lateral/Q_pos_rtk", Q_pos_rtk(0, 0));
+  param_loader.load_param("lateral/Q_pos_icp", Q_pos_icp(0, 0));
+  param_loader.load_param("lateral/Q_vel_mavros", Q_vel_mavros(0, 0));
+  param_loader.load_param("lateral/Q_pos_mavros", Q_pos_mavros(0, 0));
+  param_loader.load_param("lateral/Q_vel_optflow", Q_vel_optflow(0, 0));
+  param_loader.load_param("lateral/Q_vel_icp", Q_vel_icp(0, 0));
+  param_loader.load_param("lateral/Q_ang", Q_ang(0, 0));
 
-  nh_.getParam("lateral/Q_pos_icp", tempList);
-  Q_pos_icp(0, 0) = tempList[0];
+  param_loader.load_matrix_static("lateral/A", A2, lateral_n, lateral_n);
 
-  nh_.getParam("lateral/Q_vel_mavros", tempList);
-  Q_vel_mavros(0, 0) = tempList[0];
-
-  nh_.getParam("lateral/Q_pos_mavros", tempList);
-  Q_pos_mavros(0, 0) = tempList[0];
-
-  nh_.getParam("lateral/Q_vel_optflow", tempList);
-  Q_vel_optflow(0, 0) = tempList[0];
-
-  nh_.getParam("lateral/Q_vel_icp", tempList);
-  Q_vel_icp(0, 0) = tempList[0];
-
-  nh_.getParam("lateral/Q_ang", tempList);
-  Q_ang(0, 0) = tempList[0];
-
-  tempIdx = 0;
-  nh_.getParam("lateral/A", tempList);
-  for (int i = 0; i < lateral_n; i++) {
-    for (int j = 0; j < lateral_n; j++) {
-      A2(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  tempIdx = 0;
   if (lateral_m > 0) {
-    nh_.getParam("lateral/B", tempList);
-    for (int i = 0; i < lateral_n; i++) {
-      for (int j = 0; j < lateral_m; j++) {
-        B2(i, j) = tempList[tempIdx++];
-      }
-    }
+    param_loader.load_matrix_static("lateral/B", B2, lateral_n, lateral_m);
   }
 
-  tempIdx = 0;
-  nh_.getParam("lateral/R", tempList);
-  for (int i = 0; i < lateral_n; i++) {
-    for (int j = 0; j < lateral_n; j++) {
-      R2(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("lateral/R", R2, lateral_n, lateral_n);
 
   lateralKalmanX = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_ang, P_ang);
   lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_ang, P_ang);
@@ -641,11 +573,11 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
 
   // use differential gps
-  nh_.param("use_differential_gps", use_differential_gps, false);
-  nh_.param("publish_fused_odom", _publish_fused_odom, false);
-  nh_.param("pass_rtk_as_new_odom", pass_rtk_as_new_odom, false);
-  nh_.param("max_rtk_correction", max_rtk_correction, 0.5);
-  nh_.param("max_altitude_correction", max_altitude_correction_, 0.5);
+  param_loader.load_param("use_differential_gps", use_differential_gps);
+  param_loader.load_param("publish_fused_odom", _publish_fused_odom);
+  param_loader.load_param("pass_rtk_as_new_odom", pass_rtk_as_new_odom);
+  param_loader.load_param("max_rtk_correction", max_rtk_correction);
+  param_loader.load_param("max_altitude_correction", max_altitude_correction_);
 
   if (pass_rtk_as_new_odom && !use_differential_gps) {
     ROS_ERROR("[Odometry]: cant have pass_rtk_as_new_odom TRUE when use_differential_gps FALSE");
@@ -784,7 +716,6 @@ void Odometry::onInit() {
   diag_timer         = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
   max_altitude_timer = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
 
-
   // Decide the initial odometry mode based on sensors availability
   mrs_msgs::OdometryMode target_mode;
   if (_gps_available) {
@@ -812,7 +743,15 @@ void Odometry::onInit() {
   bool success = setOdometryModeTo(target_mode);
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
+  // | ----------------------- finish init ---------------------- |
+
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
+
   is_initialized = true;
+
+  ROS_INFO("[Odometry]: initialized");
 }
 
 //}
@@ -3336,6 +3275,8 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _odometry_mode = target_mode;
   }
+
+  return false;
 }
 
 //}

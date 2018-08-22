@@ -104,10 +104,10 @@ lateral:
   odometry_mode: 4
 
   # Covariances
-  Q_vel_optflow: [50]
-  Q_ang: [1000]
-  Q_vel_mavros: [100]
-  Q_pos_mavros: [1000]
-  Q_pos_rtk: [10]
-  Q_pos_icp: [100]
-  Q_vel_icp: [100]
+  Q_vel_optflow: 50
+  Q_ang: 1000
+  Q_vel_mavros: 100
+  Q_pos_mavros: 1000
+  Q_pos_rtk: 10
+  Q_pos_icp: 100
+  Q_vel_icp: 100
