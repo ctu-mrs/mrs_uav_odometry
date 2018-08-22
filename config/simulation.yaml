@@ -2,9 +2,13 @@ rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
 
 gps_available: true
-min_satellites: 11
-max_default_altitude: 30
-max_optflow_altitude: 6
+optflow_available: true
+rtk_available: true
+lidar_available: false
+
+min_satellites: 6
+max_default_altitude: 30.0
+max_optflow_altitude: 2.0
 
 averagingNumSamples: 20
 
@@ -113,7 +117,7 @@ lateral:
 
 
   # Odometry mode: 1-OPTFLOW, 2-GPS, 3-OPTFLOWGPS, 4-RTK, 5-ICP
-  odometry_mode: 4
+  # odometry_mode: 4
 
   # Covariances
   Q_vel_optflow: [50]

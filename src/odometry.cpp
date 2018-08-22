@@ -73,15 +73,15 @@ private:
   bool _fuse_optflow_velocity = false;
   bool _fuse_mavros_tilts     = true;
   bool _fuse_mavros_velocity  = true;
-  bool _fuse_mavros_position  = false;
-  bool _fuse_rtk_position     = true;
+  bool _fuse_mavros_position  = true;
+  bool _fuse_rtk_position     = false;
   bool _fuse_icp_velocity     = false;
   bool _fuse_icp_position     = false;
   bool _publish_fused_odom;
 
-  int _max_optflow_altitude;
-  int _max_default_altitude;
-  int _min_satellites;
+  double _max_optflow_altitude;
+  double _max_default_altitude;
+  int    _min_satellites;
 
   ros::NodeHandle nh_;
 
@@ -196,7 +196,7 @@ private:
   void        callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
   void        callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr &msg);
   void        getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
-  void        setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode);
+  bool        setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode);
   bool        isValidMode(const mrs_msgs::OdometryMode &mode);
   std::string printOdometryDiag();
 
@@ -280,10 +280,13 @@ private:
   bool odometry_published;
 
   // reliability of gps
-  int satellites_visible = 0;
-  int max_altitude;
-  bool gps_reliable = false;
-  bool gps_available = false;
+  int  satellites_visible = 0;
+  int  max_altitude;
+  bool gps_reliable       = false;
+  bool _gps_available     = false;
+  bool _optflow_available = false;
+  bool _rtk_available     = false;
+  bool _lidar_available   = false;
 
   // use differential gps
   bool   use_differential_gps = false;
@@ -548,11 +551,14 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Altitude kalman prepared");
 
   // GPS reliability
-  nh_.param("max_optflow_altitude", _max_optflow_altitude, 6);
-  nh_.param("max_default_altitude", _max_default_altitude, 20);
+  nh_.param("max_optflow_altitude", _max_optflow_altitude, 6.0);
+  nh_.param("max_default_altitude", _max_default_altitude, 20.0);
   nh_.param("min_satellites", _min_satellites, 6);
-  nh_.param("gps_available", gps_available, true);
-  gps_reliable = gps_available;
+  nh_.param("gps_available", _gps_available, false);
+  nh_.param("optflow_available", _optflow_available, false);
+  nh_.param("rtk_available", _rtk_available, false);
+  nh_.param("lidar_available", _lidar_available, false);
+  gps_reliable = _gps_available;
 
 
   // declare and initialize variables for the altitude KF
@@ -560,12 +566,6 @@ void Odometry::onInit() {
   nh_.param("lateral/numberOfInputs", lateral_m, -1);
   nh_.param("lateral/numberOfMeasurements", lateral_p, -1);
 
-  int odom_mode;
-  nh_.param("lateral/odometry_mode", odom_mode, -1);
-  _odometry_mode.mode = odom_mode;
-
-  setOdometryModeTo(_odometry_mode);
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   A2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
   if (lateral_m > 0)
@@ -682,7 +682,7 @@ void Odometry::onInit() {
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
   pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
-  pub_max_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+  pub_max_altitude_  = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -791,6 +791,34 @@ void Odometry::onInit() {
   rtk_rate_timer     = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
   diag_timer         = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
   max_altitude_timer = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
+
+
+  // Decide the initial odometry mode based on sensors availability
+  mrs_msgs::OdometryMode target_mode;
+  if (_gps_available) {
+    if (_rtk_available) {
+      target_mode.mode = mrs_msgs::OdometryMode::RTK;
+      ROS_WARN("[Odometry]: Launching odometry in RTK mode.");
+    } else if (_optflow_available) {
+      target_mode.mode = mrs_msgs::OdometryMode::OPTFLOWGPS;
+      ROS_WARN("[Odometry]: Launching odometry in OPTFLOWGPS mode.");
+    } else {
+      target_mode.mode = mrs_msgs::OdometryMode::GPS;
+      ROS_WARN("[Odometry]: Launching odometry in GPS mode.");
+    }
+  } else if (_optflow_available) {
+    target_mode.mode = mrs_msgs::OdometryMode::OPTFLOW;
+    ROS_WARN("[Odometry]: Launching odometry in OPTFLOW mode.");
+  } else if (_lidar_available) {
+    target_mode.mode = mrs_msgs::OdometryMode::ICP;
+    ROS_WARN("[Odometry]: Launching odometry in ICP mode.");
+  } else {
+    is_initialized = false;
+    ROS_ERROR("[Odometry]: Neither GPS, OPTFLOW, RTK, LIDAR localization method is available. Cannot launch odometry.");
+    return;
+  }
+  bool success = setOdometryModeTo(target_mode);
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   is_initialized = true;
 }
@@ -1069,6 +1097,13 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.odometry_mode = _odometry_mode;
 
+  odometry_diag.max_altitude      = max_altitude;
+  odometry_diag.gps_reliable      = gps_reliable;
+  odometry_diag.gps_available     = _gps_available;
+  odometry_diag.optflow_available = _optflow_available;
+  odometry_diag.rtk_available     = _rtk_available;
+  odometry_diag.lidar_available   = _lidar_available;
+
   odometry_diag.optflow_vel.model_state.state = mrs_msgs::ModelState::VELOCITY;
   odometry_diag.optflow_vel.is_fusing         = _fuse_optflow_velocity;
   odometry_diag.optflow_vel.covariance        = Q_vel_optflow(0, 0);
@@ -1116,7 +1151,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
   mrs_msgs::Float64Stamped max_altitude_msg;
   max_altitude_msg.header.frame_id = "local_origin";
-  max_altitude_msg.header.stamp = ros::Time::now();
+  max_altitude_msg.header.stamp    = ros::Time::now();
 
   max_altitude_msg.value = max_altitude;
 
@@ -2710,11 +2745,11 @@ void Odometry::callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr
   if (max_altitude != _max_optflow_altitude && satellites_visible < _min_satellites) {
     max_altitude = _max_optflow_altitude;
     gps_reliable = false;
-    ROS_WARN("[Odometry]: %d satellites visible. GPS unreliable. Setting max altitude to max optflow altitude %d.", satellites_visible, max_altitude);
-  } else if (max_altitude != _max_default_altitude && satellites_visible >= _min_satellites) {
+    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", satellites_visible, max_altitude);
+  } else if (_gps_available && max_altitude != _max_default_altitude && satellites_visible >= _min_satellites) {
     max_altitude = _max_default_altitude;
     gps_reliable = true;
-    ROS_WARN("[Odometry]: %d satellites visible. GPS reliable. Setting max altitude to max allowed altitude %d.", satellites_visible, max_altitude);
+    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", satellites_visible, max_altitude);
   }
 }
 //}
@@ -2974,16 +3009,18 @@ bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request 
     return true;
   }
 
+  bool success = false;
   mutex_odometry_mode.lock();
   {
-    _odometry_mode.mode = req.odometry_mode.mode;
-    setOdometryModeTo(_odometry_mode);
+    mrs_msgs::OdometryMode target_mode;
+    target_mode.mode = req.odometry_mode.mode;
+    success          = setOdometryModeTo(target_mode);
   }
   mutex_odometry_mode.unlock();
 
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
-  res.success = true;
+  res.success = success;
   res.message = (printOdometryDiag().c_str());
   mutex_odometry_mode.lock();
   { res.odometry_mode.mode = _odometry_mode.mode; }
@@ -3141,13 +3178,22 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
 //}
 
 //{ setOdometryModeTo()
-void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
-
-  if (!is_initialized)
-    return;
+bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
   // Optic flow mode
   if (target_mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
+
+    if (!_optflow_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW mode. Optic flow not available in this world.");
+      return false;
+    }
+
+    if (main_altitude_kalman->getState(0) > _max_optflow_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW mode. Current altitude %f. Must descend to %f.", main_altitude_kalman->getState(0),
+                _max_optflow_altitude);
+      return false;
+    }
+
     _fuse_optflow_velocity = true;
 
     _fuse_mavros_tilts    = true;
@@ -3159,8 +3205,22 @@ void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = false;
 
+    max_altitude = _max_optflow_altitude;
+
+    _odometry_mode = target_mode;
+
     // Mavros GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::GPS) {
+
+    if (!_gps_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to GPS mode. GPS signal not available in this world.");
+      return false;
+    }
+
+    if (!gps_reliable) {
+      ROS_ERROR("[Odometry]: Cannot transition to GPS mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      return false;
+    }
 
     _fuse_optflow_velocity = false;
 
@@ -3173,8 +3233,31 @@ void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = false;
 
+    _odometry_mode = target_mode;
+
     // Optic flow + Mavros GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
+
+    if (!_optflow_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Optic flow not available in this world.");
+      return false;
+    }
+
+    if (main_altitude_kalman->getState(0) > _max_optflow_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Current altitude %f. Must descend to %f.", main_altitude_kalman->getState(0),
+                _max_optflow_altitude);
+      return false;
+    }
+
+    if (!_gps_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. GPS signal not available in this world.");
+      return false;
+    }
+
+    if (!gps_reliable) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      return false;
+    }
 
     _fuse_optflow_velocity = true;
 
@@ -3187,8 +3270,25 @@ void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = false;
 
+    _odometry_mode = target_mode;
+
     // RTK GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::RTK) {
+
+    if (!_rtk_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to RTK mode. RTK signal not available in this world.");
+      return false;
+    }
+
+    if (!_gps_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to RTK mode. GPS signal not available in this world.");
+      return false;
+    }
+
+    if (!gps_reliable) {
+      ROS_ERROR("[Odometry]: Cannot transition to RTK mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      return false;
+    }
 
     _fuse_optflow_velocity = false;
 
@@ -3201,10 +3301,17 @@ void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = true;
 
+    _odometry_mode = target_mode;
+
     // LIDAR localization mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::ICP) {
 
-    _fuse_optflow_velocity = true;
+    if (!_lidar_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to ICP mode. Lidar localization not available in this world.");
+      return false;
+    }
+
+    _fuse_optflow_velocity = false;
 
     _fuse_mavros_tilts    = true;
     _fuse_mavros_velocity = false;
@@ -3214,6 +3321,8 @@ void Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_icp_position = true;
 
     _fuse_rtk_position = false;
+
+    _odometry_mode = target_mode;
   }
 }
 
