@@ -6,6 +6,8 @@
 #include <nav_msgs/Odometry.h>
 #include <mutex>
 
+#include <mrs_lib/ParamLoader.h>
+
 namespace mrs_odometry
 {
 
@@ -57,24 +59,11 @@ void RtkRepublisher::onInit() {
 
   ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-  nh_.param("rate", rate_, -1);
-  nh_.param("offset_x", offset_x_, -10e15);
-  nh_.param("offset_y", offset_y_, -10e15);
+  mrs_lib::ParamLoader param_loader(nh_, "RtkRepublisher");
 
-  if (rate_ < 0) {
-    ROS_INFO("[RtkRepublisher]: the 'rate' parameter was not specified!");
-    return;
-  }
-
-  if (offset_x_ < 0) {
-    ROS_INFO("[RtkRepublisher]: the 'offset_x' parameter was not specified!");
-    return;
-  }
-
-  if (offset_y_ < 0) {
-    ROS_INFO("[RtkRepublisher]: the 'offset_y' parameter was not specified!");
-    return;
-  }
+  param_loader.load_param("rate", rate_);
+  param_loader.load_param("offset_x", offset_x_);
+  param_loader.load_param("offset_y", offset_y_);
 
   // SUBSCRIBERS
   global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().tcpNoDelay());
@@ -88,9 +77,15 @@ void RtkRepublisher::onInit() {
 
   main_timer = nh_.createTimer(ros::Rate(rate_), &RtkRepublisher::mainTimer, this);
 
-  ROS_INFO("[RtkRepublisher]: [%s]: initialized", ros::this_node::getName().c_str());
+  // | ----------------------- finish init ---------------------- |
+
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
 
   is_initialized = true;
+
+  ROS_INFO("[RtkRepublisher]: initialized");
 }
 
 //}
