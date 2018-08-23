@@ -4,8 +4,8 @@ diag_rate: 1 # [Hz]
 max_altitude_rate: 1 # [Hz]
 lkf_states_rate: 50 # [Hz]
 
-gps_available: true
-optflow_available: false
+gps_available: false
+optflow_available: true
 rtk_available: false
 lidar_available: false
 
@@ -113,7 +113,7 @@ lateral:
 
   # process covariance
   R: [1, 0, 0, 0, 0, 0,
-      0, 10, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0,
       0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 1000, 0,
@@ -131,7 +131,7 @@ lateral:
 
   # Covariances
   dynamic_optflow_cov: false
-  Q_vel_optflow: 1000
+  Q_vel_optflow: 1000000
   Q_tilt: 10
   Q_vel_mavros: 1
   Q_pos_mavros: 1
