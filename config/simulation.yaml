@@ -2,6 +2,7 @@ rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 1 # [Hz]
 max_altitude_rate: 1 # [Hz]
+lkf_states_rate: 50 # [Hz]
 
 gps_available: false
 optflow_available: true
@@ -96,6 +97,13 @@ lateral:
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]
 
+  A: [1, 0.02, 0, 0, 0, 0,
+      0, 1, 0, 0.02, 0, 0,
+      0, 0, 0, 1, 1, 0,
+      0, 0, 0, 0, 0, 6.3512,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 0.9030]
+
   B: [0,
       0,
       0,
@@ -105,7 +113,7 @@ lateral:
 
   # process covariance
   R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
+      0, 10, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0,
       0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 1000, 0,
@@ -122,11 +130,11 @@ lateral:
   # odometry_mode: 4
 
   # Covariances
-  dynamic_optflow_cov: true
-  Q_vel_optflow: 100
-  Q_ang: 1000
-  Q_vel_mavros: 100
-  Q_pos_mavros: 100
-  Q_pos_rtk: 10
-  Q_pos_icp: 100
-  Q_vel_icp: 100
+  dynamic_optflow_cov: false
+  Q_vel_optflow: 1000
+  Q_tilt: 10
+  Q_vel_mavros: 1
+  Q_pos_mavros: 1
+  Q_pos_rtk: 1
+  Q_pos_icp: 1
+  Q_vel_icp: 1

@@ -28,6 +28,7 @@
 #include <mrs_msgs/OdometryMode.h>
 #include <mrs_msgs/ChangeOdometryMode.h>
 #include <mrs_msgs/Float64Stamped.h>
+#include <mrs_msgs/LkfStates.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -99,6 +100,7 @@ private:
   ros::Publisher pub_odometry_diag_;
   ros::Publisher pub_altitude_;
   ros::Publisher pub_max_altitude_;
+  ros::Publisher pub_lkf_states_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -268,7 +270,7 @@ private:
   // lateral kalman
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A2, B2, R2, P_vel, P_pos, P_ang;
-  Eigen::MatrixXd Q_pos_rtk, Q_pos_icp, Q_vel_icp, Q_vel_mavros, Q_pos_mavros, Q_vel_optflow, Q_ang;
+  Eigen::MatrixXd Q_pos_rtk, Q_pos_icp, Q_vel_icp, Q_vel_mavros, Q_pos_mavros, Q_vel_optflow, Q_tilt;
   Eigen::MatrixXd Q_vel_optflow_dynamic_x, Q_vel_optflow_dynamic_y;
   mrs_lib::Lkf *  lateralKalmanX;
   mrs_lib::Lkf *  lateralKalmanY;
@@ -307,12 +309,15 @@ private:
 
   ros::Timer slow_odom_timer;
   ros::Timer diag_timer;
+  ros::Timer lkf_states_timer;
   ros::Timer max_altitude_timer;
   int        slow_odom_rate;
   int        diag_rate;
+  int        lkf_states_rate;
   int        max_altitude_rate;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
+  void       lkfStatesTimer(const ros::TimerEvent &event);
   void       rtkRateTimer(const ros::TimerEvent &event);
   void       maxAltitudeTimer(const ros::TimerEvent &event);
 
@@ -342,6 +347,17 @@ private:
   mrs_lib::Routine * routine_icp_callback;
   mrs_lib::Routine * routine_icp_global_callback;
 
+
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+
+  boost::recursive_mutex                      config_mutex_;
+  typedef mrs_odometry::lkfConfig             Config;
+  typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
+  boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
+  void                                        drs_callback(mrs_odometry::lkfConfig &config, uint32_t level);
+  mrs_odometry::lkfConfig                     last_drs_config;
 
 private:
   // ############### stuff for adding another source of altitude data ###############
@@ -410,6 +426,7 @@ void Odometry::onInit() {
   param_loader.load_param("slow_odom_rate", slow_odom_rate);
   param_loader.load_param("diag_rate", diag_rate);
   param_loader.load_param("max_altitude_rate", max_altitude_rate);
+  param_loader.load_param("lkf_states_rate", lkf_states_rate);
   param_loader.load_param("trgFilterBufferSize", trg_filter_buffer_size);
   param_loader.load_param("trgFilterMaxValidAltitude", trg_max_valid_altitude);
   param_loader.load_param("trgFilterMaxDifference", trg_filter_max_difference);
@@ -551,20 +568,17 @@ void Odometry::onInit() {
   P_vel         = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
   P_pos         = Eigen::MatrixXd::Zero(lateral_p, lateral_n);
   Q_vel_optflow = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
-  Q_ang         = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
+  Q_tilt        = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
   Q_vel_mavros  = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
   Q_pos_mavros  = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
   Q_pos_rtk     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
   Q_vel_icp     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
   Q_pos_icp     = Eigen::MatrixXd::Zero(lateral_p, lateral_p);
 
+  // mapping of measurements to states
   P_pos(0, 0) = 1;
   P_vel(0, 1) = 1;
   P_ang(0, 5) = 1;
-
-  // start dynamic reconfigure server
-  /* f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2); */
-  /* server.setCallback(f); */
 
   param_loader.load_param("lateral/Q_pos_rtk", Q_pos_rtk(0, 0));
   param_loader.load_param("lateral/Q_pos_icp", Q_pos_icp(0, 0));
@@ -572,7 +586,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/Q_pos_mavros", Q_pos_mavros(0, 0));
   param_loader.load_param("lateral/Q_vel_optflow", Q_vel_optflow(0, 0));
   param_loader.load_param("lateral/Q_vel_icp", Q_vel_icp(0, 0));
-  param_loader.load_param("lateral/Q_ang", Q_ang(0, 0));
+  param_loader.load_param("lateral/Q_tilt", Q_tilt(0, 0));
 
   param_loader.load_matrix_static("lateral/A", A2, lateral_n, lateral_n);
 
@@ -582,8 +596,8 @@ void Odometry::onInit() {
 
   param_loader.load_matrix_static("lateral/R", R2, lateral_n, lateral_n);
 
-  lateralKalmanX = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_ang, P_ang);
-  lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_ang, P_ang);
+  lateralKalmanX = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_tilt, P_ang);
+  lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_tilt, P_ang);
 
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
   //}
@@ -610,6 +624,32 @@ void Odometry::onInit() {
   rtk_altitude_enabled = false;
 
   // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+
+  last_drs_config.R_pos   = R2(0, 0);
+  last_drs_config.R_vel   = R2(1, 1);
+  last_drs_config.R_acc   = R2(2, 2);
+  last_drs_config.R_acc_i = R2(3, 3);
+  last_drs_config.R_acc_d = R2(4, 4);
+  last_drs_config.R_tilt  = R2(5, 5);
+
+  last_drs_config.Q_pos_mavros = Q_pos_mavros(0, 0);
+  last_drs_config.Q_pos_rtk    = Q_pos_rtk(0, 0);
+  last_drs_config.Q_pos_icp    = Q_pos_icp(0, 0);
+
+  last_drs_config.Q_vel_mavros  = Q_vel_mavros(0, 0);
+  last_drs_config.Q_vel_optflow = Q_vel_optflow(0, 0);
+  last_drs_config.Q_vel_icp     = Q_vel_icp(0, 0);
+
+  last_drs_config.Q_tilt = Q_tilt(0, 0);
+
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
+  reconfigure_server_->updateConfig(last_drs_config);
+  ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
+  reconfigure_server_->setCallback(f);
+
+  // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
 
@@ -630,6 +670,7 @@ void Odometry::onInit() {
   pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
   pub_max_altitude_  = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+  pub_lkf_states_    = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -742,6 +783,7 @@ void Odometry::onInit() {
   slow_odom_timer    = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
   rtk_rate_timer     = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
   diag_timer         = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
+  lkf_states_timer   = nh_.createTimer(ros::Rate(lkf_states_rate), &Odometry::lkfStatesTimer, this);
   max_altitude_timer = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
 
   // Decide the initial odometry mode based on sensors availability
@@ -971,11 +1013,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (_publish_fused_odom) {
 
     mutex_lateral_kalman_x.lock();
-    { new_odom.pose.pose.position.x = lateralKalmanX->getState(0); }
+    {
+      new_odom.pose.pose.position.x = lateralKalmanX->getState(0);
+      new_odom.twist.twist.linear.x = lateralKalmanX->getState(1);
+    }
     mutex_lateral_kalman_x.unlock();
 
     mutex_lateral_kalman_y.lock();
-    { new_odom.pose.pose.position.y = lateralKalmanY->getState(0); }
+    {
+      new_odom.pose.pose.position.y = lateralKalmanY->getState(0);
+      new_odom.twist.twist.linear.y = lateralKalmanY->getState(1);
+    }
     mutex_lateral_kalman_y.unlock();
 
   } else {
@@ -1075,7 +1123,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.mavros_tilts.model_state.state = mrs_msgs::ModelState::TILT;
   odometry_diag.mavros_tilts.is_fusing         = _fuse_mavros_tilts;
-  odometry_diag.mavros_tilts.covariance        = Q_ang(0, 0);
+  odometry_diag.mavros_tilts.covariance        = Q_tilt(0, 0);
 
   odometry_diag.mavros_vel.model_state.state = mrs_msgs::ModelState::VELOCITY;
   odometry_diag.mavros_vel.is_fusing         = _fuse_mavros_velocity;
@@ -1102,6 +1150,54 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
+  }
+}
+
+//}
+
+//{ lkfStatesTimer()
+
+void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
+
+  Eigen::VectorXd states_vec;
+  Eigen::MatrixXd cov_mat;
+
+  // get states and covariances from lateral kalman
+  mutex_lateral_kalman_x.lock();
+  {
+    states_vec = lateralKalmanX->getStates();
+    cov_mat    = lateralKalmanX->getCovariance();
+  }
+  mutex_lateral_kalman_x.unlock();
+
+  // convert eigen matrix to std::vector
+  std::vector<double> cov_vec(cov_mat.data(), cov_mat.data() + cov_mat.rows() * cov_mat.cols());
+
+  Eigen::EigenSolver<Eigen::MatrixXd> es(cov_mat);
+
+  // fill the message
+  mrs_msgs::LkfStates lkf_states;
+  for (int i = 0; i < cov_mat.rows(); ++i) {
+    lkf_states.eigenvalues[i] = (es.eigenvalues().col(0)[i].real());
+  }
+
+  for (int i = 0; i < cov_mat.rows(); i++) {
+    lkf_states.covariance[i] = cov_mat(i, i);
+  }
+
+  lkf_states.header.stamp = ros::Time::now();
+  lkf_states.pos          = states_vec(0);
+  lkf_states.vel          = states_vec(1);
+  lkf_states.acc          = states_vec(2);
+  lkf_states.acc_i        = states_vec(3);
+  lkf_states.acc_d        = states_vec(4);
+  lkf_states.tilt         = states_vec(5);
+
+  try {
+    pub_lkf_states_.publish(lkf_states);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_.getTopic().c_str());
   }
 }
 
@@ -1259,6 +1355,12 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
     lateralKalmanX->setInput(input);
 
+    /* Eigen::MatrixXd cov_mat = lateralKalmanX->getCovariance(); */
+    /* ROS_WARN("[Odometry]: LKF Covariance before prediction:"); */
+    /* for (int i = 0; i < cov_mat.rows(); i++) { */
+    /*   std::cout << " " << cov_mat(i, i); */
+    /* } */
+    /* std::cout << std::endl; */
     lateralKalmanX->iterateWithoutCorrection();
   }
   mutex_lateral_kalman_x.unlock();
@@ -2352,7 +2454,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       lateralKalmanX->setP(P_ang);
 
       // set the measurement to kalman filter
-      lateralKalmanX->setMeasurement(mes_lat, Q_ang);
+      lateralKalmanX->setMeasurement(mes_lat, Q_tilt);
 
       /* lateralKalmanX->iterate(); */
       lateralKalmanX->doCorrection();
@@ -2368,8 +2470,14 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       lateralKalmanY->setP(P_ang);
 
       // set the measurement to kalman filter
-      lateralKalmanY->setMeasurement(mes_lat, Q_ang);
+      lateralKalmanY->setMeasurement(mes_lat, Q_tilt);
 
+      /* Eigen::MatrixXd cov_mat = lateralKalmanX->getCovariance(); */
+      /* ROS_WARN("[Odometry]: LKF Covariance before tilt correction:"); */
+      /* for (int i = 0; i < cov_mat.rows(); i++) { */
+      /*   std::cout << " " << cov_mat(i, i); */
+      /* } */
+      /* std::cout << std::endl; */
       /* lateralKalmanY->iterate(); */
       lateralKalmanY->doCorrection();
     }
@@ -2573,6 +2681,28 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
     got_optflow               = true;
     optflow_twist_last_update = ros::Time::now();
+
+    // temporary solution
+    Eigen::VectorXd states;
+    mutex_lateral_kalman_x.lock();
+    {
+      states    = lateralKalmanX->getStates();
+      states(1) = 0.0;
+      states(2) = 0.0;
+      states(3) = 0.0;
+      states(4) = 0.0;
+      states(5) = 0.0;
+
+      lateralKalmanX->reset(states);
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    mutex_lateral_kalman_y.lock();
+    {
+      states(0) = lateralKalmanY->getState(0);
+      lateralKalmanY->reset(states);
+    }
+    mutex_lateral_kalman_y.unlock();
     return;
   }
 
@@ -2648,7 +2778,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     { Q_vel_optflow_dynamic_x *= optflow_stddev.x; }
     mutex_optflow_stddev.unlock();
 
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov x: %f", Q_vel_optflow_dynamic_x(0,0));
+    /* ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov x: %f", Q_vel_optflow_dynamic_x(0, 0)); */
 
     mutex_lateral_kalman_x.lock();
     {
@@ -2660,6 +2790,12 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
         lateralKalmanX->setMeasurement(mes_optflow_x, Q_vel_optflow);
       }
 
+      /* Eigen::MatrixXd cov_mat = lateralKalmanX->getCovariance(); */
+      /* ROS_WARN("[Odometry]: LKF Covariance before optflow correction:"); */
+      /* for (int i = 0; i < cov_mat.rows(); i++) { */
+      /*   std::cout << " " << cov_mat(i, i); */
+      /* } */
+      /* std::cout << std::endl; */
       lateralKalmanX->doCorrection();
     }
     mutex_lateral_kalman_x.unlock();
@@ -2696,7 +2832,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     { Q_vel_optflow_dynamic_y *= optflow_stddev.y; }
     mutex_optflow_stddev.unlock();
 
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov y: %f", Q_vel_optflow_dynamic_y(0,0));
+    /* ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov y: %f", Q_vel_optflow_dynamic_y(0, 0)); */
 
     mutex_lateral_kalman_y.lock();
     {
@@ -2724,11 +2860,8 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) {
 
   mutex_optflow_stddev.lock();
-  {
-    optflow_stddev = *msg;
-  }
+  { optflow_stddev = *msg; }
   mutex_optflow_stddev.unlock();
-
 }
 //}
 
@@ -3162,14 +3295,28 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 
 //{ callbackReconfigure()
 void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level) {
-  ROS_INFO("Reconfigure Request: Q_pos_rtk: %f,\tQ_pos_icp: %f,\tQ_vel_mavros: %f\tQ_vel_icp: %f\tQ_ang:%f\t R2: %f", config.Q_pos_rtk, config.Q_pos_icp,
-           config.Q_vel_mavros, config.Q_vel_icp, config.Q_ang, config.R_vel);
+  ROS_INFO(
+      "Reconfigure Request: Q_pos_mavros: %f, Q_pos_rtk: %f, Q_pos_icp: %f\nQ_vel_mavros: %f, Q_vel_optflow: %f, Q_vel_icp: %f\nQ_tilt:%f\nR_pos: %f, R_vel: "
+      "%f, R_acc: %f, R_acc_i: %f, R_acc_d: %f, R_tilt: %f",
+      config.Q_pos_mavros, config.Q_pos_rtk, config.Q_pos_icp, config.Q_vel_mavros, config.Q_vel_optflow, config.Q_vel_icp, config.Q_tilt, config.R_pos,
+      config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
+
+  Q_pos_mavros(0, 0) = config.Q_pos_mavros;
   Q_pos_rtk(0, 0)    = config.Q_pos_rtk;
   Q_pos_icp(0, 0)    = config.Q_pos_icp;
-  Q_vel_mavros(0, 0) = config.Q_vel_mavros;
-  Q_vel_icp(0, 0)    = config.Q_vel_icp;
-  Q_ang(0, 0)        = config.Q_ang;
-  R2(1, 1)           = config.R_vel;
+
+  Q_vel_mavros(0, 0)  = config.Q_vel_mavros;
+  Q_vel_optflow(0, 0) = config.Q_vel_optflow;
+  Q_vel_icp(0, 0)     = config.Q_vel_icp;
+
+  Q_tilt(0, 0) = config.Q_tilt;
+
+  R2(0, 0) = config.R_pos;
+  R2(1, 1) = config.R_vel;
+  R2(2, 2) = config.R_acc;
+  R2(3, 3) = config.R_acc_i;
+  R2(4, 4) = config.R_acc_d;
+  R2(5, 5) = config.R_tilt;
 }
 //}
 
@@ -3353,7 +3500,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _odometry_mode = target_mode;
   }
-  
+
   return true;
 }
 
