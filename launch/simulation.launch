@@ -31,6 +31,7 @@
       <remap from="~target_attitude_in" to="mavros/setpoint_raw/target_attitude" />
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
+      <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~terarangerone_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
@@ -58,6 +59,7 @@
       <remap from="~toggle_icp_pos_fusion_in" to="~toggle_icp_pos_fusion" />
       <remap from="~toggle_icp_vel_fusion_in" to="~toggle_icp_vel_fusion" />
       <remap from="~toggle_mavros_vel_fusion_in" to="~toggle_mavros_vel_fusion" />
+      <remap from="~toggle_optflow_vel_fusion_in" to="~toggle_optflow_vel_fusion" />
       <remap from="~toggle_mavros_tilts_fusion_in" to="~toggle_mavros_tilts_fusion" />
       <remap from="~change_odometry_mode_in" to="~change_odometry_mode" />
       <remap from="~reset_home_in" to="~reset_home" />

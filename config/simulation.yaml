@@ -3,8 +3,8 @@ slow_odom_rate: 2 # [Hz]
 diag_rate: 1 # [Hz]
 max_altitude_rate: 1 # [Hz]
 
-gps_available: true
-optflow_available: false
+gps_available: false
+optflow_available: true
 rtk_available: false
 lidar_available: false
 
@@ -106,10 +106,10 @@ lateral:
   # process covariance
   R: [1, 0, 0, 0, 0, 0,
       0, 1, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 1000, 0,
-      0, 0, 0, 0, 0, 100]
+      0, 0, 1000, 0, 0, 0,
+      0, 0, 0, 1000, 0, 0,
+      0, 0, 0, 0, 10000, 0,
+      0, 0, 0, 0, 0, 1000]
 
   # measurement covariance
   Q: [1]
@@ -122,7 +122,8 @@ lateral:
   # odometry_mode: 4
 
   # Covariances
-  Q_vel_optflow: 10
+  dynamic_optflow_cov: false
+  Q_vel_optflow: 50
   Q_ang: 1000
   Q_vel_mavros: 100
   Q_pos_mavros: 100

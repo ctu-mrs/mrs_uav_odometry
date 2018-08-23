@@ -6,6 +6,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/Vector3.h>
 
 #include <mavros_msgs/AttitudeTarget.h>
 
@@ -79,6 +80,7 @@ private:
   bool _fuse_icp_velocity     = false;
   bool _fuse_icp_position     = false;
   bool _publish_fused_odom;
+  bool _dynamic_optflow_cov = false;
 
   double _max_optflow_altitude;
   double _max_default_altitude;
@@ -105,6 +107,7 @@ private:
   // Pixhawk odometry subscriber and callback
   ros::Subscriber sub_pixhawk_;
   ros::Subscriber sub_optflow_;
+  ros::Subscriber sub_optflow_stddev_;
   ros::Subscriber rtk_gps_sub_;
   ros::Subscriber sub_icp_relative__;
   ros::Subscriber sub_icp_global__;
@@ -122,6 +125,7 @@ private:
   ros::ServiceServer ser_toggle_rtk_pos_fusion;
   ros::ServiceServer ser_toggle_icp_pos_fusion;
   ros::ServiceServer ser_toggle_icp_vel_fusion;
+  ros::ServiceServer ser_toggle_optflow_vel_fusion;
   ros::ServiceServer ser_toggle_mavros_vel_fusion;
   ros::ServiceServer ser_toggle_mavros_tilts_fusion;
   ros::ServiceServer ser_change_odometry_mode;
@@ -141,6 +145,8 @@ private:
   std::mutex                  mutex_optflow;
   geometry_msgs::TwistStamped optflow_twist_previous;
   ros::Time                   optflow_twist_last_update;
+  geometry_msgs::Vector3      optflow_stddev;
+  std::mutex                  mutex_optflow_stddev;
 
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
@@ -175,6 +181,7 @@ private:
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
+  void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
   void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -262,6 +269,7 @@ private:
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A2, B2, R2, P_vel, P_pos, P_ang;
   Eigen::MatrixXd Q_pos_rtk, Q_pos_icp, Q_vel_icp, Q_vel_mavros, Q_pos_mavros, Q_vel_optflow, Q_ang;
+  Eigen::MatrixXd Q_vel_optflow_dynamic_x, Q_vel_optflow_dynamic_y;
   mrs_lib::Lkf *  lateralKalmanX;
   mrs_lib::Lkf *  lateralKalmanY;
   std::mutex      mutex_lateral_kalman_x, mutex_lateral_kalman_y;
@@ -452,6 +460,22 @@ void Odometry::onInit() {
   done_averaging        = false;
   averaging_got_samples = 0;
 
+  // Optic flow
+  param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
+  param_loader.load_param("max_default_altitude", _max_default_altitude);
+  param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
+  optflow_stddev.x = 1.0;
+  optflow_stddev.y = 1.0;
+  optflow_stddev.z = 1.0;
+
+  // GPS reliability
+  param_loader.load_param("min_satellites", _min_satellites);
+  param_loader.load_param("gps_available", _gps_available);
+  param_loader.load_param("optflow_available", _optflow_available);
+  param_loader.load_param("rtk_available", _rtk_available);
+  param_loader.load_param("lidar_available", _lidar_available);
+  gps_reliable = _gps_available;
+  //{ altitude kalman init
   // declare and initialize variables for the altitude KF
   param_loader.load_param("altitude/numberOfVariables", altitude_n);
   param_loader.load_param("altitude/numberOfInputs", altitude_m);
@@ -510,19 +534,10 @@ void Odometry::onInit() {
                   << ", P: " << P1 << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate);
 
   ROS_INFO("[Odometry]: Altitude kalman prepared");
+  //}
 
-  // GPS reliability
-  param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
-  param_loader.load_param("max_default_altitude", _max_default_altitude);
-  param_loader.load_param("min_satellites", _min_satellites);
-  param_loader.load_param("gps_available", _gps_available);
-  param_loader.load_param("optflow_available", _optflow_available);
-  param_loader.load_param("rtk_available", _rtk_available);
-  param_loader.load_param("lidar_available", _lidar_available);
-  gps_reliable = _gps_available;
-
-
-  // declare and initialize variables for the altitude KF
+  //{ lateral kalman init
+  // declare and initialize variables for the lateral KF
   param_loader.load_param("lateral/numberOfVariables", lateral_n);
   param_loader.load_param("lateral/numberOfInputs", lateral_m);
   param_loader.load_param("lateral/numberOfMeasurements", lateral_p);
@@ -571,6 +586,7 @@ void Odometry::onInit() {
   lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_ang, P_ang);
 
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
+  //}
 
   // use differential gps
   param_loader.load_param("use_differential_gps", use_differential_gps);
@@ -607,6 +623,7 @@ void Odometry::onInit() {
   // |                         publishers                         |
   // --------------------------------------------------------------
 
+  //{ publishers
   // publisher for new odometry
   pub_odom_          = nh_.advertise<nav_msgs::Odometry>("new_odom_out", 1);
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
@@ -627,11 +644,13 @@ void Odometry::onInit() {
   pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global", 1);
   pub_orientation_gt_         = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt", 1);
   pub_orientation_mavros_     = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros", 1);
+  //}
 
   // --------------------------------------------------------------
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
+  //{ subscribers
   // subsribe to target attitude
   sub_target_attitude_ = nh_.subscribe("target_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
 
@@ -640,6 +659,9 @@ void Odometry::onInit() {
 
   // subscriber to optflow odometry
   sub_optflow_ = nh_.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
+
+  // subscriber to optflow odometry
+  sub_optflow_stddev_ = nh_.subscribe("optflow_stddev_in", 1, &Odometry::callbackOptflowStddev, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for terarangers range
   sub_terarangerone_ = nh_.subscribe("teraranger_in", 1, &Odometry::callbackTeraranger, this, ros::TransportHints().tcpNoDelay());
@@ -669,11 +691,13 @@ void Odometry::onInit() {
 
   // subscribe for mavros diagnostic
   sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());
+  //}
 
   // --------------------------------------------------------------
   // |                          services                          |
   // --------------------------------------------------------------
 
+  //{ services
   // subscribe for averaging service
   ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
 
@@ -698,8 +722,12 @@ void Odometry::onInit() {
   // toggling fusing of mavros tilts
   ser_toggle_mavros_tilts_fusion = nh_.advertiseService("toggle_mavros_tilts_fusion_in", &Odometry::callbackToggleMavrosTilts, this);
 
+  // toggling fusing of icp velocity
+  ser_toggle_optflow_vel_fusion = nh_.advertiseService("toggle_optflow_vel_fusion_in", &Odometry::callbackToggleOptflowVelocity, this);
+
   // change fusion mode of odometry
   ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode_in", &Odometry::callbackChangeOdometryMode, this);
+  //}
 
   // subscriber for object altitude
   /* object_altitude_sub = nh_.subscribe("object_altitude", 1, &Odometry::callbackObjectHeight, this, ros::TransportHints().tcpNoDelay()); */
@@ -737,15 +765,21 @@ void Odometry::onInit() {
     ROS_WARN("[Odometry]: Launching odometry in ICP mode.");
   } else {
     is_initialized = false;
-    ROS_ERROR("[Odometry]: Neither GPS, OPTFLOW, RTK, LIDAR localization method is available. Cannot launch odometry.");
+    ROS_ERROR("[Odometry]: Neither GPS, OPTFLOW, RTK, LIDAR localization method is available. Cannot launch odometry. Shutting down.");
+    ros::shutdown();
     return;
   }
   bool success = setOdometryModeTo(target_mode);
+  if (!success) {
+    ROS_WARN("[Odometry]: The initial mode %d could not be set. Shutting down.", target_mode.mode);
+    ros::shutdown();
+  }
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   // | ----------------------- finish init ---------------------- |
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[Odometry]: Could not load all non-optional parameters. Shutting down.");
     ros::shutdown();
   }
 
@@ -2582,7 +2616,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   if (_fuse_optflow_velocity) {
 
     // set the measurement vector
-    Eigen::VectorXd mes_optflow = Eigen::VectorXd::Zero(lateral_p);
+    Eigen::VectorXd mes_optflow_x = Eigen::VectorXd::Zero(lateral_p);
 
     // fuse lateral kalman x velocity
     double x_twist = 0;
@@ -2601,18 +2635,36 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
       x_twist = -10;
     }
 
-    mes_optflow << x_twist;
+    mes_optflow_x << x_twist;
+
+    // calculate the dynamic covariance based on altitude and stddev
+    Q_vel_optflow_dynamic_x = Q_vel_optflow;
+
+    mutex_main_altitude_kalman.lock();
+    { Q_vel_optflow_dynamic_x *= main_altitude_kalman->getState(0); }
+    mutex_main_altitude_kalman.unlock();
+
+    mutex_optflow_stddev.lock();
+    { Q_vel_optflow_dynamic_x *= optflow_stddev.x; }
+    mutex_optflow_stddev.unlock();
+
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov x: %f", Q_vel_optflow_dynamic_x(0,0));
 
     mutex_lateral_kalman_x.lock();
     {
-
       lateralKalmanX->setP(P_vel);
 
-      lateralKalmanX->setMeasurement(mes_optflow, Q_vel_optflow);
+      if (_dynamic_optflow_cov) {
+        lateralKalmanX->setMeasurement(mes_optflow_x, Q_vel_optflow_dynamic_x);
+      } else {
+        lateralKalmanX->setMeasurement(mes_optflow_x, Q_vel_optflow);
+      }
 
       lateralKalmanX->doCorrection();
     }
     mutex_lateral_kalman_x.unlock();
+
+    Eigen::VectorXd mes_optflow_y = Eigen::VectorXd::Zero(lateral_p);
 
     // fuse lateral kalman y velocity
     double y_twist = 0;
@@ -2631,13 +2683,30 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
       y_twist = -10;
     }
 
-    mes_optflow << y_twist;
+    mes_optflow_y << y_twist;
+
+    // calculate the dynamic covariance based on altitude and stddev
+    Q_vel_optflow_dynamic_y = Q_vel_optflow;
+
+    mutex_main_altitude_kalman.lock();
+    { Q_vel_optflow_dynamic_y *= main_altitude_kalman->getState(0); }
+    mutex_main_altitude_kalman.unlock();
+
+    mutex_optflow_stddev.lock();
+    { Q_vel_optflow_dynamic_y *= optflow_stddev.y; }
+    mutex_optflow_stddev.unlock();
+
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: optflow cov y: %f", Q_vel_optflow_dynamic_y(0,0));
 
     mutex_lateral_kalman_y.lock();
     {
       lateralKalmanY->setP(P_vel);
 
-      lateralKalmanY->setMeasurement(mes_optflow, Q_vel_optflow);
+      if (_dynamic_optflow_cov) {
+        lateralKalmanY->setMeasurement(mes_optflow_y, Q_vel_optflow_dynamic_y);
+      } else {
+        lateralKalmanY->setMeasurement(mes_optflow_y, Q_vel_optflow);
+      }
 
       lateralKalmanY->doCorrection();
     }
@@ -2649,6 +2718,18 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   routine_odometry_callback->end();
 }
 
+//}
+
+//{ callbackOptflowStddev()
+void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) {
+
+  mutex_optflow_stddev.lock();
+  {
+    optflow_stddev = *msg;
+  }
+  mutex_optflow_stddev.unlock();
+
+}
 //}
 
 //{ callbackTrackerStatus()
@@ -3272,6 +3353,8 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _odometry_mode = target_mode;
   }
+  
+  return true;
 }
 
 //}
