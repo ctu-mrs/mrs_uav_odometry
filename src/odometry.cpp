@@ -118,7 +118,6 @@ private:
   ros::Subscriber sub_mavros_diagnostic_;
 
 private:
-  ros::ServiceServer ser_reset_home_;
   ros::ServiceServer ser_reset_lateral_kalman_;
   ros::ServiceServer ser_averaging_;
   ros::ServiceServer ser_teraranger_;
@@ -195,6 +194,7 @@ private:
   bool callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res);
+  bool callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   void        callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
   void        callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg);
@@ -741,6 +741,9 @@ void Odometry::onInit() {
   //{ services
   // subscribe for averaging service
   ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
+
+  // subscribe for reset kalman service
+  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetKalman, this);
 
   // subscribe for garmin toggle service
   ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
@@ -2682,27 +2685,6 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     got_optflow               = true;
     optflow_twist_last_update = ros::Time::now();
 
-    // temporary solution
-    Eigen::VectorXd states;
-    mutex_lateral_kalman_x.lock();
-    {
-      states    = lateralKalmanX->getStates();
-      states(1) = 0.0;
-      states(2) = 0.0;
-      states(3) = 0.0;
-      states(4) = 0.0;
-      states(5) = 0.0;
-
-      lateralKalmanX->reset(states);
-    }
-    mutex_lateral_kalman_x.unlock();
-
-    mutex_lateral_kalman_y.lock();
-    {
-      states(0) = lateralKalmanY->getState(0);
-      lateralKalmanY->reset(states);
-    }
-    mutex_lateral_kalman_y.unlock();
     return;
   }
 
@@ -3273,6 +3255,50 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 }
 
 //}
+
+//{ callbackResetKalman
+
+bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    Eigen::VectorXd states_x, states_y;
+
+    ros::Duration(0.1).sleep();
+
+    mutex_lateral_kalman_x.lock();
+    {
+      states_x    = lateralKalmanX->getStates();
+      states_x(1) = 0.0;
+      states_x(2) = 0.0;
+      states_x(3) = 0.0;
+      states_x(4) = 0.0;
+      states_x(5) = 0.0;
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    states_y = states_x;
+
+    mutex_lateral_kalman_y.lock();
+    {
+      states_y(0) = lateralKalmanY->getState(0);
+      lateralKalmanY->reset(states_y);
+    }
+    mutex_lateral_kalman_y.unlock();
+
+    mutex_lateral_kalman_x.lock();
+    {
+      lateralKalmanX->reset(states_x);
+    }
+    mutex_lateral_kalman_x.unlock();
+
+    ROS_WARN("[Odometry]: Lateral kalman states and covariance reset.");
+
+    res.success = true;
+    res.message = "Reset of lateral kalman successfull";
+
+    return true;
+}
+//}
+
 
 //{ callbackGroundTruth()
 void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {

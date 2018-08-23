@@ -4,8 +4,8 @@ diag_rate: 1 # [Hz]
 max_altitude_rate: 1 # [Hz]
 lkf_states_rate: 50 # [Hz]
 
-gps_available: false
-optflow_available: true
+gps_available: true
+optflow_available: false
 rtk_available: false
 lidar_available: false
 
