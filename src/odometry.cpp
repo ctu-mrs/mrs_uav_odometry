@@ -2045,7 +2045,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
     Eigen::VectorXd mes_icp = Eigen::VectorXd::Zero(lateral_p);
     // fuse lateral kalman x velocity
     mutex_icp.lock();
-    { mes_icp << odom_pixhawk.twist.twist.linear.x; }
+    { mes_icp << icp_odom.twist.twist.linear.x; }
     mutex_icp.unlock();
 
     mutex_lateral_kalman_x.lock();
@@ -2060,7 +2060,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
     // fuse lateral kalman y velocity
     mutex_icp.lock();
-    { mes_icp << odom_pixhawk.twist.twist.linear.y; }
+    { mes_icp << icp_odom.twist.twist.linear.y; }
     mutex_icp.unlock();
 
     mutex_lateral_kalman_y.lock();
@@ -2139,7 +2139,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     // fuse lateral kalman x position
     mutex_icp_global.lock();
-    { x_correction = odom_pixhawk.pose.pose.position.x - lateralKalmanX->getState(0); }
+    { x_correction = icp_global_odom.pose.pose.position.x - lateralKalmanX->getState(0); }
     mutex_icp_global.unlock();
 
     // saturate the x_correction
@@ -2168,7 +2168,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     // fuse lateral kalman x position
     mutex_icp_global.lock();
-    { y_correction = odom_pixhawk.pose.pose.position.y - lateralKalmanY->getState(0); }
+    { y_correction = icp_global_odom.pose.pose.position.y - lateralKalmanY->getState(0); }
     mutex_icp_global.unlock();
 
     // saturate the x_correction
