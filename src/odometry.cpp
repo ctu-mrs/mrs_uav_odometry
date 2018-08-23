@@ -47,6 +47,8 @@
 #include <cmath>
 #include <mutex>
 #include <stdexcept>
+#include <iostream>
+#include <fstream>
 
 #define USE_RANGEFINDER 1
 #define STRING_EQUAL 0
@@ -238,6 +240,7 @@ private:
   double             GarminMaxQ, GarminMinQ, GarminQChangeRate;
 
   bool got_odom, got_optflow, got_range, got_global_position, got_rtk, got_icp, got_icp_global, got_target_attitude;
+  bool got_altitude_sensors, got_lateral_sensors;
   int  got_icp_counter;
   int  got_icp_global_counter;
   int  got_rtk_counter;
@@ -258,6 +261,9 @@ private:
 
   // offset to adjust the local origin
   double local_origin_offset_x, local_origin_offset_y;
+
+  // initial position
+  double init_pose_x, init_pose_y, init_pose_z, init_pose_yaw;
 
   // altitude kalman
   int             altitude_n, altitude_m, altitude_p;
@@ -407,6 +413,8 @@ void Odometry::onInit() {
   got_global_position   = false;
   got_tracker_status    = false;
   got_home_position_fix = false;
+  got_altitude_sensors  = false;
+  got_lateral_sensors   = false;
   got_rtk_counter       = 0;
 
   // got_object_altitude = false;
@@ -476,6 +484,15 @@ void Odometry::onInit() {
   averaging_started     = false;
   done_averaging        = false;
   averaging_got_samples = 0;
+
+  // init pose
+  std::ifstream init_pose_file("../config/init_pose/init_pose.csv", std::ifstream::in);
+  std::string   s;
+  std::getline(init_pose_file, s, ',');
+  std::getline(init_pose_file, s, ',');
+  init_pose_x = std::atoi(s.c_str());
+  std::getline(init_pose_file, s, ',');
+  init_pose_y = std::atoi(s.c_str());
 
   // Optic flow
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
@@ -883,23 +900,87 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     return;
 
   // --------------------------------------------------------------
+  // |              publish the new altitude message              |
+  // --------------------------------------------------------------
+
+  if (!got_odom || !got_range) {
+    ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for altitude data from sensors - received? pixhawk: %s, ranger: %s", got_odom ? "TRUE" : "FALSE",
+                      got_range ? "TRUE" : "FALSE");
+    return;
+  }
+
+  got_altitude_sensors = true;
+
+  mrs_msgs::Float64Stamped new_altitude;
+  mutex_odom.lock();
+  {
+    new_altitude.header = odom_pixhawk.header;
+    new_altitude.value  = odom_pixhawk.pose.pose.position.z;
+  }
+  mutex_odom.unlock();
+
+  new_altitude.header.frame_id = "local_origin";
+
+#if USE_RANGEFINDER == 1
+  // update the altitude state
+  mutex_main_altitude_kalman.lock();
+  { new_altitude.value = main_altitude_kalman->getState(0); }
+  mutex_main_altitude_kalman.unlock();
+#endif
+
+  if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0),
+                      failsafe_teraranger_kalman->getState(0));
+  }
+  try {
+
+    pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
+  }
+
+  // --------------------------------------------------------------
   // |              publish the new odometry message              |
   // --------------------------------------------------------------
 
   // if there are some data missing, return
-  if (use_differential_gps) {
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK) {
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position) || !got_rtk) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_global_position ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
       return;
     }
-  } else {
+  } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::GPS) {
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s", got_odom ? "TRUE" : "FALSE",
                         got_range ? "TRUE" : "FALSE");
       return;
     }
+  } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
+    if (!got_odom || !got_range || (set_home_on_start && !got_global_position) || !got_optflow) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s", got_odom ? "TRUE" : "FALSE",
+                        got_range ? "TRUE" : "FALSE", got_optflow ? "TRUE" : "FALSE");
+      return;
+    }
+  } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
+    if (!got_odom || !got_range || !got_optflow) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s", got_odom ? "TRUE" : "FALSE",
+                        got_range ? "TRUE" : "FALSE", got_optflow ? "TRUE" : "FALSE");
+      return;
+    }
+  } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::ICP) {
+    if (!got_odom || !got_range || !got_icp) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, icp: %s", got_odom ? "TRUE" : "FALSE",
+                        got_range ? "TRUE" : "FALSE", got_icp ? "TRUE" : "FALSE");
+      return;
+    }
+  } else {
+    ROS_WARN("[Odometry]: Unkwnown odometry mode.");
+    return;
   }
+
+  got_lateral_sensors = true;
 
   routine_main_timer->start(event);
 
@@ -966,20 +1047,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
 
-  nav_msgs::Odometry       new_odom;
-  mrs_msgs::Float64Stamped new_altitude;
+  nav_msgs::Odometry new_odom;
   mutex_odom.lock();
-  {
-    new_odom            = odom_pixhawk;
-    new_altitude.header = odom_pixhawk.header;
-    new_altitude.value  = odom_pixhawk.pose.pose.position.z;
-  }
+  { new_odom = odom_pixhawk; }
   mutex_odom.unlock();
 
   new_odom.header.frame_id = "local_origin";
   new_odom.child_frame_id  = std::string("fcu_") + uav_name;
-
-  new_altitude.header.frame_id = "local_origin";
 
   geometry_msgs::PoseStamped newPose;
   newPose.header = new_odom.header;
@@ -987,17 +1061,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 #if USE_RANGEFINDER == 1
   // update the altitude state
   mutex_main_altitude_kalman.lock();
-  {
-    new_odom.pose.pose.position.z = main_altitude_kalman->getState(0);
-    new_altitude.value            = main_altitude_kalman->getState(0);
-  }
+  { new_odom.pose.pose.position.z = main_altitude_kalman->getState(0); }
   mutex_main_altitude_kalman.unlock();
 #endif
-
-  if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Main altitude: %2.2f, Failsafe altitude: %2.2f", main_altitude_kalman->getState(0),
-                      failsafe_teraranger_kalman->getState(0));
-  }
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
@@ -1053,12 +1119,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
   }
 
-  try {
-    pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
-  }
 
   // publish TF
   geometry_msgs::Quaternion orientation = new_odom.pose.pose.orientation;
@@ -1340,6 +1400,11 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   } else if (dt < -1) {
     ROS_ERROR("Mavros variable \"dt\" < -1, setting it to -1 and returning!!!");
     dt = -1;
+    return;
+  }
+
+  if (!got_lateral_sensors) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing target attitude. Waiting for other sensors.");
     return;
   }
 
@@ -1942,6 +2007,13 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   }
 
   if (_fuse_rtk_position) {
+
+
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing RTK position. Waiting for other sensors.");
+      return;
+    }
+
     // fuse rtk gps x position
     mutex_lateral_kalman_x.lock();
     {
@@ -2146,6 +2218,11 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
   if (_fuse_icp_velocity) {
 
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing ICP velocity. Waiting for other sensors.");
+      return;
+    }
+
     // set the measurement vector
     Eigen::VectorXd mes_icp = Eigen::VectorXd::Zero(lateral_p);
     // fuse lateral kalman x velocity
@@ -2236,6 +2313,11 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   if (_fuse_icp_position) {
+
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing ICP position. Waiting for other sensors.");
+      return;
+    }
 
     // set the measurement vector
     Eigen::VectorXd mes_icp_global = Eigen::VectorXd::Zero(lateral_p);
@@ -2437,6 +2519,11 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //{ if (_fuse_mavros_tilts)
   if (_fuse_mavros_tilts) {
 
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros tilts. Waiting for other sensors.");
+      return;
+    }
+
     // x correction
     mutex_lateral_kalman_x.lock();
     {
@@ -2494,6 +2581,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //{ if (_fuse_mavros_velocity)
   if (_fuse_mavros_velocity) {
 
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros velocity. Waiting for other sensors.");
+      return;
+    }
     // set the measurement vector
     Eigen::VectorXd mes_lat = Eigen::VectorXd::Zero(lateral_p);
 
@@ -2569,6 +2660,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //{ if (_fuse_mavros_position)
   if (_fuse_mavros_position) {
 
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros position. Waiting for other sensors.");
+      return;
+    }
     if (!got_odom || (set_home_on_start && !got_global_position)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing Mavros position. Global position not averaged.");
       routine_odometry_callback->end();
@@ -2727,6 +2822,10 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
   if (_fuse_optflow_velocity) {
 
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow velocity. Waiting for other sensors.");
+      return;
+    }
     // set the measurement vector
     Eigen::VectorXd mes_optflow_x = Eigen::VectorXd::Zero(lateral_p);
 
@@ -3260,42 +3359,57 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
 bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-    Eigen::VectorXd states_x, states_y;
+  Eigen::VectorXd states_x, states_y;
 
-    ros::Duration(0.1).sleep();
+  // Delay to be sure that UAV is in the air
+  ros::Duration(0.1).sleep();
 
+  // reset lateral kalman x
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
+      _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
     mutex_lateral_kalman_x.lock();
-    {
-      states_x    = lateralKalmanX->getStates();
-      states_x(1) = 0.0;
-      states_x(2) = 0.0;
-      states_x(3) = 0.0;
-      states_x(4) = 0.0;
-      states_x(5) = 0.0;
-    }
+    { states_x = lateralKalmanX->getStates(); }
     mutex_lateral_kalman_x.unlock();
+  } else {
+    states_x(0) = init_pose_x;
+  }
+  states_x(1) = 0.0;
+  states_x(2) = 0.0;
+  states_x(3) = 0.0;
+  states_x(4) = 0.0;
+  states_x(5) = 0.0;
 
-    states_y = states_x;
+  mutex_lateral_kalman_x.lock();
+  { lateralKalmanX->reset(states_x); }
+  mutex_lateral_kalman_x.unlock();
 
+  // reset lateral kalman y
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
+      _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
     mutex_lateral_kalman_y.lock();
-    {
-      states_y(0) = lateralKalmanY->getState(0);
-      lateralKalmanY->reset(states_y);
-    }
+    { states_y = lateralKalmanY->getStates(); }
     mutex_lateral_kalman_y.unlock();
+  } else {
+    states_y(0) = init_pose_y;
+  }
+  states_y(1) = 0.0;
+  states_y(2) = 0.0;
+  states_y(3) = 0.0;
+  states_y(4) = 0.0;
+  states_y(5) = 0.0;
 
-    mutex_lateral_kalman_x.lock();
-    {
-      lateralKalmanX->reset(states_x);
-    }
-    mutex_lateral_kalman_x.unlock();
 
-    ROS_WARN("[Odometry]: Lateral kalman states and covariance reset.");
+  mutex_lateral_kalman_y.lock();
+  { lateralKalmanY->reset(states_y); }
+  mutex_lateral_kalman_y.unlock();
 
-    res.success = true;
-    res.message = "Reset of lateral kalman successfull";
 
-    return true;
+  ROS_WARN("[Odometry]: Lateral kalman states and covariance reset. Setting position to: x: %f y: %f", init_pose_x, init_pose_y);
+
+  res.success = true;
+  res.message = "Reset of lateral kalman successful";
+
+  return true;
 }
 //}
 
