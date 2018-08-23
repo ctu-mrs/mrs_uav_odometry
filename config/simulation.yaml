@@ -3,8 +3,8 @@ slow_odom_rate: 2 # [Hz]
 diag_rate: 1 # [Hz]
 max_altitude_rate: 1 # [Hz]
 
-gps_available: true
-optflow_available: false
+gps_available: false
+optflow_available: true
 rtk_available: false
 lidar_available: false
 
