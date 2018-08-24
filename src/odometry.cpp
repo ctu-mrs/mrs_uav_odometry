@@ -3359,20 +3359,24 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
 bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  Eigen::VectorXd states_x, states_y;
+  Eigen::VectorXd states_x = Eigen::VectorXd::Zero(6);
+  Eigen::VectorXd states_y = Eigen::VectorXd::Zero(6);
 
   // Delay to be sure that UAV is in the air
-  ros::Duration(0.1).sleep();
+  /* ros::Duration(0.1).sleep(); */
 
   // reset lateral kalman x
   if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
       _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
     mutex_lateral_kalman_x.lock();
-    { states_x = lateralKalmanX->getStates(); }
+    {
+      states_x = lateralKalmanX->getStates();
+    }
     mutex_lateral_kalman_x.unlock();
   } else {
     states_x(0) = init_pose_x;
   }
+
   states_x(1) = 0.0;
   states_x(2) = 0.0;
   states_x(3) = 0.0;
