@@ -1351,7 +1351,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   // optflow velocities
   interval = ros::Time::now() - optflow_twist_last_update;
-  if (got_optflow && interval.toSec() > 1.0) {
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW && got_optflow && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
     got_optflow = false;
   }
@@ -1365,14 +1365,14 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   //  icp velocities
   interval = ros::Time::now() - icp_odom_last_update;
-  if (got_icp && interval.toSec() > 1.0) {
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::ICP && got_icp && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP velocities not received for %f seconds.", interval.toSec());
     got_icp = false;
   }
 
   //  icp position
   interval = ros::Time::now() - icp_global_odom_last_update;
-  if (got_icp_global && interval.toSec() > 1.0) {
+  if (_odometry_mode.mode == mrs_msgs::OdometryMode::ICP && got_icp_global && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP position not received for %f seconds.", interval.toSec());
     got_icp_global = false;
   }
