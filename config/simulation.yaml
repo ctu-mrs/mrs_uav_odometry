@@ -131,7 +131,7 @@ lateral:
 
   # Covariances
   dynamic_optflow_cov: false
-  Q_vel_optflow: 10
+  Q_vel_optflow: 1000000
   Q_tilt: 10
   Q_vel_mavros: 1
   Q_pos_mavros: 1
