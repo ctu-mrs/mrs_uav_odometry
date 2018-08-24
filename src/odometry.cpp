@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/package.h>
 #include <nodelet/nodelet.h>
 #include <dynamic_reconfigure/server.h>
 
@@ -486,13 +487,23 @@ void Odometry::onInit() {
   averaging_got_samples = 0;
 
   // init pose
-  std::ifstream init_pose_file("../config/init_pose/init_pose.csv", std::ifstream::in);
-  std::string   s;
-  std::getline(init_pose_file, s, ',');
-  std::getline(init_pose_file, s, ',');
-  init_pose_x = std::atoi(s.c_str());
-  std::getline(init_pose_file, s, ',');
-  init_pose_y = std::atoi(s.c_str());
+    std::string path = ros::package::getPath("mrs_odometry");
+    path += "/config/init_pose/init_pose.csv";
+  std::ifstream init_pose_file(path, std::ifstream::in);
+  if (init_pose_file.is_open()) {
+    std::string s0, s1, s2, s3;
+    std::getline(init_pose_file, s0, ',');
+    ROS_ERROR("[Odometry]: 0:%s", s0.c_str());
+    std::getline(init_pose_file, s1, ',');
+    ROS_ERROR("[Odometry]: 1:%s", s1.c_str());
+    init_pose_x = std::atof(s1.c_str());
+    std::getline(init_pose_file, s2, ',');
+    ROS_ERROR("[Odometry]: 2:%s", s2.c_str());
+    init_pose_y = std::atof(s2.c_str());
+    init_pose_file.close();
+  } else {
+    ROS_ERROR("[Odometry]: Error opening file");
+  }
 
   // Optic flow
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
@@ -1002,7 +1013,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
   mutex_odom.unlock();
 
-  if (!got_home_position_fix) {
+  if (!got_home_position_fix && (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
+                                 _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS)) {
 
     if (!averaging && !averaging_started) {
 
@@ -1045,6 +1057,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       routine_main_timer->end();
       return;
     }
+  } else if (!got_home_position_fix) {  // Odometry mode without GPS -> use start position from config file
+    ROS_INFO("[Odometry]: Setting initial position x: %f y: %f from config file.", init_pose_x, init_pose_y);
+    local_origin_offset_x = init_pose_x;
+    local_origin_offset_y = init_pose_y;
+    got_home_position_fix = true;
   }
 
   nav_msgs::Odometry new_odom;
