@@ -135,6 +135,6 @@ lateral:
   Q_tilt: 10
   Q_vel_mavros: 1
   Q_pos_mavros: 1
-  Q_pos_rtk: 1
+  Q_pos_rtk: 100000
   Q_pos_icp: 1
   Q_vel_icp: 1

@@ -157,19 +157,23 @@ private:
 
   mavros_msgs::AttitudeTarget target_attitude;
   mavros_msgs::AttitudeTarget target_attitude_previous;
+  ros::Time                   target_attitude_last_update;
   std::mutex                  mutex_target_attitude;
 
   std::mutex       mutex_rtk;
   mrs_msgs::RtkGps rtk_odom_previous;
   mrs_msgs::RtkGps rtk_odom;
+  ros::Time        rtk_last_update;
 
   std::mutex         mutex_icp;
   nav_msgs::Odometry icp_odom;
   nav_msgs::Odometry icp_odom_previous;
+  ros::Time          icp_odom_last_update;
 
   std::mutex         mutex_icp_global;
   nav_msgs::Odometry icp_global_odom;
   nav_msgs::Odometry icp_global_odom_previous;
+  ros::Time          icp_global_odom_last_update;
 
   std::mutex         mutex_ground_truth;
   nav_msgs::Odometry ground_truth;
@@ -318,15 +322,18 @@ private:
   ros::Timer diag_timer;
   ros::Timer lkf_states_timer;
   ros::Timer max_altitude_timer;
+  ros::Timer topic_watcher_timer;
   int        slow_odom_rate;
   int        diag_rate;
   int        lkf_states_rate;
   int        max_altitude_rate;
+  int        topic_watcher_rate = 1;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
   void       lkfStatesTimer(const ros::TimerEvent &event);
   void       rtkRateTimer(const ros::TimerEvent &event);
   void       maxAltitudeTimer(const ros::TimerEvent &event);
+  void       topicWatcherTimer(const ros::TimerEvent &event);
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -487,8 +494,8 @@ void Odometry::onInit() {
   averaging_got_samples = 0;
 
   // init pose
-    std::string path = ros::package::getPath("mrs_odometry");
-    path += "/config/init_pose/init_pose.csv";
+  std::string path = ros::package::getPath("mrs_odometry");
+  path += "/config/init_pose/init_pose.csv";
   std::ifstream init_pose_file(path, std::ifstream::in);
   if (init_pose_file.is_open()) {
     std::string s0, s1, s2, s3;
@@ -810,12 +817,13 @@ void Odometry::onInit() {
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer         = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  slow_odom_timer    = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
-  rtk_rate_timer     = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
-  diag_timer         = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
-  lkf_states_timer   = nh_.createTimer(ros::Rate(lkf_states_rate), &Odometry::lkfStatesTimer, this);
-  max_altitude_timer = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
+  main_timer          = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
+  slow_odom_timer     = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
+  rtk_rate_timer      = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
+  diag_timer          = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
+  lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate), &Odometry::lkfStatesTimer, this);
+  max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
+  topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate), &Odometry::topicWatcherTimer, this);
 
   // Decide the initial odometry mode based on sensors availability
   mrs_msgs::OdometryMode target_mode;
@@ -987,8 +995,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
   } else {
-    ROS_WARN("[Odometry]: Unkwnown odometry mode.");
-    return;
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: OTHER odometry mode. Not checking sensors.");
   }
 
   got_lateral_sensors = true;
@@ -1326,6 +1333,53 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
 //}
 
+//{ topicWatcherTimer()
+
+void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
+
+  if (!is_initialized)
+    return;
+
+  ros::Duration interval;
+
+  // pixhawk odometry
+  interval = ros::Time::now() - odom_pixhawk_last_update;
+  if (got_odom && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Pixhawk odometry not received for %f seconds.", interval.toSec());
+    got_odom = false;
+  }
+
+  // optflow velocities
+  interval = ros::Time::now() - optflow_twist_last_update;
+  if (got_optflow && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
+    got_optflow = false;
+  }
+
+  //  target attitude
+  interval = ros::Time::now() - target_attitude_last_update;
+  if (got_target_attitude && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Target attitude not received for %f seconds.", interval.toSec());
+    got_target_attitude = false;
+  }
+
+  //  icp velocities
+  interval = ros::Time::now() - icp_odom_last_update;
+  if (got_icp && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: ICP velocities not received for %f seconds.", interval.toSec());
+    got_icp = false;
+  }
+
+  //  icp position
+  interval = ros::Time::now() - icp_global_odom_last_update;
+  if (got_icp_global && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: ICP position not received for %f seconds.", interval.toSec());
+    got_icp_global = false;
+  }
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                          callbacks                         |
 // --------------------------------------------------------------
@@ -1356,6 +1410,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     got_target_attitude = true;
     return;
   }
+
+  target_attitude_last_update = ros::Time::now();
 
   // compute the time between two last odometries
   ros::Duration interval2;
@@ -1960,7 +2016,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     if (++got_rtk_counter > 2) {
 
-      got_rtk = true;
+      got_rtk         = true;
+      rtk_last_update = ros::Time::now();
     }
   }
   mutex_rtk.unlock();
@@ -2188,6 +2245,8 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  icp_odom_last_update = ros::Time::now();
+
   if (got_icp) {
 
     mutex_icp.lock();
@@ -2284,12 +2343,14 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  icp_global_odom_last_update = ros::Time::now();
+
   if (got_icp_global) {
 
     mutex_icp_global.lock();
     {
-      icp_global_odom = icp_global_odom;
-      icp_global_odom = *msg;
+      icp_global_odom_previous = icp_global_odom;
+      icp_global_odom          = *msg;
     }
     mutex_icp_global.unlock();
 
@@ -2297,8 +2358,8 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     mutex_icp_global.lock();
     {
-      icp_global_odom = *msg;
-      icp_global_odom = *msg;
+      icp_global_odom_previous = *msg;
+      icp_global_odom          = *msg;
     }
     mutex_icp_global.unlock();
 
@@ -2315,7 +2376,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   // compute the time between two last odometries
   ros::Duration interval2;
   mutex_icp_global.lock();
-  { interval2 = icp_global_odom.header.stamp - icp_global_odom.header.stamp; }
+  { interval2 = icp_global_odom.header.stamp - icp_global_odom_previous.header.stamp; }
   mutex_icp_global.unlock();
 
   if (fabs(interval2.toSec()) < 0.001) {
@@ -2776,6 +2837,8 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   if (!is_initialized)
     return;
 
+  optflow_twist_last_update = ros::Time::now();
+
   if (got_optflow) {
 
     mutex_optflow.lock();
@@ -2794,13 +2857,10 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     }
     mutex_optflow.unlock();
 
-    got_optflow               = true;
-    optflow_twist_last_update = ros::Time::now();
+    got_optflow = true;
 
     return;
   }
-
-  optflow_twist_last_update = ros::Time::now();
 
   if (!got_range) {
 
@@ -3386,9 +3446,7 @@ bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Tr
   if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
       _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
     mutex_lateral_kalman_x.lock();
-    {
-      states_x = lateralKalmanX->getStates();
-    }
+    { states_x = lateralKalmanX->getStates(); }
     mutex_lateral_kalman_x.unlock();
   } else {
     states_x(0) = init_pose_x;
