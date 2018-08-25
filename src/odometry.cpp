@@ -298,7 +298,7 @@ private:
   bool odometry_published;
 
   mrs_msgs::MavrosDiagnostics mavros_diag;
-  std::mutex mutex_mavros_diag;
+  std::mutex                  mutex_mavros_diag;
 
   // reliability of gps
   int  max_altitude;
@@ -960,20 +960,39 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // |              publish the new odometry message              |
   // --------------------------------------------------------------
 
+
   // if there are some data missing, return
   if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK) {
+    if (!gps_reliable && _optflow_available && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
+      ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW mode.");
+      mrs_msgs::OdometryMode optflow_mode;
+      optflow_mode.mode = mrs_msgs::OdometryMode::OPTFLOW;
+      setOdometryModeTo(optflow_mode);
+    }
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position) || !got_rtk) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_global_position ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
       return;
     }
   } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::GPS) {
+    if (!gps_reliable && _optflow_available && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
+      ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW mode.");
+      mrs_msgs::OdometryMode optflow_mode;
+      optflow_mode.mode = mrs_msgs::OdometryMode::OPTFLOW;
+      setOdometryModeTo(optflow_mode);
+    }
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s", got_odom ? "TRUE" : "FALSE",
                         got_range ? "TRUE" : "FALSE");
       return;
     }
   } else if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
+    if (!gps_reliable && _optflow_available && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
+      ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW mode.");
+      mrs_msgs::OdometryMode optflow_mode;
+      optflow_mode.mode = mrs_msgs::OdometryMode::OPTFLOW;
+      setOdometryModeTo(optflow_mode);
+    }
     if (!got_odom || !got_range || (set_home_on_start && !got_global_position) || !got_optflow) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s", got_odom ? "TRUE" : "FALSE",
                         got_range ? "TRUE" : "FALSE", got_optflow ? "TRUE" : "FALSE");
@@ -1583,10 +1602,10 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
   range_terarangerone_ = *msg;
 
-  if (!got_odom || (set_home_on_start && !got_global_position)) {
+  /* if (!got_odom || (set_home_on_start && !got_global_position)) { */
 
-    return;
-  }
+  /*   return; */
+  /* } */
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -1726,10 +1745,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   range_garmin_ = *msg;
 
-  if (!got_odom || (set_home_on_start && !got_global_position)) {
+  /* if (!got_odom || (set_home_on_start && !got_global_position)) { */
 
-    return;
-  }
+  /*   return; */
+  /* } */
 
   routine_garmin_callback->start();
 
@@ -2019,7 +2038,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   }
   mutex_rtk.unlock();
 
-  if (!got_odom || !got_rtk || (set_home_on_start && !got_global_position)) {
+  if (!got_odom || !got_rtk) {
 
     return;
   }
@@ -3038,21 +3057,21 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
 
   if (!is_initialized)
     return;
-  
+
   mutex_mavros_diag.lock();
-  {
-    mavros_diag.gps.satellites_visible = msg->gps.satellites_visible;
-  }
+  { mavros_diag.gps.satellites_visible = msg->gps.satellites_visible; }
   mutex_mavros_diag.unlock();
 
   if (max_altitude != _max_optflow_altitude && mavros_diag.gps.satellites_visible < _min_satellites) {
     max_altitude = _max_optflow_altitude;
     gps_reliable = false;
-    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", mavros_diag.gps.satellites_visible, max_altitude);
+    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", mavros_diag.gps.satellites_visible,
+             max_altitude);
   } else if (_gps_available && max_altitude != _max_default_altitude && mavros_diag.gps.satellites_visible >= _min_satellites) {
     max_altitude = _max_default_altitude;
     gps_reliable = true;
-    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible, max_altitude);
+    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible,
+             max_altitude);
   }
 }
 //}
@@ -3633,7 +3652,8 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible,
+                _min_satellites);
       return false;
     }
 
