@@ -14,6 +14,8 @@
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
+  <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" />
+
   <group ns="$(arg uav_name)">
 
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
