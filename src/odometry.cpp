@@ -30,6 +30,7 @@
 #include <mrs_msgs/ChangeOdometryMode.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/LkfStates.h>
+#include <mrs_msgs/MavrosDiagnostics.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -181,9 +182,6 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
-  diagnostic_msgs::DiagnosticArray mavros_diag;
-  std::mutex                       mutex_mavros_diag;
-
   mrs_msgs::OdometryMode _odometry_mode;
   std::mutex             mutex_odometry_mode;
 
@@ -209,7 +207,7 @@ private:
   void        callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
   void        callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void        callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
-  void        callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr &msg);
+  void        callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void        getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
   bool        setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode);
   bool        isValidMode(const mrs_msgs::OdometryMode &mode);
@@ -299,8 +297,10 @@ private:
 
   bool odometry_published;
 
+  mrs_msgs::MavrosDiagnostics mavros_diag;
+  std::mutex mutex_mavros_diag;
+
   // reliability of gps
-  int  satellites_visible = 0;
   int  max_altitude;
   bool gps_reliable       = false;
   bool _gps_available     = false;
@@ -493,19 +493,16 @@ void Odometry::onInit() {
   done_averaging        = false;
   averaging_got_samples = 0;
 
-  // init pose
+  // load init pose from config file
   std::string path = ros::package::getPath("mrs_odometry");
   path += "/config/init_pose/init_pose.csv";
   std::ifstream init_pose_file(path, std::ifstream::in);
   if (init_pose_file.is_open()) {
     std::string s0, s1, s2, s3;
     std::getline(init_pose_file, s0, ',');
-    ROS_ERROR("[Odometry]: 0:%s", s0.c_str());
     std::getline(init_pose_file, s1, ',');
-    ROS_ERROR("[Odometry]: 1:%s", s1.c_str());
     init_pose_x = std::atof(s1.c_str());
     std::getline(init_pose_file, s2, ',');
-    ROS_ERROR("[Odometry]: 2:%s", s2.c_str());
     init_pose_y = std::atof(s2.c_str());
     init_pose_file.close();
   } else {
@@ -3037,39 +3034,25 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
 //}
 
 //{ callbackMavrosDiag()
-void Odometry::callbackMavrosDiag(const diagnostic_msgs::DiagnosticArrayConstPtr &msg) {
+void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg) {
 
   if (!is_initialized)
     return;
-
+  
   mutex_mavros_diag.lock();
   {
-    mavros_diag = *msg;
-
-    satellites_visible = 0;
-
-    for (size_t i = 0; i < mavros_diag.status.size(); i++) {
-      if (mavros_diag.status[i].name.find("GPS") != std::string::npos) {
-        for (size_t j = 0; j < mavros_diag.status[i].values.size(); j++) {
-          if (std::strcmp((mavros_diag.status[i].values[j].key).c_str(), "Satellites visible") == 0) {
-            satellites_visible = std::stoi(mavros_diag.status[i].values[j].value);
-            break;
-          }
-        }
-        break;
-      }
-    }
+    mavros_diag.gps.satellites_visible = msg->gps.satellites_visible;
   }
   mutex_mavros_diag.unlock();
 
-  if (max_altitude != _max_optflow_altitude && satellites_visible < _min_satellites) {
+  if (max_altitude != _max_optflow_altitude && mavros_diag.gps.satellites_visible < _min_satellites) {
     max_altitude = _max_optflow_altitude;
     gps_reliable = false;
-    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", satellites_visible, max_altitude);
-  } else if (_gps_available && max_altitude != _max_default_altitude && satellites_visible >= _min_satellites) {
+    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", mavros_diag.gps.satellites_visible, max_altitude);
+  } else if (_gps_available && max_altitude != _max_default_altitude && mavros_diag.gps.satellites_visible >= _min_satellites) {
     max_altitude = _max_default_altitude;
     gps_reliable = true;
-    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", satellites_visible, max_altitude);
+    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible, max_altitude);
   }
 }
 //}
@@ -3613,7 +3596,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to GPS mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to GPS mode. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
       return false;
     }
 
@@ -3650,7 +3633,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS mode. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
       return false;
     }
 
@@ -3681,7 +3664,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to RTK mode. Not enough satellites: %d. Required %d.", satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to RTK mode. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
       return false;
     }
 

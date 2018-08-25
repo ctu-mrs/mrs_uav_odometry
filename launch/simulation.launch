@@ -43,7 +43,7 @@
       <remap from="~icp_relative_in" to="forest_slam/odom_corr" />
       <remap from="~icp_global_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
-      <remap from="~mavros_diagnostic_in" to="/diagnostics" />
+      <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
 
       <!-- Publishers -->
       <remap from="~new_odom_out" to="~new_odom" />
