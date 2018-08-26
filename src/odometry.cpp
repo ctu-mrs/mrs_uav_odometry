@@ -31,6 +31,7 @@
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/LkfStates.h>
 #include <mrs_msgs/MavrosDiagnostics.h>
+#include <mrs_msgs/String.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -44,6 +45,7 @@
 #include <tf/transform_broadcaster.h>
 
 #include <string>
+#include <locale>
 #include <Eigen/Eigen>
 #include <math.h>
 #include <cmath>
@@ -140,6 +142,7 @@ private:
   ros::ServiceServer ser_toggle_mavros_vel_fusion;
   ros::ServiceServer ser_toggle_mavros_tilts_fusion;
   ros::ServiceServer ser_change_odometry_mode;
+  ros::ServiceServer ser_change_odometry_mode_string;
 
 private:
   tf::TransformBroadcaster *broadcaster_;
@@ -214,6 +217,7 @@ private:
   bool callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res);
+  bool callbackChangeOdometryModeString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   void        callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
@@ -845,6 +849,9 @@ void Odometry::onInit() {
 
   // change fusion mode of odometry
   ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode_in", &Odometry::callbackChangeOdometryMode, this);
+
+  // change fusion mode of odometry
+  ser_change_odometry_mode_string = nh_.advertiseService("change_odometry_mode_string_in", &Odometry::callbackChangeOdometryModeString, this);
   //}
 
   // subscriber for object altitude
@@ -3753,6 +3760,72 @@ bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request 
 
   return true;
 }
+
+//}
+
+/* //{ callbackChangeOdometryModeString() */
+
+bool Odometry::callbackChangeOdometryModeString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  mrs_msgs::OdometryMode target_mode;
+
+  std::string mode = req.value;
+  std::transform(mode.begin(), mode.end(), mode.begin(), ::toupper);
+  if (std::strcmp(mode.c_str(), "OPTFLOW") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::OPTFLOW;
+  } else if (std::strcmp(mode.c_str(), "GPS") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::GPS;
+  } else if (std::strcmp(mode.c_str(), "OPTFLOWGPS") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::OPTFLOWGPS;
+  } else if (std::strcmp(mode.c_str(), "RTK") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::RTK;
+  } else if (std::strcmp(mode.c_str(), "ICP") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::ICP;
+  } else if (std::strcmp(mode.c_str(), "VIO") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::VIO;
+  } else if (std::strcmp(mode.c_str(), "OTHER") == 0) {
+    target_mode.mode = mrs_msgs::OdometryMode::OTHER;
+  } else {
+    ROS_WARN("[Odometry]: Invalid mode %s requested", mode.c_str());
+    res.success = false;
+    res.message = ("Not a valid odometry mode");
+    return true;
+  }
+
+
+  // Check whether a valid mode was requested
+  if (!isValidMode(target_mode)) {
+    ROS_ERROR("[Odometry]: %d is not a valid odometry mode", target_mode.mode);
+    res.success = false;
+    res.message = ("Not a valid odometry mode");
+    return true;
+  }
+
+  // Check whether OTHER mode was chosen manually
+  if (req.value == "OTHER") {
+    ROS_ERROR("[Odometry]: OTHER mode cannot be chosen manually.");
+    res.success = false;
+    res.message = ("OTHER mode cannot be chosen manually");
+    return true;
+  }
+
+  bool success = false;
+  mutex_odometry_mode.lock();
+  {
+    success          = setOdometryModeTo(target_mode);
+  }
+  mutex_odometry_mode.unlock();
+
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+  res.success = success;
+  res.message = (printOdometryDiag().c_str());
+
+  return true;
+}  // namespace mrs_odometry
 
 //}
 
