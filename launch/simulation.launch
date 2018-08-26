@@ -61,6 +61,7 @@
       <remap from="~toggle_rtk_pos_fusion_in" to="~toggle_rtk_pos_fusion" />
       <remap from="~toggle_icp_pos_fusion_in" to="~toggle_icp_pos_fusion" />
       <remap from="~toggle_icp_vel_fusion_in" to="~toggle_icp_vel_fusion" />
+      <remap from="~toggle_mavros_pos_fusion_in" to="~toggle_mavros_pos_fusion" />
       <remap from="~toggle_mavros_vel_fusion_in" to="~toggle_mavros_vel_fusion" />
       <remap from="~toggle_optflow_vel_fusion_in" to="~toggle_optflow_vel_fusion" />
       <remap from="~toggle_mavros_tilts_fusion_in" to="~toggle_mavros_tilts_fusion" />
