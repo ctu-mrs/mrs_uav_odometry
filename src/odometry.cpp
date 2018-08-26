@@ -59,7 +59,7 @@
 namespace mrs_odometry
 {
 
-//{ class Odometry
+/* //{ class Odometry */
 
 class Odometry : public nodelet::Nodelet {
 
@@ -417,7 +417,7 @@ private:
 
 //}
 
-//{ onInit()
+/* //{ onInit() */
 
 void Odometry::onInit() {
 
@@ -913,7 +913,7 @@ void Odometry::onInit() {
 
 //}
 
-//{ isUavFlying()
+/* //{ isUavFlying() */
 
 bool Odometry::isUavFlying() {
 
@@ -935,7 +935,7 @@ bool Odometry::isUavFlying() {
 
 //}
 
-//{ startAveraging()
+/* //{ startAveraging() */
 
 void Odometry::startAveraging() {
 
@@ -953,7 +953,7 @@ void Odometry::startAveraging() {
 // |                           timers                           |
 // --------------------------------------------------------------
 
-//{ mainTimer()
+/* //{ mainTimer() */
 
 void Odometry::mainTimer(const ros::TimerEvent &event) {
 
@@ -1228,7 +1228,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ slowOdomTimer()
+/* //{ slowOdomTimer() */
 
 void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
 
@@ -1251,7 +1251,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ diagTimer()
+/* //{ diagTimer() */
 
 void Odometry::diagTimer(const ros::TimerEvent &event) {
 
@@ -1317,7 +1317,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ lkfStatesTimer()
+/* //{ lkfStatesTimer() */
 
 void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
@@ -1365,7 +1365,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ maxAltitudeTimer()
+/* //{ maxAltitudeTimer() */
 
 void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
@@ -1388,7 +1388,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ rtkRateTimer()
+/* //{ rtkRateTimer() */
 
 void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
@@ -1408,7 +1408,7 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ topicWatcherTimer()
+/* //{ topicWatcherTimer() */
 
 void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
@@ -1466,7 +1466,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 // |                          callbacks                         |
 // --------------------------------------------------------------
 
-//{ callbackTargetAttitude()
+/* //{ callbackTargetAttitude() */
 void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
 
   if (got_target_attitude) {
@@ -1611,7 +1611,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 }
 //}
 
-//{ callbackGlobalPosition()
+/* //{ callbackGlobalPosition() */
 
 void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
 
@@ -1659,7 +1659,7 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
 
 //}
 
-//{ callbackTeraranger()
+/* //{ callbackTeraranger() */
 
 void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
@@ -1802,7 +1802,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
 //}
 
-//{ callbackGarmin()
+/* //{ callbackGarmin() */
 
 void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
@@ -1915,7 +1915,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
 //}
 
-//{ callbackObjectHeight()
+/* //{ callbackObjectHeight() */
 
 /*
 void Odometry::callbackObjectHeight(const object_detection::ObjectWithTypeConstPtr &msg) {
@@ -2035,7 +2035,7 @@ void Odometry::callbackObjectHeight(const object_detection::ObjectWithTypeConstP
 
 //}
 
-//{ callbackAveraging()
+/* //{ callbackAveraging() */
 
 bool Odometry::callbackAveraging(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -2052,7 +2052,7 @@ bool Odometry::callbackAveraging(std_srvs::Trigger::Request &req, std_srvs::Trig
 
 //}
 
-//{ callbackRtkGps()
+/* //{ callbackRtkGps() */
 
 void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
@@ -2320,7 +2320,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
 //}
 
-//{ callbackIcpRelative()
+/* //{ callbackIcpRelative() */
 
 void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
@@ -2418,7 +2418,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 }
 //}
 
-//{ callbackIcpAbsolute()
+/* //{ callbackIcpAbsolute() */
 
 void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
@@ -2545,7 +2545,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 }
 //}
 
-//{ callbackMavrosOdometry()
+/* //{ callbackMavrosOdometry() */
 
 void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
@@ -2912,7 +2912,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 //}
 
-//{ callbackVioOdometry()
+/* //{ callbackVioOdometry() */
 
 void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
@@ -3153,7 +3153,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 //}
 
-//{ callbackOptflowTwist()
+/* //{ callbackOptflowTwist() */
 
 void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg) {
 
@@ -3337,7 +3337,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
 //}
 
-//{ callbackOptflowStddev()
+/* //{ callbackOptflowStddev() */
 void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) {
 
   mutex_optflow_stddev.lock();
@@ -3346,7 +3346,7 @@ void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) 
 }
 //}
 
-//{ callbackTrackerStatus()
+/* //{ callbackTrackerStatus() */
 
 void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg) {
 
@@ -3359,7 +3359,7 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
 
 //}
 
-//{ callbackMavrosDiag()
+/* //{ callbackMavrosDiag() */
 void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg) {
 
   if (!is_initialized)
@@ -3383,7 +3383,7 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
 }
 //}
 
-//{ callbackToggleRtkHeight()
+/* //{ callbackToggleRtkHeight() */
 
 bool Odometry::callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3417,7 +3417,7 @@ bool Odometry::callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs
 
 //}
 
-//{ callbackToggleRtkPosition()
+/* //{ callbackToggleRtkPosition() */
 
 bool Odometry::callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3449,7 +3449,7 @@ bool Odometry::callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleVioPosition()
+/* //{ callbackToggleVioPosition() */
 
 bool Odometry::callbackToggleVioPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3481,7 +3481,7 @@ bool Odometry::callbackToggleVioPosition(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleVioVelocity()
+/* //{ callbackToggleVioVelocity() */
 
 bool Odometry::callbackToggleVioVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3513,7 +3513,7 @@ bool Odometry::callbackToggleVioVelocity(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleIcpPosition()
+/* //{ callbackToggleIcpPosition() */
 
 bool Odometry::callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3545,7 +3545,7 @@ bool Odometry::callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleIcpVelocity()
+/* //{ callbackToggleIcpVelocity() */
 
 bool Odometry::callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3577,7 +3577,7 @@ bool Odometry::callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleMavrosPosition()
+/* //{ callbackToggleMavrosPosition() */
 
 bool Odometry::callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3609,7 +3609,7 @@ bool Odometry::callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std
 
 //}
 
-//{ callbackToggleMavrosVelocity()
+/* //{ callbackToggleMavrosVelocity() */
 
 bool Odometry::callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3641,7 +3641,7 @@ bool Odometry::callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std
 
 //}
 
-//{ callbackToggleMavrosTilts()
+/* //{ callbackToggleMavrosTilts() */
 
 bool Odometry::callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3673,7 +3673,7 @@ bool Odometry::callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_sr
 
 //}
 
-//{ callbackToggleOptflowVelocity()
+/* //{ callbackToggleOptflowVelocity() */
 
 bool Odometry::callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3705,7 +3705,7 @@ bool Odometry::callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, st
 
 //}
 
-//{ callbackChangeOdometryMode()
+/* //{ callbackChangeOdometryMode() */
 
 bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res) {
 
@@ -3756,7 +3756,7 @@ bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request 
 
 //}
 
-//{ callbackToggleObjectHeight()
+/* //{ callbackToggleObjectHeight() */
 
 /*
 bool Odometry::callbackToggleObjectHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
@@ -3783,7 +3783,7 @@ bool Odometry::callbackToggleObjectHeight(std_srvs::SetBool::Request &req, std_s
 
 //}
 
-//{ callbackToggleTeraranger()
+/* //{ callbackToggleTeraranger() */
 
 bool Odometry::callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3810,7 +3810,7 @@ bool Odometry::callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srv
 
 //}
 
-//{ callbackToggleGarmin()
+/* //{ callbackToggleGarmin() */
 
 bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -3837,7 +3837,7 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
 //}
 
-//{ callbackResetKalman
+/* //{ callbackResetKalman() */
 
 bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -3898,7 +3898,7 @@ bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Tr
 //}
 
 
-//{ callbackGroundTruth()
+/* //{ callbackGroundTruth() */
 void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 
   mutex_ground_truth.lock();
@@ -3917,7 +3917,7 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 }
 //}
 
-//{ callbackReconfigure()
+/* //{ callbackReconfigure() */
 void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level) {
   ROS_INFO(
       "Reconfigure Request: Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
@@ -3947,7 +3947,7 @@ void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t lev
 }
 //}
 
-//{ getGlobalRot()
+/* //{ getGlobalRot() */
 void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
 
   tf::Quaternion q_orig, q_rot, q_new;
@@ -3980,7 +3980,7 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
 }
 //}
 
-//{ setOdometryModeTo()
+/* //{ setOdometryModeTo() */
 bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
   // Optic flow mode
@@ -4172,7 +4172,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
 //}
 
-//{ isValidMode()
+/* //{ isValidMode() */
 bool Odometry::isValidMode(const mrs_msgs::OdometryMode &mode) {
 
   if (mode.mode == mrs_msgs::OdometryMode::OTHER || mode.mode == mrs_msgs::OdometryMode::OPTFLOW || mode.mode == mrs_msgs::OdometryMode::GPS ||
@@ -4186,7 +4186,7 @@ bool Odometry::isValidMode(const mrs_msgs::OdometryMode &mode) {
 
 //}
 
-//{ printOdometryDiag()
+/* //{ printOdometryDiag() */
 std::string Odometry::printOdometryDiag() {
 
   mrs_msgs::OdometryMode mode;
