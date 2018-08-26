@@ -66,6 +66,7 @@
       <remap from="~toggle_optflow_vel_fusion_in" to="~toggle_optflow_vel_fusion" />
       <remap from="~toggle_mavros_tilts_fusion_in" to="~toggle_mavros_tilts_fusion" />
       <remap from="~change_odometry_mode_in" to="~change_odometry_mode" />
+      <remap from="~change_odometry_mode_string_in" to="~change_odometry_mode_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
 
     </node>
