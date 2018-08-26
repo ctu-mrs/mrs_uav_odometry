@@ -136,6 +136,7 @@ private:
   ros::ServiceServer ser_toggle_icp_pos_fusion;
   ros::ServiceServer ser_toggle_icp_vel_fusion;
   ros::ServiceServer ser_toggle_optflow_vel_fusion;
+  ros::ServiceServer ser_toggle_mavros_pos_fusion;
   ros::ServiceServer ser_toggle_mavros_vel_fusion;
   ros::ServiceServer ser_toggle_mavros_tilts_fusion;
   ros::ServiceServer ser_change_odometry_mode;
@@ -208,6 +209,7 @@ private:
   bool callbackToggleVioVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -828,6 +830,9 @@ void Odometry::onInit() {
 
   // toggling fusing of icp velocity
   ser_toggle_icp_vel_fusion = nh_.advertiseService("toggle_icp_vel_fusion_in", &Odometry::callbackToggleIcpVelocity, this);
+
+  // toggling fusing of mavros velocity
+  ser_toggle_mavros_pos_fusion = nh_.advertiseService("toggle_mavros_pos_fusion_in", &Odometry::callbackToggleMavrosPosition, this);
 
   // toggling fusing of mavros velocity
   ser_toggle_mavros_vel_fusion = nh_.advertiseService("toggle_mavros_vel_fusion_in", &Odometry::callbackToggleMavrosVelocity, this);
@@ -3566,6 +3571,38 @@ bool Odometry::callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_sr
 
   res.success = true;
   res.message = (_fuse_icp_velocity ? "Fusing ICP velocity enabled" : "Fusing ICP velocity disabled");
+
+  return true;
+}
+
+//}
+
+/* //{ callbackToggleMavrosPosition() */
+
+bool Odometry::callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  _fuse_mavros_position = req.data;
+
+  if (_fuse_mavros_position) {
+
+    ROS_INFO("[Odometry]: Fusing Mavros position enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Fusing Mavros position disabled.");
+  }
+
+  mutex_odometry_mode.lock();
+  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
+  mutex_odometry_mode.unlock();
+
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+  res.success = true;
+  res.message = (_fuse_mavros_position ? "Fusing Mavros position enabled" : "Fusing Mavros position disabled");
 
   return true;
 }
