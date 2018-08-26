@@ -1,7 +1,7 @@
 rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
-diag_rate: 1 # [Hz]
-max_altitude_rate: 1 # [Hz]
+diag_rate: 10 # [Hz]
+max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 1 # [Hz]
 
 gps_available: false
