@@ -8,8 +8,6 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="world_file" default="$(find mrs_main)/config/world_simulation.yaml"/>
 
-  <!-- <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" /> -->
-
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
@@ -50,6 +48,7 @@
       <remap from="~new_odom_out" to="~new_odom" />
       <remap from="~profiler_out" to="profiler" />
       <remap from="~rtk_local_out" to="~rtk_local" />
+      <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />
       <remap from="~odometry_diag_out" to="~diagnostics" />
       <remap from="~altitude_out" to="~altitude" />
       <remap from="~max_altitude_out" to="~max_altitude" />
