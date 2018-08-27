@@ -1698,10 +1698,10 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
   range_terarangerone_ = *msg;
 
-  /* if (!got_odom || (set_home_on_start && !got_global_position)) { */
+  if (!got_odom) {
 
-  /*   return; */
-  /* } */
+    return;
+  }
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -1841,10 +1841,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   range_garmin_ = *msg;
 
-  /* if (!got_odom || (set_home_on_start && !got_global_position)) { */
+  if (!got_odom) {
 
-  /*   return; */
-  /* } */
+    return;
+  }
 
   routine_garmin_callback->start();
 
