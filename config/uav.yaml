@@ -1,7 +1,18 @@
 rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
-diag_rate: 1 # [Hz]
-max_altitude_rate: 1 # [Hz]
+diag_rate: 10 # [Hz]
+max_altitude_rate: 10 # [Hz]
+lkf_states_rate: 1 # [Hz]
+
+gps_available: true
+optflow_available: false
+vio_available: false
+rtk_available: false
+lidar_available: false
+
+min_satellites: 6
+max_default_altitude: 30.0
+max_optflow_altitude: 6.0
 
 averagingNumSamples: 20
 
@@ -9,15 +20,14 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-use_differential_gps: true
+use_differential_gps: false
 publish_fused_odom: true
 pass_rtk_as_new_odom: false # dangerous outside simulation!
-max_rtk_correction: 0.25 # [m]
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: 0.02 # [m]
-mobius_z_offset_: 0.06 # [m]
+mobius_z_offset: 0.06 # [m]
 
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
@@ -30,15 +40,6 @@ trgFilterMaxDifference: 3.0
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
-
-orientationOffset:
-
-  enabled: false
-
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  w: 0.0
 
 altitude:
 
@@ -80,8 +81,17 @@ lateral:
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  A: [1, 0.02, 0, 0, 0, 0, 
-      0, 1, 0.02, 0, 0, 0,
+  max_pos_correction: 0.10 # [m]
+
+  # A: [1, 0.02, 0, 0, 0, 0,
+  #     0, 1, 0.02, 0, 0, 0,
+  #     0, 0, 0, 1, 1, 0,
+  #     0, 0, 0, 0, 0, 6.3512,
+  #     0, 0, 0, 0, 1, 0,
+  #     0, 0, 0, 0, 0, 0.9030]
+
+  A: [1, 0.02, 0, 0, 0, 0,
+      0, 1, 0, 0.02, 0, 0,
       0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
@@ -98,18 +108,28 @@ lateral:
   R: [1, 0, 0, 0, 0, 0,
       0, 1, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0, 
+      0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 1000, 0,
       0, 0, 0, 0, 0, 100]
 
+  # measurement covariance
+  Q: [1]
+
+  # measurement mapping
+  P: [0, 1, 0, 0, 0, 0]
+
+
   # Odometry mode: 1-OPTFLOW, 2-GPS, 3-OPTFLOWGPS, 4-RTK, 5-ICP
-  odometry_mode: 4
+  # odometry_mode: 4
 
   # Covariances
-  Q_vel_optflow: 50
-  Q_ang: 1000
-  Q_vel_mavros: 100
-  Q_pos_mavros: 1000
-  Q_pos_rtk: 10
-  Q_pos_icp: 100
-  Q_vel_icp: 100
+  dynamic_optflow_cov: false
+  Q_vel_optflow: 1000000
+  Q_tilt: 10
+  Q_vel_mavros: 10000
+  Q_pos_mavros: 100000
+  Q_pos_rtk: 10000
+  Q_pos_vio: 10000
+  Q_vel_vio: 100000
+  Q_pos_icp: 10000
+  Q_vel_icp: 100000
