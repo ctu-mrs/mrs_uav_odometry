@@ -11,8 +11,8 @@ rtk_available: false
 lidar_available: false
 
 min_satellites: 6
-max_default_altitude: 30.0
-max_optflow_altitude: 6.0
+max_default_altitude: 10.0
+max_optflow_altitude: 3.0
 
 averagingNumSamples: 20
 
