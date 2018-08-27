@@ -57,6 +57,7 @@
 #define USE_RANGEFINDER 1
 #define STRING_EQUAL 0
 #define btoa(x) ((x) ? "true" : "false")
+#define NAME_OF(v) #v
 
 namespace mrs_odometry
 {
@@ -196,8 +197,9 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
-  mrs_msgs::OdometryMode _odometry_mode;
-  std::mutex             mutex_odometry_mode;
+  mrs_msgs::OdometryMode   _odometry_mode;
+  std::vector<std::string> _odometry_mode_names;
+  std::mutex               mutex_odometry_mode;
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
@@ -870,6 +872,27 @@ void Odometry::onInit() {
   lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate), &Odometry::lkfStatesTimer, this);
   max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
   topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate), &Odometry::topicWatcherTimer, this);
+
+  // --------------------------------------------------------------
+  // |                        odometry mode                       |
+  // --------------------------------------------------------------
+
+  // prepare the array of names
+  // IMPORTANT, update this with each update of the OdometryMode message
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OTHER));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OPTFLOW));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::GPS));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OPTFLOWGPS));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::RTK));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::ICP));
+  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::VIO));
+
+  ROS_WARN("[Odometry]: SAFETY Checking the OdometryMode2Name conversion. If it fails here, you should update the code above this ROS_INFO");
+  for (int i = 0; i < mrs_msgs::OdometryMode::MODE_COUNT; i++) {
+    std::size_t found       = _odometry_mode_names[i].find_last_of(":");
+    _odometry_mode_names[i] = _odometry_mode_names[i].substr(found + 1);
+    ROS_INFO("[Odometry]: _odometry_mode[i]=%s", _odometry_mode_names[i].c_str());
+  }
 
   // Decide the initial odometry mode based on sensors availability
   mrs_msgs::OdometryMode target_mode;
@@ -3814,9 +3837,7 @@ bool Odometry::callbackChangeOdometryModeString(mrs_msgs::String::Request &req, 
 
   bool success = false;
   mutex_odometry_mode.lock();
-  {
-    success          = setOdometryModeTo(target_mode);
-  }
+  { success = setOdometryModeTo(target_mode); }
   mutex_odometry_mode.unlock();
 
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
@@ -3969,7 +3990,6 @@ bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Tr
   return true;
 }
 //}
-
 
 /* //{ callbackGroundTruth() */
 void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
@@ -4240,6 +4260,9 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _odometry_mode = target_mode;
   }
+
+  _odometry_mode.name = _odometry_mode_names[_odometry_mode.mode];
+
   return true;
 }
 

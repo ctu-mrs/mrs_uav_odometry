@@ -7,12 +7,12 @@ lkf_states_rate: 1 # [Hz]
 gps_available: true
 optflow_available: true
 vio_available: false
-rtk_available: true
+rtk_available: false
 lidar_available: false
 
 min_satellites: 6
-max_default_altitude: 30.0
-max_optflow_altitude: 6.0
+max_default_altitude: 20.0
+max_optflow_altitude: 3.0
 
 averagingNumSamples: 20
 
@@ -27,7 +27,7 @@ max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: 0.02 # [m]
-mobius_z_offset_: 0.06 # [m]
+# mobius_z_offset: 0.06 # [m]
 
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
@@ -40,15 +40,6 @@ trgFilterMaxDifference: 3.0
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
-
-orientationOffset:
-
-  enabled: false
-
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  w: 0.0
 
 altitude:
 
