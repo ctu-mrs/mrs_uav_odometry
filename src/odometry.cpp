@@ -288,6 +288,7 @@ private:
 
   // initial position
   double init_pose_x, init_pose_y, init_pose_z, init_pose_yaw;
+  bool   init_pose_set = false;
 
   // altitude kalman
   int             altitude_n, altitude_m, altitude_p;
@@ -1161,11 +1162,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       routine_main_timer->end();
       return;
     }
-  } else if (!got_home_position_fix) {  // Odometry mode without GPS -> use start position from config file
+  } else if (!init_pose_set && _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {  // Odometry mode without GPS -> use start position from config file
     ROS_INFO("[Odometry]: Setting initial position x: %f y: %f from config file.", init_pose_x, init_pose_y);
     local_origin_offset_x = init_pose_x;
     local_origin_offset_y = init_pose_y;
     got_home_position_fix = true;
+    init_pose_set         = true;
   }
 
   nav_msgs::Odometry new_odom;
@@ -1190,10 +1192,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!odometry_published) {
 
     mutex_lateral_kalman_x.lock();
-    { lateralKalmanX->setState(0, new_odom.pose.pose.position.x + local_origin_offset_x); }
+    {
+      if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
+        lateralKalmanX->setState(0, local_origin_offset_x);
+      } else {
+        lateralKalmanX->setState(0, new_odom.pose.pose.position.x + local_origin_offset_x);
+      }
+    }
     mutex_lateral_kalman_x.unlock();
     mutex_lateral_kalman_y.lock();
-    { lateralKalmanY->setState(0, new_odom.pose.pose.position.y + local_origin_offset_y); }
+    {
+      if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
+        lateralKalmanY->setState(0, local_origin_offset_y);
+      } else {
+        lateralKalmanY->setState(0, new_odom.pose.pose.position.y + local_origin_offset_y);
+      }
+    }
     mutex_lateral_kalman_y.unlock();
 
     odometry_published = true;
