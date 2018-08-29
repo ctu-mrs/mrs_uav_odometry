@@ -103,6 +103,7 @@ private:
   ros::Publisher pub_slow_odom_;  // the main fused odometry, just slow
   ros::Publisher pub_rtk_local;
   ros::Publisher pub_rtk_local_odom;
+  ros::Publisher pub_gps_local_odom;
   ros::Publisher pub_orientation_gt_;
   ros::Publisher pub_orientation_mavros_;
   ros::Publisher pub_target_attitude_global_;
@@ -155,6 +156,7 @@ private:
   std::mutex         mutex_odom;
   nav_msgs::Odometry odom_pixhawk_previous;
   ros::Time          odom_pixhawk_last_update;
+  std::mutex         mutex_gps_local_odom;
 
   geometry_msgs::TwistStamped optflow_twist;
   std::mutex                  mutex_optflow;
@@ -206,7 +208,7 @@ private:
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
   void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
-  void callbackGlobalPosition(const sensor_msgs::NavSatFix &msg);
+  void callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg);
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -777,6 +779,9 @@ void Odometry::onInit() {
 
   // republisher for rtk local odometry (e.g. for rviz)
   pub_rtk_local_odom = nh_.advertise<nav_msgs::Odometry>("rtk_local_odom_out", 1);
+
+  // republisher for gps local odometry (e.g. for rviz)
+  pub_gps_local_odom = nh_.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
 
   // publisher for tf
   broadcaster_ = new tf::TransformBroadcaster();
@@ -1710,7 +1715,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
 /* //{ callbackGlobalPosition() */
 
-void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
+void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg) {
 
   if (!is_initialized)
     return;
@@ -1718,7 +1723,7 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
   double out_x;
   double out_y;
 
-  mrs_lib::UTM(msg.latitude, msg.longitude, &out_x, &out_y);
+  mrs_lib::UTM(msg->latitude, msg->longitude, &out_x, &out_y);
 
   if (!std::isfinite(out_x)) {
     ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_x\"!!!");
@@ -1734,6 +1739,34 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFix &msg) {
   utm_position_y = out_y;
 
   got_global_position = true;
+
+  nav_msgs::Odometry gps_local_odom;
+  gps_local_odom.header          = msg->header;
+  gps_local_odom.header.frame_id = "local_origin";
+
+  // | ------------- offset the gps to local_origin ------------- |
+  gps_local_odom.pose.pose.position.x = utm_position_x - home_utm_x;
+  gps_local_odom.pose.pose.position.y = utm_position_y - home_utm_y;
+
+  mutex_odom.lock();
+  {
+    gps_local_odom.pose.pose.position.z = odom_pixhawk.pose.pose.position.z;
+    gps_local_odom.twist                = odom_pixhawk.twist;
+  }
+  mutex_odom.unlock();
+
+
+  // | ------------- publish the gps local odometry ------------- |
+  mutex_gps_local_odom.lock();
+  {
+    try {
+      pub_gps_local_odom.publish(gps_local_odom);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_gps_local_odom.getTopic().c_str());
+    }
+  }
+  mutex_gps_local_odom.unlock();
 
   if (averaging) {
 
@@ -4173,8 +4206,6 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     max_altitude = _max_optflow_altitude;
 
-    _odometry_mode = target_mode;
-
     // Mavros GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::GPS) {
 
@@ -4201,8 +4232,6 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_vio_position = false;
 
     _fuse_rtk_position = false;
-
-    _odometry_mode = target_mode;
 
     // Optic flow + Mavros GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
@@ -4243,8 +4272,6 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = false;
 
-    _odometry_mode = target_mode;
-
     // RTK GPS mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::RTK) {
 
@@ -4277,8 +4304,6 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
 
     _fuse_rtk_position = true;
 
-    _odometry_mode = target_mode;
-
     // LIDAR localization mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::ICP) {
 
@@ -4300,8 +4325,6 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_vio_position = false;
 
     _fuse_rtk_position = false;
-
-    _odometry_mode = target_mode;
 
     // Vio localization mode
   } else if (target_mode.mode == mrs_msgs::OdometryMode::VIO) {
@@ -4326,10 +4349,14 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_rtk_position = false;
 
     _odometry_mode = target_mode;
+
+  } else {
+
+    ROS_ERROR("[Odometry]: Rejected transition to invalid mode %s.", target_mode.name.c_str());
+    return false;
   }
-
+  _odometry_mode      = target_mode;
   _odometry_mode.name = _odometry_mode_names[_odometry_mode.mode];
-
   return true;
 }
 
