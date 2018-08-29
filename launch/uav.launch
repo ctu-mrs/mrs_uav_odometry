@@ -44,6 +44,7 @@
 
       <!-- Publishers -->
       <remap from="~new_odom_out" to="~new_odom" />
+      <remap from="~slow_odom_out" to="~slow_odom" />
       <remap from="~profiler_out" to="profiler" />
       <remap from="~rtk_local_out" to="~rtk_local" />
       <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />
