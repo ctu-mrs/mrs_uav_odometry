@@ -1429,8 +1429,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   // get states and covariances from lateral kalman
   mutex_lateral_kalman_x.lock();
   {
-    states_vec = lateralKalmanX->getStates();
-    cov_mat    = lateralKalmanX->getCovariance();
+    states_vec = lateralKalmanY->getStates();
+    cov_mat    = lateralKalmanY->getCovariance();
   }
   mutex_lateral_kalman_x.unlock();
 
@@ -4343,7 +4343,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_icp_velocity = false;
     _fuse_icp_position = false;
 
-    _fuse_vio_velocity = true;
+    _fuse_vio_velocity = false;
     _fuse_vio_position = true;
 
     _fuse_rtk_position = false;
