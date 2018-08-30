@@ -85,7 +85,7 @@ lateral:
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  max_pos_correction: 0.02 # [m]
+  max_pos_correction_rate: 0.3 # [m/s]
 
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
@@ -111,7 +111,7 @@ lateral:
 
   # measurement covariances
   dynamic_optflow_cov: false
-  Q_vel_optflow: 100000000
+  Q_vel_optflow: 10000
   Q_tilt: 10000
   Q_vel_mavros: 100
   Q_pos_mavros: 1000

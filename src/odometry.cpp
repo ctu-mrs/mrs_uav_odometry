@@ -337,7 +337,7 @@ private:
   // use differential gps
   bool   use_differential_gps = false;
   bool   pass_rtk_as_new_odom = false;
-  double max_pos_correction;
+  double max_pos_correction_rate;
   double max_altitude_correction_;
 
   // disabling teraranger on the flight
@@ -665,7 +665,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/numberOfVariables", lateral_n);
   param_loader.load_param("lateral/numberOfInputs", lateral_m);
   param_loader.load_param("lateral/numberOfMeasurements", lateral_p);
-  param_loader.load_param("lateral/max_pos_correction", max_pos_correction);
+  param_loader.load_param("lateral/max_pos_correction_rate", max_pos_correction_rate);
 
 
   A2 = Eigen::MatrixXd::Zero(lateral_n, lateral_n);
@@ -792,7 +792,7 @@ void Odometry::onInit() {
   routine_callback_optflow_std     = profiler->registerRoutine("callbackOptflowStd");
   routine_callback_tracker_status  = profiler->registerRoutine("callbackTrackerStatus");
   routine_callback_mavros_diag     = profiler->registerRoutine("callbackMavrosDiag");
-  routine_callback_ground_truth     = profiler->registerRoutine("callbackGroundTruth");
+  routine_callback_ground_truth    = profiler->registerRoutine("callbackGroundTruth");
 
   // --------------------------------------------------------------
   // |                         publishers                         |
@@ -1092,7 +1092,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mutex_odom.unlock();
 
   new_altitude.header.frame_id = "local_origin";
-  new_altitude.header.stamp = ros::Time::now();
+  new_altitude.header.stamp    = ros::Time::now();
 
 #if USE_RANGEFINDER == 1
   // update the altitude state
@@ -1267,7 +1267,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mutex_odom.unlock();
 
   new_odom.header.frame_id = "local_origin";
-  new_odom.header.stamp = ros::Time::now();
+  new_odom.header.stamp    = ros::Time::now();
   new_odom.child_frame_id  = std::string("fcu_") + uav_name;
 
   geometry_msgs::PoseStamped newPose;
@@ -2329,6 +2329,21 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     return;
   }
 
+  // compute the time between two last odometries
+  ros::Duration interval2;
+  mutex_rtk.lock();
+  { interval2 = rtk_local.header.stamp - rtk_local_previous.header.stamp; }
+  mutex_rtk.unlock();
+
+  if (fabs(interval2.toSec()) < 0.001) {
+
+    ROS_WARN("[Odometry]: RTK messages came within %1.8f s", interval2.toSec());
+
+    routine_callback_rtk->end();
+    return;
+  }
+  double max_pos_correction = max_pos_correction_rate * interval2.toSec();
+
   routine_callback_rtk->start();
 
   // | ------------- offset the rtk to local_origin ------------- |
@@ -2691,6 +2706,8 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  double max_pos_correction = max_pos_correction_rate * interval2.toSec();
+
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   if (_fuse_icp_position) {
@@ -2837,6 +2854,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     routine_callback_odometry->end();
     return;
   }
+
+  double max_pos_correction = max_pos_correction_rate * interval2.toSec();
 
   // set the input computed from two consecutive positions
   mutex_odom.lock();
@@ -3318,6 +3337,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     { x_correction = pos_x - lateralKalmanX->getState(0); }
     mutex_lateral_kalman_x.unlock();
 
+  double max_pos_correction = max_pos_correction_rate * interval2.toSec();
+
     // saturate the x_correction
     if (!std::isfinite(x_correction)) {
       x_correction = 0;
@@ -3628,7 +3649,6 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
     gps_reliable = true;
     ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible,
              max_altitude);
-
   }
 
   routine_callback_mavros_diag->end();
