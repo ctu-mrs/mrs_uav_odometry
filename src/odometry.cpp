@@ -1092,6 +1092,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mutex_odom.unlock();
 
   new_altitude.header.frame_id = "local_origin";
+  new_altitude.header.stamp = ros::Time::now();
 
 #if USE_RANGEFINDER == 1
   // update the altitude state
@@ -1266,6 +1267,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mutex_odom.unlock();
 
   new_odom.header.frame_id = "local_origin";
+  new_odom.header.stamp = ros::Time::now();
   new_odom.child_frame_id  = std::string("fcu_") + uav_name;
 
   geometry_msgs::PoseStamped newPose;
@@ -1343,7 +1345,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
   }
-
 
   // publish TF
   geometry_msgs::Quaternion orientation = new_odom.pose.pose.orientation;
