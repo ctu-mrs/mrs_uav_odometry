@@ -504,10 +504,10 @@ void Odometry::onInit() {
   param_loader.load_param("rate", rate_);
 
   param_loader.load_param("simulation", simulation_);
-  param_loader.load_param("slow_odom_rate_", slow_odom_rate_);
-  param_loader.load_param("diag_rate_", diag_rate_);
-  param_loader.load_param("max_altitude_rate_", max_altitude_rate_);
-  param_loader.load_param("lkf_states_rate_", lkf_states_rate_);
+  param_loader.load_param("slow_odom_rate", slow_odom_rate_);
+  param_loader.load_param("diag_rate", diag_rate_);
+  param_loader.load_param("max_altitude_rate", max_altitude_rate_);
+  param_loader.load_param("lkf_states_rate", lkf_states_rate_);
   param_loader.load_param("trgFilterBufferSize", trg_filter_buffer_size);
   param_loader.load_param("trgFilterMaxValidAltitude", trg_max_valid_altitude);
   param_loader.load_param("trgFilterMaxDifference", trg_filter_max_difference);
