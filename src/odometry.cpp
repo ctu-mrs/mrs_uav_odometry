@@ -380,6 +380,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
+  bool profiler_enabled_ = false;
 
   // timer routines
   mrs_lib::Routine *routine_main_timer;
@@ -453,6 +454,8 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: initializing");
 
   mrs_lib::ParamLoader param_loader(nh_, "Odometry");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("uav_name", uav_name);
 
@@ -768,7 +771,7 @@ void Odometry::onInit() {
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "Odometry");
+  profiler = new mrs_lib::Profiler(nh_, "Odometry", profiler_enabled_);
 
   // timer routines
   routine_main_timer          = profiler->registerRoutine("mainTimer", rate_, 0.002);

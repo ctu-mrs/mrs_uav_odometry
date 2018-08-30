@@ -1,12 +1,14 @@
 <launch>
 
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <group ns="$(arg uav_name)">
 
     <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="load mrs_odometry/RtkRepublisher $(arg uav_name)_nodelet_manager" output="screen">
 
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
+      <param name="enabled_profiler" value="$(arg profiler)" />
 
       <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
