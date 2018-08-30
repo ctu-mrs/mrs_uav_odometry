@@ -349,11 +349,11 @@ private:
   ros::Timer lkf_states_timer;
   ros::Timer max_altitude_timer;
   ros::Timer topic_watcher_timer;
-  int        slow_odom_rate;
-  int        diag_rate;
-  int        lkf_states_rate;
-  int        max_altitude_rate;
-  int        topic_watcher_rate = 1;
+  int        slow_odom_rate_;
+  int        diag_rate_;
+  int        lkf_states_rate_;
+  int        max_altitude_rate_;
+  int        topic_watcher_rate_ = 1;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
   void       lkfStatesTimer(const ros::TimerEvent &event);
@@ -380,15 +380,30 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
-  mrs_lib::Routine * routine_main_timer;
-  mrs_lib::Routine * routine_odometry_callback;
-  mrs_lib::Routine * routine_optflow_callback;
-  mrs_lib::Routine * routine_vio_callback;
-  mrs_lib::Routine * routine_garmin_callback;
-  mrs_lib::Routine * routine_rtk_callback;
-  mrs_lib::Routine * routine_icp_callback;
-  mrs_lib::Routine * routine_icp_global_callback;
 
+  // timer routines
+  mrs_lib::Routine *routine_main_timer;
+  mrs_lib::Routine *routine_slow_odom_timer;
+  mrs_lib::Routine *routine_diag_timer;
+  mrs_lib::Routine *routine_lkf_states_timer;
+  mrs_lib::Routine *routine_max_altitude_timer;
+  mrs_lib::Routine *routine_rtk_rate_timer;
+  mrs_lib::Routine *routine_topic_watcher_timer;
+
+  mrs_lib::Routine *routine_callback_target_attitude;
+  mrs_lib::Routine *routine_callback_global_position;
+  mrs_lib::Routine *routine_callback_teraranger;
+  mrs_lib::Routine *routine_callback_garmin;
+  mrs_lib::Routine *routine_callback_rtk;
+  mrs_lib::Routine *routine_callback_icp_relative;
+  mrs_lib::Routine *routine_callback_icp_absolute;
+  mrs_lib::Routine *routine_callback_odometry;
+  mrs_lib::Routine *routine_callback_vio;
+  mrs_lib::Routine *routine_callback_optflow;
+  mrs_lib::Routine *routine_callback_optflow_std;
+  mrs_lib::Routine *routine_callback_tracker_status;
+  mrs_lib::Routine *routine_callback_mavros_diag;
+  mrs_lib::Routine *routine_callback_ground_truth;
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
@@ -489,10 +504,10 @@ void Odometry::onInit() {
   param_loader.load_param("rate", rate_);
 
   param_loader.load_param("simulation", simulation_);
-  param_loader.load_param("slow_odom_rate", slow_odom_rate);
-  param_loader.load_param("diag_rate", diag_rate);
-  param_loader.load_param("max_altitude_rate", max_altitude_rate);
-  param_loader.load_param("lkf_states_rate", lkf_states_rate);
+  param_loader.load_param("slow_odom_rate_", slow_odom_rate_);
+  param_loader.load_param("diag_rate_", diag_rate_);
+  param_loader.load_param("max_altitude_rate_", max_altitude_rate_);
+  param_loader.load_param("lkf_states_rate_", lkf_states_rate_);
   param_loader.load_param("trgFilterBufferSize", trg_filter_buffer_size);
   param_loader.load_param("trgFilterMaxValidAltitude", trg_max_valid_altitude);
   param_loader.load_param("trgFilterMaxDifference", trg_filter_max_difference);
@@ -753,13 +768,31 @@ void Odometry::onInit() {
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler                  = new mrs_lib::Profiler(nh_, "Odometry");
-  routine_main_timer        = profiler->registerRoutine("main", rate_, 0.002);
-  routine_odometry_callback = profiler->registerRoutine("callbackOdometry");
-  routine_optflow_callback  = profiler->registerRoutine("callbackOptflowTwist");
-  routine_vio_callback      = profiler->registerRoutine("callbackVioOdometry");
-  routine_garmin_callback   = profiler->registerRoutine("callbackGarmin");
-  routine_rtk_callback      = profiler->registerRoutine("callbackRtk");
+  profiler = new mrs_lib::Profiler(nh_, "Odometry");
+
+  // timer routines
+  routine_main_timer          = profiler->registerRoutine("mainTimer", rate_, 0.002);
+  routine_slow_odom_timer     = profiler->registerRoutine("slowOdomTimer", slow_odom_rate_, 0.01);
+  routine_diag_timer          = profiler->registerRoutine("diagTimer", diag_rate_, 0.01);
+  routine_lkf_states_timer    = profiler->registerRoutine("lkfStatesTimer", lkf_states_rate_, 0.01);
+  routine_max_altitude_timer  = profiler->registerRoutine("maxAltitudeTimer", max_altitude_rate_, 0.01);
+  routine_rtk_rate_timer      = profiler->registerRoutine("rtkRateTimer", 1, 0.01);
+  routine_topic_watcher_timer = profiler->registerRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01);
+
+  routine_callback_target_attitude = profiler->registerRoutine("callbackTargetAttitude");
+  routine_callback_global_position = profiler->registerRoutine("callbackGlobalPosition");
+  routine_callback_teraranger      = profiler->registerRoutine("callbackTeraranger");
+  routine_callback_garmin          = profiler->registerRoutine("callbackGarmin");
+  routine_callback_rtk             = profiler->registerRoutine("callbackRtk");
+  routine_callback_icp_relative    = profiler->registerRoutine("callbackIcpRelative");
+  routine_callback_icp_absolute    = profiler->registerRoutine("callbackIcpAbsolute");
+  routine_callback_odometry        = profiler->registerRoutine("callbackOdometry");
+  routine_callback_vio             = profiler->registerRoutine("callbackVioOdometry");
+  routine_callback_optflow         = profiler->registerRoutine("callbackOptflowTwist");
+  routine_callback_optflow_std     = profiler->registerRoutine("callbackOptflowStd");
+  routine_callback_tracker_status  = profiler->registerRoutine("callbackTrackerStatus");
+  routine_callback_mavros_diag     = profiler->registerRoutine("callbackMavrosDiag");
+  routine_callback_ground_truth     = profiler->registerRoutine("callbackGroundTruth");
 
   // --------------------------------------------------------------
   // |                         publishers                         |
@@ -903,13 +936,12 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   main_timer          = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  slow_odom_timer     = nh_.createTimer(ros::Rate(slow_odom_rate), &Odometry::slowOdomTimer, this);
+  slow_odom_timer     = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
   rtk_rate_timer      = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
-  diag_timer          = nh_.createTimer(ros::Rate(diag_rate), &Odometry::diagTimer, this);
-  lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate), &Odometry::lkfStatesTimer, this);
-  max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate), &Odometry::maxAltitudeTimer, this);
-  topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate), &Odometry::topicWatcherTimer, this);
-
+  diag_timer          = nh_.createTimer(ros::Rate(diag_rate_), &Odometry::diagTimer, this);
+  lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
+  max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
+  topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
 
   // Decide the initial odometry mode based on sensors availability
   /* mrs_msgs::OdometryMode target_mode; */
@@ -1337,6 +1369,8 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
+  routine_slow_odom_timer->start();
+
   nav_msgs::Odometry slow_odom;
 
   mutex_shared_odometry.lock();
@@ -1349,6 +1383,8 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
   }
+
+  routine_slow_odom_timer->end();
 }
 
 //}
@@ -1359,6 +1395,8 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   if (!is_initialized)
     return;
+
+  routine_diag_timer->start();
 
   mrs_msgs::OdometryDiag odometry_diag;
 
@@ -1415,6 +1453,8 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
   }
+
+  routine_diag_timer->end();
 }
 
 //}
@@ -1422,6 +1462,8 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 /* //{ lkfStatesTimer() */
 
 void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
+
+  routine_lkf_states_timer->start();
 
   Eigen::VectorXd states_vec;
   Eigen::MatrixXd cov_mat;
@@ -1463,6 +1505,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_.getTopic().c_str());
   }
+
+  routine_lkf_states_timer->end();
 }
 
 //}
@@ -1473,6 +1517,8 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
   if (!is_initialized)
     return;
+
+  routine_max_altitude_timer->start();
 
   mrs_msgs::Float64Stamped max_altitude_msg;
   max_altitude_msg.header.frame_id = "local_origin";
@@ -1486,6 +1532,8 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
   }
+
+  routine_max_altitude_timer->end();
 }
 
 //}
@@ -1497,6 +1545,8 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
+  routine_rtk_rate_timer->start();
+
   if (got_rtk) {
 
     if (got_rtk_counter < 15) {
@@ -1506,6 +1556,8 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
     got_rtk_counter = 0;
   }
+
+  routine_rtk_rate_timer->end();
 }
 
 //}
@@ -1516,6 +1568,8 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   if (!is_initialized)
     return;
+
+  routine_topic_watcher_timer->start();
 
   ros::Duration interval;
 
@@ -1560,6 +1614,8 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     ROS_WARN("[Odometry]: ICP position not received for %f seconds.", interval.toSec());
     got_icp_global = false;
   }
+
+  routine_topic_watcher_timer->end();
 }
 
 //}
@@ -1567,6 +1623,8 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 // --------------------------------------------------------------
 // |                          callbacks                         |
 // --------------------------------------------------------------
+
+// | ------------------ subscriber callbacks ------------------ |
 
 /* //{ callbackTargetAttitude() */
 void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
@@ -1595,6 +1653,12 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     return;
   }
 
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  routine_callback_target_attitude->start();
+
   target_attitude_last_update = ros::Time::now();
 
   // compute the time between two last odometries
@@ -1606,6 +1670,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   if (fabs(interval2.toSec()) < 0.001) {
 
     ROS_WARN("Attitude messages came within 0.001 s");
+    routine_callback_target_attitude->end();
     return;
   }
 
@@ -1627,6 +1692,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   if (!std::isfinite(rot_x)) {
     rot_x = 0;
     ROS_ERROR("NaN detected in Mavros variable \"rot_x\", setting it to 0 and returning!!!");
+    routine_callback_target_attitude->end();
     return;
   } else if (rot_x > 1.57) {
     rot_x = 1.57;
@@ -1637,6 +1703,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   if (!std::isfinite(rot_y)) {
     rot_y = 0;
     ROS_ERROR("NaN detected in Mavros variable \"rot_y\", setting it to 0 and returning!!!");
+    routine_callback_target_attitude->end();
     return;
   } else if (rot_y > 1.57) {
     rot_y = 1.57;
@@ -1649,19 +1716,23 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   if (!std::isfinite(dt)) {
     dt = 0;
     ROS_ERROR("NaN detected in Mavros variable \"dt\", setting it to 0 and returning!!!");
+    routine_callback_target_attitude->end();
     return;
   } else if (dt > 1) {
     ROS_ERROR("Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
     dt = 1;
+    routine_callback_target_attitude->end();
     return;
   } else if (dt < -1) {
     ROS_ERROR("Mavros variable \"dt\" < -1, setting it to -1 and returning!!!");
     dt = -1;
+    routine_callback_target_attitude->end();
     return;
   }
 
   if (!got_lateral_sensors) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing target attitude. Waiting for other sensors.");
+    routine_callback_target_attitude->end();
     return;
   }
 
@@ -1710,6 +1781,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   mutex_lateral_kalman_y.unlock();
 
   ROS_INFO_ONCE("[Odometry]: Iterating lateral Kalman filter with target_attitude at input");
+
+  routine_callback_target_attitude->end();
 }
 //}
 
@@ -1720,6 +1793,8 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg)
   if (!is_initialized)
     return;
 
+  routine_callback_global_position->start();
+
   double out_x;
   double out_y;
 
@@ -1727,11 +1802,13 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg)
 
   if (!std::isfinite(out_x)) {
     ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_x\"!!!");
+    routine_callback_global_position->end();
     return;
   }
 
   if (!std::isfinite(out_y)) {
     ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_y\"!!!");
+    routine_callback_global_position->end();
     return;
   }
 
@@ -1785,6 +1862,8 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg)
       ROS_INFO("[Odometry]: Sample %d of %d of GPS: %.5f %.5f", averaging_got_samples, averaging_num_samples, gpos_average_x, gpos_average_y);
     }
   }
+
+  routine_callback_global_position->end();
 }
 
 //}
@@ -1803,6 +1882,8 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
+  routine_callback_teraranger->start();
+
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
   geometry_msgs::Quaternion quat;
@@ -1819,6 +1900,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
   if (!std::isfinite(measurement)) {
 
     ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Teraranger variable \"measurement\" (teraranger)!!!");
+    routine_callback_teraranger->end();
     return;
   }
 
@@ -1928,6 +2010,8 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
       ROS_WARN_ONCE("[Odometry]: Fusing Teraranger");
     }
   }
+
+  routine_callback_teraranger->end();
 }
 
 //}
@@ -1946,7 +2030,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  routine_garmin_callback->start();
+  routine_callback_garmin->start();
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -1965,7 +2049,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Garmin variable \"measurement\" (garmin)!!!");
 
-    routine_garmin_callback->end();
+    routine_callback_garmin->end();
     return;
   }
 
@@ -2040,7 +2124,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  routine_garmin_callback->end();
+  routine_callback_garmin->end();
 }
 
 //}
@@ -2189,17 +2273,21 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  routine_callback_rtk->start();
+
   mrs_msgs::RtkGps rtk_utm;
 
   if (msg->header.frame_id.compare("gps") == STRING_EQUAL) {
 
     if (!std::isfinite(msg->gps.latitude)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in RTK variable \"msg->latitude\"!!!");
+      routine_callback_rtk->end();
       return;
     }
 
     if (!std::isfinite(msg->gps.longitude)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in RTK variable \"msg->longitude\"!!!");
+      routine_callback_rtk->end();
       return;
     }
 
@@ -2236,10 +2324,11 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
   if (!got_odom || !got_rtk) {
 
+    routine_callback_rtk->end();
     return;
   }
 
-  routine_rtk_callback->start();
+  routine_callback_rtk->start();
 
   // | ------------- offset the rtk to local_origin ------------- |
   rtk_local.pose.pose.position.x -= home_utm_x;
@@ -2280,7 +2369,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // continue to lateral and altitude fusion only when we got a fix
   if (!got_rtk_fix) {
 
-    routine_rtk_callback->end();
+    routine_callback_rtk->end();
     return;
   }
 
@@ -2288,15 +2377,15 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
 
-    routine_rtk_callback->end();
+    routine_callback_rtk->end();
     return;
   }
 
   if (_fuse_rtk_position) {
 
-
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing RTK position. Waiting for other sensors.");
+      routine_callback_rtk->end();
       return;
     }
 
@@ -2377,7 +2466,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       garmin_enabled       = true;
       ROS_WARN("[Odometry]: We lost RTK fix, switching back to fusing teraranger and garmin.");
 
-      routine_rtk_callback->end();
+      routine_callback_rtk->end();
       return;
     }
 
@@ -2390,7 +2479,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
       ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in RTK variable \"rtk_local.position.position.z\" (rtk_altitude)!!!");
 
-      routine_rtk_callback->end();
+      routine_callback_rtk->end();
       return;
     }
 
@@ -2411,7 +2500,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         ROS_ERROR("[Odometry]: RTK kalman is above failsafe kalman by more than %2.2f m!", rtk_max_down_difference_);
         ROS_ERROR("[Odometry]: Switching back to fusing teraranger!");
 
-        routine_rtk_callback->end();
+        routine_callback_rtk->end();
         return;
       }
     }
@@ -2424,7 +2513,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       ROS_ERROR("[Odometry]: RTK kalman differs from Failsafe kalman by more than %2.2f m!", rtk_max_abs_difference_);
       ROS_ERROR("[Odometry]: Switching back to fusing teraranger!");
 
-      routine_rtk_callback->end();
+      routine_callback_rtk->end();
       return;
     }
 
@@ -2445,7 +2534,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     ROS_WARN_ONCE("[Odometry]: Fusing rtk altitude");
   }
 
-  routine_rtk_callback->end();
+  routine_callback_rtk->end();
 }
 
 //}
@@ -2485,7 +2574,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  routine_icp_callback->start();
+  routine_callback_icp_relative->start();
 
   // compute the time between two last odometries
   ros::Duration interval2;
@@ -2497,10 +2586,9 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
 
-    routine_icp_callback->end();
+    routine_callback_icp_relative->end();
     return;
   }
-
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -2508,6 +2596,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing ICP velocity. Waiting for other sensors.");
+      routine_callback_icp_relative->end();
       return;
     }
 
@@ -2545,6 +2634,8 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN_ONCE("[Odometry]: fusing ICP velocity");
   }
+
+  routine_callback_icp_relative->end();
 }
 //}
 
@@ -2583,7 +2674,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  routine_icp_global_callback->start();
+  routine_callback_icp_absolute->start();
 
   // compute the time between two last odometries
   ros::Duration interval2;
@@ -2595,10 +2686,9 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
 
-    routine_icp_global_callback->end();
+    routine_callback_icp_absolute->end();
     return;
   }
-
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -2606,6 +2696,7 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing ICP position. Waiting for other sensors.");
+      routine_callback_icp_absolute->end();
       return;
     }
 
@@ -2672,6 +2763,8 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN_ONCE("[Odometry]: fusing ICP position");
   }
+
+  routine_callback_icp_absolute->end();
 }
 //}
 
@@ -2717,7 +2810,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  routine_odometry_callback->start();
+  routine_callback_odometry->start();
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -2740,7 +2833,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
 
-    routine_odometry_callback->end();
+    routine_callback_odometry->end();
     return;
   }
 
@@ -2811,6 +2904,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros tilts. Waiting for other sensors.");
+      routine_callback_odometry->end();
       return;
     }
 
@@ -2822,6 +2916,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (!std::isfinite(rot_y)) {
         rot_y = 0;
         ROS_ERROR("NaN detected in Mavros variable \"rot_y\", setting it to 0 and returning!!!");
+        routine_callback_odometry->end();
         return;
       } else if (rot_y > 1.57) {
         rot_y = 1.57;
@@ -2873,6 +2968,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros velocity. Waiting for other sensors.");
+      routine_callback_odometry->end();
       return;
     }
     // set the measurement vector
@@ -2890,6 +2986,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (!std::isfinite(x_twist)) {
       x_twist = 0;
       ROS_ERROR("NaN detected in Mavros variable \"x_twist\", setting it to 0 and returning!!!");
+      routine_callback_odometry->end();
       return;
     } else if (x_twist > 10) {
       x_twist = 10;
@@ -2922,6 +3019,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (!std::isfinite(y_twist)) {
       y_twist = 0;
       ROS_ERROR("NaN detected in Mavros variable \"y_twist\", setting it to 0 and returning!!!");
+      routine_callback_odometry->end();
       return;
     } else if (y_twist > 10) {
       y_twist = 10;
@@ -2952,17 +3050,18 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros position. Waiting for other sensors.");
+      routine_callback_odometry->end();
       return;
     }
     if (!got_odom || (set_home_on_start && !got_global_position)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing Mavros position. Global position not averaged.");
-      routine_odometry_callback->end();
+      routine_callback_odometry->end();
       return;
     }
 
     if (!std::isfinite(odom_pixhawk.pose.pose.position.x) || !std::isfinite(odom_pixhawk.pose.pose.position.y)) {
       ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
-      routine_odometry_callback->end();
+      routine_callback_odometry->end();
       return;
     }
     mutex_lateral_kalman_x.lock();
@@ -3037,7 +3136,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   //}
 
-  routine_odometry_callback->end();
+  routine_callback_odometry->end();
 }
 
 //}
@@ -3084,7 +3183,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  routine_vio_callback->start();
+  routine_callback_vio->start();
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -3103,7 +3202,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     ROS_WARN("[Odometry]: Vio odometry messages came within %1.8f s", interval2.toSec());
 
-    routine_vio_callback->end();
+    routine_callback_vio->end();
     return;
   }
 
@@ -3114,6 +3213,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing vio velocity. Waiting for other sensors.");
+      routine_callback_vio->end();
       return;
     }
     // set the measurement vector
@@ -3130,6 +3230,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (!std::isfinite(x_twist)) {
       x_twist = 0;
       ROS_ERROR("NaN detected in vio variable \"x_twist\", setting it to 0 and returning!!!");
+      routine_callback_vio->end();
       return;
     } else if (x_twist > 10) {
       x_twist = 10;
@@ -3164,6 +3265,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (!std::isfinite(y_twist)) {
       y_twist = 0;
       ROS_ERROR("NaN detected in vio variable \"y_twist\", setting it to 0 and returning!!!");
+      routine_callback_vio->end();
       return;
     } else if (y_twist > 10) {
       y_twist = 10;
@@ -3192,12 +3294,13 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing vio position. Waiting for other sensors.");
+      routine_callback_vio->end();
       return;
     }
 
     if (!std::isfinite(odom_vio.pose.pose.position.x) || !std::isfinite(odom_vio.pose.pose.position.y)) {
       ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"odom_vio.pose.pose.position.x\" or \"odom_vio.pose.pose.position.y\" (vio)!!!");
-      routine_vio_callback->end();
+      routine_callback_vio->end();
       return;
     }
     // fill the measurement vector
@@ -3278,7 +3381,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   //}
 
-  routine_vio_callback->end();
+  routine_callback_vio->end();
 }
 
 //}
@@ -3325,7 +3428,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  routine_optflow_callback->start();
+  routine_callback_optflow->start();
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -3344,7 +3447,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
     ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
 
-    routine_odometry_callback->end();
+    routine_callback_odometry->end();
     return;
   }
 
@@ -3354,6 +3457,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow velocity. Waiting for other sensors.");
+      routine_callback_odometry->end();
       return;
     }
     // set the measurement vector
@@ -3369,6 +3473,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     if (!std::isfinite(x_twist)) {
       x_twist = 0;
       ROS_ERROR("NaN detected in Optflow variable \"x_twist\", setting it to 0 and returning!!!");
+      routine_callback_odometry->end();
       return;
     } else if (x_twist > 10) {
       x_twist = 10;
@@ -3423,6 +3528,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     if (!std::isfinite(y_twist)) {
       y_twist = 0;
       ROS_ERROR("NaN detected in Optflow variable \"y_twist\", setting it to 0 and returning!!!");
+      routine_callback_odometry->end();
       return;
     } else if (y_twist > 10) {
       y_twist = 10;
@@ -3462,7 +3568,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
     ROS_WARN_ONCE("[Odometry]: fusing optical flow velocity");
   }
 
-  routine_optflow_callback->end();
+  routine_callback_optflow->end();
 }
 
 //}
@@ -3470,9 +3576,13 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
 /* //{ callbackOptflowStddev() */
 void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) {
 
+  routine_callback_optflow_std->start();
+
   mutex_optflow_stddev.lock();
   { optflow_stddev = *msg; }
   mutex_optflow_stddev.unlock();
+
+  routine_callback_optflow_std->end();
 }
 //}
 
@@ -3483,10 +3593,13 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
   if (!is_initialized)
     return;
 
+  routine_callback_tracker_status->start();
+
   tracker_status     = *msg;
   got_tracker_status = true;
-}
 
+  routine_callback_tracker_status->end();
+}
 //}
 
 /* //{ callbackMavrosDiag() */
@@ -3495,23 +3608,56 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
   if (!is_initialized)
     return;
 
+  routine_callback_mavros_diag->start();
+
   mutex_mavros_diag.lock();
   { mavros_diag.gps.satellites_visible = msg->gps.satellites_visible; }
   mutex_mavros_diag.unlock();
 
   if (max_altitude != _max_optflow_altitude && mavros_diag.gps.satellites_visible < _min_satellites) {
+
     max_altitude = _max_optflow_altitude;
     gps_reliable = false;
     ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", mavros_diag.gps.satellites_visible,
              max_altitude);
+
   } else if (_gps_available && max_altitude != _max_default_altitude && mavros_diag.gps.satellites_visible >= _min_satellites) {
+
     max_altitude = _max_default_altitude;
     gps_reliable = true;
     ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible,
              max_altitude);
+
   }
+
+  routine_callback_mavros_diag->end();
 }
 //}
+
+/* //{ callbackGroundTruth() */
+void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
+
+  routine_callback_ground_truth->start();
+
+  mutex_ground_truth.lock();
+  { ground_truth = *msg; }
+  mutex_ground_truth.unlock();
+
+  // rotations in inertial frame
+  double rot_x, rot_y, rot_z;
+  getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
+
+  orientation_gt.header   = odom_pixhawk.header;
+  orientation_gt.vector.x = rot_x;
+  orientation_gt.vector.y = rot_y;
+  orientation_gt.vector.z = rot_z;
+  pub_orientation_gt_.publish(orientation_gt);
+
+  routine_callback_ground_truth->end();
+}
+//}
+
+// | -------------------- service callbacks ------------------- |
 
 /* //{ callbackToggleRtkHeight() */
 
@@ -4088,25 +4234,6 @@ bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Tr
   res.message = "Reset of lateral kalman successful";
 
   return true;
-}
-//}
-
-/* //{ callbackGroundTruth() */
-void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
-
-  mutex_ground_truth.lock();
-  { ground_truth = *msg; }
-  mutex_ground_truth.unlock();
-
-  // rotations in inertial frame
-  double rot_x, rot_y, rot_z;
-  getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
-
-  orientation_gt.header   = odom_pixhawk.header;
-  orientation_gt.vector.x = rot_x;
-  orientation_gt.vector.y = rot_y;
-  orientation_gt.vector.z = rot_z;
-  pub_orientation_gt_.publish(orientation_gt);
 }
 //}
 

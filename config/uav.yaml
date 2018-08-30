@@ -85,7 +85,7 @@ lateral:
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  max_pos_correction: 0.10 # [m]
+  max_pos_correction: 0.02 # [m]
 
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
