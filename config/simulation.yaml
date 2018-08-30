@@ -8,10 +8,10 @@ lkf_states_rate: 100 # [Hz]
 takeoff_mode: "OPTFLOW"
 
 # available localization methods
-gps_available: false
+gps_available: true
 optflow_available: true
 vio_available: false
-rtk_available: false
+rtk_available: true
 lidar_available: false
 
 min_satellites: 6
@@ -24,7 +24,7 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-use_differential_gps: false
+use_differential_gps: true
 publish_fused_odom: true
 pass_rtk_as_new_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
@@ -85,7 +85,7 @@ lateral:
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  max_pos_correction_rate: 0.3 # [m/s]
+  max_pos_correction_rate: 20.0 # [?/s]
 
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
@@ -111,11 +111,11 @@ lateral:
 
   # measurement covariances
   dynamic_optflow_cov: false
-  Q_vel_optflow: 10000
+  Q_vel_optflow: 100000
   Q_tilt: 10000
-  Q_vel_mavros: 100
-  Q_pos_mavros: 1000
-  Q_pos_rtk: 10000
+  Q_vel_mavros: 100000
+  Q_pos_mavros: 1000000
+  Q_pos_rtk: 1000000
   Q_pos_vio: 100
   Q_vel_vio: 10000
   Q_pos_icp: 10000
