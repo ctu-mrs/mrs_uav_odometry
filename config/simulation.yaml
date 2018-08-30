@@ -2,7 +2,7 @@ rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
-lkf_states_rate: 1 # [Hz]
+lkf_states_rate: 100 # [Hz]
 
 # Odometry mode used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
 takeoff_mode: "GPS"
@@ -89,7 +89,7 @@ lateral:
 
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 1, 0,
+      0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]
@@ -107,14 +107,14 @@ lateral:
       0, 0, 1, 0, 0, 0,
       0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 10000000, 0,
-      0, 0, 0, 0, 0, 100]
+      0, 0, 0, 0, 0, 1000]
 
   # measurement covariances
   dynamic_optflow_cov: false
   Q_vel_optflow: 100000000
   Q_tilt: 10000
-  Q_vel_mavros: 10000
-  Q_pos_mavros: 100000
+  Q_vel_mavros: 100
+  Q_pos_mavros: 1000
   Q_pos_rtk: 10000
   Q_pos_vio: 100
   Q_vel_vio: 10000

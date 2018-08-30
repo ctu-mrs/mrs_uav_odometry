@@ -3,39 +3,38 @@
  <tabbed_widget parent="main_window" name="Main Window">
   <plotmatrix tab_name="plot" rows="4" columns="1">
    <plot row="0" col="0">
-    <range top="11470.302554" right="109.750000" left="18.110000" bottom="-947.214805"/>
+    <range right="101.684000" top="0.090110" bottom="-0.131002" left="0.012000"/>
     <limitY/>
-    <curve B="0" R="128" G="128" name="/uav1/ground_truth/pose/pose/position/y"/>
-    <curve B="0" R="128" G="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/pose/position/y"/>
-    <curve B="255" R="255" G="0" name="/uav1/odometry/lkf_states_out/pos"/>
-    <curve B="255" R="0" G="0" name="/uav1/odometry/new_odom/pose/pose/position/y"/>
-    <curve B="255" R="255" G="0" name="/uav1/orb_slam/odom/pose/pose/position/y"/>
+    <curve G="128" R="128" name="/uav1/ground_truth/pose/pose/position/y" B="0"/>
+    <curve G="0" R="128" name="/uav1/mavros_interface/converted_mavros_odom/pose/pose/position/y" B="0"/>
+    <curve G="0" R="255" name="/uav1/odometry/lkf_states/pos" B="255"/>
+    <curve G="0" R="0" name="/uav1/odometry/new_odom/pose/pose/position/y" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="1" col="0">
-    <range top="237.753996" right="109.750000" left="18.110000" bottom="-39.618579"/>
+    <range right="101.684000" top="0.094514" bottom="-0.109167" left="0.012000"/>
     <limitY/>
-    <curve B="164" R="160" G="160" name="/uav1/ground_truth/twist/twist/linear/y"/>
-    <curve B="128" R="0" G="128" name="/uav1/mavros_interface/converted_mavros_odom/twist/twist/linear/y"/>
-    <curve B="0" R="128" G="0" name="/uav1/odometry/lkf_states_out/vel"/>
-    <curve B="128" R="0" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/y"/>
+    <curve G="160" R="160" name="/uav1/ground_truth/twist/twist/linear/y" B="164"/>
+    <curve G="128" R="0" name="/uav1/mavros_interface/converted_mavros_odom/twist/twist/linear/y" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/lkf_states/vel" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/new_odom/twist/twist/linear/y" B="128"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="2" col="0">
-    <range top="8.937356" right="109.000000" left="21.000000" bottom="-7.119203"/>
+    <range right="101.144000" top="0.779498" bottom="-0.863654" left="0.144000"/>
     <limitY/>
-    <curve B="0" R="255" G="0" name="/uav1/odometry/lkf_states_out/acc"/>
-    <curve B="255" R="255" G="0" name="/uav1/odometry/lkf_states_out/acc_d"/>
-    <curve B="128" R="0" G="0" name="/uav1/odometry/lkf_states_out/acc_i"/>
+    <curve G="160" R="160" name="/uav1/odometry/lkf_states/acc" B="164"/>
+    <curve G="128" R="128" name="/uav1/odometry/lkf_states/acc_d" B="0"/>
+    <curve G="0" R="128" name="/uav1/odometry/lkf_states/acc_i" B="0"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="3" col="0">
-    <range top="0.030943" right="109.762000" left="18.110000" bottom="-0.002145"/>
+    <range right="101.690000" top="0.026244" bottom="-0.041200" left="0.000000"/>
     <limitY/>
-    <curve B="128" R="0" G="128" name="/uav1/odometry/lkf_states_out/tilt"/>
-    <curve B="0" R="128" G="0" name="/uav1/odometry/orientation_gt/vector/y"/>
-    <curve B="164" R="160" G="160" name="/uav1/odometry/orientation_mavros/vector/y"/>
-    <curve B="0" R="128" G="128" name="/uav1/odometry/target_attitude_global/vector/y"/>
+    <curve G="128" R="0" name="/uav1/odometry/lkf_states/tilt" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/orientation_gt/vector/x" B="255"/>
+    <curve G="128" R="0" name="/uav1/odometry/orientation_mavros/vector/x" B="0"/>
+    <curve G="0" R="255" name="/uav1/odometry/target_attitude_global/vector/x" B="0"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
@@ -44,39 +43,38 @@
  <tabbed_widget parent="main_window" name="Main Window">
   <plotmatrix tab_name="plot" rows="4" columns="1">
    <plot row="0" col="0">
-    <range top="11470.302554" right="109.750000" left="18.110000" bottom="-947.214805"/>
+    <range right="101.684000" top="0.090110" bottom="-0.131002" left="0.012000"/>
     <limitY/>
-    <curve B="0" R="128" G="128" name="/uav1/ground_truth/pose/pose/position/y"/>
-    <curve B="0" R="128" G="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/pose/position/y"/>
-    <curve B="255" R="255" G="0" name="/uav1/odometry/lkf_states_out/pos"/>
-    <curve B="255" R="0" G="0" name="/uav1/odometry/new_odom/pose/pose/position/y"/>
-    <curve B="255" R="255" G="0" name="/uav1/orb_slam/odom/pose/pose/position/y"/>
+    <curve G="128" R="128" name="/uav1/ground_truth/pose/pose/position/y" B="0"/>
+    <curve G="0" R="128" name="/uav1/mavros_interface/converted_mavros_odom/pose/pose/position/y" B="0"/>
+    <curve G="0" R="255" name="/uav1/odometry/lkf_states/pos" B="255"/>
+    <curve G="0" R="0" name="/uav1/odometry/new_odom/pose/pose/position/y" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="1" col="0">
-    <range top="237.753996" right="109.750000" left="18.110000" bottom="-39.618579"/>
+    <range right="101.684000" top="0.094514" bottom="-0.109167" left="0.012000"/>
     <limitY/>
-    <curve B="164" R="160" G="160" name="/uav1/ground_truth/twist/twist/linear/y"/>
-    <curve B="128" R="0" G="128" name="/uav1/mavros_interface/converted_mavros_odom/twist/twist/linear/y"/>
-    <curve B="0" R="128" G="0" name="/uav1/odometry/lkf_states_out/vel"/>
-    <curve B="128" R="0" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/y"/>
+    <curve G="160" R="160" name="/uav1/ground_truth/twist/twist/linear/y" B="164"/>
+    <curve G="128" R="0" name="/uav1/mavros_interface/converted_mavros_odom/twist/twist/linear/y" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/lkf_states/vel" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/new_odom/twist/twist/linear/y" B="128"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="2" col="0">
-    <range top="8.937356" right="109.000000" left="21.000000" bottom="-7.119203"/>
+    <range right="101.144000" top="0.779498" bottom="-0.863654" left="0.144000"/>
     <limitY/>
-    <curve B="0" R="255" G="0" name="/uav1/odometry/lkf_states_out/acc"/>
-    <curve B="255" R="255" G="0" name="/uav1/odometry/lkf_states_out/acc_d"/>
-    <curve B="128" R="0" G="0" name="/uav1/odometry/lkf_states_out/acc_i"/>
+    <curve G="160" R="160" name="/uav1/odometry/lkf_states/acc" B="164"/>
+    <curve G="128" R="128" name="/uav1/odometry/lkf_states/acc_d" B="0"/>
+    <curve G="0" R="128" name="/uav1/odometry/lkf_states/acc_i" B="0"/>
     <transform value="noTransform"/>
    </plot>
    <plot row="3" col="0">
-    <range top="0.030943" right="109.762000" left="18.110000" bottom="-0.002145"/>
+    <range right="101.690000" top="0.026244" bottom="-0.041200" left="0.000000"/>
     <limitY/>
-    <curve B="128" R="0" G="128" name="/uav1/odometry/lkf_states_out/tilt"/>
-    <curve B="0" R="128" G="0" name="/uav1/odometry/orientation_gt/vector/y"/>
-    <curve B="164" R="160" G="160" name="/uav1/odometry/orientation_mavros/vector/y"/>
-    <curve B="0" R="128" G="128" name="/uav1/odometry/target_attitude_global/vector/y"/>
+    <curve G="128" R="0" name="/uav1/odometry/lkf_states/tilt" B="128"/>
+    <curve G="0" R="0" name="/uav1/odometry/orientation_gt/vector/x" B="255"/>
+    <curve G="128" R="0" name="/uav1/odometry/orientation_mavros/vector/x" B="0"/>
+    <curve G="0" R="255" name="/uav1/odometry/target_attitude_global/vector/x" B="0"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
@@ -91,7 +89,7 @@
    <selected_topics list=""/>
   </DataLoad_ROS_bags>
   <ROS_Topic_Streamer>
-   <selected_topics list="/uav1/ground_truth;/uav1/mavros_interface/converted_mavros_odom;/uav1/odometry/lkf_states_out;/uav1/odometry/new_odom;/uav1/odometry/orientation_gt;/uav1/odometry/orientation_mavros;/uav1/odometry/target_attitude_global;/uav1/orb_slam/odom"/>
+   <selected_topics list="/uav1/ground_truth;/uav1/mavros_interface/converted_mavros_odom;/uav1/odometry/lkf_states;/uav1/odometry/new_odom;/uav1/odometry/orientation_gt;/uav1/odometry/orientation_mavros;/uav1/odometry/target_attitude_global"/>
   </ROS_Topic_Streamer>
   <RosoutPublisherROS/>
   <TopicPublisherROS/>
