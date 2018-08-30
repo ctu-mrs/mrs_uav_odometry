@@ -1241,7 +1241,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         // when we have not define our home position, define it as our averaged home position
       } else {
-
+        
+        // This is wroooong
         home_utm_x = start_position_average_x;
         home_utm_y = start_position_average_y;
 
@@ -4412,7 +4413,7 @@ bool Odometry::setOdometryModeTo(const mrs_msgs::OdometryMode &target_mode) {
     _fuse_optflow_velocity = true;
 
     _fuse_mavros_tilts    = true;
-    _fuse_mavros_velocity = true;
+    _fuse_mavros_velocity = false;
     _fuse_mavros_position = true;
 
     _fuse_icp_velocity = false;
