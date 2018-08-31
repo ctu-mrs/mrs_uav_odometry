@@ -32,6 +32,7 @@
 #include <mrs_msgs/LkfStates.h>
 #include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/String.h>
+#include <mrs_msgs/OffsetOdom.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -130,6 +131,7 @@ private:
 
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
+  ros::ServiceServer ser_offset_odom_;
   ros::ServiceServer ser_averaging_;
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
@@ -224,6 +226,7 @@ private:
   bool callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res);
   bool callbackChangeOdometryModeString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackOffsetOdom(mrs_msgs::OffsetOdom::Request &req, mrs_msgs::OffsetOdom::Response &res);
 
   void        callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
   void        callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg);
@@ -380,7 +383,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
-  bool profiler_enabled_ = false;
+  bool               profiler_enabled_ = false;
 
   // timer routines
   mrs_lib::Routine *routine_main_timer;
@@ -888,6 +891,9 @@ void Odometry::onInit() {
 
   // subscribe for reset kalman service
   ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetKalman, this);
+
+  // subscribe for offset odom service
+  ser_offset_odom_ = nh_.advertiseService("offset_odom_in", &Odometry::callbackOffsetOdom, this);
 
   // subscribe for garmin toggle service
   ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
@@ -3340,7 +3346,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     { x_correction = pos_x - lateralKalmanX->getState(0); }
     mutex_lateral_kalman_x.unlock();
 
-  double max_pos_correction = max_pos_correction_rate * interval2.toSec();
+    double max_pos_correction = max_pos_correction_rate * interval2.toSec();
 
     // saturate the x_correction
     if (!std::isfinite(x_correction)) {
@@ -4256,6 +4262,34 @@ bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Tr
 
   res.success = true;
   res.message = "Reset of lateral kalman successful";
+
+  return true;
+}
+//}
+
+/* //{ callbackOffsetOdom() */
+
+bool Odometry::callbackOffsetOdom(mrs_msgs::OffsetOdom::Request &req, mrs_msgs::OffsetOdom::Response &res) {
+
+
+  mutex_lateral_kalman_x.lock();
+  {
+   lateralKalmanX->setState(0, lateralKalmanX->getState(0) + req.x);
+   lateralKalmanX->setState(1, lateralKalmanX->getState(1) + req.dx);
+  }
+  mutex_lateral_kalman_x.unlock();
+
+  mutex_lateral_kalman_y.lock();
+  {
+  lateralKalmanY->setState(0, lateralKalmanY->getState(0) + req.y);
+  lateralKalmanY->setState(1, lateralKalmanY->getState(1) + req.dy);
+  }
+  mutex_lateral_kalman_y.unlock();
+
+  ROS_WARN("[Odometry]: Offsetting odometry by: x: %f y: %f dx: %f dy: %f", req.x, req.y, req.dx, req.dy);
+
+  res.success = true;
+  res.message = "Odometry offset completed";
 
   return true;
 }
