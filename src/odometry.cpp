@@ -40,8 +40,8 @@
 #include <mrs_lib/ParamLoader.h>
 
 #include <range_filter.h>
+#include <StateEstimator.h>
 #include <mrs_odometry/lkfConfig.h>
-#include <mrs_odometry/StateEstimator.h>
 
 #include "tf/LinearMath/Transform.h"
 #include <tf/transform_broadcaster.h>
@@ -245,7 +245,7 @@ private:
   bool        changeCurrentKalman(const mrs_msgs::OdometryMode &target_mode);
   bool        isValidMode(const mrs_msgs::OdometryMode &mode);
   std::string printOdometryDiag();
-  bool stringInVector(const std::string &value, const std::vector<std::string> &vector);
+  bool        stringInVector(const std::string &value, const std::vector<std::string> &vector);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -312,14 +312,15 @@ private:
   std::mutex      mutex_failsafe_altitude_kalman;
 
   // State estimation
-  int _n_model_states;
-  std::vector<std::string> _state_estimators_names;
-  std::vector<std::string> _model_state_names;
-  std::vector<std::string> _measurement_names;
+  int                                             _n_model_states;
+  std::vector<std::string>                        _state_estimators_names;
+  std::vector<std::string>                        _model_state_names;
+  std::vector<std::string>                        _measurement_names;
   std::map<std::string, std::vector<std::string>> map_estimator_measurement;
-  std::map<std::string, std::vector<double>>      map_measurement_covariance;
-  std::map<std::string, std::string> map_measurement_state;
-  std::map<std::string, Eigen::MatrixXd> map_states;
+  std::map<std::string, Eigen::MatrixXd>          map_measurement_covariance;
+  std::map<std::string, std::string>              map_measurement_state;
+  std::map<std::string, Eigen::MatrixXd>          map_states;
+  std::vector<std::shared_ptr<StateEstimator>>                    m_state_estimators;
 
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A2, B2, R2, P_vel, P_pos, P_ang;
@@ -509,75 +510,6 @@ void Odometry::onInit() {
   utm_position_y = 0;
 
 
-  /*  //{ load parameters of state estimators */
-
-  param_loader.load_param("state_estimators/n_model_states", _n_model_states);
-  param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
-  param_loader.load_param("state_estimators/model_state", _model_state_names);
-  param_loader.load_param("state_estimators/measurements", _measurement_names);
-
-  // Load the measurements fused by each state estimator
-  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
-
-    std::vector<std::string> temp_vector;
-    param_loader.load_param("state_estimators/fused_measurements/" + *it, temp_vector);
-
-    for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _measurement_names)) {
-        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
-        ros::shutdown();
-      }
-    }
-
-    map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
-  }
-
-  // Load the model state of each measurement
-  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
-
-    std::string temp_value;
-    param_loader.load_param("state_estimators/measurement_states/" + *it, temp_value);
-
-    if (!stringInVector(temp_value, _model_state_names)) {
-      ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", temp_value.c_str(), it->c_str());
-      ros::shutdown();
-    }
-
-    map_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
-  }
-
-  // Load the model state mapping
-  for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
-
-    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _n_model_states);
-    param_loader.load_matrix_static("state_estimators/state_mapping" + *it, temp_P, _n_model_states, _n_model_states);
-
-    map_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
-  }
-
-  // Load the covariances of each measurement
-  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
-
-    double temp_value;
-    param_loader.load_param("state_estimators/Q/" + *it, temp_value);
-
-    map_measurement_covariance.insert(std::pair<std::string, double>(*it, temp_value));
-  }
-
-  //}
-
- // Create state estimators 
-  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
-
-    std::vector<std::string>::iterator temp_vec = map_estimator_measurement.find(*it) ;
-    for (std::map<std::string, std::vector<std::string>>::iterator it2 = .begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _measurement_names)) {
-        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
-        ros::shutdown();
-      }
-    }
-    m_state_estimators.push_back(new StateEstimators(*it, ));
-  }
 
   // --------------------------------------------------------------
   // |                        odometry mode                       |
@@ -821,6 +753,101 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
   //}
 
+  /*  //{ load parameters of state estimators */
+
+  param_loader.load_param("state_estimators/n_model_states", _n_model_states);
+  param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
+  param_loader.load_param("state_estimators/model_state", _model_state_names);
+  param_loader.load_param("state_estimators/measurements", _measurement_names);
+
+  // Load the measurements fused by each state estimator
+  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+
+    std::vector<std::string> temp_vector;
+    param_loader.load_param("state_estimators/fused_measurements/" + *it, temp_vector);
+
+    for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
+      if (!stringInVector(*it2, _measurement_names)) {
+        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
+        ros::shutdown();
+      }
+    }
+
+    map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
+  }
+
+  // Load the model state of each measurement
+  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+
+    std::string temp_value;
+    param_loader.load_param("state_estimators/measurement_states/" + *it, temp_value);
+
+    if (!stringInVector(temp_value, _model_state_names)) {
+      ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", temp_value.c_str(), it->c_str());
+      ros::shutdown();
+    }
+
+    map_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
+  }
+
+  // Load the model state mapping
+  for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
+
+    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _n_model_states);
+    param_loader.load_matrix_static("state_estimators/state_mapping" + *it, temp_P, _n_model_states, _n_model_states);
+
+    map_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
+  }
+
+  // Load the covariances of each measurement
+  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+
+    Eigen::MatrixXd temp_matrix;
+    param_loader.load_matrix_static("state_estimators/Q/" + *it, temp_matrix, 1, 1);
+
+    map_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
+  }
+
+  //}
+
+  /*  //{ Create state estimators*/
+
+  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+
+    std::vector<bool>            fusing_measurement;
+    std::vector<Eigen::MatrixXd> P_arr, Q_arr;
+
+    // Find measurements fused by the estimator
+    std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
+
+    // Loop through all measurements
+    for (std::vector<std::string>::iterator it2 = _measurement_names.begin(); it2 != _measurement_names.end(); ++it2) {
+
+      // Check whether measurement is fused by the estimator
+      if (stringInVector(*it2, temp_vec->second)) {
+        fusing_measurement.push_back(true);
+      } else {
+        fusing_measurement.push_back(false);
+      }
+
+      // Find state name
+      std::map<std::string, std::string>::iterator pair_measurement_state = map_measurement_state.find(*it2);
+
+      // Find state mapping
+      std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_states.find(pair_measurement_state->second);
+      P_arr.push_back(pair_state_matrix->second);
+
+      // Find measurement covariance
+      std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(pair_measurement_state->second);
+      Q_arr.push_back(pair_measurement_covariance->second);
+    }
+
+    // Add pointer to state estimator to array
+    m_state_estimators.push_back(std::shared_ptr<StateEstimator>(new StateEstimator(*it, fusing_measurement, P_arr, Q_arr, A2, B2, R2)));
+  }
+
+  //}
+  
   // use differential gps
   param_loader.load_param("use_differential_gps", use_differential_gps);
   param_loader.load_param("publish_fused_odom", _publish_fused_odom);

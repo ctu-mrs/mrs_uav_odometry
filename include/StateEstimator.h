@@ -13,8 +13,7 @@
 
 #include <string>
 #include <vector>
-
-#define btoa(x) ((x) ? "true" : "false")
+#include <mutex>
 
 namespace mrs_odometry
 {
@@ -22,8 +21,8 @@ namespace mrs_odometry
 class StateEstimator {
 
 public:
-  StateEstimator(const std::string estimator_name, const std::vector<bool> fusing_measurement, std::vector<Eigen::MatrixXd> P_arr,
-                 std::vector<Eigen::MatrixXd> m_Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
+  StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
+                 const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
   void            doPrediction(const Eigen::VectorXd &input, double dt);
   void            doCorrection(const Eigen::VectorXd &measurement, int measurement_type);

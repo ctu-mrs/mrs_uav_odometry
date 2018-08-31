@@ -1,5 +1,8 @@
 state_estimator:
 
+  # The number of model states
+  n_model_states: 6
+
   # The available state estimators
   state_estimators: [
     "OPTFLOW", 
@@ -27,19 +30,25 @@ state_estimator:
     GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros", "vel_mavros", "tilt_mavros"]
 
-  # Mapping of measurement states
+  # Mapping of measurements to states
   measurement_states:
     vel_optflow: VELOCITY
     pos_mavros: POSITION
     vel_mavros: VELOCITY
     tilt_mavros: TILT
 
+  # Mapping states to model
+    state_mapping:
+      POSITION: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      VELOCITY: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+      TILT: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
   # Covariances of measurements
   Q:
-    vel_optflow: 1.0
-    pos_mavros: 1.0
-    vel_mavros: 1.0
-    tilt_mavros: 1.0
+    vel_optflow: [1.0]
+    pos_mavros: [1.0]
+    vel_mavros: [1.0]
+    tilt_mavros: [1.0]
 
   # The system matrix
   A: [1, 0.02, 0, 0, 0, 0,

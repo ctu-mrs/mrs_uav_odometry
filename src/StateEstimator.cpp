@@ -1,20 +1,45 @@
-#include "mrs_odometry/StateEstimator.h"
+#include "StateEstimator.h"
 
 namespace mrs_odometry
 {
 
 /*  //{ StateEstimator() */
 
-StateEstimator::StateEstimator(const std::string estimator_name, const std::vector<bool> fusing_measurement, std::vector<Eigen::MatrixXd> P_arr,
-                 std::vector<Eigen::MatrixXd> m_Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R)
-    : m_estimator_name(estimator_name), m_fusing_measurement(fusing_measurement), m_P_arr(P_arr), m_Q_arr(Q_arr), m_A(A), m_B(B), m_R(R) {
+// clang-format off
+StateEstimator::StateEstimator(
+    const std::string &estimator_name,
+    const std::vector<bool> &fusing_measurement,
+    const std::vector<Eigen::MatrixXd> &P_arr,
+    const std::vector<Eigen::MatrixXd> &Q_arr,
+    const Eigen::MatrixXd &A,
+    const Eigen::MatrixXd &B,
+    const Eigen::MatrixXd &R)
+    :
+    m_estimator_name(estimator_name),
+    m_fusing_measurement(fusing_measurement),
+    m_P_arr(P_arr),
+    m_Q_arr(Q_arr),
+    m_A(A),
+    m_B(B),
+    m_R(R)
+  {
 
   Eigen::MatrixXd Q_zero = Eigen::MatrixXd::Zero(1, 1);
   Eigen::MatrixXd P_zero = Eigen::MatrixXd::Zero(1, m_A.rows());
 
   mp_lkf_x = new mrs_lib::Lkf(m_A.rows(), 1, 1, m_A, m_B, m_R, Q_zero, P_zero);
   mp_lkf_y = new mrs_lib::Lkf(m_A.rows(), 1, 1, m_A, m_B, m_R, Q_zero, P_zero);
+
+  std::cout << "[StateEstimator]: New StateEstimator initialized: name: " << m_estimator_name <<
+    " fusing measurements: ";
+  for(size_t i=0;i<m_fusing_measurement.size();i++){std::cout << m_fusing_measurement[i] << " ";}
+  std::cout << std::endl << " P_arr: ";
+  for(size_t i=0;i<m_P_arr.size();i++){std::cout << m_P_arr[i] << std::endl;}
+  std::cout << std::endl << " Q_arr: ";
+  for(size_t i=0;i<m_Q_arr.size();i++){std::cout << m_Q_arr[i] << std::endl;}
+  std::cout << std::endl << " A: " << m_A << " B: " << m_B << " R: " << m_R << std::endl;
 }
+// clang-format on
 
 //}
 
@@ -62,10 +87,10 @@ void StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
 
   mutex_lkf.lock();
   {
-    mp_lkf_x->setP(m_P_arr[mesurement_type]);
+    mp_lkf_x->setP(m_P_arr[measurement_type]);
     mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
     mp_lkf_x->doCorrection();
-    mp_lkf_y->setP(m_P_arr[mesurement_type]);
+    mp_lkf_y->setP(m_P_arr[measurement_type]);
     mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
     mp_lkf_y->doCorrection();
   }
@@ -82,8 +107,8 @@ Eigen::MatrixXd StateEstimator::getStates(void) {
 
   mutex_lkf.lock();
   {
-    states.col(0) = mp_lkf_x.getStates();
-    states.col(1) = mp_lkf_y.getStates();
+    states.col(0) = mp_lkf_x->getStates();
+    states.col(1) = mp_lkf_y->getStates();
   }
   mutex_lkf.unlock();
 
@@ -95,19 +120,20 @@ Eigen::MatrixXd StateEstimator::getStates(void) {
 /*  //{ getState() */
 
 double StateEstimator::getState(int row, int col) {
-
+double state;
   if (col == 0) {
     mutex_lkf.lock();
-    { double state = mp_lkf_x.getState(col); }
+    { state = mp_lkf_x->getState(col); }
     mutex_lkf.unlock();
     return state;
   } else if (col == 1) {
     mutex_lkf.lock();
-    { double state = mp_lkf_y.getState(col); }
+    { state = mp_lkf_y->getState(col); }
     mutex_lkf.unlock();
     return state;
   } else {
     std::cerr << "[StateEstimator]: Requested invalid state." << std::endl;
+    return -1.0;
   }
 }
 
