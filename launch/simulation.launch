@@ -72,6 +72,7 @@
       <remap from="~change_odometry_mode_in" to="~change_odometry_mode" />
       <remap from="~change_odometry_mode_string_in" to="~change_odometry_mode_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
+      <remap from="~offset_odom_in" to="~offset_odom" />
 
     </node>
 
