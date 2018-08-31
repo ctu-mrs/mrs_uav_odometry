@@ -206,6 +206,9 @@ private:
   std::vector<std::string> _odometry_mode_names;
   std::mutex               mutex_odometry_mode;
 
+  std::string child_frame_id;
+  std::mutex mutex_child_frame_id;
+
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
@@ -718,6 +721,8 @@ void Odometry::onInit() {
 
   lateralKalmanX = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_tilt, P_ang);
   lateralKalmanY = new mrs_lib::Lkf(lateral_n, lateral_m, lateral_p, A2, B2, R2, Q_tilt, P_ang);
+
+  child_frame_id = "local_origin";
 
   ROS_INFO("[Odometry]: Lateral Kalman prepared");
   //}
@@ -1278,7 +1283,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   new_odom.header.frame_id = "local_origin";
   new_odom.header.stamp    = ros::Time::now();
-  new_odom.child_frame_id  = std::string("fcu_") + uav_name;
+
+  mutex_child_frame_id.lock();
+  {
+    new_odom.child_frame_id  = child_frame_id;
+  }
+  mutex_child_frame_id.unlock();
 
   geometry_msgs::PoseStamped newPose;
   newPose.header = new_odom.header;
@@ -4286,6 +4296,12 @@ bool Odometry::callbackOffsetOdom(mrs_msgs::OffsetOdom::Request &req, mrs_msgs::
   lateralKalmanY->setState(1, lateralKalmanY->getState(1) + req.dy);
   }
   mutex_lateral_kalman_y.unlock();
+
+  mutex_child_frame_id.lock();
+  {
+    child_frame_id += "a";
+  }
+  mutex_child_frame_id.unlock();
 
   ROS_WARN("[Odometry]: Offsetting odometry by: x: %f y: %f dx: %f dy: %f", req.x, req.y, req.dx, req.dy);
 
