@@ -5,7 +5,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # Odometry mode used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_mode: "OPTFLOW"
+takeoff_mode: "GPS"
 
 # available localization methods
 gps_available: true
@@ -118,7 +118,8 @@ lateral:
 
   # measurement covariances
   dynamic_optflow_cov: false
-  Q_vel_optflow: 100000000
+  # Q_vel_optflow: 100000000
+  Q_vel_optflow: 1000000
   Q_tilt: 1000
   Q_vel_mavros: 100000
   Q_pos_mavros: 1000000
