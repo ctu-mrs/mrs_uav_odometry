@@ -1849,6 +1849,7 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg)
   mutex_odom.lock();
   {
     gps_local_odom.pose.pose.position.z = odom_pixhawk.pose.pose.position.z;
+    gps_local_odom.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
     gps_local_odom.twist                = odom_pixhawk.twist;
   }
   mutex_odom.unlock();
