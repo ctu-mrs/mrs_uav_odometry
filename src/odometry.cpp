@@ -2364,8 +2364,6 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   }
   double max_pos_correction = max_pos_correction_rate * interval2.toSec();
 
-  routine_callback_rtk->start();
-
   // | ------------- offset the rtk to local_origin ------------- |
   rtk_local.pose.pose.position.x -= home_utm_x;
   rtk_local.pose.pose.position.y -= home_utm_y;
