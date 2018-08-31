@@ -566,6 +566,18 @@ void Odometry::onInit() {
 
   //}
 
+ // Create state estimators 
+  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+
+    std::vector<std::string>::iterator temp_vec = map_estimator_measurement.find(*it) ;
+    for (std::map<std::string, std::vector<std::string>>::iterator it2 = .begin(); it2 != temp_vector.end(); ++it2) {
+      if (!stringInVector(*it2, _measurement_names)) {
+        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
+        ros::shutdown();
+      }
+    }
+    m_state_estimators.push_back(new StateEstimators(*it, ));
+  }
 
   // --------------------------------------------------------------
   // |                        odometry mode                       |
