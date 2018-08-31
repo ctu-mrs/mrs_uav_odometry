@@ -1,0 +1,67 @@
+state_estimator:
+
+  # The available state estimators
+  state_estimators: [
+    "OPTFLOW", 
+    "GPS", 
+    "OPTFLOWGPS"
+  ] 
+
+  # The measured states of the model
+  model_states: [
+    "POSITION", 
+    "VELOCITY", 
+    "TILT"
+  ] 
+  # The available measurements
+  measurements: [
+    "vel_optflow",
+    "pos_mavros",
+    "vel_mavros",
+    "tilt_mavros"
+  ]
+
+  # The fused measurements for each state estimator
+  fused_measurements:
+    OPTFLOW: ["vel_optflow", "tilt_mavros"]
+    GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
+    OPTFLOWGPS: ["vel_optflow", "pos_mavros", "vel_mavros", "tilt_mavros"]
+
+  # Mapping of measurement states
+  measurement_states:
+    vel_optflow: VELOCITY
+    pos_mavros: POSITION
+    vel_mavros: VELOCITY
+    tilt_mavros: TILT
+
+  # Covariances of measurements
+  Q:
+    vel_optflow: 1.0
+    pos_mavros: 1.0
+    vel_mavros: 1.0
+    tilt_mavros: 1.0
+
+  # The system matrix
+  A: [1, 0.02, 0, 0, 0, 0,
+      0, 1, 0.02, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 0, 6.3512,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 0.9030]
+
+  # The input matrix
+  B: [0,
+      0,
+      0,
+      0,
+      0,
+      0.0970]
+
+  # Process covariance
+  R: [1, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 10000000, 0,
+      0, 0, 0, 0, 0, 1]
+

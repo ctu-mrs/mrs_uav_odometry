@@ -41,6 +41,7 @@
 
 #include <range_filter.h>
 #include <mrs_odometry/lkfConfig.h>
+#include <mrs_odometry/StateEstimator.h>
 
 #include "tf/LinearMath/Transform.h"
 #include <tf/transform_broadcaster.h>
@@ -208,7 +209,7 @@ private:
 
   std::string child_frame_id;
   std::mutex  mutex_child_frame_id;
-  
+
 
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
@@ -244,6 +245,7 @@ private:
   bool        changeCurrentKalman(const mrs_msgs::OdometryMode &target_mode);
   bool        isValidMode(const mrs_msgs::OdometryMode &mode);
   std::string printOdometryDiag();
+  bool stringInVector(const std::string &value, const std::vector<std::string> &vector);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -309,7 +311,16 @@ private:
   std::mutex      mutex_main_altitude_kalman;
   std::mutex      mutex_failsafe_altitude_kalman;
 
-  // lateral kalman
+  // State estimation
+  int _n_model_states;
+  std::vector<std::string> _state_estimators_names;
+  std::vector<std::string> _model_state_names;
+  std::vector<std::string> _measurement_names;
+  std::map<std::string, std::vector<std::string>> map_estimator_measurement;
+  std::map<std::string, std::vector<double>>      map_measurement_covariance;
+  std::map<std::string, std::string> map_measurement_state;
+  std::map<std::string, Eigen::MatrixXd> map_states;
+
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A2, B2, R2, P_vel, P_pos, P_ang;
   Eigen::MatrixXd Q_pos_rtk, Q_pos_icp, Q_vel_icp, Q_vel_mavros, Q_pos_mavros, Q_vel_optflow, Q_tilt, Q_pos_vio, Q_vel_vio;
@@ -496,6 +507,65 @@ void Odometry::onInit() {
 
   utm_position_x = 0;
   utm_position_y = 0;
+
+
+  /*  //{ load parameters of state estimators */
+
+  param_loader.load_param("state_estimators/n_model_states", _n_model_states);
+  param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
+  param_loader.load_param("state_estimators/model_state", _model_state_names);
+  param_loader.load_param("state_estimators/measurements", _measurement_names);
+
+  // Load the measurements fused by each state estimator
+  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+
+    std::vector<std::string> temp_vector;
+    param_loader.load_param("state_estimators/fused_measurements/" + *it, temp_vector);
+
+    for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
+      if (!stringInVector(*it2, _measurement_names)) {
+        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
+        ros::shutdown();
+      }
+    }
+
+    map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
+  }
+
+  // Load the model state of each measurement
+  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+
+    std::string temp_value;
+    param_loader.load_param("state_estimators/measurement_states/" + *it, temp_value);
+
+    if (!stringInVector(temp_value, _model_state_names)) {
+      ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", temp_value.c_str(), it->c_str());
+      ros::shutdown();
+    }
+
+    map_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
+  }
+
+  // Load the model state mapping
+  for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
+
+    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _n_model_states);
+    param_loader.load_matrix_static("state_estimators/state_mapping" + *it, temp_P, _n_model_states, _n_model_states);
+
+    map_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
+  }
+
+  // Load the covariances of each measurement
+  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+
+    double temp_value;
+    param_loader.load_param("state_estimators/Q/" + *it, temp_value);
+
+    map_measurement_covariance.insert(std::pair<std::string, double>(*it, temp_value));
+  }
+
+  //}
+
 
   // --------------------------------------------------------------
   // |                        odometry mode                       |
@@ -4889,6 +4959,19 @@ std::string Odometry::printOdometryDiag() {
   s_diag += btoa(_fuse_icp_position);
 
   return s_diag;
+}
+
+//}
+
+/* stringInVector() //{ */
+
+bool Odometry::stringInVector(const std::string &value, const std::vector<std::string> &vector) {
+
+  if (std::find(vector.begin(), vector.end(), value) == vector.end()) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 //}

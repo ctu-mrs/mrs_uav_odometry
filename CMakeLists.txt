@@ -56,7 +56,7 @@ include_directories(
 add_library(range_filter src/range_filter.cpp)
 
 ## Declare a C++ executable
-add_library(Odometry src/odometry.cpp)
+add_library(Odometry src/odometry.cpp src/StateEstimator.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
