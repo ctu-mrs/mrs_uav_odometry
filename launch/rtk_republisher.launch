@@ -8,11 +8,14 @@
     <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="load mrs_odometry/RtkRepublisher $(arg uav_name)_nodelet_manager" output="screen">
 
       <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
-      <param name="enabled_profiler" value="$(arg profiler)" />
+      <param name="enable_profiler" value="$(arg profiler)" />
 
       <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
       <remap from="~rtk_out" to="rtk_gps/global" />
+
+      <!-- Publishers -->
+      <remap from="~profiler" to="profiler" />
 
     </node>
 
