@@ -28,6 +28,8 @@ public:
   void            doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
   Eigen::MatrixXd getStates(void);
   double          getState(int row, int col);
+  bool            setState(int state_id, const Eigen::VectorXd &value);
+  void            reset(const Eigen::VectorXd &states);
 
 private:
   std::string                  m_estimator_name;

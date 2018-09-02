@@ -17,6 +17,7 @@
 
   <group ns="$(arg uav_name)">
 
+    <!-- <node pkg="nodelet" type="nodelet" name="odometry" args="standalone mrs_odometry/Odometry" output="screen" launch-prefix="$(arg launch_prefix)"> -->
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />

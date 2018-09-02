@@ -1,4 +1,4 @@
-state_estimator:
+state_estimators:
 
   # The number of model states
   n_model_states: 6
@@ -38,10 +38,10 @@ state_estimator:
     tilt_mavros: TILT
 
   # Mapping states to model
-    state_mapping:
-      POSITION: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      VELOCITY: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-      TILT: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+  state_mapping:
+    POSITION: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    VELOCITY: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    TILT: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
   # Covariances of measurements
   Q:
