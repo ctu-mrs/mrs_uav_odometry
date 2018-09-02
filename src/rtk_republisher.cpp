@@ -75,7 +75,7 @@ void RtkRepublisher::onInit() {
   param_loader.load_param("offset_y", offset_y_);
 
   // SUBSCRIBERS
-  global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().udp());
+  global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
   rtk_publisher = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
