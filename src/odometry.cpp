@@ -1354,15 +1354,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   if (_publish_fused_odom) {
+
+    Eigen::VectorXd pos_vec(2);
+    Eigen::VectorXd vel_vec(2);
+
     mutex_current_estimator.lock();
     {
-      new_odom.child_frame_id       = current_estimator_name;
-      new_odom.pose.pose.position.x = current_estimator->getState(0, 0);
-      new_odom.twist.twist.linear.x = current_estimator->getState(1, 0);
-      new_odom.pose.pose.position.y = current_estimator->getState(0, 1);
-      new_odom.twist.twist.linear.y = current_estimator->getState(1, 1);
+      new_odom.child_frame_id = current_estimator_name;
+      current_estimator->getState(0, pos_vec);
+      current_estimator->getState(1, vel_vec);
     }
     mutex_current_estimator.unlock();
+
+    new_odom.pose.pose.position.x = pos_vec(0);
+    new_odom.twist.twist.linear.x = vel_vec(0);
+    new_odom.pose.pose.position.y = pos_vec(1);
+    new_odom.twist.twist.linear.y = vel_vec(1);
 
   } else {
 
@@ -1509,13 +1516,13 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
   routine_lkf_states_timer->start();
 
-  Eigen::MatrixXd states_mat;
+  Eigen::MatrixXd states_mat = Eigen::MatrixXd::Zero(lateral_n, 2);
   /* Eigen::MatrixXd cov_mat; */
 
   // get states and covariances from lateral kalman
   mutex_current_estimator.lock();
   {
-    states_mat = current_estimator->getStates();
+    current_estimator->getStates(states_mat);
     /* cov_mat    = current_estimator->getCovariance(); */
   }
   mutex_current_estimator.unlock();
@@ -3234,20 +3241,30 @@ bool Odometry::callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs:
   if (!is_initialized)
     return false;
 
-  Eigen::MatrixXd states = Eigen::MatrixXd::Zero(6, 2);
-
-  // Delay to be sure that UAV is in the air
-  /* ros::Duration(0.1).sleep(); */
+  Eigen::MatrixXd states  = Eigen::MatrixXd::Zero(lateral_n, 2);
+  bool            success = false;
 
   // reset lateral kalman x
   if (_odometry_mode.mode == mrs_msgs::OdometryMode::RTK || _odometry_mode.mode == mrs_msgs::OdometryMode::GPS ||
       _odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS) {
     mutex_current_estimator.lock();
-    { states = current_estimator->getStates(); }
+    { success = current_estimator->getStates(states); }
     mutex_current_estimator.unlock();
+    std::cout << "callback: " << states << std::endl;
   } else {
     states(0, 0) = init_pose_x;
-    states(0, 0) = init_pose_y;
+    states(0, 1) = init_pose_y;
+    success      = true;
+  }
+
+  if (!success) {
+
+    ROS_ERROR("[Odometry]: Lateral kalman states and covariance reset failed.");
+
+    res.success = false;
+    res.message = "Reset of lateral kalman failed";
+
+    return true;
   }
 
   states(1, 0) = 0.0;
@@ -3262,7 +3279,9 @@ bool Odometry::callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs:
   states(5, 1) = 0.0;
 
   mutex_current_estimator.lock();
+  ROS_WARN("[Odometry]: r1");
   { current_estimator->reset(states); }
+  ROS_WARN("[Odometry]: r2");
   mutex_current_estimator.unlock();
 
   ROS_WARN("[Odometry]: Lateral kalman states and covariance reset.");
@@ -3723,9 +3742,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::OdometryMode &target_mode)
 /* //{ isValidMode() */
 bool Odometry::isValidMode(const mrs_msgs::OdometryMode &mode) {
 
-  if (mode.mode == mrs_msgs::OdometryMode::OPTFLOW || mode.mode == mrs_msgs::OdometryMode::GPS ||
-      mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS || mode.mode == mrs_msgs::OdometryMode::RTK || mode.mode == mrs_msgs::OdometryMode::ICP ||
-      mode.mode == mrs_msgs::OdometryMode::VIO) {
+  if (mode.mode == mrs_msgs::OdometryMode::OPTFLOW || mode.mode == mrs_msgs::OdometryMode::GPS || mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS ||
+      mode.mode == mrs_msgs::OdometryMode::RTK || mode.mode == mrs_msgs::OdometryMode::ICP || mode.mode == mrs_msgs::OdometryMode::VIO) {
     return true;
   }
 

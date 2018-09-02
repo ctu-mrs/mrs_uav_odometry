@@ -24,12 +24,13 @@ public:
   StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
                  const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
-  void            doPrediction(const Eigen::VectorXd &input, double dt);
-  void            doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
-  Eigen::MatrixXd getStates(void);
-  double          getState(int row, int col);
-  bool            setState(int state_id, const Eigen::VectorXd &value);
-  void            reset(const Eigen::MatrixXd &states);
+  bool doPrediction(const Eigen::VectorXd &input, double dt);
+  bool doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
+  bool getStates(Eigen::MatrixXd &states);
+  bool getState(int state_id, Eigen::VectorXd &state);
+  bool setState(int state_id, const Eigen::VectorXd &state);
+  bool setCovariance(double cov, int measurement_type);
+  bool reset(const Eigen::MatrixXd &states);
 
 private:
   std::string                  m_estimator_name;
@@ -40,10 +41,15 @@ private:
   Eigen::MatrixXd              m_B;
   Eigen::MatrixXd              m_R;
 
+  int    m_n_states;
+  size_t m_n_measurement_types;
+
   mrs_lib::Lkf *mp_lkf_x;
   mrs_lib::Lkf *mp_lkf_y;
 
   std::mutex mutex_lkf;
+
+  bool m_is_initialized = false;
 };
 
 }  // namespace mrs_odometry
