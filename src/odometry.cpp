@@ -112,7 +112,8 @@ private:
   ros::Publisher pub_odometry_diag_;
   ros::Publisher pub_altitude_;
   ros::Publisher pub_max_altitude_;
-  ros::Publisher pub_lkf_states_;
+  ros::Publisher pub_lkf_states_x_;
+  ros::Publisher pub_lkf_states_y_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -137,15 +138,6 @@ private:
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
   ros::ServiceServer ser_toggle_rtk_altitude;
-  ros::ServiceServer ser_toggle_rtk_pos_fusion;
-  ros::ServiceServer ser_toggle_vio_pos_fusion;
-  ros::ServiceServer ser_toggle_vio_vel_fusion;
-  ros::ServiceServer ser_toggle_icp_pos_fusion;
-  ros::ServiceServer ser_toggle_icp_vel_fusion;
-  ros::ServiceServer ser_toggle_optflow_vel_fusion;
-  ros::ServiceServer ser_toggle_mavros_pos_fusion;
-  ros::ServiceServer ser_toggle_mavros_vel_fusion;
-  ros::ServiceServer ser_toggle_mavros_tilts_fusion;
   ros::ServiceServer ser_change_odometry_mode;
   ros::ServiceServer ser_change_odometry_mode_string;
 
@@ -229,19 +221,9 @@ private:
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleVioPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleVioVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  bool callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res);
   bool callbackChangeOdometryModeString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
-  bool callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackOffsetOdom(mrs_msgs::OffsetOdom::Request &req, mrs_msgs::OffsetOdom::Response &res);
+  bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // | --------------------- helper methods --------------------- |
   void        stateEstimatorsPrediction(double x, double y, double dt);
@@ -327,9 +309,9 @@ private:
   std::map<std::string, int>                      map_measurement_name_id;
   std::map<std::string, Eigen::MatrixXd>          map_states;
   std::vector<std::shared_ptr<StateEstimator>>    m_state_estimators;
-  std::shared_ptr<StateEstimator> current_estimator;
-  std::mutex mutex_current_estimator;
-  std::string current_estimator_name;
+  std::shared_ptr<StateEstimator>                 current_estimator;
+  std::mutex                                      mutex_current_estimator;
+  std::string                                     current_estimator_name;
 
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A2, B2, R2, P_vel, P_pos, P_ang;
@@ -516,7 +498,6 @@ void Odometry::onInit() {
 
   // prepare the array of names
   // IMPORTANT, update this with each update of the OdometryMode message
-  _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OTHER));
   _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OPTFLOW));
   _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::GPS));
   _odometry_mode_names.push_back(NAME_OF(mrs_msgs::OdometryMode::OPTFLOWGPS));
@@ -928,7 +909,8 @@ void Odometry::onInit() {
   pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
   pub_max_altitude_  = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
-  pub_lkf_states_    = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_out", 1);
+  pub_lkf_states_x_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
+  pub_lkf_states_y_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -1009,43 +991,13 @@ void Odometry::onInit() {
   ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
 
   // subscribe for reset kalman service
-  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetKalman, this);
-
-  // subscribe for offset odom service
-  ser_offset_odom_ = nh_.advertiseService("offset_odom_in", &Odometry::callbackOffsetOdom, this);
+  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetEstimator, this);
 
   // subscribe for garmin toggle service
   ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
 
   // toggling fusing of rtk altitude
   ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude_in", &Odometry::callbackToggleRtkHeight, this);
-
-  // toggling fusing of rtk position
-  ser_toggle_rtk_pos_fusion = nh_.advertiseService("toggle_rtk_pos_fusion_in", &Odometry::callbackToggleRtkPosition, this);
-
-  // toggling fusing of vio position
-  ser_toggle_vio_pos_fusion = nh_.advertiseService("toggle_vio_pos_fusion_in", &Odometry::callbackToggleVioPosition, this);
-
-  // toggling fusing of vio velocity
-  ser_toggle_vio_vel_fusion = nh_.advertiseService("toggle_vio_vel_fusion_in", &Odometry::callbackToggleVioVelocity, this);
-
-  // toggling fusing of icp position
-  ser_toggle_icp_pos_fusion = nh_.advertiseService("toggle_icp_pos_fusion_in", &Odometry::callbackToggleIcpPosition, this);
-
-  // toggling fusing of icp velocity
-  ser_toggle_icp_vel_fusion = nh_.advertiseService("toggle_icp_vel_fusion_in", &Odometry::callbackToggleIcpVelocity, this);
-
-  // toggling fusing of mavros velocity
-  ser_toggle_mavros_pos_fusion = nh_.advertiseService("toggle_mavros_pos_fusion_in", &Odometry::callbackToggleMavrosPosition, this);
-
-  // toggling fusing of mavros velocity
-  ser_toggle_mavros_vel_fusion = nh_.advertiseService("toggle_mavros_vel_fusion_in", &Odometry::callbackToggleMavrosVelocity, this);
-
-  // toggling fusing of mavros tilts
-  ser_toggle_mavros_tilts_fusion = nh_.advertiseService("toggle_mavros_tilts_fusion_in", &Odometry::callbackToggleMavrosTilts, this);
-
-  // toggling fusing of icp velocity
-  ser_toggle_optflow_vel_fusion = nh_.advertiseService("toggle_optflow_vel_fusion_in", &Odometry::callbackToggleOptflowVelocity, this);
 
   // change fusion mode of odometry
   ser_change_odometry_mode = nh_.advertiseService("change_odometry_mode_in", &Odometry::callbackChangeOdometryMode, this);
@@ -1065,35 +1017,6 @@ void Odometry::onInit() {
   lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
   max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
   topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
-
-  // Decide the initial odometry mode based on sensors availability
-  /* mrs_msgs::OdometryMode target_mode; */
-  /* if (_gps_available) { */
-  /*   if (_rtk_available) { */
-  /*     target_mode.mode = mrs_msgs::OdometryMode::RTK; */
-  /*     ROS_WARN("[Odometry]: Launching odometry in RTK mode."); */
-  /*   } else if (_optflow_available) { */
-  /*     target_mode.mode = mrs_msgs::OdometryMode::OPTFLOWGPS; */
-  /*     ROS_WARN("[Odometry]: Launching odometry in OPTFLOWGPS mode."); */
-  /*   } else { */
-  /*     target_mode.mode = mrs_msgs::OdometryMode::GPS; */
-  /*     ROS_WARN("[Odometry]: Launching odometry in GPS mode."); */
-  /*   } */
-  /* } else if (_vio_available) { */
-  /*   target_mode.mode = mrs_msgs::OdometryMode::VIO; */
-  /*   ROS_WARN("[Odometry]: Launching odometry in VIO mode."); */
-  /* } else if (_optflow_available) { */
-  /*   target_mode.mode = mrs_msgs::OdometryMode::OPTFLOW; */
-  /*   ROS_WARN("[Odometry]: Launching odometry in OPTFLOW mode."); */
-  /* } else if (_lidar_available) { */
-  /*   target_mode.mode = mrs_msgs::OdometryMode::ICP; */
-  /*   ROS_WARN("[Odometry]: Launching odometry in ICP mode."); */
-  /* } else { */
-  /*   is_initialized = false; */
-  /*   ROS_ERROR("[Odometry]: Neither GPS, OPTFLOW, RTK, LIDAR localization method is available. Cannot launch odometry. Shutting down."); */
-  /*   ros::shutdown(); */
-  /*   return; */
-  /* } */
 
   // Check validity of takeoff mode
   ROS_INFO("[Odometry]: Requested %s mode for takeoff.", _odometry_mode_takeoff.name.c_str());
@@ -1308,10 +1231,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
   } else {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: OTHER odometry mode. Not checking sensors.");
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Unknown odometry mode. Not checking sensors.");
   }
 
   got_lateral_sensors = true;
+  ROS_INFO_ONCE("[Odometry]: Lateral sensors ready");
 
   routine_main_timer->start(event);
 
@@ -1408,25 +1332,31 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
-
+    ROS_INFO("[Odometry]: Initializing the states of current estimator");
     mutex_current_estimator.lock();
     {
       if (_odometry_mode.mode == mrs_msgs::OdometryMode::OPTFLOW && !gps_reliable) {
-        current_estimator->setState(0, Eigen::VectorXd(local_origin_offset_x, local_origin_offset_y));
+        Eigen::VectorXd state(2);
+        state << local_origin_offset_x, local_origin_offset_y;
+        current_estimator->setState(0, state);
       } else {
-        current_estimator->setState(0, Eigen::VectorXd(new_odom.pose.pose.position.x + local_origin_offset_x, new_odom.pose.pose.position.y + local_origin_offset_y));
+        Eigen::VectorXd state(2);
+        double          pos_x = new_odom.pose.pose.position.x + local_origin_offset_x;
+        double          pos_y = new_odom.pose.pose.position.y + local_origin_offset_y;
+        state << pos_x, pos_y;
+        std::cout << "state: " << state << std::endl;
+        current_estimator->setState(0, state);
       }
     }
     mutex_current_estimator.unlock();
-
+    ROS_INFO("[Odometry]: Initialized the states of current estimator");
     odometry_published = true;
   }
 
   if (_publish_fused_odom) {
-
     mutex_current_estimator.lock();
     {
-      new_odom.child_frame_id = current_estimator_name;
+      new_odom.child_frame_id       = current_estimator_name;
       new_odom.pose.pose.position.x = current_estimator->getState(0, 0);
       new_odom.twist.twist.linear.x = current_estimator->getState(1, 0);
       new_odom.pose.pose.position.y = current_estimator->getState(0, 1);
@@ -1457,6 +1387,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_.getTopic().c_str());
   }
+  ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
   // publish TF
   geometry_msgs::Quaternion orientation = new_odom.pose.pose.orientation;
@@ -1578,13 +1509,13 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
   routine_lkf_states_timer->start();
 
-  Eigen::VectorXd states_vec;
+  Eigen::MatrixXd states_mat;
   /* Eigen::MatrixXd cov_mat; */
 
   // get states and covariances from lateral kalman
   mutex_current_estimator.lock();
   {
-    states_vec = current_estimator->getStates();
+    states_mat = current_estimator->getStates();
     /* cov_mat    = current_estimator->getCovariance(); */
   }
   mutex_current_estimator.unlock();
@@ -1595,7 +1526,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   /* Eigen::EigenSolver<Eigen::MatrixXd> es(cov_mat); */
 
   /* // fill the message */
-  mrs_msgs::LkfStates lkf_states;
+  mrs_msgs::LkfStates lkf_states_x;
+  mrs_msgs::LkfStates lkf_states_y;
   /* for (int i = 0; i < cov_mat.rows(); ++i) { */
   /*   lkf_states.eigenvalues[i] = (es.eigenvalues().col(0)[i].real()); */
   /* } */
@@ -1604,19 +1536,34 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   /*   lkf_states.covariance[i] = cov_mat(i, i); */
   /* } */
 
-  lkf_states.header.stamp = ros::Time::now();
-  lkf_states.pos          = states_vec(0);
-  lkf_states.vel          = states_vec(1);
-  lkf_states.acc          = states_vec(2);
-  lkf_states.acc_i        = states_vec(3);
-  lkf_states.acc_d        = states_vec(4);
-  lkf_states.tilt         = states_vec(5);
+  lkf_states_x.header.stamp = ros::Time::now();
+  lkf_states_x.pos          = states_mat(0, 0);
+  lkf_states_x.vel          = states_mat(1, 0);
+  lkf_states_x.acc          = states_mat(2, 0);
+  lkf_states_x.acc_i        = states_mat(3, 0);
+  lkf_states_x.acc_d        = states_mat(4, 0);
+  lkf_states_x.tilt         = states_mat(5, 0);
+
+  lkf_states_y.header.stamp = ros::Time::now();
+  lkf_states_y.pos          = states_mat(0, 1);
+  lkf_states_y.vel          = states_mat(1, 1);
+  lkf_states_y.acc          = states_mat(2, 1);
+  lkf_states_y.acc_i        = states_mat(3, 1);
+  lkf_states_y.acc_d        = states_mat(4, 1);
+  lkf_states_y.tilt         = states_mat(5, 1);
 
   try {
-    pub_lkf_states_.publish(lkf_states);
+    pub_lkf_states_x_.publish(lkf_states_x);
   }
   catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_.getTopic().c_str());
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_x_.getTopic().c_str());
+  }
+
+  try {
+    pub_lkf_states_y_.publish(lkf_states_x);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
   }
 
   routine_lkf_states_timer->end();
@@ -2005,6 +1952,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(rot_y, -rot_x, "tilt_mavros");
 
+  ROS_WARN_ONCE("[Odometry]: Fusing mavros tilts");
+
   //}
 
   //{ fuse mavros velocity
@@ -2023,6 +1972,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vel_mavros_x, vel_mavros_y, "vel_mavros");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
   }
 
   //}
@@ -2047,7 +1998,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     mutex_odom.unlock();
 
     // Apply correction step to all state estimators
-    stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "vel_mavros");
+    stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
   }
 
   //}
@@ -2139,7 +2092,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   mutex_optflow.unlock();
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "optflow_vel");
+  stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
   routine_callback_optflow->end();
 }
@@ -2269,40 +2222,42 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     return;
   }
 
-  if (!std::isfinite(rtk_local.pose.pose.position.x) || !std::isfinite(rtk_local.pose.pose.position.y)) {
+  if (_rtk_available) {
+    if (!std::isfinite(rtk_local.pose.pose.position.x) || !std::isfinite(rtk_local.pose.pose.position.y)) {
 
-    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
+      ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
 
-    routine_callback_rtk->end();
-    return;
+      routine_callback_rtk->end();
+      return;
+    }
+
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing RTK position. Waiting for other sensors.");
+      routine_callback_rtk->end();
+      return;
+    }
+
+    double x_rtk, y_rtk;
+    mutex_rtk.lock();
+    {
+      x_rtk = rtk_local.pose.pose.position.x;
+      y_rtk = rtk_local.pose.pose.position.y;
+    }
+    mutex_rtk.unlock();
+
+    if (!std::isfinite(x_rtk)) {
+      ROS_ERROR("NaN detected in variable \"x_rtk\" (callbackRtk)!!!");
+      return;
+    }
+
+    if (!std::isfinite(y_rtk)) {
+      ROS_ERROR("NaN detected in variable \"y_rtk\" (callbackRtk)!!!");
+      return;
+    }
+
+    // Apply correction step to all state estimators
+    stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
   }
-
-  if (!got_lateral_sensors) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing RTK position. Waiting for other sensors.");
-    routine_callback_rtk->end();
-    return;
-  }
-
-  double x_rtk, y_rtk;
-  mutex_rtk.lock();
-  {
-    x_rtk = rtk_local.pose.pose.position.x;
-    y_rtk = rtk_local.pose.pose.position.y;
-  }
-  mutex_rtk.unlock();
-
-  if (!std::isfinite(x_rtk)) {
-    ROS_ERROR("NaN detected in variable \"x_rtk\" (callbackRtk)!!!");
-    return;
-  }
-
-  if (!std::isfinite(y_rtk)) {
-    ROS_ERROR("NaN detected in variable \"y_rtk\" (callbackRtk)!!!");
-    return;
-  }
-
-  // Apply correction step to all state estimators
-  stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
 
 
   if (rtk_altitude_enabled) {
@@ -3124,294 +3079,6 @@ bool Odometry::callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs
 
 //}
 
-/* //{ callbackToggleRtkPosition() */
-
-bool Odometry::callbackToggleRtkPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_rtk_position = req.data;
-
-  if (_fuse_rtk_position) {
-
-    ROS_INFO("[Odometry]: Fusing RTK position enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing RTK position disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_rtk_position ? "Fusing RTK position enabled" : "Fusing RTK position disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleVioPosition() */
-
-bool Odometry::callbackToggleVioPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_vio_position = req.data;
-
-  if (_fuse_vio_position) {
-
-    ROS_INFO("[Odometry]: Fusing vio position enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing vio position disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_vio_position ? "Fusing vio position enabled" : "Fusing vio position disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleVioVelocity() */
-
-bool Odometry::callbackToggleVioVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_vio_velocity = req.data;
-
-  if (_fuse_vio_velocity) {
-
-    ROS_INFO("[Odometry]: Fusing vio velocity enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing vio velocity disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_vio_velocity ? "Fusing vio velocity enabled" : "Fusing vio velocity disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleIcpPosition() */
-
-bool Odometry::callbackToggleIcpPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_icp_position = req.data;
-
-  if (_fuse_icp_position) {
-
-    ROS_INFO("[Odometry]: Fusing ICP position enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing ICP position disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_icp_position ? "Fusing ICP position enabled" : "Fusing ICP position disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleIcpVelocity() */
-
-bool Odometry::callbackToggleIcpVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_icp_velocity = req.data;
-
-  if (_fuse_icp_velocity) {
-
-    ROS_INFO("[Odometry]: Fusing ICP velocity enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing ICP velocity disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_icp_velocity ? "Fusing ICP velocity enabled" : "Fusing ICP velocity disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleMavrosPosition() */
-
-bool Odometry::callbackToggleMavrosPosition(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_mavros_position = req.data;
-
-  if (_fuse_mavros_position) {
-
-    ROS_INFO("[Odometry]: Fusing Mavros position enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing Mavros position disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_mavros_position ? "Fusing Mavros position enabled" : "Fusing Mavros position disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleMavrosVelocity() */
-
-bool Odometry::callbackToggleMavrosVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_mavros_velocity = req.data;
-
-  if (_fuse_mavros_velocity) {
-
-    ROS_INFO("[Odometry]: Fusing Mavros velocity enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing Mavros velocity disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_mavros_velocity ? "Fusing Mavros velocity enabled" : "Fusing Mavros velocity disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleMavrosTilts() */
-
-bool Odometry::callbackToggleMavrosTilts(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_mavros_tilts = req.data;
-
-  if (_fuse_mavros_tilts) {
-
-    ROS_INFO("[Odometry]: Fusing Mavros tilts enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing Mavros tilts disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_mavros_tilts ? "Fusing Mavros tilts enabled" : "Fusing Mavros tilts disabled");
-
-  return true;
-}
-
-//}
-
-/* //{ callbackToggleOptflowVelocity() */
-
-bool Odometry::callbackToggleOptflowVelocity(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  _fuse_optflow_velocity = req.data;
-
-  if (_fuse_optflow_velocity) {
-
-    ROS_INFO("[Odometry]: Fusing optflow velocity enabled.");
-
-  } else {
-
-    ROS_INFO("[Odometry]: Fusing optflow velocity disabled.");
-  }
-
-  mutex_odometry_mode.lock();
-  { _odometry_mode.mode = mrs_msgs::OdometryMode::OTHER; }
-  mutex_odometry_mode.unlock();
-
-  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
-
-  res.success = true;
-  res.message = (_fuse_optflow_velocity ? "Fusing opflow velocity enabled" : "Fusing optflow velocity disabled");
-
-  return true;
-}
-
-//}
-
 /* //{ callbackChangeOdometryMode() */
 
 bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request &req, mrs_msgs::ChangeOdometryMode::Response &res) {
@@ -3424,17 +3091,6 @@ bool Odometry::callbackChangeOdometryMode(mrs_msgs::ChangeOdometryMode::Request 
     ROS_ERROR("[Odometry]: %d is not a valid odometry mode", req.odometry_mode.mode);
     res.success = false;
     res.message = ("Not a valid odometry mode");
-    mutex_odometry_mode.lock();
-    { res.odometry_mode.mode = _odometry_mode.mode; }
-    mutex_odometry_mode.unlock();
-    return true;
-  }
-
-  // Check whether OTHER mode was chosen manually
-  if (req.odometry_mode.mode == mrs_msgs::OdometryMode::OTHER) {
-    ROS_ERROR("[Odometry]: OTHER mode cannot be chosen manually.");
-    res.success = false;
-    res.message = ("OTHER mode cannot be chosen manually");
     mutex_odometry_mode.lock();
     { res.odometry_mode.mode = _odometry_mode.mode; }
     mutex_odometry_mode.unlock();
@@ -3486,8 +3142,6 @@ bool Odometry::callbackChangeOdometryModeString(mrs_msgs::String::Request &req, 
     target_mode.mode = mrs_msgs::OdometryMode::ICP;
   } else if (std::strcmp(mode.c_str(), "VIO") == 0) {
     target_mode.mode = mrs_msgs::OdometryMode::VIO;
-  } else if (std::strcmp(mode.c_str(), "OTHER") == 0) {
-    target_mode.mode = mrs_msgs::OdometryMode::OTHER;
   } else {
     ROS_WARN("[Odometry]: Invalid mode %s requested", mode.c_str());
     res.success = false;
@@ -3504,14 +3158,6 @@ bool Odometry::callbackChangeOdometryModeString(mrs_msgs::String::Request &req, 
     return true;
   }
 
-  // Check whether OTHER mode was chosen manually
-  if (req.value == "OTHER") {
-    ROS_ERROR("[Odometry]: OTHER mode cannot be chosen manually.");
-    res.success = false;
-    res.message = ("OTHER mode cannot be chosen manually");
-    return true;
-  }
-
   bool success = false;
   mutex_odometry_mode.lock();
   { success = changeCurrentEstimator(target_mode); }
@@ -3524,33 +3170,6 @@ bool Odometry::callbackChangeOdometryModeString(mrs_msgs::String::Request &req, 
 
   return true;
 }  // namespace mrs_odometry
-
-//}
-
-/* //{ callbackToggleObjectHeight() */
-
-/*
-bool Odometry::callbackToggleObjectHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  object_altitude_enabled = req.data;
-
-  res.success = true;
-  res.message = (object_altitude_enabled ? "Object altitude enabled" : "Object altitude disabled");
-
-  if (object_altitude_enabled) {
-
-    ROS_INFO("[Odometry]: Object altitude enabled.");
-    teraranger_enabled = false;
-    rtk_altitude_enabled = false;
-
-  } else {
-
-    ROS_INFO("[Odometry]: Object altitude disabled.");
-  }
-
-  return true;
-}
-*/
 
 //}
 
@@ -3608,14 +3227,14 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
 //}
 
-/* //{ callbackResetKalman() */
+/* //{ callbackResetEstimator() */
 
-bool Odometry::callbackResetKalman(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool Odometry::callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (!is_initialized)
     return false;
 
-  Eigen::VectorXd states = Eigen::VectorXd::Zero(6, 2);
+  Eigen::MatrixXd states = Eigen::MatrixXd::Zero(6, 2);
 
   // Delay to be sure that UAV is in the air
   /* ros::Duration(0.1).sleep(); */
@@ -3712,7 +3331,7 @@ void Odometry::stateEstimatorsPrediction(double x, double y, double dt) {
   input << x, y;
 
   for (size_t i = 0; i < m_state_estimators.size(); i++) {
-    m_state_estimators[i]->doCorrection(input, dt);
+    m_state_estimators[i]->doPrediction(input, dt);
   }
 }
 
@@ -4082,7 +3701,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::OdometryMode &target_mode)
 
     mutex_current_estimator.lock();
     {
-      current_estimator = m_state_estimators[target_mode.mode];
+      current_estimator      = m_state_estimators[target_mode.mode];
       current_estimator_name = _state_estimators_names[target_mode.mode];
     }
     mutex_current_estimator.unlock();
@@ -4104,7 +3723,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::OdometryMode &target_mode)
 /* //{ isValidMode() */
 bool Odometry::isValidMode(const mrs_msgs::OdometryMode &mode) {
 
-  if (mode.mode == mrs_msgs::OdometryMode::OTHER || mode.mode == mrs_msgs::OdometryMode::OPTFLOW || mode.mode == mrs_msgs::OdometryMode::GPS ||
+  if (mode.mode == mrs_msgs::OdometryMode::OPTFLOW || mode.mode == mrs_msgs::OdometryMode::GPS ||
       mode.mode == mrs_msgs::OdometryMode::OPTFLOWGPS || mode.mode == mrs_msgs::OdometryMode::RTK || mode.mode == mrs_msgs::OdometryMode::ICP ||
       mode.mode == mrs_msgs::OdometryMode::VIO) {
     return true;
@@ -4130,9 +3749,7 @@ std::string Odometry::printOdometryDiag() {
   s_diag += std::to_string(mode.mode);
   s_diag += " - ";
 
-  if (mode.mode == mrs_msgs::OdometryMode::OTHER) {
-    s_diag += "OTHER";
-  } else if (mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
+  if (mode.mode == mrs_msgs::OdometryMode::OPTFLOW) {
     s_diag += "OPTFLOW";
   } else if (mode.mode == mrs_msgs::OdometryMode::GPS) {
     s_diag += "GPS";

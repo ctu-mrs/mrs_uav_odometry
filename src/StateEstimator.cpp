@@ -48,6 +48,8 @@ StateEstimator::StateEstimator(
 
 void StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing input: " << input << " with time step: " << dt << std::endl; */
+
   Eigen::VectorXd input_vec_x = Eigen::VectorXd::Zero(1);
   Eigen::VectorXd input_vec_y = Eigen::VectorXd::Zero(1);
 
@@ -75,6 +77,8 @@ void StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 /*  //{ doCorrection() */
 
 void StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measurement_type) {
+
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << std::endl; */
 
   if (measurement_type > (int)m_fusing_measurement.size()) {
     std::cerr << "[StateEstimator]: Tried to fuse invalid measurement type: " << measurement_type << std::endl;
@@ -165,7 +169,9 @@ bool StateEstimator::setState(int state_id, const Eigen::VectorXd &value) {
 
 //}
 
-void StateEstimator::reset(const Eigen::VectorXd &states) {
+/*  //{ reset() */
+
+void StateEstimator::reset(const Eigen::MatrixXd &states) {
   mutex_lkf.lock();
   {
     mp_lkf_x->reset(states.col(0));
@@ -173,4 +179,6 @@ void StateEstimator::reset(const Eigen::VectorXd &states) {
   }
   mutex_lkf.unlock();
 }
+
+//}
 }  // namespace mrs_odometry

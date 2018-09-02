@@ -29,7 +29,7 @@ public:
   Eigen::MatrixXd getStates(void);
   double          getState(int row, int col);
   bool            setState(int state_id, const Eigen::VectorXd &value);
-  void            reset(const Eigen::VectorXd &states);
+  void            reset(const Eigen::MatrixXd &states);
 
 private:
   std::string                  m_estimator_name;
