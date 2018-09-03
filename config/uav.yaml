@@ -25,7 +25,7 @@ averagingNumSamples: 20
 # staticObjectHeight: 0.2 # [m]
 # dynamicObjectHeight: 0.2 # [m]
 
-use_differential_gps: false
+use_differential_gps: true
 publish_fused_odom: true
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
