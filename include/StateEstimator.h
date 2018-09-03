@@ -28,6 +28,7 @@ public:
   bool doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
   bool getStates(Eigen::MatrixXd &states);
   bool getState(int state_id, Eigen::VectorXd &state);
+  std::string getName(void);
   bool setState(int state_id, const Eigen::VectorXd &state);
   bool setCovariance(double cov, int measurement_type);
   bool reset(const Eigen::MatrixXd &states);

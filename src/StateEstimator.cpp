@@ -330,6 +330,14 @@ bool StateEstimator::getState(int state_id, Eigen::VectorXd &state) {
 
 //}
 
+/*  //{ getName() */
+
+std::string StateEstimator::getName(void) {
+  return m_estimator_name;
+}
+
+//}
+
 /*  //{ setState() */
 
 bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
