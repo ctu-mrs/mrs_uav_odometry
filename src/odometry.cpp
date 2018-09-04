@@ -1,3 +1,5 @@
+/* includes //{ */
+
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
@@ -55,6 +57,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+
+//}
 
 #define USE_RANGEFINDER 1
 #define STRING_EQUAL 0
@@ -3130,7 +3134,6 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 }
 //}
 
-
 /* //{ callbackReconfigure() */
 void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level) {
 
@@ -3245,7 +3248,6 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
   rz = y;
 }
 //}
-
 
 /* //{ changeCurrentEstimator() */
 bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
