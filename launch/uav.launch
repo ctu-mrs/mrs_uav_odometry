@@ -1,13 +1,14 @@
 <launch>
 
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="standalone" default="$(optenv STANDALONE false)"/>
+  <arg name="profiler" default="$(optenv PROFILER false)" />
+  <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
   <arg name="debug" default="false" />
 
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
-  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
-  <arg name="profiler" default="$(optenv PROFILER false)" />
-  <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
@@ -16,6 +17,7 @@
   <group ns="$(arg uav_name)">
 
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
+      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
       <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
