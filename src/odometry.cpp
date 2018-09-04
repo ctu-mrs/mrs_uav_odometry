@@ -659,9 +659,9 @@ void Odometry::onInit() {
   param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
   param_loader.load_param("state_estimators/model_states", _model_state_names);
   param_loader.load_param("state_estimators/measurements", _measurement_names);
-  param_loader.load_matrix_dynamic("state_estimators/A", A_lat, _n_model_states, _n_model_states);
-  param_loader.load_matrix_dynamic("state_estimators/B", B_lat, _n_model_states, 1);
-  param_loader.load_matrix_dynamic("state_estimators/R", R_lat, _n_model_states, _n_model_states);
+  param_loader.load_matrix_dynamic("lateral/A", A_lat, _n_model_states, _n_model_states);
+  param_loader.load_matrix_dynamic("lateral/B", B_lat, _n_model_states, 1);
+  param_loader.load_matrix_dynamic("lateral/R", R_lat, _n_model_states, _n_model_states);
 
   // Load the measurements fused by each state estimator
   for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
@@ -706,7 +706,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
 
     Eigen::MatrixXd temp_matrix;
-    param_loader.load_matrix_static("state_estimators/Q/" + *it, temp_matrix, 1, 1);
+    param_loader.load_matrix_static("lateral/Q/" + *it, temp_matrix, 1, 1);
 
     map_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
   }
