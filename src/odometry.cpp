@@ -3194,7 +3194,6 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     return;
   }
 
-
   if (!std::isfinite(x)) {
     ROS_ERROR("NaN detected in variable \"x\" (stateEstimatorsCorrection) !!!");
     return;

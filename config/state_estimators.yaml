@@ -72,6 +72,7 @@ state_estimators:
     vel_vio: [10000]
 
   # The system matrix
+  # pos, vel, acc, acc_in, acc_dist, tilt
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
       0, 0, 0, 1, 0, 0,
