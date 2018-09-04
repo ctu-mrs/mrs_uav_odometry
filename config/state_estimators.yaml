@@ -61,9 +61,9 @@ state_estimators:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000]
+    vel_optflow: [100000]
     pos_mavros: [10000]
-    vel_mavros: [10000]
+    vel_mavros: [100000]
     tilt_mavros: [1000000]
     pos_rtk: [1000]
     pos_icp: [1000]
