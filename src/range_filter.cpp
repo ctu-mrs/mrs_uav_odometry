@@ -4,6 +4,8 @@
 #include <ros/ros.h>
 #include <range_filter.h>
 
+/* constructor //{ */
+
 RangeFilter::RangeFilter(int buffer_size, double trg_max_valid_altitude, double trg_filter_max_difference) {
 
   // maximum teraranger altitude that is considered valid
@@ -18,6 +20,10 @@ RangeFilter::RangeFilter(int buffer_size, double trg_max_valid_altitude, double 
   next = 0;
   ROS_INFO("[RangeFilter]: initialized, buffer size: %d", buffer_size);
 }
+
+//}
+
+/* getValue() //{ */
 
 double RangeFilter::getValue(double input, ros::Duration interval) {
 
@@ -99,7 +105,11 @@ double RangeFilter::getValue(double input, ros::Duration interval) {
   }
 }
 
+//}
+
 // checks if teraranger altitude is a valid value
+/* isValid() //{ */
+
 bool RangeFilter::isValid(double input, ros::Duration interval) {
 
   if ((input < trg_max_valid_altitude) && (input > 0) && (interval.toSec() < 1)) {
@@ -111,3 +121,5 @@ bool RangeFilter::isValid(double input, ros::Duration interval) {
     return false;
   }
 }
+
+//}
