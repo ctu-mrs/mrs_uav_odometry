@@ -253,17 +253,18 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
   mes_vec_y << measurement(1);
 
   // Fuse the measurement if this estimator allows it
-  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: " << m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
-    mutex_lkf.lock();
-    {
-      mp_lkf_x->setP(m_P_arr[measurement_type]);
-      mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
-      mp_lkf_x->doCorrection();
-      mp_lkf_y->setP(m_P_arr[measurement_type]);
-      mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
-      mp_lkf_y->doCorrection();
-    }
-    mutex_lkf.unlock();
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: " <<
+   * m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
+  mutex_lkf.lock();
+  {
+    mp_lkf_x->setP(m_P_arr[measurement_type]);
+    mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
+    mp_lkf_x->doCorrection();
+    mp_lkf_y->setP(m_P_arr[measurement_type]);
+    mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
+    mp_lkf_y->doCorrection();
+  }
+  mutex_lkf.unlock();
 
   return true;
 }
@@ -321,7 +322,7 @@ bool StateEstimator::getState(int state_id, Eigen::VectorXd &state) {
 
   mutex_lkf.lock();
   {
-  /* std::cout << "[StateEstimator]: " << m_estimator_name << " getting value: " << mp_lkf_x->getState(state_id) << " of state: " << state_id << std::endl; */
+    /* std::cout << "[StateEstimator]: " << m_estimator_name << " getting value: " << mp_lkf_x->getState(state_id) << " of state: " << state_id << std::endl; */
     state(0) = mp_lkf_x->getState(state_id);
     state(1) = mp_lkf_y->getState(state_id);
   }
@@ -428,8 +429,49 @@ bool StateEstimator::setCovariance(double cov, int measurement_type) {
 
   //}
 
+  double old_cov = m_Q_arr[measurement_type](0, 0);
+
   mutex_lkf.lock();
   { m_Q_arr[measurement_type](0, 0) = cov; }
+  mutex_lkf.unlock();
+
+  std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")"
+            << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl;
+
+  return true;
+}
+
+//}
+
+/*  //{ getCovariance() */
+
+bool StateEstimator::getCovariance(double &cov, int measurement_type) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for NaNs
+  if (!std::isfinite(measurement_type)) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".getCovariance(int measurement_type=" << measurement_type
+              << "): NaN detected in variable \"measurement_type\"." << std::endl;
+    return false;
+  }
+
+  // Check for invalid measurement type
+  if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".getCovariance(int measurement_type=" << measurement_type
+              << "): invalid value of \"measurement_type\"." << std::endl;
+    return false;
+  }
+
+  //}
+  
+  mutex_lkf.lock();
+  {
+    cov = m_Q_arr[measurement_type](0, 0);
+  }
   mutex_lkf.unlock();
 
   return true;

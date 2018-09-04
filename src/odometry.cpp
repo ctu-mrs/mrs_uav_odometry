@@ -138,8 +138,8 @@ private:
 private:
   tf::TransformBroadcaster *broadcaster_;
 
-  /* dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server; */
-  /* dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f; */
+  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server;
+  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f;
 
   nav_msgs::Odometry odom_pixhawk;
   std::mutex         mutex_odom;
@@ -294,21 +294,21 @@ private:
   std::mutex      mutex_failsafe_altitude_kalman;
 
   // State estimation
-  int                                             _n_model_states;
-  std::vector<std::string>                        _state_estimators_names;
-  std::vector<std::string>                        _model_state_names;
-  std::vector<std::string>                        _measurement_names;
-  std::map<std::string, std::vector<std::string>> map_estimator_measurement;
-  std::map<std::string, Eigen::MatrixXd>          map_measurement_covariance;
-  std::map<std::string, std::string>              map_measurement_state;
-  std::map<std::string, int>                      map_measurement_name_id;
-  std::map<std::string, Eigen::MatrixXd>          map_states;
-  std::map<std::string, nav_msgs::Odometry>       map_estimator_odom;
-  std::map<std::string, ros::Publisher>           map_estimator_pub;
-  std::map<std::string, std::shared_ptr<StateEstimator>>    m_state_estimators;
-  std::shared_ptr<StateEstimator>                 current_estimator;
-  std::mutex                                      mutex_current_estimator;
-  std::string                                     current_estimator_name;
+  int                                                    _n_model_states;
+  std::vector<std::string>                               _state_estimators_names;
+  std::vector<std::string>                               _model_state_names;
+  std::vector<std::string>                               _measurement_names;
+  std::map<std::string, std::vector<std::string>>        map_estimator_measurement;
+  std::map<std::string, Eigen::MatrixXd>                 map_measurement_covariance;
+  std::map<std::string, std::string>                     map_measurement_state;
+  std::map<std::string, int>                             map_measurement_name_id;
+  std::map<std::string, Eigen::MatrixXd>                 map_states;
+  std::map<std::string, nav_msgs::Odometry>              map_estimator_odom;
+  std::map<std::string, ros::Publisher>                  map_estimator_pub;
+  std::map<std::string, std::shared_ptr<StateEstimator>> m_state_estimators;
+  std::shared_ptr<StateEstimator>                        current_estimator;
+  std::mutex                                             mutex_current_estimator;
+  std::string                                            current_estimator_name;
 
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A_lat, B_lat, R_lat;
@@ -750,7 +750,8 @@ void Odometry::onInit() {
 
     // Add pointer to state estimator to array
     // this is how to create shared pointers!!! the correct way
-    m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(*it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr, Q_arr, A_lat, B_lat, R_lat)));
+    m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
+        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr, Q_arr, A_lat, B_lat, R_lat)));
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -789,7 +790,6 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
-  reconfigure_server_->updateConfig(last_drs_config);
   ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
   reconfigure_server_->setCallback(f);
 
@@ -966,6 +966,17 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   // | ----------------------- finish init ---------------------- |
+
+  current_estimator->getCovariance(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+  current_estimator->getCovariance(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+  current_estimator->getCovariance(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+  current_estimator->getCovariance(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+  current_estimator->getCovariance(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+  current_estimator->getCovariance(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+  current_estimator->getCovariance(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+  current_estimator->getCovariance(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+  current_estimator->getCovariance(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+  reconfigure_server_->updateConfig(last_drs_config);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[Odometry]: Could not load all non-optional parameters. Shutting down.");
@@ -1250,7 +1261,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       state << pos_x, pos_y;
       /* current_estimator->setState(0, state); */
       for (auto &estimator : m_state_estimators) {
-       estimator.second->setState(0, state);
+        estimator.second->setState(0, state);
       }
     }
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
@@ -3147,15 +3158,25 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
 
   if (!is_initialized)
     return;
-  ROS_INFO("[Odometry]: TODO callbackReconfigure()");
-  /* ROS_INFO( */
-  /*     "Reconfigure Request: Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
-   */
-  /*     "%f\nQ_tilt:%f\nR_pos: %f, R_vel: " */
-  /*     "%f, R_acc: %f, R_acc_i: %f, R_acc_d: %f, R_tilt: %f", */
-  /*     config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp,
-   * config.Q_vel_optflow, */
-  /*     config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt); */
+  ROS_INFO(
+      "Reconfigure Request: "
+      "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
+      "%f\nQ_tilt:%f\nR_pos: %f, R_vel: "
+      "%f, R_acc: %f, R_acc_i: %f, R_acc_d: %f, R_tilt: %f",
+      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp, config.Q_vel_optflow,
+      config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
+
+  /* for (auto &estimator : m_state_estimators) { */
+  current_estimator->setCovariance(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+  current_estimator->setCovariance(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+  current_estimator->setCovariance(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+  current_estimator->setCovariance(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+  current_estimator->setCovariance(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+  current_estimator->setCovariance(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+  current_estimator->setCovariance(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+  current_estimator->setCovariance(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+  current_estimator->setCovariance(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+  /* } */
 }
 //}
 
