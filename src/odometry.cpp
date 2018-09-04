@@ -329,13 +329,13 @@ private:
   std::mutex                  mutex_mavros_diag;
 
   // reliability of gps
-  int  max_altitude;
-  bool gps_reliable       = false;
-  bool _gps_available     = false;
-  bool _vio_available     = false;
-  bool _optflow_available = false;
-  bool _rtk_available     = false;
-  bool _lidar_available   = false;
+  double max_altitude;
+  bool   gps_reliable       = false;
+  bool   _gps_available     = false;
+  bool   _vio_available     = false;
+  bool   _optflow_available = false;
+  bool   _rtk_available     = false;
+  bool   _lidar_available   = false;
 
   // use differential gps
   bool   use_differential_gps = false;
@@ -2852,19 +2852,15 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
   { mavros_diag.gps.satellites_visible = msg->gps.satellites_visible; }
   mutex_mavros_diag.unlock();
 
-  if (max_altitude != _max_optflow_altitude && mavros_diag.gps.satellites_visible < _min_satellites) {
+  if (gps_reliable && mavros_diag.gps.satellites_visible < _min_satellites) {
 
-    max_altitude = _max_optflow_altitude;
     gps_reliable = false;
-    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible. Setting max altitude to max optflow altitude %d.", mavros_diag.gps.satellites_visible,
-             max_altitude);
+    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
 
-  } else if (_gps_available && max_altitude != _max_default_altitude && mavros_diag.gps.satellites_visible >= _min_satellites) {
+  } else if (_gps_available && !gps_reliable && mavros_diag.gps.satellites_visible >= _min_satellites) {
 
-    max_altitude = _max_default_altitude;
     gps_reliable = true;
-    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible. Setting max altitude to max allowed altitude %d.", mavros_diag.gps.satellites_visible,
-             max_altitude);
+    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
   }
 }
 //}
@@ -3281,7 +3277,7 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
 bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
 
   mrs_msgs::EstimatorType target_estimator = desired_estimator;
-  target_estimator.name = _state_estimators_names[target_estimator.type];
+  target_estimator.name                    = _state_estimators_names[target_estimator.type];
 
   // Optic flow type
   if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOW) {
