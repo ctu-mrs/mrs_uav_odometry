@@ -121,9 +121,11 @@ void RtkRepublisher::callbackOdometry(const nav_msgs::OdometryConstPtr& msg) {
 
   got_odom = true;
 
-  mutex_odom.lock();
-  { odom = *msg; }
-  mutex_odom.unlock();
+  {
+    std::scoped_lock lock(mutex_odom);
+
+    odom = *msg;
+  }
 }
 
 //}
@@ -152,12 +154,12 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.header.frame_id = "utm";
 
   // copy the position, orientation and velocity
-  mutex_odom.lock();
   {
+    std::scoped_lock lock(mutex_odom);
+
     rtk_msg_out.pose  = odom.pose;
     rtk_msg_out.twist = odom.twist;
   }
-  mutex_odom.unlock();
 
   rtk_msg_out.pose.pose.position.x += offset_x_;
   rtk_msg_out.pose.pose.position.y += offset_y_;
