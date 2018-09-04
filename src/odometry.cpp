@@ -1238,7 +1238,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
-    ROS_INFO("[Odometry]: Initializing the states of current estimator");
+    ROS_INFO("[Odometry]: Initializing the states of all estimators");
     if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW && !gps_reliable) {
       Eigen::VectorXd state(2);
       state << local_origin_offset_x, local_origin_offset_y;
@@ -1248,9 +1248,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       double          pos_x = odom_main.pose.pose.position.x + local_origin_offset_x;
       double          pos_y = odom_main.pose.pose.position.y + local_origin_offset_y;
       state << pos_x, pos_y;
-      current_estimator->setState(0, state);
+      /* current_estimator->setState(0, state); */
+      for (auto &estimator : m_state_estimators) {
+       estimator.second->setState(0, state);
+      }
     }
-    ROS_INFO("[Odometry]: Initialized the states of current estimator");
+    ROS_INFO("[Odometry]: Initialized the states of all estimators");
     odometry_published = true;
   }
 
