@@ -3135,7 +3135,7 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 //}
 
 /* //{ callbackReconfigure() */
-void Odometry::callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level) {
+void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized)
     return;
