@@ -1029,6 +1029,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
+
   // --------------------------------------------------------------
   // |              publish the new altitude message              |
   // --------------------------------------------------------------
@@ -1145,8 +1147,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   got_lateral_sensors = true;
   ROS_INFO_ONCE("[Odometry]: Lateral sensors ready");
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
 
   // --------------------------------------------------------------
   // |           check if the odometry is still comming           |
@@ -1426,6 +1426,9 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
 void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
+  if (!is_initialized)
+    return;
+
   mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", lkf_states_rate_, 0.01, event);
 
   Eigen::MatrixXd states_mat = Eigen::MatrixXd::Zero(lateral_n, 2);
@@ -1600,6 +1603,11 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 /* //{ callbackTargetAttitude() */
 void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
 
+  if (!is_initialized)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTargetAttitude");
+
   if (got_target_attitude) {
 
     mutex_target_attitude.lock();
@@ -1624,14 +1632,9 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     return;
   }
 
-  if (!is_initialized)
-    return;
-
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTargetAttitude");
 
   target_attitude_last_update = ros::Time::now();
 
@@ -1718,6 +1721,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOdometry");
+
   if (got_odom) {
 
     mutex_odom.lock();
@@ -1752,8 +1757,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOdometry");
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -1914,6 +1917,8 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
+
   optflow_twist_last_update = ros::Time::now();
 
   if (got_optflow) {
@@ -1947,8 +1952,6 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &m
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -2000,7 +2003,6 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
   if (!is_initialized)
     return;
-
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackRtk");
 
@@ -2229,6 +2231,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVioOdometry");
+
   if (got_vio) {
 
     mutex_odom_vio.lock();
@@ -2263,8 +2267,6 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVioOdometry");
 
   // use our ros::Time as a time stamp for simulation, fixes problems
   /* if (simulation_) { */
@@ -2329,6 +2331,8 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpRelative");
+
   icp_odom_last_update = ros::Time::now();
 
   if (got_icp) {
@@ -2356,8 +2360,6 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpRelative");
 
   // compute the time between two last odometries
   ros::Duration interval2;
@@ -2399,6 +2401,8 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpAbsolute");
+
   icp_global_odom_last_update = ros::Time::now();
 
   if (got_icp_global) {
@@ -2426,8 +2430,6 @@ void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpAbsolute");
 
   // compute the time between two last odometries
   ros::Duration interval2;
@@ -2484,14 +2486,14 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTeraranger");
+
   range_terarangerone_ = *msg;
 
   if (!got_odom) {
 
     return;
   }
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTeraranger");
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -2629,14 +2631,14 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
+
   range_garmin_ = *msg;
 
   if (!got_odom) {
 
     return;
   }
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -2810,23 +2812,6 @@ void Odometry::callbackGlobalPosition(const sensor_msgs::NavSatFixConstPtr &msg)
 
 //}
 
-/* //{ callbackAveraging() */
-
-bool Odometry::callbackAveraging([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  if (!is_initialized)
-    return false;
-
-  startAveraging();
-
-  res.success = true;
-  res.message = "Started averaging";
-
-  return true;
-}
-
-//}
-
 /* //{ callbackTrackerStatus() */
 
 void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg) {
@@ -2895,6 +2880,23 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 //}
 
 // | -------------------- service callbacks ------------------- |
+
+/* //{ callbackAveraging() */
+
+bool Odometry::callbackAveraging([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  startAveraging();
+
+  res.success = true;
+  res.message = "Started averaging";
+
+  return true;
+}
+
+//}
 
 /* //{ callbackToggleRtkHeight() */
 
