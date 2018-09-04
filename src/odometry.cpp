@@ -3280,8 +3280,11 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
 /* //{ changeCurrentEstimator() */
 bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
 
+  mrs_msgs::EstimatorType target_estimator = desired_estimator;
+  target_estimator.name = _state_estimators_names[target_estimator.type];
+
   // Optic flow type
-  if (desired_estimator.type == mrs_msgs::EstimatorType::OPTFLOW) {
+  if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOW) {
 
     if (!_optflow_available) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Optic flow not available in this world.");
@@ -3297,7 +3300,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     max_altitude = _max_optflow_altitude;
 
     // Mavros GPS type
-  } else if (desired_estimator.type == mrs_msgs::EstimatorType::GPS) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::GPS) {
 
     if (!_gps_available) {
       ROS_ERROR("[Odometry]: Cannot transition to GPS type. GPS signal not available in this world.");
@@ -3312,7 +3315,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     max_altitude = _max_default_altitude;
 
     // Optic flow + Mavros GPS type
-  } else if (desired_estimator.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
 
     if (!_optflow_available) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Optic flow not available in this world.");
@@ -3339,7 +3342,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     max_altitude = _max_default_altitude;
 
     // RTK GPS type
-  } else if (desired_estimator.type == mrs_msgs::EstimatorType::RTK) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::RTK) {
 
     if (!_rtk_available) {
       ROS_ERROR("[Odometry]: Cannot transition to RTK type. RTK signal not available in this world.");
@@ -3359,17 +3362,15 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     max_altitude = _max_default_altitude;
 
     // LIDAR localization type
-  } else if (desired_estimator.type == mrs_msgs::EstimatorType::ICP) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
     if (!_lidar_available) {
       ROS_ERROR("[Odometry]: Cannot transition to ICP type. Lidar localization not available in this world.");
       return false;
     }
 
-    ROS_ERROR("[Odometry]: TODO switching to ICP kalman.");
-
     // Vio localization type
-  } else if (desired_estimator.type == mrs_msgs::EstimatorType::VIO) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
 
     if (!_vio_available) {
       ROS_ERROR("[Odometry]: Cannot transition to VIO type. Visual odometry not available in this world.");
@@ -3380,16 +3381,16 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
   } else {
 
-    ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", desired_estimator.name.c_str());
+    ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
     return false;
   }
 
-  if (stringInVector(desired_estimator.name, _state_estimators_names)) {
+  if (stringInVector(target_estimator.name, _state_estimators_names)) {
 
     mutex_current_estimator.lock();
     {
-      /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(desired_estimator.name)->second->getName()); */
-      current_estimator      = m_state_estimators.find(desired_estimator.name)->second;
+      /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
+      current_estimator      = m_state_estimators.find(target_estimator.name)->second;
       current_estimator_name = current_estimator->getName();
     }
     mutex_current_estimator.unlock();
@@ -3397,11 +3398,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", current_estimator_name.c_str());
 
   } else {
-    ROS_WARN("[Odometry]: Requested transition to nonexistent state estimator %s", desired_estimator.name.c_str());
+    ROS_WARN("[Odometry]: Requested transition to nonexistent state estimator %s", target_estimator.name.c_str());
     return false;
   }
 
-  _estimator_type      = desired_estimator;
+  _estimator_type      = target_estimator;
   _estimator_type.name = _estimator_type_names[_estimator_type.type];
   return true;
 }
