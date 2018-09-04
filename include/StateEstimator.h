@@ -24,14 +24,15 @@ public:
   StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
                  const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
-  bool doPrediction(const Eigen::VectorXd &input, double dt);
-  bool doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
-  bool getStates(Eigen::MatrixXd &states);
-  bool getState(int state_id, Eigen::VectorXd &state);
+  bool        doPrediction(const Eigen::VectorXd &input, double dt);
+  bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
+  bool        getStates(Eigen::MatrixXd &states);
+  bool        getState(int state_id, Eigen::VectorXd &state);
   std::string getName(void);
-  bool setState(int state_id, const Eigen::VectorXd &state);
-  bool setCovariance(double cov, int measurement_type);
-  bool reset(const Eigen::MatrixXd &states);
+  bool        setState(int state_id, const Eigen::VectorXd &state);
+  bool        setCovariance(double cov, int measurement_type);
+  bool        getCovariance(double &cov, int measurement_type);
+  bool        reset(const Eigen::MatrixXd &states);
 
 private:
   std::string                  m_estimator_name;
