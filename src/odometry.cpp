@@ -584,7 +584,7 @@ void Odometry::onInit() {
   _estimator_type_takeoff.name = takeoff_estimator;
   _estimator_type_takeoff.type = (int)pos;
 
-  //{ altitude kalman init
+  /* //{ altitude kalman init */
   // declare and initialize variables for the altitude KF
   param_loader.load_param("altitude/numberOfVariables", altitude_n);
   param_loader.load_param("altitude/numberOfInputs", altitude_m);
@@ -645,7 +645,7 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Altitude kalman prepared");
   //}
 
-  //{ lateral kalman init
+  /* //{ lateral kalman init */
   // declare and initialize variables for the lateral KF
   param_loader.load_param("lateral/numberOfVariables", lateral_n);
   param_loader.load_param("lateral/numberOfInputs", lateral_m);
@@ -808,7 +808,7 @@ void Odometry::onInit() {
   // |                         publishers                         |
   // --------------------------------------------------------------
 
-  //{ publishers
+  /* //{ publishers */
   // publisher for new odometry
   pub_odom_main_     = nh_.advertise<nav_msgs::Odometry>("odom_main_out", 1);
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
@@ -840,7 +840,7 @@ void Odometry::onInit() {
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
-  //{ subscribers
+  /* //{ subscribers */
   // subsribe to target attitude
   sub_target_attitude_ = nh_.subscribe("target_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
 
@@ -892,7 +892,7 @@ void Odometry::onInit() {
   // |                          services                          |
   // --------------------------------------------------------------
 
-  //{ services
+  /* //{ services */
   // subscribe for averaging service
   ser_averaging_ = nh_.advertiseService("average_current_position_in", &Odometry::callbackAveraging, this);
 
@@ -1788,7 +1788,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   mutex_odom.unlock();
 
   //////////////////// Fuse MAIN ALT. KALMAN ////////////////////
-  //{ fuse main altitude kalman
+  /* //{ fuse main altitude kalman */
   mutex_main_altitude_kalman.lock();
   {
     main_altitude_kalman->setInput(input);
@@ -1809,7 +1809,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //}
 
   //////////////////// Fuse FAILSAFE ALT. KALMAN ////////////////////
-  //{ fuse failsafe altitude kalman
+  /* //{ fuse failsafe altitude kalman */
   mutex_failsafe_altitude_kalman.lock();
   {
     failsafe_teraranger_kalman->setInput(input);
@@ -1850,7 +1850,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  //{ fuse mavros tilts
+  /* //{ fuse mavros tilts */
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(rot_y, -rot_x, "tilt_mavros");
@@ -1859,7 +1859,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //}
 
-  //{ fuse mavros velocity
+  /* //{ fuse mavros velocity */
 
   if (_gps_available) {
 
@@ -1881,7 +1881,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //}
 
-  //{ fuse mavros position
+  /* //{ fuse mavros position */
 
   if (_gps_available) {
 
@@ -2290,7 +2290,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
-  //{ fuse vio velocity
+  /* //{ fuse vio velocity */
 
   double vel_vio_x, vel_vio_y;
 
@@ -2306,7 +2306,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //}
 
-  //{ fuse vio position
+  /* //{ fuse vio position */
 
   double vio_pos_x, vio_pos_y;
   mutex_odom_vio.lock();
@@ -3196,7 +3196,6 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
     return;
   }
-
 
   if (!std::isfinite(x)) {
     ROS_ERROR("NaN detected in variable \"x\" (stateEstimatorsCorrection) !!!");

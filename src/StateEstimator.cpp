@@ -32,7 +32,6 @@ StateEstimator::StateEstimator(
   // Number of measurement types
   m_n_measurement_types = m_fusing_measurement.size();
 
-
   /*  //{ sanity checks */
 
 
@@ -98,6 +97,7 @@ StateEstimator::StateEstimator(
 
 
   //}
+
   Eigen::MatrixXd Q_zero = Eigen::MatrixXd::Zero(1, 1);
   Eigen::MatrixXd P_zero = Eigen::MatrixXd::Zero(1, m_n_states);
 
