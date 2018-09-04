@@ -246,24 +246,24 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
 
   //}
 
-  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << std::endl; */
-
   Eigen::VectorXd mes_vec_x = Eigen::VectorXd::Zero(1);
   Eigen::VectorXd mes_vec_y = Eigen::VectorXd::Zero(1);
 
   mes_vec_x << measurement(0);
   mes_vec_y << measurement(1);
 
-  mutex_lkf.lock();
-  {
-    mp_lkf_x->setP(m_P_arr[measurement_type]);
-    mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
-    mp_lkf_x->doCorrection();
-    mp_lkf_y->setP(m_P_arr[measurement_type]);
-    mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
-    mp_lkf_y->doCorrection();
-  }
-  mutex_lkf.unlock();
+  // Fuse the measurement if this estimator allows it
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: " << m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
+    mutex_lkf.lock();
+    {
+      mp_lkf_x->setP(m_P_arr[measurement_type]);
+      mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
+      mp_lkf_x->doCorrection();
+      mp_lkf_y->setP(m_P_arr[measurement_type]);
+      mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
+      mp_lkf_y->doCorrection();
+    }
+    mutex_lkf.unlock();
 
   return true;
 }
@@ -318,8 +318,10 @@ bool StateEstimator::getState(int state_id, Eigen::VectorXd &state) {
 
   //}
 
+
   mutex_lkf.lock();
   {
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << " getting value: " << mp_lkf_x->getState(state_id) << " of state: " << state_id << std::endl; */
     state(0) = mp_lkf_x->getState(state_id);
     state(1) = mp_lkf_y->getState(state_id);
   }

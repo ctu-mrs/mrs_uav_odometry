@@ -52,7 +52,6 @@
 #include <locale>
 #include <Eigen/Eigen>
 #include <math.h>
-#include <cmath>
 #include <mutex>
 #include <stdexcept>
 #include <iostream>
@@ -306,7 +305,7 @@ private:
   std::map<std::string, Eigen::MatrixXd>          map_states;
   std::map<std::string, nav_msgs::Odometry>       map_estimator_odom;
   std::map<std::string, ros::Publisher>           map_estimator_pub;
-  std::vector<std::shared_ptr<StateEstimator>>    m_state_estimators;
+  std::map<std::string, std::shared_ptr<StateEstimator>>    m_state_estimators;
   std::shared_ptr<StateEstimator>                 current_estimator;
   std::mutex                                      mutex_current_estimator;
   std::string                                     current_estimator_name;
@@ -750,7 +749,8 @@ void Odometry::onInit() {
     }
 
     // Add pointer to state estimator to array
-    m_state_estimators.push_back(std::shared_ptr<StateEstimator>(new StateEstimator(*it, fusing_measurement, P_arr, Q_arr, A_lat, B_lat, R_lat)));
+    // this is how to create shared pointers!!! the correct way
+    m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(*it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr, Q_arr, A_lat, B_lat, R_lat)));
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -1324,8 +1324,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
   ros::Time t_pub = ros::Time::now();
 
   // Loop through each estimator
-  for (std::shared_ptr<StateEstimator> &estimator : m_state_estimators) {
-    std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom.find(estimator->getName());
+  for (auto &estimator : m_state_estimators) {
+    std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom.find(estimator.first);
     mutex_odom.lock();
     { odom_aux->second.pose = odom_pixhawk.pose; }
     mutex_odom.unlock();
@@ -1341,8 +1341,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     Eigen::VectorXd pos_vec(2);
     Eigen::VectorXd vel_vec(2);
 
-    estimator->getState(0, pos_vec);
-    estimator->getState(1, vel_vec);
+    estimator.second->getState(0, pos_vec);
+    estimator.second->getState(1, vel_vec);
 
     odom_aux->second.pose.pose.position.x = pos_vec(0);
     odom_aux->second.twist.twist.linear.x = vel_vec(0);
@@ -1350,7 +1350,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     odom_aux->second.twist.twist.linear.y = vel_vec(1);
 
 
-    std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator->getName());
+    std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
     try {
       pub_odom_aux->second.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_aux->second)));
@@ -1482,7 +1482,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   }
 
   try {
-    pub_lkf_states_y_.publish(lkf_states_x);
+    pub_lkf_states_y_.publish(lkf_states_y);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
@@ -2955,6 +2955,7 @@ bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, 
   {
     mrs_msgs::EstimatorType desired_estimator;
     desired_estimator.type = req.estimator_type.type;
+    desired_estimator.name = _state_estimators_names[desired_estimator.type];
     success                = changeCurrentEstimator(desired_estimator);
   }
   mutex_estimator_type.unlock();
@@ -3010,6 +3011,8 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     res.message = ("Not a valid odometry type");
     return true;
   }
+
+  desired_estimator.name = _state_estimators_names[desired_estimator.type];
 
   bool success = false;
   mutex_estimator_type.lock();
@@ -3174,8 +3177,8 @@ void Odometry::stateEstimatorsPrediction(double x, double y, double dt) {
   Eigen::VectorXd input = Eigen::VectorXd::Zero(2);
   input << x, y;
 
-  for (size_t i = 0; i < m_state_estimators.size(); i++) {
-    m_state_estimators[i]->doPrediction(input, dt);
+  for (auto &estimator : m_state_estimators) {
+    estimator.second->doPrediction(input, dt);
     /* Eigen::VectorXd pos_vec(2); */
     /* m_state_estimators[i]->getState(0, pos_vec); */
     /* ROS_INFO("[Odometry]: %s after prediction with input: %f, dt: %f x: %f", m_state_estimators[i]->getName().c_str(), input(0), dt, pos_vec(0)); */
@@ -3208,11 +3211,11 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
   Eigen::VectorXd mes = Eigen::VectorXd::Zero(2);
   mes << x, y;
 
-  for (size_t i = 0; i < m_state_estimators.size(); i++) {
-    m_state_estimators[i]->doCorrection(mes, it_measurement_id->second);
+  for (auto &estimator : m_state_estimators) {
+    estimator.second->doCorrection(mes, it_measurement_id->second);
     /* Eigen::VectorXd pos_vec(2); */
-    /* m_state_estimators[i]->getState(0, pos_vec); */
-    /* ROS_INFO("[Odometry]: %s after %s correction: %f, x: %f", m_state_estimators[i]->getName().c_str(), measurement_name.c_str(), mes(0), pos_vec(0)); */
+    /* estimator.second->getState(0, pos_vec); */
+    /* ROS_INFO("[Odometry]: %s after %s correction: %f, x: %f", estimator.second->getName().c_str(), measurement_name.c_str(), mes(0), pos_vec(0)); */
   }
 }
 
@@ -3358,19 +3361,20 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     return false;
   }
 
-  if (desired_estimator.type < m_state_estimators.size()) {
+  if (stringInVector(desired_estimator.name, _state_estimators_names)) {
 
     mutex_current_estimator.lock();
     {
-      current_estimator      = m_state_estimators[desired_estimator.type];
-      current_estimator_name = _state_estimators_names[desired_estimator.type];
+      /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(desired_estimator.name)->second->getName()); */
+      current_estimator      = m_state_estimators.find(desired_estimator.name)->second;
+      current_estimator_name = current_estimator->getName();
     }
     mutex_current_estimator.unlock();
 
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", current_estimator_name.c_str());
 
   } else {
-    ROS_WARN("[Odometry]: Requested transition to nonexistent state estimator %d", desired_estimator.type);
+    ROS_WARN("[Odometry]: Requested transition to nonexistent state estimator %s", desired_estimator.name.c_str());
     return false;
   }
 
