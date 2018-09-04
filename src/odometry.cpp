@@ -2855,6 +2855,7 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
   if (gps_reliable && mavros_diag.gps.satellites_visible < _min_satellites) {
 
     gps_reliable = false;
+    max_altitude = _max_optflow_altitude;
     ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
 
   } else if (_gps_available && !gps_reliable && mavros_diag.gps.satellites_visible >= _min_satellites) {
