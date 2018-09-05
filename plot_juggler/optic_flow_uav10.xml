@@ -2,34 +2,36 @@
 <root>
  <tabbed_widget name="Main Window" parent="main_window">
   <plotmatrix rows="4" tab_name="plot" columns="1">
-   <plot row="0" col="0">
-    <range left="0.000000" right="76.360392" bottom="-0.103581" top="0.075097"/>
+   <plot col="0" row="0">
+    <range right="122.214616" top="0.102998" left="0.000000" bottom="-0.102624"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/x" R="255" G="0" B="0"/>
-    <curve name="/uav10/odometry/new_odom/twist/twist/linear/x" R="0" G="128" B="0"/>
-    <curve name="/uav10/optic_flow/velocity/twist/linear/x" R="0" G="128" B="128"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/x" G="0" B="0" R="255"/>
+    <curve name="/uav10/odometry/odom_optflow/twist/twist/linear/x" G="0" B="0" R="255"/>
+    <curve name="/uav10/optic_flow/velocity/twist/linear/x" G="128" B="128" R="0"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="1" col="0">
-    <range left="0.000000" right="76.360392" bottom="3.385040" top="4.662424"/>
+   <plot col="0" row="1">
+    <range right="122.230801" top="3.732062" left="0.000000" bottom="0.465546"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/x" R="160" G="160" B="164"/>
-    <curve name="/uav10/odometry/new_odom/pose/pose/position/x" R="0" G="128" B="0"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/x" G="160" B="164" R="160"/>
+    <curve name="/uav10/odometry/odom_gps/pose/pose/position/x" G="0" B="0" R="128"/>
+    <curve name="/uav10/odometry/odom_main/pose/pose/position/x" G="160" B="164" R="160"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="2" col="0">
-    <range left="0.000000" right="76.360392" bottom="-0.189102" top="0.039281"/>
+   <plot col="0" row="2">
+    <range right="122.214616" top="0.107025" left="0.000000" bottom="-0.181586"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/y" R="0" G="0" B="255"/>
-    <curve name="/uav10/odometry/new_odom/twist/twist/linear/y" R="255" G="0" B="0"/>
-    <curve name="/uav10/optic_flow/velocity/twist/linear/y" R="160" G="160" B="164"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/y" G="0" B="255" R="0"/>
+    <curve name="/uav10/odometry/odom_optflow/twist/twist/linear/y" G="0" B="255" R="255"/>
+    <curve name="/uav10/optic_flow/velocity/twist/linear/y" G="160" B="164" R="160"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="3" col="0">
-    <range left="0.000000" right="76.360392" bottom="-13.518487" top="-4.787530"/>
+   <plot col="0" row="3">
+    <range right="122.230801" top="0.275403" left="0.000000" bottom="-2.675274"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/y" R="0" G="0" B="128"/>
-    <curve name="/uav10/odometry/new_odom/pose/pose/position/y" R="0" G="128" B="128"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/y" G="0" B="128" R="0"/>
+    <curve name="/uav10/odometry/odom_gps/pose/pose/position/y" G="0" B="255" R="0"/>
+    <curve name="/uav10/odometry/odom_main/pose/pose/position/y" G="128" B="0" R="128"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
@@ -37,34 +39,36 @@
  </tabbed_widget>
  <tabbed_widget name="Main Window" parent="main_window">
   <plotmatrix rows="4" tab_name="plot" columns="1">
-   <plot row="0" col="0">
-    <range left="0.000000" right="76.360392" bottom="-0.103581" top="0.075097"/>
+   <plot col="0" row="0">
+    <range right="122.214616" top="0.102998" left="0.000000" bottom="-0.102624"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/x" R="255" G="0" B="0"/>
-    <curve name="/uav10/odometry/new_odom/twist/twist/linear/x" R="0" G="128" B="0"/>
-    <curve name="/uav10/optic_flow/velocity/twist/linear/x" R="0" G="128" B="128"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/x" G="0" B="0" R="255"/>
+    <curve name="/uav10/odometry/odom_optflow/twist/twist/linear/x" G="0" B="0" R="255"/>
+    <curve name="/uav10/optic_flow/velocity/twist/linear/x" G="128" B="128" R="0"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="1" col="0">
-    <range left="0.000000" right="76.360392" bottom="3.385040" top="4.662424"/>
+   <plot col="0" row="1">
+    <range right="122.230801" top="3.732062" left="0.000000" bottom="0.465546"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/x" R="160" G="160" B="164"/>
-    <curve name="/uav10/odometry/new_odom/pose/pose/position/x" R="0" G="128" B="0"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/x" G="160" B="164" R="160"/>
+    <curve name="/uav10/odometry/odom_gps/pose/pose/position/x" G="0" B="0" R="128"/>
+    <curve name="/uav10/odometry/odom_main/pose/pose/position/x" G="160" B="164" R="160"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="2" col="0">
-    <range left="0.000000" right="76.360392" bottom="-0.189102" top="0.039281"/>
+   <plot col="0" row="2">
+    <range right="122.214616" top="0.107025" left="0.000000" bottom="-0.181586"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/y" R="0" G="0" B="255"/>
-    <curve name="/uav10/odometry/new_odom/twist/twist/linear/y" R="255" G="0" B="0"/>
-    <curve name="/uav10/optic_flow/velocity/twist/linear/y" R="160" G="160" B="164"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/twist/twist/linear/y" G="0" B="255" R="0"/>
+    <curve name="/uav10/odometry/odom_optflow/twist/twist/linear/y" G="0" B="255" R="255"/>
+    <curve name="/uav10/optic_flow/velocity/twist/linear/y" G="160" B="164" R="160"/>
     <transform value="noTransform"/>
    </plot>
-   <plot row="3" col="0">
-    <range left="0.000000" right="76.360392" bottom="-13.518487" top="-4.787530"/>
+   <plot col="0" row="3">
+    <range right="122.230801" top="0.275403" left="0.000000" bottom="-2.675274"/>
     <limitY/>
-    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/y" R="0" G="0" B="128"/>
-    <curve name="/uav10/odometry/new_odom/pose/pose/position/y" R="0" G="128" B="128"/>
+    <curve name="/uav10/mavros_interface/converted_mavros_odom/pose/pose/position/y" G="0" B="128" R="0"/>
+    <curve name="/uav10/odometry/odom_gps/pose/pose/position/y" G="0" B="255" R="0"/>
+    <curve name="/uav10/odometry/odom_main/pose/pose/position/y" G="128" B="0" R="128"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
@@ -79,7 +83,7 @@
    <selected_topics list=""/>
   </DataLoad_ROS_bags>
   <ROS_Topic_Streamer>
-   <selected_topics list="/uav10/mavros_interface/converted_mavros_odom;/uav10/odometry/new_odom;/uav10/odometry/orientation_gt;/uav10/odometry/orientation_mavros;/uav10/odometry/target_attitude_global;/uav10/optic_flow/velocity;/uav10/optic_flow/velocity_raw"/>
+   <selected_topics list="/uav10/mavros_interface/converted_mavros_odom;/uav10/odometry/odom_main;/uav10/odometry/odom_optflow;/uav10/odometry/orientation_gt;/uav10/odometry/orientation_mavros;/uav10/odometry/target_attitude_global;/uav10/optic_flow/velocity;/uav10/optic_flow/velocity_raw;/uav10/odometry/odom_gps"/>
   </ROS_Topic_Streamer>
   <RosoutPublisherROS/>
   <TopicPublisherROS/>
