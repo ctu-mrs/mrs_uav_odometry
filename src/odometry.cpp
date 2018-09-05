@@ -3163,17 +3163,17 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
       config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp, config.Q_vel_optflow,
       config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
 
-  /* for (auto &estimator : m_state_estimators) { */
-  current_estimator->setCovariance(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-  current_estimator->setCovariance(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-  current_estimator->setCovariance(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
-  current_estimator->setCovariance(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-  current_estimator->setCovariance(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-  current_estimator->setCovariance(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-  current_estimator->setCovariance(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-  current_estimator->setCovariance(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-  current_estimator->setCovariance(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-  /* } */
+  for (auto &estimator : m_state_estimators) {
+  estimator.second->setCovariance(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+  estimator.second->setCovariance(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+  estimator.second->setCovariance(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+  estimator.second->setCovariance(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+  estimator.second->setCovariance(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+  estimator.second->setCovariance(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+  estimator.second->setCovariance(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+  estimator.second->setCovariance(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+  estimator.second->setCovariance(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+  }
 }
 //}
 
