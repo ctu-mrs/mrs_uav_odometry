@@ -6,7 +6,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "OPTFLOW"
+takeoff_estimator: "GPS"
 
 # available localization methods
 gps_available: true
@@ -45,6 +45,8 @@ trgFilterMaxDifference: 3.0
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
+
+null_tracker: "mrs_mav_manager/NullTracker"
 
 altitude:
 
