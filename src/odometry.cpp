@@ -3487,7 +3487,7 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
   /*     (_estimator_type.type == mrs_msgs::EstimatorType::RTK || _estimator_type.type == mrs_msgs::EstimatorType::GPS || */
   /*      _estimator_type.type == mrs_msgs::EstimatorType::OPTFLOWGPS || (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW && gps_reliable))) { */
 
-  if (!got_pixhawk_utm || !got_odom_pixhawk) {
+  if ((use_utm_origin_ && !got_pixhawk_utm) || !got_odom_pixhawk) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: cannot calculate pixhawk_odom_offset, waiting for data: UTM: %s, ODOM: %s", btoa(got_pixhawk_utm),
                       btoa(got_odom_pixhawk));
     return false;
