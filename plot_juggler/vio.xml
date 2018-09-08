@@ -1,0 +1,89 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+ <tabbed_widget parent="main_window" name="Main Window">
+  <plotmatrix tab_name="plot" rows="4" columns="1">
+   <plot row="0" col="0">
+    <range top="0.016736" right="47.554000" left="0.000000" bottom="-0.049085"/>
+    <limitY/>
+    <curve B="128" R="0" G="0" name="/uav1/ground_truth/pose/pose/position/x"/>
+    <curve B="0" R="255" G="0" name="/uav1/odometry/new_odom/pose/pose/position/x"/>
+    <curve B="255" R="0" G="0" name="/uav1/orb_slam/odom/pose/pose/position/x"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="1" col="0">
+    <range top="0.021887" right="47.554000" left="0.062000" bottom="-0.026745"/>
+    <limitY/>
+    <curve B="164" R="160" G="160" name="/uav1/ground_truth/twist/twist/linear/x"/>
+    <curve B="0" R="128" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/x"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="2" col="0">
+    <range top="755.732435" right="47.554000" left="0.000000" bottom="-1588.527098"/>
+    <limitY/>
+    <curve B="128" R="0" G="128" name="/uav1/ground_truth/pose/pose/position/y"/>
+    <curve B="255" R="255" G="0" name="/uav1/odometry/new_odom/pose/pose/position/y"/>
+    <curve B="0" R="0" G="128" name="/uav1/orb_slam/odom/pose/pose/position/y"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="3" col="0">
+    <range top="39.413565" right="47.554000" left="0.062000" bottom="-184.645090"/>
+    <limitY/>
+    <curve B="0" R="128" G="128" name="/uav1/ground_truth/twist/twist/linear/y"/>
+    <curve B="255" R="0" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/y"/>
+    <transform value="noTransform"/>
+   </plot>
+  </plotmatrix>
+  <currentPlotMatrix index="0"/>
+ </tabbed_widget>
+ <tabbed_widget parent="main_window" name="Main Window">
+  <plotmatrix tab_name="plot" rows="4" columns="1">
+   <plot row="0" col="0">
+    <range top="0.016736" right="47.554000" left="0.000000" bottom="-0.049085"/>
+    <limitY/>
+    <curve B="128" R="0" G="0" name="/uav1/ground_truth/pose/pose/position/x"/>
+    <curve B="0" R="255" G="0" name="/uav1/odometry/new_odom/pose/pose/position/x"/>
+    <curve B="255" R="0" G="0" name="/uav1/orb_slam/odom/pose/pose/position/x"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="1" col="0">
+    <range top="0.021887" right="47.554000" left="0.062000" bottom="-0.026745"/>
+    <limitY/>
+    <curve B="164" R="160" G="160" name="/uav1/ground_truth/twist/twist/linear/x"/>
+    <curve B="0" R="128" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/x"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="2" col="0">
+    <range top="755.732435" right="47.554000" left="0.000000" bottom="-1588.527098"/>
+    <limitY/>
+    <curve B="128" R="0" G="128" name="/uav1/ground_truth/pose/pose/position/y"/>
+    <curve B="255" R="255" G="0" name="/uav1/odometry/new_odom/pose/pose/position/y"/>
+    <curve B="0" R="0" G="128" name="/uav1/orb_slam/odom/pose/pose/position/y"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot row="3" col="0">
+    <range top="39.413565" right="47.554000" left="0.062000" bottom="-184.645090"/>
+    <limitY/>
+    <curve B="0" R="128" G="128" name="/uav1/ground_truth/twist/twist/linear/y"/>
+    <curve B="255" R="0" G="0" name="/uav1/odometry/new_odom/twist/twist/linear/y"/>
+    <transform value="noTransform"/>
+   </plot>
+  </plotmatrix>
+  <currentPlotMatrix index="0"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <Plugins>
+  <DataLoad_CSV>
+   <default time_axis=""/>
+  </DataLoad_CSV>
+  <DataLoad_ROS_bags>
+   <selected_topics list=""/>
+  </DataLoad_ROS_bags>
+  <ROS_Topic_Streamer>
+   <selected_topics list="/uav1/ground_truth;/uav1/mavros_interface/converted_mavros_odom;/uav1/odometry/new_odom;/uav1/odometry/orientation_gt;/uav1/odometry/orientation_mavros;/uav1/odometry/target_attitude_global;/uav1/orb_slam/odom"/>
+  </ROS_Topic_Streamer>
+  <RosoutPublisherROS/>
+  <TopicPublisherROS/>
+ </Plugins>
+ <previouslyLoadedStreamer name="ROS_Topic_Streamer"/>
+</root>
+
