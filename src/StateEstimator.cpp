@@ -181,8 +181,9 @@ bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
   newA(0, 1)           = dt;
   newA(1, 2)           = dt;
 
-  mutex_lkf.lock();
   {
+    std::scoped_lock lock(mutex_lkf);
+
     mp_lkf_x->setA(newA);
     mp_lkf_x->setInput(input_vec_x);
     mp_lkf_x->iterateWithoutCorrection();
@@ -190,7 +191,6 @@ bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
     mp_lkf_y->setInput(input_vec_y);
     mp_lkf_y->iterateWithoutCorrection();
   }
-  mutex_lkf.unlock();
 
   return true;
 }
@@ -255,8 +255,9 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
   // Fuse the measurement if this estimator allows it
   /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: " <<
    * m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
-  mutex_lkf.lock();
   {
+    std::scoped_lock lock(mutex_lkf);
+
     mp_lkf_x->setP(m_P_arr[measurement_type]);
     mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
     mp_lkf_x->doCorrection();
@@ -264,7 +265,6 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
     mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
     mp_lkf_y->doCorrection();
   }
-  mutex_lkf.unlock();
 
   return true;
 }
@@ -282,12 +282,10 @@ bool StateEstimator::getStates(Eigen::MatrixXd &states) {
 
   //}
 
-  mutex_lkf.lock();
-  {
-    states.col(0) = mp_lkf_x->getStates();
-    states.col(1) = mp_lkf_y->getStates();
-  }
-  mutex_lkf.unlock();
+  std::scoped_lock lock(mutex_lkf);
+
+  states.col(0) = mp_lkf_x->getStates();
+  states.col(1) = mp_lkf_y->getStates();
 
   return true;
 }
@@ -319,14 +317,13 @@ bool StateEstimator::getState(int state_id, Eigen::VectorXd &state) {
 
   //}
 
-
-  mutex_lkf.lock();
   {
+    std::scoped_lock lock(mutex_lkf);
+
     /* std::cout << "[StateEstimator]: " << m_estimator_name << " getting value: " << mp_lkf_x->getState(state_id) << " of state: " << state_id << std::endl; */
     state(0) = mp_lkf_x->getState(state_id);
     state(1) = mp_lkf_y->getState(state_id);
   }
-  mutex_lkf.unlock();
 
   return true;
 }
@@ -385,12 +382,12 @@ bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
   //}
 
-  mutex_lkf.lock();
   {
+    std::scoped_lock lock(mutex_lkf);
+
     mp_lkf_x->setState(state_id, state(0));
     mp_lkf_y->setState(state_id, state(1));
   }
-  mutex_lkf.unlock();
 
   return true;
 }
@@ -431,9 +428,11 @@ bool StateEstimator::setCovariance(double cov, int measurement_type) {
 
   double old_cov = m_Q_arr[measurement_type](0, 0);
 
-  mutex_lkf.lock();
-  { m_Q_arr[measurement_type](0, 0) = cov; }
-  mutex_lkf.unlock();
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+    m_Q_arr[measurement_type](0, 0) = cov;
+  }
 
   std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")"
             << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl;
@@ -467,12 +466,12 @@ bool StateEstimator::getCovariance(double &cov, int measurement_type) {
   }
 
   //}
-  
-  mutex_lkf.lock();
+
   {
+    std::scoped_lock lock(mutex_lkf);
+
     cov = m_Q_arr[measurement_type](0, 0);
   }
-  mutex_lkf.unlock();
 
   return true;
 }
@@ -513,12 +512,12 @@ bool StateEstimator::reset(const Eigen::MatrixXd &states) {
 
   //}
 
-  mutex_lkf.lock();
   {
+    std::scoped_lock lock(mutex_lkf);
+
     mp_lkf_x->reset(states.col(0));
     mp_lkf_y->reset(states.col(1));
   }
-  mutex_lkf.unlock();
 
   return true;
 }
