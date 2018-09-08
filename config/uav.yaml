@@ -3,7 +3,7 @@ aux_rate: 10 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
-lkf_states_rate: 100 # [Hz]
+lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
 takeoff_estimator: "OPTFLOW"
@@ -92,7 +92,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [100000]
+    vel_optflow: [1000000000]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
@@ -106,7 +106,7 @@ lateral:
   # pos, vel, acc, acc_in, acc_dist, tilt
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]

@@ -1,12 +1,15 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 
+#include <nav_msgs/Odometry.h>
+
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/RtkFixType.h>
-#include <nav_msgs/Odometry.h>
-#include <mutex>
 
 #include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/Profiler.h>
+
+#include <mutex>
 
 namespace mrs_odometry
 {
@@ -45,6 +48,10 @@ private:
 private:
   void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
   void mainTimer(const ros::TimerEvent& event);
+
+private:
+  mrs_lib::Profiler* profiler;
+  bool               profiler_enabled_ = false;
 };
 
 //}
@@ -60,6 +67,8 @@ void RtkRepublisher::onInit() {
   ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   mrs_lib::ParamLoader param_loader(nh_, "RtkRepublisher");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("rate", rate_);
   param_loader.load_param("offset_x", offset_x_);
@@ -77,9 +86,16 @@ void RtkRepublisher::onInit() {
 
   main_timer = nh_.createTimer(ros::Rate(rate_), &RtkRepublisher::mainTimer, this);
 
+  // --------------------------------------------------------------
+  // |                          profiler                          |
+  // --------------------------------------------------------------
+
+  profiler = new mrs_lib::Profiler(nh_, "RtkRepublisher", profiler_enabled_);
+
   // | ----------------------- finish init ---------------------- |
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[RtkRepublisher]: Could not load all parameters!");
     ros::shutdown();
   }
 
@@ -101,11 +117,15 @@ void RtkRepublisher::callbackOdometry(const nav_msgs::OdometryConstPtr& msg) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOdometry");
+
   got_odom = true;
 
-  mutex_odom.lock();
-  { odom = *msg; }
-  mutex_odom.unlock();
+  {
+    std::scoped_lock lock(mutex_odom);
+
+    odom = *msg;
+  }
 }
 
 //}
@@ -121,6 +141,8 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   if (!is_initialized)
     return;
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.01, event);
+
   mrs_msgs::RtkGps rtk_msg_out;
 
   if (!got_odom) {
@@ -132,12 +154,12 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.header.frame_id = "utm";
 
   // copy the position, orientation and velocity
-  mutex_odom.lock();
   {
+    std::scoped_lock lock(mutex_odom);
+
     rtk_msg_out.pose  = odom.pose;
     rtk_msg_out.twist = odom.twist;
   }
-  mutex_odom.unlock();
 
   rtk_msg_out.pose.pose.position.x += offset_x_;
   rtk_msg_out.pose.pose.position.y += offset_y_;
