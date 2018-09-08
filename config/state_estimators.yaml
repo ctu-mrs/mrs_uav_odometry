@@ -39,7 +39,7 @@ state_estimators:
     OPTFLOWGPS: ["vel_optflow", "pos_mavros", "vel_mavros", "tilt_mavros"]
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
     ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
-    VIO: ["tilt_mavros", "pos_vio", "vel_vio"]
+    VIO: ["tilt_mavros", "pos_vio"]
 
   # Mapping of measurements to states
   measurement_states:

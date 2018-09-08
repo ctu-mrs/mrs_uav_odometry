@@ -2315,7 +2315,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vio_pos_x, vio_pos_x, "vio_pos");
+  stateEstimatorsCorrection(vio_pos_x, vio_pos_x, "pos_vio");
 
   //}
 }
