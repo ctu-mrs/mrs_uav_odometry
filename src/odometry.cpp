@@ -2295,8 +2295,10 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_odom_vio);
 
-    vel_vio_x = odom_vio.twist.twist.linear.x;
-    vel_vio_y = odom_vio.twist.twist.linear.y;
+    /* vel_vio_x = odom_vio.twist.twist.linear.x; */
+    /* vel_vio_y = odom_vio.twist.twist.linear.y; */
+    vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / interval2.toSec();
+    vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / interval2.toSec();
   }
 
   // Apply correction step to all state estimators
@@ -2315,7 +2317,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vio_pos_x, vio_pos_x, "pos_vio");
+  stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
 
   //}
 }
