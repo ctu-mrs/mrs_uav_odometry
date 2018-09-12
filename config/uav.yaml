@@ -11,7 +11,7 @@ takeoff_estimator: "OPTFLOW"
 # available localization methods
 gps_available: true
 optflow_available: true
-vio_available: false
+vio_available: true
 rtk_available: false
 lidar_available: false
 
