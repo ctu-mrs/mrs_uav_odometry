@@ -1100,7 +1100,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // if there are some data missing, return
   if (_estimator_type.type == mrs_msgs::EstimatorType::RTK) {
-    if (!gps_reliable && _optflow_available && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available && got_optflow && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -1112,7 +1112,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::GPS) {
-    if (!gps_reliable && _optflow_available && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available && got_optflow && main_altitude_kalman->getState(0) < _max_optflow_altitude) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
