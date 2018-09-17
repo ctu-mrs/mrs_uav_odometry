@@ -48,6 +48,9 @@
 #include "tf/LinearMath/Transform.h"
 #include <tf/transform_broadcaster.h>
 
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <string>
 #include <locale>
 #include <Eigen/Eigen>
@@ -2308,12 +2311,35 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* //{ fuse vio position */
 
+  tf2::Quaternion q;
+  {
+    std::scoped_lock lock(mutex_odom_pixhawk);
+
+    q.setX(odom_pixhawk.pose.pose.orientation.x);
+    q.setY(odom_pixhawk.pose.pose.orientation.y);
+    q.setZ(odom_pixhawk.pose.pose.orientation.z);
+    q.setW(odom_pixhawk.pose.pose.orientation.w);
+  }
+
+  double roll, pitch, yaw;
+  tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
   double vio_pos_x, vio_pos_y;
   {
     std::scoped_lock lock(mutex_odom_vio);
 
-    vio_pos_x = odom_vio.pose.pose.position.x;
-    vio_pos_y = odom_vio.pose.pose.position.y;
+    tf2::Quaternion q_vio;
+    q_vio.setX(odom_vio.pose.pose.orientation.x);
+    q_vio.setY(odom_vio.pose.pose.orientation.y);
+    q_vio.setZ(odom_vio.pose.pose.orientation.z);
+    q_vio.setW(odom_vio.pose.pose.orientation.w);
+
+    double roll_vio, pitch_vio, yaw_vio;
+    tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
+
+    // Correct the position by the compass heading
+    vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio ) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio );
+    vio_pos_y = odom_vio.pose.pose.position.x * sin(yaw - yaw_vio ) + odom_vio.pose.pose.position.y * cos(yaw - yaw_vio );
   }
 
   // Apply correction step to all state estimators
@@ -2779,6 +2805,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_pixhawk);
 
     gps_local_odom.pose.pose.position.z = odom_pixhawk.pose.pose.position.z;
+    gps_local_odom.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
     gps_local_odom.twist                = odom_pixhawk.twist;
   }
 
