@@ -3,19 +3,11 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
-  <arg name="world_file" default="$(find mrs_main)/config/world_simulation.yaml"/>
-
+  <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
   <arg name="debug" default="false" />
 
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
-
-  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
-  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
-  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_nodelet_manager"/>
-  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
-
-  <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
@@ -23,17 +15,18 @@
 
   <group ns="$(arg uav_name)">
 
-    <node pkg="nodelet" type="nodelet" name="odometry" args="$(arg nodelet) mrs_odometry/Odometry $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
-
+    <node pkg="nodelet" type="nodelet" name="odometry" args="standalone mrs_odometry/Odometry" output="screen" launch-prefix="$(arg launch_prefix)">
+    <!-- <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)"> -->
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/simulation.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
+      <param name="enable_profiler" value="$(arg profiler)" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
-      <param name="simulation" type="bool" value="true"/>
+      <param name="simulation" type="bool" value="false"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->
@@ -41,7 +34,7 @@
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
-      <remap from="~vio_in" to="orb_slam/odom" />
+      <remap from="~vio_in" to="orb_slam/processed/odom" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~terarangerone_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
@@ -55,11 +48,12 @@
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
 
       <!-- Publishers -->
-      <remap from="~odom_main_out" to="~odom_main" />
-      <remap from="~odom_optflow_out" to="~odom_optflow" />
-      <remap from="~odom_gps_out" to="~odom_gps" />
-      <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
-      <remap from="~slow_odom_out" to="~slow_odom" />
+      <remap from="~odom_main_out" to="~/processed/odom_main" />
+      <remap from="~odom_optflow_out" to="~/processed/odom_optflow" />
+      <remap from="~odom_gps_out" to="~/processed/odom_gps" />
+      <remap from="~odom_vio_out" to="~/processed/odom_vio" />
+      <remap from="~odom_optflowgps_out" to="~/processed/odom_optflowgps" />
+      <remap from="~slow_odom_out" to="~/processed/slow_odom" />
       <remap from="~rtk_local_out" to="~rtk_local" />
       <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />
       <remap from="~gps_local_odom_out" to="~gps_local_odom" />
