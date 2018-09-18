@@ -15,6 +15,8 @@
 
 #include <diagnostic_msgs/DiagnosticArray.h>
 
+#include <std_msgs/Bool.h>
+
 #include <nav_msgs/Odometry.h>
 
 #include <sensor_msgs/Range.h>
@@ -127,6 +129,7 @@ private:
   ros::Subscriber sub_target_attitude_;
   ros::Subscriber sub_ground_truth_;
   ros::Subscriber sub_mavros_diagnostic_;
+  ros::Subscriber sub_vio_state_;
 
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
@@ -197,6 +200,7 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
+  bool                     _is_estimator_tmp;
   mrs_msgs::EstimatorType  _estimator_type;
   mrs_msgs::EstimatorType  _estimator_type_takeoff;
   std::vector<std::string> _estimator_type_names;
@@ -218,6 +222,7 @@ private:
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
+  void callbackVioState(const std_msgs::Bool &msg);
 
   // | ------------------- service callbacks ------------------- |
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -354,6 +359,7 @@ private:
   bool   gps_reliable       = false;
   bool   _gps_available     = false;
   bool   _vio_available     = false;
+  bool   vio_reliable       = false;
   bool   _optflow_available = false;
   bool   _rtk_available     = false;
   bool   _lidar_available   = false;
@@ -474,6 +480,7 @@ void Odometry::onInit() {
   got_altitude_sensors  = false;
   got_lateral_sensors   = false;
   got_rtk_counter       = 0;
+  _is_estimator_tmp     = false;
 
   // got_object_altitude = false;
 
@@ -880,7 +887,8 @@ void Odometry::onInit() {
 
   // subscriber to visual odometry
   if (_vio_available) {
-    sub_vio_ = nh_.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
+    sub_vio_       = nh_.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
+    sub_vio_state_ = nh_.subscribe("vio_state_in", 1, &Odometry::callbackVioState, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for differential gps
@@ -2338,8 +2346,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
 
     // Correct the position by the compass heading
-    vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio ) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio );
-    vio_pos_y = odom_vio.pose.pose.position.x * sin(yaw - yaw_vio ) + odom_vio.pose.pose.position.y * cos(yaw - yaw_vio );
+    vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio);
+    vio_pos_y = odom_vio.pose.pose.position.x * sin(yaw - yaw_vio) + odom_vio.pose.pose.position.y * cos(yaw - yaw_vio);
   }
 
   // Apply correction step to all state estimators
@@ -2804,9 +2812,9 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
 
-    gps_local_odom.pose.pose.position.z = odom_pixhawk.pose.pose.position.z;
+    gps_local_odom.pose.pose.position.z  = odom_pixhawk.pose.pose.position.z;
     gps_local_odom.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
-    gps_local_odom.twist                = odom_pixhawk.twist;
+    gps_local_odom.twist                 = odom_pixhawk.twist;
   }
 
   // | ------------- publish the gps local odometry ------------- |
@@ -2881,6 +2889,49 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
     ROS_WARN("[Odometry]: GPS reliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
   }
 }
+//}
+
+/* callbackVioState() //{ */
+
+void Odometry::callbackVioState(const std_msgs::Bool &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (msg.data) {
+    if (_is_estimator_tmp) {
+      vio_reliable      = true;
+      _is_estimator_tmp = false;
+      mrs_msgs::EstimatorType desired_estimator;
+      desired_estimator.type = mrs_msgs::EstimatorType::VIO;
+      if (changeCurrentEstimator(desired_estimator)) {
+        ROS_WARN("[Odometry]: VIO tracking resumed. Current estimator: VIO");
+        return;
+      }
+    }
+  } else {
+    if (!_is_estimator_tmp) {
+      vio_reliable = false;
+
+      mrs_msgs::EstimatorType tmp_estimator;
+      tmp_estimator.type = mrs_msgs::EstimatorType::OPTFLOW;
+      if (changeCurrentEstimator(tmp_estimator)) {
+        _is_estimator_tmp = true;
+        ROS_WARN("[Odometry]: VIO tracking lost. Temporary state: OPTFLOW");
+        return;
+      } else {
+        tmp_estimator.type = mrs_msgs::EstimatorType::GPS;
+        if (changeCurrentEstimator(tmp_estimator)) {
+          _is_estimator_tmp = true;
+          ROS_WARN("[Odometry]: VIO tracking lost. Temporary state: GPS");
+          return;
+        }
+      }
+      ROS_ERROR("[Odometry]: VIO tracking lost and neither OPTFLOW or GPS reliable. Should not happen.");
+    }
+  }
+}
+
 //}
 
 /* //{ callbackGroundTruth() */
@@ -3413,7 +3464,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
+    if (!_gps_available) {
+      max_altitude = _max_optflow_altitude;
+    } else {
+      max_altitude = _max_default_altitude;
+    }
 
   } else {
 

@@ -35,6 +35,7 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
+      <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~terarangerone_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
