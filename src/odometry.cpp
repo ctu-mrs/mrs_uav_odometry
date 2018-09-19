@@ -2319,6 +2319,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* //{ fuse vio position */
 
+  // Pixhawk (compass) orientation
   tf2::Quaternion q;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
@@ -2336,6 +2337,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_odom_vio);
 
+    // Vio orientation
     tf2::Quaternion q_vio;
     q_vio.setX(odom_vio.pose.pose.orientation.x);
     q_vio.setY(odom_vio.pose.pose.orientation.y);
@@ -2349,6 +2351,42 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio);
     vio_pos_y = odom_vio.pose.pose.position.x * sin(yaw - yaw_vio) + odom_vio.pose.pose.position.y * cos(yaw - yaw_vio);
   }
+
+  // Saturate correction
+  double max_vio_pos_correction = 0.5;
+  for (auto &estimator : m_state_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "VIO") == 0) {
+      Eigen::VectorXd pos_vec(2);
+      estimator.second->getState(0, pos_vec);
+    
+      // X position
+      if (!std::isfinite(vio_pos_x)) {
+        vio_pos_x = 0;
+        ROS_ERROR("NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
+        return;
+      } else if (vio_pos_x - pos_vec(0) > max_vio_pos_correction) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x, max_vio_pos_correction );
+      vio_pos_x = max_vio_pos_correction;
+      } else if (vio_pos_x - pos_vec(0) < -max_vio_pos_correction) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x, -max_vio_pos_correction );
+      vio_pos_x = -max_vio_pos_correction;
+      }
+
+      // Y position
+      if (!std::isfinite(vio_pos_y)) {
+        vio_pos_y = 0;
+        ROS_ERROR("NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
+        return;
+      } else if (vio_pos_y - pos_vec(1) > max_vio_pos_correction) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y, max_vio_pos_correction );
+      vio_pos_y = max_vio_pos_correction;
+      } else if (vio_pos_y - pos_vec(1) < -max_vio_pos_correction) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y, -max_vio_pos_correction );
+      vio_pos_y = -max_vio_pos_correction;
+      }
+    }
+  }
+
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
