@@ -209,6 +209,12 @@ private:
   std::string child_frame_id;
   std::mutex  mutex_child_frame_id;
 
+  bool       got_init_heading = false;
+  double     m_init_heading;
+  ros::Timer transform_timer;
+  int        transform_timer_rate_ = 1;
+  void transformTimer(const ros::TimerEvent &event);
+
   // | -------------------- message callbacks ------------------- |
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
@@ -955,6 +961,7 @@ void Odometry::onInit() {
   lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
   max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
   topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
+  transform_timer = nh_.createTimer(ros::Rate(transform_timer_rate_), &Odometry::transformTimer, this);
 
   // Check validity of takeoff type
   ROS_INFO("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff.name.c_str());
@@ -1602,6 +1609,24 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
 //}
 
+/* //{ transformTimer() */
+
+void Odometry::transformTimer(const ros::TimerEvent &event) {
+
+  if (!is_initialized || !got_init_heading)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event);
+
+  tf::Quaternion q;
+  q.setRPY(0.0, 0.0, m_init_heading);
+    broadcaster_->sendTransform(tf::StampedTransform(
+        tf::Transform(q, tf::Vector3(0.0, 0.0, 0.0)),
+        ros::Time::now(), "local_origin", std::string("fcu_") + uav_name + std::string("_origin")));
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                          callbacks                         |
 // --------------------------------------------------------------
@@ -1763,6 +1788,24 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   odom_pixhawk_last_update = ros::Time::now();
+
+  if (!got_init_heading) {
+
+    // Pixhawk (compass) orientation
+    tf2::Quaternion q;
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk);
+
+      q.setX(odom_pixhawk.pose.pose.orientation.x);
+      q.setY(odom_pixhawk.pose.pose.orientation.y);
+      q.setZ(odom_pixhawk.pose.pose.orientation.z);
+      q.setW(odom_pixhawk.pose.pose.orientation.w);
+    }
+
+    double roll, pitch;
+    tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
+    got_init_heading = true;
+  }
 
   if (!got_range) {
 
@@ -2358,18 +2401,18 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (std::strcmp(estimator.first.c_str(), "VIO") == 0) {
       Eigen::VectorXd pos_vec(2);
       estimator.second->getState(0, pos_vec);
-    
+
       // X position
       if (!std::isfinite(vio_pos_x)) {
         vio_pos_x = 0;
         ROS_ERROR("NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
         return;
       } else if (vio_pos_x - pos_vec(0) > max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), max_vio_pos_correction );
-      vio_pos_x = max_vio_pos_correction;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), max_vio_pos_correction);
+        vio_pos_x = max_vio_pos_correction;
       } else if (vio_pos_x - pos_vec(0) < -max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), -max_vio_pos_correction );
-      vio_pos_x = -max_vio_pos_correction;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), -max_vio_pos_correction);
+        vio_pos_x = -max_vio_pos_correction;
       }
 
       // Y position
@@ -2378,11 +2421,11 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         ROS_ERROR("NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
         return;
       } else if (vio_pos_y - pos_vec(1) > max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), max_vio_pos_correction );
-      vio_pos_y = max_vio_pos_correction;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), max_vio_pos_correction);
+        vio_pos_y = max_vio_pos_correction;
       } else if (vio_pos_y - pos_vec(1) < -max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), -max_vio_pos_correction );
-      vio_pos_y = -max_vio_pos_correction;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), -max_vio_pos_correction);
+        vio_pos_y = -max_vio_pos_correction;
       }
     }
   }
