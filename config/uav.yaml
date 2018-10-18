@@ -9,9 +9,9 @@ lkf_states_rate: 10 # [Hz]
 takeoff_estimator: "OPTFLOW"
 
 # available localization methods
-gps_available: false
+gps_available: true
 optflow_available: true
-vio_available: false
+vio_available: true
 rtk_available: false
 lidar_available: false
 
@@ -99,7 +99,7 @@ lateral:
     pos_rtk: [1000]
     pos_icp: [1000]
     vel_icp: [10000]
-    pos_vio: [1000]
+    pos_vio: [100000]
     vel_vio: [10000]
 
   # The system matrix
