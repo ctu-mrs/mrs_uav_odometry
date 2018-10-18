@@ -53,7 +53,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
-#include <apriltags2_ros/AprilTagDetectionArray.h>
+/* #include <apriltags2_ros/AprilTagDetectionArray.h> */
 
 #include <string>
 #include <locale>
@@ -116,7 +116,7 @@ private:
   ros::Publisher pub_max_altitude_;
   ros::Publisher pub_lkf_states_x_;
   ros::Publisher pub_lkf_states_y_;
-  ros::Publisher pub_odom_april_;
+  /* ros::Publisher pub_odom_april_; */
 
 private:
   ros::Subscriber sub_global_position_;
@@ -128,7 +128,7 @@ private:
   ros::Subscriber sub_optflow_stddev_;
   ros::Subscriber sub_vio_;
   ros::Subscriber sub_object_;
-  ros::Subscriber sub_april_detections_;
+  /* ros::Subscriber sub_april_detections_; */
   ros::Subscriber rtk_gps_sub_;
   ros::Subscriber sub_icp_relative_;
   ros::Subscriber sub_icp_global_;
@@ -211,9 +211,9 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
-  std::mutex                                         m_det_buffer_mtx;
-  std::queue<apriltags2_ros::AprilTagDetectionArray> m_det_buffer;
-  ros::Subscriber                                    m_det_sub;
+  /* std::mutex                                         m_det_buffer_mtx; */
+  /* std::queue<apriltags2_ros::AprilTagDetectionArray> m_det_buffer; */
+  /* ros::Subscriber                                    m_det_sub; */
 
   bool                     _is_estimator_tmp;
   mrs_msgs::EstimatorType  _estimator_type;
@@ -246,7 +246,7 @@ private:
   void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void callbackVioState(const std_msgs::Bool &msg);
-  void callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg);
+  /* void callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg); */
 
   // | ------------------- service callbacks ------------------- |
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -264,7 +264,7 @@ private:
   bool        isValidType(const mrs_msgs::EstimatorType &type);
   std::string printOdometryDiag();
   bool        stringInVector(const std::string &value, const std::vector<std::string> &vector);
-  void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer);
+  /* void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer); */
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -391,7 +391,7 @@ private:
   bool   _lidar_available   = false;
   bool   _object_available  = false;
   bool   object_reliable    = false;
-  bool   _april_objects     = false;
+  /* bool   _april_objects     = false; */
 
   // use differential gps
   bool   use_differential_gps = false;
@@ -638,7 +638,7 @@ void Odometry::onInit() {
   param_loader.load_param("rtk_available", _rtk_available);
   param_loader.load_param("lidar_available", _lidar_available);
   param_loader.load_param("object_available", _object_available);
-  param_loader.load_param("april_objects", _april_objects);
+  /* param_loader.load_param("april_objects", _april_objects); */
   gps_reliable        = _gps_available;
   object_reliable     = false;
   counter_odom_object = false;
@@ -884,7 +884,7 @@ void Odometry::onInit() {
   pub_max_altitude_  = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
   pub_lkf_states_x_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
   pub_lkf_states_y_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
-  pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1);
+  /* pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1); */
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -930,9 +930,9 @@ void Odometry::onInit() {
   // subscriber to object odometry
   if (_object_available) {
     sub_object_ = nh_.subscribe("object_in", 1, &Odometry::callbackObjectOdometry, this, ros::TransportHints().tcpNoDelay());
-    if (_april_objects) {
-      sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay());
-    }
+    /* if (_april_objects) { */
+      /* sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay()); */
+    /* } */
   }
 
   // subscriber for differential gps
@@ -3265,15 +3265,15 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 
 /* callbackApriltagDetection() //{ */
 
-void Odometry::callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg) {
+/* void Odometry::callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg) { */
 
-  {
-    std::lock_guard lck(m_det_buffer_mtx);
-    m_det_buffer.push(*det_msg);
-  }
+/*   { */
+/*     std::lock_guard lck(m_det_buffer_mtx); */
+/*     m_det_buffer.push(*det_msg); */
+/*   } */
 
-  processApriltagQueue(m_det_buffer);
-}
+/*   processApriltagQueue(m_det_buffer); */
+/* } */
 
 //}
 
@@ -3959,81 +3959,81 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 //}
 
 /* processApriltagQueue() //{ */
-void Odometry::processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer) {
+/* void Odometry::processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer) { */
 
-  // process all messages in the buffer
-  bool buffer_empty;
-  {
-    std::lock_guard lck(m_det_buffer_mtx);
-    buffer_empty = msg_buffer.empty();
-  }
+/*   // process all messages in the buffer */
+/*   bool buffer_empty; */
+/*   { */
+/*     std::lock_guard lck(m_det_buffer_mtx); */
+/*     buffer_empty = msg_buffer.empty(); */
+/*   } */
 
-  while (!buffer_empty) {
-    // get a new message from the queue
-    apriltags2_ros::AprilTagDetectionArray cur_msg;
-    {
-      std::lock_guard lck(m_det_buffer_mtx);
-      cur_msg = msg_buffer.front();
-      msg_buffer.pop();
-      buffer_empty = msg_buffer.empty();
-    }
+/*   while (!buffer_empty) { */
+/*     // get a new message from the queue */
+/*     apriltags2_ros::AprilTagDetectionArray cur_msg; */
+/*     { */
+/*       std::lock_guard lck(m_det_buffer_mtx); */
+/*       cur_msg = msg_buffer.front(); */
+/*       msg_buffer.pop(); */
+/*       buffer_empty = msg_buffer.empty(); */
+/*     } */
 
 
-    // update positions of all detected ground truth tags
-    for (const auto &det : cur_msg.detections) {
-      bool found_match = false;
-      // process the detection based on which of the tags was detected
-      if (det.id[0] == 0) {
-        // the a matching bundle was found, update its pose
-        geometry_msgs::Pose cur_pose = det.pose.pose.pose;
-        nav_msgs::Odometry  odom_april;
-        odom_april.pose.pose       = det.pose.pose.pose;
-        odom_april.header.stamp    = ros::Time::now();
-        odom_april.header.frame_id = "april_tag0";
-        odom_april.child_frame_id  = cur_msg.header.frame_id;
+/*     // update positions of all detected ground truth tags */
+/*     for (const auto &det : cur_msg.detections) { */
+/*       bool found_match = false; */
+/*       // process the detection based on which of the tags was detected */
+/*       if (det.id[0] == 0) { */
+/*         // the a matching bundle was found, update its pose */
+/*         geometry_msgs::Pose cur_pose = det.pose.pose.pose; */
+/*         nav_msgs::Odometry  odom_april; */
+/*         odom_april.pose.pose       = det.pose.pose.pose; */
+/*         odom_april.header.stamp    = ros::Time::now(); */
+/*         odom_april.header.frame_id = "april_tag0"; */
+/*         odom_april.child_frame_id  = cur_msg.header.frame_id; */
 
-        double                    x = -det.pose.pose.pose.position.y;
-        double                    y = -det.pose.pose.pose.position.x;
-        double                    z = det.pose.pose.pose.position.z;
-        double                    roll, pitch, yaw;
-        double                    roll_tag, pitch_tag, yaw_tag;
-        geometry_msgs::Quaternion quat;
-        geometry_msgs::Quaternion quat_tag = det.pose.pose.pose.orientation;
-        {
-          std::scoped_lock lock(mutex_odom_pixhawk);
-          quat = odom_pixhawk.pose.pose.orientation;
-        }
-        tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-        tf::Quaternion qt_tag(quat_tag.x, quat_tag.y, quat_tag.z, quat_tag.w);
-        tf::Matrix3x3(qt).getRPY(roll, pitch, yaw);
-        tf::Matrix3x3(qt).getRPY(roll_tag, pitch_tag, yaw_tag);
+/*         double                    x = -det.pose.pose.pose.position.y; */
+/*         double                    y = -det.pose.pose.pose.position.x; */
+/*         double                    z = det.pose.pose.pose.position.z; */
+/*         double                    roll, pitch, yaw; */
+/*         double                    roll_tag, pitch_tag, yaw_tag; */
+/*         geometry_msgs::Quaternion quat; */
+/*         geometry_msgs::Quaternion quat_tag = det.pose.pose.pose.orientation; */
+/*         { */
+/*           std::scoped_lock lock(mutex_odom_pixhawk); */
+/*           quat = odom_pixhawk.pose.pose.orientation; */
+/*         } */
+/*         tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w); */
+/*         tf::Quaternion qt_tag(quat_tag.x, quat_tag.y, quat_tag.z, quat_tag.w); */
+/*         tf::Matrix3x3(qt).getRPY(roll, pitch, yaw); */
+/*         tf::Matrix3x3(qt).getRPY(roll_tag, pitch_tag, yaw_tag); */
         
-        double sy = sin(-yaw);
-        double cy = cos(-yaw);
-        double sp = sin(pitch*0.8);
-        double cp = cos(pitch*0.8);
-        double sr = sin(roll*0.8);
-        double cr = cos(roll*0.8);
-        /* odom_april.pose.pose.position.y = -(x*cos(-yaw) - y*sin(-yaw)); */
-        /* odom_april.pose.pose.position.x = -(x*sin(-yaw) + y*cos(-yaw)); */
-        odom_april.pose.pose.position.x = (x*(cy*cp) + y*(cy*sp*sr-sy*cr) + z*(cy*sp*cr+sy*sr));
-        odom_april.pose.pose.position.y = (x*(sy*cp) + y*(sy*sp*sr+cy*cr) + z*(sy*sp*cr-cy*sr));
-        /* odom_april.pose.pose.position.x = x; */
-        /* odom_april.pose.pose.position.y = y; */
-        /* odom_april.pose.pose.position.x = x*cos(yaw - yaw_tag) - y*sin(yaw - yaw_tag); */
-        /* odom_april.pose.pose.position.y = x*sin(yaw - yaw_tag) + y*cos(yaw - yaw_tag); */
-        /* tf2::doTransform(cur_pose, cur_pose, c2w_tf); */
-        /* bundle->update_position(cur_pose); */
-        try {
-          pub_odom_april_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_april)));
-        }
-        catch (...) {
-          ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_april_.getTopic().c_str());
-        }
-      }
+/*         double sy = sin(-yaw); */
+/*         double cy = cos(-yaw); */
+/*         double sp = sin(pitch*0.8); */
+/*         double cp = cos(pitch*0.8); */
+/*         double sr = sin(roll*0.8); */
+/*         double cr = cos(roll*0.8); */
+/*         /1* odom_april.pose.pose.position.y = -(x*cos(-yaw) - y*sin(-yaw)); *1/ */
+/*         /1* odom_april.pose.pose.position.x = -(x*sin(-yaw) + y*cos(-yaw)); *1/ */
+/*         odom_april.pose.pose.position.x = (x*(cy*cp) + y*(cy*sp*sr-sy*cr) + z*(cy*sp*cr+sy*sr)); */
+/*         odom_april.pose.pose.position.y = (x*(sy*cp) + y*(sy*sp*sr+cy*cr) + z*(sy*sp*cr-cy*sr)); */
+/*         /1* odom_april.pose.pose.position.x = x; *1/ */
+/*         /1* odom_april.pose.pose.position.y = y; *1/ */
+/*         /1* odom_april.pose.pose.position.x = x*cos(yaw - yaw_tag) - y*sin(yaw - yaw_tag); *1/ */
+/*         /1* odom_april.pose.pose.position.y = x*sin(yaw - yaw_tag) + y*cos(yaw - yaw_tag); *1/ */
+/*         /1* tf2::doTransform(cur_pose, cur_pose, c2w_tf); *1/ */
+/*         /1* bundle->update_position(cur_pose); *1/ */
+/*         try { */
+/*           pub_odom_april_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_april))); */
+/*         } */
+/*         catch (...) { */
+/*           ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_april_.getTopic().c_str()); */
+/*         } */
+/*       } */
 
-    }  // for
-  }    // while (buffer_empty)
+/*     }  // for */
+/*   }    // while (buffer_empty) */
 }
 //}
 
