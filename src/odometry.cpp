@@ -931,7 +931,7 @@ void Odometry::onInit() {
   if (_object_available) {
     sub_object_ = nh_.subscribe("object_in", 1, &Odometry::callbackObjectOdometry, this, ros::TransportHints().tcpNoDelay());
     /* if (_april_objects) { */
-      /* sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay()); */
+    /* sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay()); */
     /* } */
   }
 
@@ -4007,7 +4007,7 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 /*         tf::Quaternion qt_tag(quat_tag.x, quat_tag.y, quat_tag.z, quat_tag.w); */
 /*         tf::Matrix3x3(qt).getRPY(roll, pitch, yaw); */
 /*         tf::Matrix3x3(qt).getRPY(roll_tag, pitch_tag, yaw_tag); */
-        
+
 /*         double sy = sin(-yaw); */
 /*         double cy = cos(-yaw); */
 /*         double sp = sin(pitch*0.8); */
@@ -4034,7 +4034,7 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 
 /*     }  // for */
 /*   }    // while (buffer_empty) */
-}
+/* } */
 //}
 
 }  // namespace mrs_odometry
