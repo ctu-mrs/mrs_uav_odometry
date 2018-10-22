@@ -19,7 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
   # apriltags2_ros
   )
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
+# set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
+set(CMAKE_CXX_FLAGS "-std=c++17")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)
@@ -57,7 +58,7 @@ include_directories(
 add_library(range_filter src/range_filter.cpp)
 
 ## Declare a C++ executable
-add_library(Odometry src/StateEstimator.cpp src/odometry.cpp)
+add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry

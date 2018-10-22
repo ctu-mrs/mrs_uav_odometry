@@ -19,7 +19,7 @@ object_available: true
 min_satellites: 6
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
-april_objects: true
+april_objects: false
 
 use_differential_gps: true
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
@@ -46,15 +46,41 @@ null_tracker: "mrs_mav_manager/NullTracker"
 
 altitude:
 
-  numberOfVariables: 1
+  numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  A: [1]
-  B: [0.01] # 1/rate
-  R: [0.001]
-  Q: [5000]
-  P: [1]
+  # The system matrix
+  # altitude, velocity, acceleration, height, elevation, offset
+  # altitude = height + elevation
+  A: [1, 0.02, 0.0002, 0, 0, 0,
+      0, 1, 0.02, 0.0002, 0, 0,
+      0, 0, 1, 0, 0, 0,
+      0, 0.02, 0.0002, 1, 0, 0,
+      1, 0, 0, -1.0, 0, 0,
+      0, 0, 0, 0, 0, 1]
+
+  # The input matrix
+  B: [0,
+      0,
+      0,
+      0,
+      0,
+      0]
+
+  # Process covariance
+  R: [1, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 0.01]
+
+  # Covariances of measurements
+  Q:
+    alt_baro: [100]
+    height_range: [100]
+    vel_mavros: [100]
 
   # bounds for the measurement covariance
   TrgMaxQ: 100000
@@ -64,8 +90,8 @@ altitude:
   GarminMinQ: 0.5
 
   # rate for changing the measurement covariance
-  TrgQChangeRate: 1000  
-  GarminQChangeRate: 1000  
+  TrgQChangeRate: 1000
+  GarminQChangeRate: 1000
 
   rtkQ: 0.1
   # objectQ: 0.1
