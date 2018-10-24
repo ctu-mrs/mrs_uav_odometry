@@ -2365,10 +2365,10 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         ROS_ERROR("NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
         return;
       } else if (vio_pos_x - pos_vec(0) > max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x, max_vio_pos_correction );
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), max_vio_pos_correction );
       vio_pos_x = max_vio_pos_correction;
       } else if (vio_pos_x - pos_vec(0) < -max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x, -max_vio_pos_correction );
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), -max_vio_pos_correction );
       vio_pos_x = -max_vio_pos_correction;
       }
 
@@ -2378,10 +2378,10 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         ROS_ERROR("NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
         return;
       } else if (vio_pos_y - pos_vec(1) > max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y, max_vio_pos_correction );
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), max_vio_pos_correction );
       vio_pos_y = max_vio_pos_correction;
       } else if (vio_pos_y - pos_vec(1) < -max_vio_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y, -max_vio_pos_correction );
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), -max_vio_pos_correction );
       vio_pos_y = -max_vio_pos_correction;
       }
     }
