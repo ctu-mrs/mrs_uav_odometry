@@ -3207,7 +3207,7 @@ void Odometry::callbackVioState(const std_msgs::Bool &msg) {
       }
     }
   } else {
-    if (!_is_estimator_tmp) {
+    if (std::strcmp(current_estimator->getName().c_str(), "VIO")==0 && !_is_estimator_tmp) {
       vio_reliable = false;
 
       mrs_msgs::EstimatorType tmp_estimator;
