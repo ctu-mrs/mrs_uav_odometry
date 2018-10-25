@@ -82,7 +82,7 @@ altitude:
     height_range: [0.016] # 0.04 stddev in simulation
     vel_mavros: [0.00001]
     bias_baro: [0.01] 
-    elevation: [0.1] 
+    elevation: [0.001] 
 
   # bounds for the measurement covariance
   TrgMaxQ: 100000

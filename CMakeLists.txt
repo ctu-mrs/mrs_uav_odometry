@@ -56,6 +56,7 @@ include_directories(
   )
 
 add_library(range_filter src/range_filter.cpp)
+add_library(stddev_buffer src/StddevBuffer.cpp)
 
 ## Declare a C++ executable
 add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/odometry.cpp)
@@ -65,6 +66,7 @@ target_link_libraries(Odometry
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
   range_filter
+  stddev_buffer
   )
 
 ## Add configure headers for dynamic reconfigure

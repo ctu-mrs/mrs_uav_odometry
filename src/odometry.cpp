@@ -49,6 +49,7 @@
 #include <range_filter.h>
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
+#include <StddevBuffer.h>
 #include <mrs_odometry/lkfConfig.h>
 
 #include "tf/LinearMath/Transform.h"
@@ -123,6 +124,8 @@ private:
   /* ros::Publisher pub_odom_april_; */
   ros::Publisher pub_altitude_state_;
   ros::Publisher pub_inno_elevation_;
+  ros::Publisher pub_inno_stddev_elevation_;
+  ros::Publisher pub_veldiff_stddev_;
   ros::Publisher pub_inno_cov_elevation_;
   ros::Publisher pub_inno_cov_bias_;
   ros::Publisher pub_alt_cov_;
@@ -275,6 +278,7 @@ private:
   std::string printOdometryDiag();
   bool        stringInVector(const std::string &value, const std::vector<std::string> &vector);
   /* void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer); */
+  double getStddev(std::queue<double> &buffer, double x);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -294,15 +298,17 @@ private:
   double             TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
   // Garmin altitude subscriber and callback
-  ros::Subscriber    sub_garmin_;
-  sensor_msgs::Range range_garmin_;
-  void               callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-  RangeFilter *      garminFilter;
-  int                garmin_filter_buffer_size;
-  double             garmin_max_valid_altitude;
-  double             garmin_filter_max_difference;
-  ros::Time          garmin_last_update;
-  double             GarminMaxQ, GarminMinQ, GarminQChangeRate;
+  ros::Subscriber               sub_garmin_;
+  sensor_msgs::Range            range_garmin_;
+  void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
+  RangeFilter *                 garminFilter;
+  int                           garmin_filter_buffer_size;
+  double                        garmin_max_valid_altitude;
+  double                        garmin_filter_max_difference;
+  ros::Time                     garmin_last_update;
+  double                        GarminMaxQ, GarminMinQ, GarminQChangeRate;
+  bool                          excessive_tilt = false;
+  std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
 
   bool got_odom_pixhawk     = false;
   bool got_optflow          = false;
@@ -679,6 +685,9 @@ void Odometry::onInit() {
   terarangerFilter = new RangeFilter(trg_filter_buffer_size, trg_max_valid_altitude, trg_filter_max_difference);
   garminFilter     = new RangeFilter(garmin_filter_buffer_size, garmin_max_valid_altitude, garmin_filter_max_difference);
 
+  stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
+  stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
+
   ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   ROS_INFO("[Odometry]: Teraranger max valid altitude: %2.2f", trg_max_valid_altitude);
 
@@ -948,11 +957,13 @@ void Odometry::onInit() {
   pub_lkf_states_x_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
   pub_lkf_states_y_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
   /* pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1); */
-  pub_altitude_state_     = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
-  pub_inno_elevation_     = nh_.advertise<mrs_msgs::Float64Stamped>("inno_elevation_out", 1);
-  pub_inno_cov_elevation_ = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_elevation_out", 1);
-  pub_inno_cov_bias_      = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_bias_out", 1);
-  pub_alt_cov_            = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
+  pub_altitude_state_        = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
+  pub_inno_elevation_        = nh_.advertise<mrs_msgs::Float64Stamped>("inno_elevation_out", 1);
+  pub_inno_stddev_elevation_ = nh_.advertise<mrs_msgs::Float64Stamped>("inno_stddev_elevation_out", 1);
+  pub_veldiff_stddev_        = nh_.advertise<mrs_msgs::Float64Stamped>("veldiff_stddev_out", 1);
+  pub_inno_cov_elevation_    = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_elevation_out", 1);
+  pub_inno_cov_bias_         = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_bias_out", 1);
+  pub_alt_cov_               = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -2080,10 +2091,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     //}
 
 
-
     /* publish innovation covariance //{ */
-    
-    
+
+
     std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("bias_baro");
     Eigen::MatrixXd                      innovation_cov    = Eigen::MatrixXd::Zero(1, 1);
     {
@@ -2100,14 +2110,14 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     catch (...) {
       ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_bias_.getTopic().c_str());
     }
-    
+
     //}
 
     /* do correction of barometer offset //{ */
-    
-    double bias_baro = correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
+
+    double bias_baro       = correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
     double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
-    
+
     // We want to estimate barometer offset only when the altitude is constant and not close to obstacle
     if (!bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) < 0.2 &&
         current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < 0.2 && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.6) {
@@ -2118,23 +2128,23 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
          current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < 0.5)) {
       bias_baro_estimation_enabled = false;
     }
-    
-    if (bias_baro_estimation_enabled && !obstacle_detected) {
+
+    if (bias_baro_estimation_enabled && !obstacle_detected && !excessive_tilt) {
       // When there is no obstacle under the drone, reset the elevation to zero
       if (current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < 0.5) {
         altitudeEstimatorCorrection(correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), "bias_baro");
         altitudeEstimatorCorrection(0.0, "elevation");
-    
+
       } else {
         altitudeEstimatorCorrection(bias_baro, "bias_baro");
       }
       ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
     }
-    
-    
+
+
     ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
-    
-    
+
+
     //}
 
     /* do correction of mavros z velocity //{ */
@@ -2202,7 +2212,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
 
-    //}
+  //}
 
   /* state estimators update //{ */
 
@@ -3164,8 +3174,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  // TODO do not fuse when tilts exceed a threshold
-  /* compensate tilt of the sensor //{ */
 
   double                    roll, pitch, yaw;
   geometry_msgs::Quaternion quat;
@@ -3176,10 +3184,17 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
   tf::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
+  // Check for excessive tilts
+  if (roll > M_PI / 6.0 || pitch > M_PI / 6.0) {
+    excessive_tilt = true;
+    ROS_WARN("[Odometry]: Not fusing Garmin height correction due to excessive tilt (roll>pi/6 or pitch>pi/6)");
+  } else {
+    excessive_tilt = false;
+  }
+
   double measurement = 0;
   measurement        = range_garmin_.range * cos(roll) * cos(pitch) + garmin_z_offset_;
 
-  //}
 
   if (!std::isfinite(measurement)) {
 
@@ -3242,10 +3257,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       double innovation = elevation - current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION);
 
       /* publish innovation //{ */
-      
-      
+
+
       std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("elevation");
-      
+
       Eigen::VectorXd innovation_vec = Eigen::VectorXd::Zero(1);
       Eigen::VectorXd elevation_vec  = Eigen::VectorXd::Zero(1);
       elevation_vec(0)               = elevation;
@@ -3263,13 +3278,29 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       catch (...) {
         ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_elevation_.getTopic().c_str());
       }
-      
-      
+
+      double innovation_stddev = stddev_inno_elevation->getStddev(innovation);
+
+      /* publish innovation stddev //{ */
+
+      mrs_msgs::Float64Stamped inno_stddev_msg;
+      inno_stddev_msg.header.stamp    = ros::Time::now();
+      inno_stddev_msg.header.frame_id = "local_origin";
+      inno_stddev_msg.value           = innovation_stddev;
+      try {
+        pub_inno_stddev_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_stddev_msg)));
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_stddev_elevation_.getTopic().c_str());
+      }
+
+      //}
+
       //}
 
       /* publish innovation covariance //{ */
-      
-      
+
+
       Eigen::MatrixXd innovation_cov = Eigen::MatrixXd::Zero(1, 1);
       {
         std::scoped_lock lock(mutex_altitude_estimator);
@@ -3285,17 +3316,38 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       catch (...) {
         ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_elevation_.getTopic().c_str());
       }
-      
-      
+
+
       //}
-      
+
+      double veldiff        = current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT);
+      double veldiff_stddev = 0.0;
+
+      if (current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > 0.5) {
+        veldiff_stddev = stddev_veldiff->getStddev(veldiff);
+      }
+
+      /* publish innovation stddev //{ */
+
+      mrs_msgs::Float64Stamped veldiff_stddev_msg;
+      veldiff_stddev_msg.header.stamp    = ros::Time::now();
+      veldiff_stddev_msg.header.frame_id = "local_origin";
+      veldiff_stddev_msg.value           = veldiff_stddev;
+      try {
+        pub_veldiff_stddev_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(veldiff_stddev_msg)));
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", pub_veldiff_stddev_.getTopic().c_str());
+      }
+
+      //}
+
       // We want to detect flying above obstacle when the elevation innovation grows and the derivatives of altitude and height differ
-      if (!obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > 0.6 && std::pow(innovation, 2) > 0.06 &&
-          std::pow(current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT), 2) > 0.06) {
+      if (!obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > 0.6 &&
+          std::pow(innovation, 2) > std::pow(5 * innovation_stddev, 2) && std::pow(veldiff, 2) > std::pow(1 * veldiff_stddev, 2)) {
         obstacle_detected = true;
       }
-      if (obstacle_detected && std::pow(innovation, 2) < 0.03 &&
-          std::pow(current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT), 2) < 0.03) {
+      if (obstacle_detected && std::pow(innovation, 2) < std::pow(5 * innovation_stddev, 2) && std::pow(veldiff, 2) < std::pow(2 * veldiff_stddev, 2)) {
         obstacle_detected = false;
       }
 
@@ -4321,6 +4373,34 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 /*     }  // for */
 /*   }    // while (buffer_empty) */
 /* } */
+//}
+
+/* getStddev() //{ */
+
+double Odometry::getStddev(std::queue<double> &buffer, double x) {
+
+  static double sum   = 0.0;
+  static double sumsq = 0.0;
+
+  sum += x;
+  sumsq += std::pow(x, 2);
+
+  buffer.push(x);
+  if (buffer.size() > 1000) {
+    sum -= buffer.front();
+    sumsq -= std::pow(buffer.front(), 2);
+    buffer.pop();
+  }
+
+  double n = buffer.size();
+  if (n > 100) {
+    double var = 1.0 / (n - 1.0) * (sumsq - std::pow(sum, 2) / n);
+    return std::sqrt(var);
+  } else {
+    return 0.0;
+  }
+}
+
 //}
 
 }  // namespace mrs_odometry
