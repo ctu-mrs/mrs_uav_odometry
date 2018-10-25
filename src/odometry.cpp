@@ -94,7 +94,8 @@ public:
 
 private:
   std::string uav_name;
-  bool        simulation_;
+  bool        simulation_ = false;
+  bool        rosbag_ = false;
   bool        _rosbag;
   bool        use_gt_orientation_;
 
@@ -278,7 +279,6 @@ private:
   std::string printOdometryDiag();
   bool        stringInVector(const std::string &value, const std::vector<std::string> &vector);
   /* void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer); */
-  double getStddev(std::queue<double> &buffer, double x);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -548,6 +548,7 @@ void Odometry::onInit() {
   param_loader.load_param("rate", rate_);
 
   param_loader.load_param("simulation", simulation_);
+  param_loader.load_param("rosbag", rosbag_);
   param_loader.load_param("slow_odom_rate", slow_odom_rate_);
   param_loader.load_param("diag_rate", diag_rate_);
   param_loader.load_param("aux_rate", aux_rate_);
@@ -2120,12 +2121,11 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // We want to estimate barometer offset only when the altitude is constant and not close to obstacle
     if (!bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) < 0.2 &&
-        current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < 0.2 && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.6) {
+        current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < 0.2) {
       bias_baro_estimation_enabled = true;
     }
     if (bias_baro_estimation_enabled &&
-        (current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) > 0.3 || current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > 0.3 ||
-         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < 0.5)) {
+        (current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) > 0.3 || current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > 0.3 )) {
       bias_baro_estimation_enabled = false;
     }
 
@@ -3215,7 +3215,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     ros::Duration interval;
     interval    = ros::Time::now() - range_garmin_.header.stamp;
+    if (!rosbag) {
     measurement = garminFilter->getValue(measurement, interval);
+    }
   }
 
   //////////////////// Fuse main altitude kalman ////////////////////
@@ -4373,34 +4375,6 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 /*     }  // for */
 /*   }    // while (buffer_empty) */
 /* } */
-//}
-
-/* getStddev() //{ */
-
-double Odometry::getStddev(std::queue<double> &buffer, double x) {
-
-  static double sum   = 0.0;
-  static double sumsq = 0.0;
-
-  sum += x;
-  sumsq += std::pow(x, 2);
-
-  buffer.push(x);
-  if (buffer.size() > 1000) {
-    sum -= buffer.front();
-    sumsq -= std::pow(buffer.front(), 2);
-    buffer.pop();
-  }
-
-  double n = buffer.size();
-  if (n > 100) {
-    double var = 1.0 / (n - 1.0) * (sumsq - std::pow(sum, 2) / n);
-    return std::sqrt(var);
-  } else {
-    return 0.0;
-  }
-}
-
 //}
 
 }  // namespace mrs_odometry

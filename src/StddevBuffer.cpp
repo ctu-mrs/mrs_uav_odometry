@@ -8,7 +8,6 @@ StddevBuffer::StddevBuffer(int max_size) {
   m_sum      = 0.0;
   m_sumsq    = 0.0;
   m_max_size = max_size;
-
 }
 
 //}
@@ -33,7 +32,7 @@ double StddevBuffer::getStddev(double x) {
     double var = 1.0 / (m_n - 1.0) * (m_sumsq - std::pow(m_sum, 2) / m_n);
     return std::sqrt(var);
   } else {
-    return 0.0;
+    return 1.0;
   }
 }
 
