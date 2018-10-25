@@ -53,11 +53,11 @@ altitude:
   # The system matrix
   # altitude, velocity, acceleration, height, elevation, offset
   # altitude = height + elevation
-  A: [1, 0.02, 0.0002, 0, 0, 0,
-      0, 1, 0.02, 0.0002, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0.02, 0.0002, 1, 0, 0,
-      1, 0, 0, -1.0, 0, 0,
+  A: [1, 0.02, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0.02, 0, 0, 
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 1]
 
   # The input matrix
@@ -69,18 +69,20 @@ altitude:
       0]
 
   # Process covariance
-  R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 0.01]
+  R: [0.0001, 0, 0, 0, 0, 0,
+      0, 0.0001, 0, 0, 0, 0,
+      0, 0, 0.0001, 0, 0, 0,
+      0, 0, 0, 0.0001, 0, 0,
+      0, 0, 0, 0, 0.0001, 0,
+      0, 0, 0, 0, 0, 0.0001]
 
   # Covariances of measurements
   Q:
-    alt_baro: [100]
-    height_range: [100]
-    vel_mavros: [100]
+    alt_baro: [1]
+    height_range: [0.016] # 0.04 stddev in simulation
+    vel_mavros: [0.00001]
+    bias_baro: [0.01] 
+    elevation: [0.1] 
 
   # bounds for the measurement covariance
   TrgMaxQ: 100000

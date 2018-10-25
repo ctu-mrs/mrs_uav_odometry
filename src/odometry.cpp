@@ -33,11 +33,13 @@
 #include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/ChangeEstimator.h>
 #include <mrs_msgs/Float64Stamped.h>
+#include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/LkfStates.h>
 #include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/OffsetOdom.h>
 #include <mrs_msgs/Altitude.h>
+#include <mrs_msgs/AltitudeStateNames.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -120,6 +122,10 @@ private:
   ros::Publisher pub_lkf_states_y_;
   /* ros::Publisher pub_odom_april_; */
   ros::Publisher pub_altitude_state_;
+  ros::Publisher pub_inno_elevation_;
+  ros::Publisher pub_inno_cov_elevation_;
+  ros::Publisher pub_inno_cov_bias_;
+  ros::Publisher pub_alt_cov_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -359,7 +365,10 @@ private:
   std::map<std::string, std::string>     map_alt_measurement_state;
   std::map<std::string, int>             map_alt_measurement_name_id;
   std::map<std::string, Eigen::MatrixXd> map_alt_states;
-  std::map<std::string, Eigen::MatrixXd> map_alt_states_measurement;
+  bool                                   is_altitude_estimator_initialized = false;
+  int                                    counter_altitude                  = 0;
+  bool                                   obstacle_detected                 = false;
+  bool                                   bias_baro_estimation_enabled      = false;
 
   // State estimation
   int                                                    _n_model_states;
@@ -704,11 +713,6 @@ void Odometry::onInit() {
     }
 
     map_alt_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
-
-    Eigen::MatrixXd temp_P_states = Eigen::MatrixXd::Zero(1, altitude_n);
-    param_loader.load_matrix_static("altitude_estimator/states_in_measurement_mapping/" + *it, temp_P_states, 1, altitude_n);
-
-    map_alt_states_measurement.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P_states));
   }
 
   // Load the model state mapping
@@ -738,7 +742,7 @@ void Odometry::onInit() {
   /* create altitude estimator //{ */
 
   std::vector<bool>            alt_fusing_measurement;
-  std::vector<Eigen::MatrixXd> P_arr_alt, P_states_arr_alt, Q_arr_alt;
+  std::vector<Eigen::MatrixXd> P_arr_alt, Q_arr_alt;
 
   // Loop through all measurements
   for (std::vector<std::string>::iterator it2 = _alt_measurement_names.begin(); it2 != _alt_measurement_names.end(); ++it2) {
@@ -757,10 +761,6 @@ void Odometry::onInit() {
     std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_alt_states.find(pair_measurement_state->second);
     P_arr_alt.push_back(pair_state_matrix->second);
 
-    // Find state in measurement to state mapping
-    std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_state_matrix = map_alt_states_measurement.find(*it2);
-    P_states_arr_alt.push_back(pair_measurement_state_matrix->second);
-
     // Find measurement covariance
     std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_alt_measurement_covariance.find(*it2);
     Q_arr_alt.push_back(pair_measurement_covariance->second);
@@ -768,8 +768,7 @@ void Odometry::onInit() {
 
   /* main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
   /* failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
-  altitude_estimator =
-      std::make_shared<AltitudeEstimator>(alt_estimator_name, alt_fusing_measurement, P_arr_alt, P_states_arr_alt, Q_arr_alt, A_alt, B_alt, R_alt);
+  altitude_estimator = std::make_shared<AltitudeEstimator>(alt_estimator_name, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_alt, B_alt, R_alt);
 
 
   ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: "
@@ -949,7 +948,11 @@ void Odometry::onInit() {
   pub_lkf_states_x_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
   pub_lkf_states_y_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
   /* pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1); */
-  pub_altitude_state_ = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
+  pub_altitude_state_     = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
+  pub_inno_elevation_     = nh_.advertise<mrs_msgs::Float64Stamped>("inno_elevation_out", 1);
+  pub_inno_cov_elevation_ = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_elevation_out", 1);
+  pub_inno_cov_bias_      = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_bias_out", 1);
+  pub_alt_cov_            = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -1120,16 +1123,22 @@ void Odometry::onInit() {
 
   /* pass current covariances to dynamic reconfigure //{ */
 
-  current_estimator->getCovariance(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-  current_estimator->getCovariance(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-  current_estimator->getCovariance(last_drs_config.Q_pos_object, map_measurement_name_id.find("pos_object")->second);
-  current_estimator->getCovariance(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
-  current_estimator->getCovariance(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-  current_estimator->getCovariance(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-  current_estimator->getCovariance(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-  current_estimator->getCovariance(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-  current_estimator->getCovariance(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-  current_estimator->getCovariance(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+  current_estimator->getQ(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+  current_estimator->getQ(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+  current_estimator->getQ(last_drs_config.Q_pos_object, map_measurement_name_id.find("pos_object")->second);
+  current_estimator->getQ(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+  current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+  current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+  current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+  current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+  current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+  current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+
+  altitude_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
+  altitude_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
+  altitude_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+  altitude_estimator->getQ(last_drs_config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
+  altitude_estimator->getQ(last_drs_config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
   reconfigure_server_->updateConfig(last_drs_config);
 
   //}
@@ -1216,7 +1225,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
     ROS_WARN_STREAM_THROTTLE(1.0, "[Odometry]: altitude states:" << std::endl << current_altitude);
-    new_altitude.value = current_altitude(3);
+    new_altitude.value = current_altitude(0);
   }
 
   /* if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) { */
@@ -1242,9 +1251,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   altitude_state.header.stamp    = ros::Time::now();
   altitude_state.header.frame_id = "local_origin";
   altitude_state.altitude        = current_altitude(0);
-  altitude_state.d_altitude      = current_altitude(1);
-  altitude_state.dd_altitude     = current_altitude(2);
-  altitude_state.height          = current_altitude(3);
+  altitude_state.vel_alt         = current_altitude(1);
+  altitude_state.height          = current_altitude(2);
+  altitude_state.vel_height      = current_altitude(3);
   altitude_state.elevation       = current_altitude(4);
   altitude_state.baro_offset     = current_altitude(5);
 
@@ -1262,7 +1271,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fallback from RTK
   if (_estimator_type.type == mrs_msgs::EstimatorType::RTK) {
-    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(3) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -1276,7 +1285,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from GPS
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::GPS) {
-    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(3) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(2) < _max_optflow_altitude) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -1290,7 +1299,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from OPTFLOWGPS
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
-    if (!gps_reliable && _optflow_available && current_altitude(3) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available && current_altitude(2) < _max_optflow_altitude) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -1390,7 +1399,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_altitude_estimator);
 
-    odom_main.pose.pose.position.z = current_altitude(3);
+    odom_main.pose.pose.position.z = current_altitude(0);
   }
 #endif
 
@@ -1513,7 +1522,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
         return;
       }
 
-      odom_aux->second.pose.pose.position.z = current_altitude(3);
+      odom_aux->second.pose.pose.position.z = current_altitude(2);
     }
 
     Eigen::VectorXd pos_vec(2);
@@ -1619,7 +1628,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     std::scoped_lock lock(mutex_current_estimator);
 
     current_estimator->getStates(states_mat);
-    /* cov_mat    = current_estimator->getCovariance(); */
+    /* cov_mat    = current_estimator->getQ(); */
   }
 
   // convert eigen matrix to std::vector
@@ -2010,88 +2019,190 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  /* //{ altitude estimator update */
+  /* altitude estimator update //{ */
+
+  if (is_altitude_estimator_initialized) {
+
+    /* publish covariance of altitude states //{ */
+
+    Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitude_estimator->getCovariance(cov);
+    }
+    mrs_msgs::Float64ArrayStamped cov_msg;
+    cov_msg.header.stamp    = ros::Time::now();
+    cov_msg.header.frame_id = "local_origin";
+    for (int i = 0; i < cov.rows(); i++) {
+      cov_msg.values.push_back(cov(i, i));
+    }
+    try {
+      pub_alt_cov_.publish(mrs_msgs::Float64ArrayStampedConstPtr(new mrs_msgs::Float64ArrayStamped(cov_msg)));
+    }
+    catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", pub_alt_cov_.getTopic().c_str());
+    }
+
+    //}
+
+    /* do correction of barometer altitude //{ */
+
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    if (!altitude_estimator->getStates(current_altitude)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
+
+    double correction = msg->pose.pose.position.z;
+
+    // saturate the correction
+    correction -= current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
+
+    if (!std::isfinite(correction)) {
+      correction = 0;
+      ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"correction\", setting it to 0!!!");
+    } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+      correction = max_altitude_correction_;
+    } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+      correction = -max_altitude_correction_;
+    }
+
+    correction += current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
+
+    // Compensate the offset
+    double alt_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitudeEstimatorCorrection(alt_baro, "alt_baro");
+    }
+
+    //}
 
 
-  /* Correction barometer altitude //{ */
 
-  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-  if (!altitude_estimator->getStates(current_altitude)) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-    return;
+    /* publish innovation covariance //{ */
+    
+    
+    std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("bias_baro");
+    Eigen::MatrixXd                      innovation_cov    = Eigen::MatrixXd::Zero(1, 1);
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitude_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
+    }
+    mrs_msgs::Float64Stamped inno_cov_msg;
+    inno_cov_msg.header.stamp    = ros::Time::now();
+    inno_cov_msg.header.frame_id = "local_origin";
+    inno_cov_msg.value           = innovation_cov(0, 0);
+    try {
+      pub_inno_cov_bias_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
+    }
+    catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_bias_.getTopic().c_str());
+    }
+    
+    //}
+
+    /* do correction of barometer offset //{ */
+    
+    double bias_baro = correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
+    double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
+    
+    // We want to estimate barometer offset only when the altitude is constant and not close to obstacle
+    if (!bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) < 0.2 &&
+        current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < 0.2 && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.6) {
+      bias_baro_estimation_enabled = true;
+    }
+    if (bias_baro_estimation_enabled &&
+        (current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) > 0.3 || current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > 0.3 ||
+         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < 0.5)) {
+      bias_baro_estimation_enabled = false;
+    }
+    
+    if (bias_baro_estimation_enabled && !obstacle_detected) {
+      // When there is no obstacle under the drone, reset the elevation to zero
+      if (current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < 0.5) {
+        altitudeEstimatorCorrection(correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), "bias_baro");
+        altitudeEstimatorCorrection(0.0, "elevation");
+    
+      } else {
+        altitudeEstimatorCorrection(bias_baro, "bias_baro");
+      }
+      ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
+    }
+    
+    
+    ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
+    
+    
+    //}
+
+    /* do correction of mavros z velocity //{ */
+
+    // create a correction value
+    correction = msg->twist.twist.linear.z;
+
+    // saturate the correction
+    if (!std::isfinite(correction)) {
+      correction = 0;
+      ROS_ERROR("[Odometry]: NaN detected in Mavros z velocity variable \"correction\", setting it to 0!!!");
+    }
+
+    // set the measurement vector
+    double vel_mavros;
+    vel_mavros = correction;
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+
+      altitudeEstimatorCorrection(vel_mavros, "vel_mavros");
+      ROS_WARN_THROTTLE(1.0, "Mavros z velocity correction: %f", vel_mavros);
+    }
+
+    ROS_WARN_ONCE("[Odometry]: fusing mavros z velocity");
+
+    //}
+
+    /*  Prediction with no control input//{ */
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitude_estimator->doPrediction(input, interval2.toSec());
+      ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input);
+    }
+
+    //}
+
+    // It is important to initialize the altitude estimator with exact values to correctly estimate the bias
+    // When the node is started the rangefinder measurement might be imprecise due to grass under it etc.
+    // Maybe initialize with known rangefinder-ground distance (might be different between platforms, leg length, mount, etc.)
+  } else {
+    Eigen::VectorXd altitude    = Eigen::VectorXd::Zero(1);
+    Eigen::VectorXd d_altitude  = Eigen::VectorXd::Zero(1);
+    Eigen::VectorXd dd_altitude = Eigen::VectorXd::Zero(1);
+    Eigen::VectorXd height      = Eigen::VectorXd::Zero(1);
+    Eigen::VectorXd elevation   = Eigen::VectorXd::Zero(1);
+    Eigen::VectorXd bias        = Eigen::VectorXd::Zero(1);
+    Eigen::MatrixXd init_cov    = Eigen::MatrixXd::Identity(altitude_n, altitude_n);
+    init_cov *= 1000;
+    d_altitude << 0.0;
+    dd_altitude << 0.0;
+    height << range_garmin_.range;
+    bias << msg->pose.pose.position.z - range_garmin_.range;
+    altitude << msg->pose.pose.position.z + bias(0);
+    elevation << 0.0;
+    altitude_estimator->setState(0, altitude);
+    altitude_estimator->setState(1, d_altitude);
+    altitude_estimator->setState(2, height);
+    altitude_estimator->setState(3, d_altitude);
+    altitude_estimator->setState(4, elevation);
+    altitude_estimator->setState(5, bias);
+    altitude_estimator->setCovariance(init_cov);
+    is_altitude_estimator_initialized = true;
   }
 
-  // create a correction value
-  double correction;
-  /* correction = msg->pose.pose.position.z - current_altitude(0); */
 
-  // TMP FOR DEBUG!!!
-  correction = msg->pose.pose.position.z;
-
-  // saturate the correction
-  /* if (!std::isfinite(correction)) { */
-  /*   correction = 0; */
-  /*   ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"correction\", setting it to 0!!!"); */
-  /* } else if (correction > max_altitude_correction_) { */
-  /*   correction = max_altitude_correction_; */
-  /* } else if (correction < -max_altitude_correction_) { */
-  /*   correction = -max_altitude_correction_; */
-  /* } */
-
-  // set the measurement vector
-  double alt_baro;
-  /* alt_baro = current_altitude(0) + correction; */
-
-  // TMP FOR DEBUG
-  alt_baro =  correction;
-
-  {
-    std::scoped_lock lock(mutex_altitude_estimator);
-
-    altitudeEstimatorCorrection(alt_baro, "alt_baro");
-    ROS_WARN_THROTTLE(1.0, "Barometer altitude correction: %f", alt_baro);
-  }
-
-  ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
-
-  //}
-
-  /* Correction mavros z velocity //{ */
-
-  // create a correction value
-  correction = msg->twist.twist.linear.z;
-
-  // saturate the correction
-  if (!std::isfinite(correction)) {
-    correction = 0;
-    ROS_ERROR("[Odometry]: NaN detected in Mavros z velocity variable \"correction\", setting it to 0!!!");
-  }
-
-  // set the measurement vector
-  double vel_mavros;
-  vel_mavros =  correction;
-
-  {
-    std::scoped_lock lock(mutex_altitude_estimator);
-
-    altitudeEstimatorCorrection(vel_mavros, "vel_mavros");
-    ROS_WARN_THROTTLE(1.0, "Mavros z velocity correction: %f", vel_mavros);
-  }
-
-  ROS_WARN_ONCE("[Odometry]: fusing mavros z velocity");
-
-  //}
-  //
-  /*  Prediction with no control input//{ */
-
-  {
-    std::scoped_lock lock(mutex_altitude_estimator);
-    altitude_estimator->doPrediction(input, interval2.toSec());
-    ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input);
-  }
-
-  //}
-  //}
+    //}
 
   /* state estimators update //{ */
 
@@ -3009,10 +3120,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
       // create a correction value
       double correction;
-      correction = measurement - current_altitude(3);
-
-      // TMP FOR DEBUG!!!
-      correction = measurement;
+      correction = measurement - current_altitude(2);
 
       // saturate the correction
       if (!std::isfinite(correction)) {
@@ -3026,14 +3134,10 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
 
       // set the measurement vector
       double height_range;
-      height_range = current_altitude(3) + correction;
-
-      // TMP FOR DEBUG
-      height_range =  correction;
+      height_range = current_altitude(2) + correction;
 
       {
         std::scoped_lock lock(mutex_altitude_estimator);
-
         altitudeEstimatorCorrection(height_range, "height_range");
         /* ROS_WARN_THROTTLE("Teraranger altitude correction: %f", height_range); */
       }
@@ -3060,6 +3164,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
+  // TODO do not fuse when tilts exceed a threshold
   /* compensate tilt of the sensor //{ */
 
   double                    roll, pitch, yaw;
@@ -3111,33 +3216,95 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
       // create a correction value
       double correction;
-      correction = measurement - current_altitude(3);
-
-      // TMP FOR DEBUG!!!
-      correction = measurement;
+      correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
 
       // saturate the correction
-      /* if (!std::isfinite(correction)) { */
-      /*   correction = 0; */
-      /*   ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!"); */
-      /* } else if (correction > max_altitude_correction_) { */
-      /*   correction = max_altitude_correction_; */
-      /* } else if (correction < -max_altitude_correction_) { */
-      /*   correction = -max_altitude_correction_; */
-      /* } */
+      if (!std::isfinite(correction)) {
+        correction = 0;
+        ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
+      } else if (correction > max_altitude_correction_) {
+        correction = max_altitude_correction_;
+      } else if (correction < -max_altitude_correction_) {
+        correction = -max_altitude_correction_;
+      }
 
       // set the measurement vector
-      double height_range;
-      /* height_range = current_altitude(3) + correction; */
-
-      // TMP FOR DEBUG
-      height_range =  correction;
+      double height_range, elevation;
+      height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
 
       {
         std::scoped_lock lock(mutex_altitude_estimator);
-
         altitudeEstimatorCorrection(height_range, "height_range");
         ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range);
+      }
+
+      elevation         = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+      double innovation = elevation - current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION);
+
+      /* publish innovation //{ */
+      
+      
+      std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("elevation");
+      
+      Eigen::VectorXd innovation_vec = Eigen::VectorXd::Zero(1);
+      Eigen::VectorXd elevation_vec  = Eigen::VectorXd::Zero(1);
+      elevation_vec(0)               = elevation;
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        altitude_estimator->getInnovation(elevation_vec, it_measurement_id->second, innovation_vec);
+      }
+      mrs_msgs::Float64Stamped inno_elevation;
+      inno_elevation.header.stamp    = ros::Time::now();
+      inno_elevation.header.frame_id = "local_origin";
+      inno_elevation.value           = innovation_vec(0);
+      try {
+        pub_inno_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_elevation)));
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_elevation_.getTopic().c_str());
+      }
+      
+      
+      //}
+
+      /* publish innovation covariance //{ */
+      
+      
+      Eigen::MatrixXd innovation_cov = Eigen::MatrixXd::Zero(1, 1);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        altitude_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
+      }
+      mrs_msgs::Float64Stamped inno_cov_msg;
+      inno_cov_msg.header.stamp    = ros::Time::now();
+      inno_cov_msg.header.frame_id = "local_origin";
+      inno_cov_msg.value           = innovation_cov(0, 0);
+      try {
+        pub_inno_cov_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_elevation_.getTopic().c_str());
+      }
+      
+      
+      //}
+      
+      // We want to detect flying above obstacle when the elevation innovation grows and the derivatives of altitude and height differ
+      if (!obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > 0.6 && std::pow(innovation, 2) > 0.06 &&
+          std::pow(current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT), 2) > 0.06) {
+        obstacle_detected = true;
+      }
+      if (obstacle_detected && std::pow(innovation, 2) < 0.03 &&
+          std::pow(current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT), 2) < 0.03) {
+        obstacle_detected = false;
+      }
+
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (obstacle_detected) {
+          altitudeEstimatorCorrection(elevation, "elevation");
+          ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation);
+        }
       }
 
       ROS_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
@@ -3649,16 +3816,22 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
       config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
 
   for (auto &estimator : m_state_estimators) {
-    estimator.second->setCovariance(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    estimator.second->setCovariance(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    estimator.second->setCovariance(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
-    estimator.second->setCovariance(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    estimator.second->setCovariance(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    estimator.second->setCovariance(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    estimator.second->setCovariance(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-    estimator.second->setCovariance(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-    estimator.second->setCovariance(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+    estimator.second->setQ(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+    estimator.second->setQ(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+    estimator.second->setQ(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+    estimator.second->setQ(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+    estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+    estimator.second->setQ(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+    estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
   }
+
+  altitude_estimator->setQ(config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
+  altitude_estimator->setQ(config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
+  altitude_estimator->setQ(config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+  altitude_estimator->setQ(config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
+  altitude_estimator->setQ(config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
 }
 //}
 
@@ -3806,8 +3979,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (current_altitude(3) > _max_optflow_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Current altitude %f. Must descend to %f.", current_altitude(3), _max_optflow_altitude);
+    if (current_altitude(2) > _max_optflow_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Current altitude %f. Must descend to %f.", current_altitude(2), _max_optflow_altitude);
       return false;
     }
 
@@ -3836,8 +4009,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (current_altitude(3) > _max_optflow_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Current altitude %f. Must descend to %f.", current_altitude(3), _max_optflow_altitude);
+    if (current_altitude(2) > _max_optflow_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Current altitude %f. Must descend to %f.", current_altitude(2), _max_optflow_altitude);
       return false;
     }
 

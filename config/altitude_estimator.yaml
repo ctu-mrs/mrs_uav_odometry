@@ -12,35 +12,39 @@ altitude_estimator:
   model_states: [
     "ALTITUDE", 
     "HEIGHT", 
-    "VELOCITY" 
+    "ELEVATION", 
+    "VEL_ALT", 
+    "VEL_HEIGHT", 
+    "BIAS" 
   ] 
 
   # The available measurements
   measurements: [
     "alt_baro",
     "height_range",
-    "vel_mavros"
+    "vel_mavros",
+    "bias_baro",
+    "elevation"
   ]
 
   # The fused measurements for each state estimator
   fused_measurements:
-    ALTITUDE: ["alt_baro", "height_range", "vel_mavros"]
+    ALTITUDE: ["alt_baro", "height_range", "vel_mavros", "bias_baro", "elevation"]
 
   # Mapping of measurements to states
   measurement_states:
     alt_baro: ALTITUDE
     height_range: HEIGHT
-    vel_mavros: VELOCITY
+    vel_mavros: VEL_ALT
+    bias_baro: BIAS
+    elevation: ELEVATION
 
   # Mapping states to model
   state_mapping:
     ALTITUDE: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    HEIGHT: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-    VELOCITY: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    VEL_ALT: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    HEIGHT: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    VEL_HEIGHT: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    ELEVATION: [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    BIAS: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
-  # Mapping of states to states in measurement mapping (quite confusing)
-  states_in_measurement_mapping:
-    # alt_baro: [-1.0, 0.0, 0.0, 0.0, 0.0, -1.0]
-    alt_baro: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    height_range: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    vel_mavros: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
