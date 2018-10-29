@@ -55,7 +55,7 @@ altitude:
   # ALTITUDE - barometric, HEIGHT - rangefinder
   altitude_estimator: "ALTITUDE"
   estimate_elevation: true
-  estimate_baro_offset: true 
+  estimate_baro_offset: true
 
   # z-axis (altitude, height) velocity limit for barometer offset estimation
   # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
@@ -91,20 +91,20 @@ altitude:
       0]
 
   # Process covariance
-  R: [0.0001, 0, 0, 0, 0, 0,
-      0, 0.0001, 0, 0, 0, 0,
-      0, 0, 0.0001, 0, 0, 0,
-      0, 0, 0, 0.0001, 0, 0,
-      0, 0, 0, 0, 0.0001, 0,
-      0, 0, 0, 0, 0, 0.0001]
+  R: [1, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 1]
 
   # Covariances of measurements
   Q:
-    alt_baro: [1]
-    height_range: [0.016] # 0.04 stddev in simulation
-    vel_mavros: [0.00001]
-    bias_baro: [0.01] 
-    elevation: [0.001] 
+    alt_baro: [10]
+    height_range: [10] # 0.04 stddev in simulation
+    vel_mavros: [0.01]
+    bias_baro: [0.1] 
+    elevation: [0.01] 
 
   # bounds for the measurement covariance
   TrgMaxQ: 100000
