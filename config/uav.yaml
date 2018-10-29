@@ -8,6 +8,7 @@ lkf_states_rate: 10 # [Hz]
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
 takeoff_estimator: "OPTFLOW"
 
+
 # available localization methods
 gps_available: true
 optflow_available: true
@@ -51,6 +52,22 @@ null_tracker: "mrs_mav_manager/NullTracker"
 
 altitude:
 
+  # ALTITUDE - barometric, HEIGHT - rangefinder
+  altitude_estimator: "ALTITUDE"
+  estimate_elevation: true
+  estimate_baro_offset: true 
+
+  # z-axis (altitude, height) velocity limit for barometer offset estimation
+  # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
+  max_vel_baro_offset_estimation: 0.2 # [m/s]
+
+  # changes of elevation under this value will be treated as flat terrain
+  elevation_tolerance: 0.5 # [m]
+
+  # do not fuse rangefinder measurements when the UAV is tilted more than this angle
+  excessive_tilt: 0.5 # ~pi/6 [rad]
+
+  # Altitude Kalman filter parameters
   numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1

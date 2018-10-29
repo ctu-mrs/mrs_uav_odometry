@@ -35,6 +35,7 @@
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="true"/>
+      <param name="rosbag" type="bool" value="false"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->

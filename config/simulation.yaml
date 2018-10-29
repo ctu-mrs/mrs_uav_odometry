@@ -46,6 +46,20 @@ null_tracker: "mrs_mav_manager/NullTracker"
 
 altitude:
 
+  # ALTITUDE - barometric, HEIGHT - rangefinder
+  altitude_estimator: "HEIGHT"
+  estimate_elevation: true
+  estimate_baro_offset: true 
+
+  # z-axis (altitude, height) velocity limit for barometer offset estimation
+  # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
+  max_vel_baro_offset_estimation: 0.2 # [m/s]
+
+  # changes of elevation under this value will be treated as flat terrain
+  elevation_tolerance: 0.5 # [m]
+
+  # do not fuse rangefinder measurements when the UAV is tilted more than this angle
+  excessive_tilt: 0.5 # ~pi/6 [rad]
   numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1
@@ -105,6 +119,16 @@ altitude:
   # failsafe for object altitude fusion
   # object_altitude_max_down_difference: 0.5
   # object_altitude_max_abs_difference: 1.0
+  
+  # z-axis (altitude, height) velocity limit for barometer offset estimation
+  # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
+  max_vel_baro_offset_estimation: 0.2 # [m/s]
+
+  # changes of elevation under this value will be treated as flat terrain
+  elevation_tolerance: 0.5 # [m]
+
+  # do not fuse rangefinder measurements when the UAV is tilted more than this angle
+  excessive_tilt: 0.5 # ~pi/6 [rad]
 
 lateral:
 
