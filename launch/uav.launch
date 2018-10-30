@@ -52,6 +52,9 @@
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
+      <remap from="~odom_icp_out" to="~odom_icp" />
+      <remap from="~odom_rtk_out" to="~odom_rtk" />
+      <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~slow_odom_out" to="~slow_odom" />
       <remap from="~rtk_local_out" to="~rtk_local" />
