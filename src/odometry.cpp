@@ -2193,22 +2193,43 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
 
       // We want to estimate barometer offset only when the altitude is constant
-      if (estimate_baro_offset && !bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) < _max_vel_baro_offset_estimation &&
-          current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < _max_vel_baro_offset_estimation) {
+      /* if (estimate_baro_offset && !bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) < _max_vel_baro_offset_estimation
+       * && */
+      /*     current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < _max_vel_baro_offset_estimation) { */
+      if (estimate_baro_offset && !bias_baro_estimation_enabled) {
         bias_baro_estimation_enabled = true;
       }
-      if (bias_baro_estimation_enabled && (!estimate_baro_offset || current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) > _max_vel_baro_offset_estimation ||
-                                           current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > _max_vel_baro_offset_estimation)) {
+      /* if (bias_baro_estimation_enabled && (!estimate_baro_offset || current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) > _max_vel_baro_offset_estimation
+       * || */
+      /*                                      current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > _max_vel_baro_offset_estimation)) { */
+      if (bias_baro_estimation_enabled && !estimate_baro_offset) {
         bias_baro_estimation_enabled = false;
       }
 
       if (bias_baro_estimation_enabled && !obstacle_detected && !excessive_tilt) {
         // When there is no obstacle under the drone, reset the elevation to zero
-        if (current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
-          altitudeEstimatorCorrection(correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), "bias_baro");
+        if (estimate_elevation && current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
+          bias_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+          if (!std::isfinite(bias_baro)) {
+            bias_baro = 0;
+            ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+            bias_baro = max_altitude_correction_;
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+            bias_baro = -max_altitude_correction_;
+          }
+          altitudeEstimatorCorrection(bias_baro, "bias_baro");
           altitudeEstimatorCorrection(0.0, "elevation");
 
         } else {
+          if (!std::isfinite(bias_baro)) {
+            bias_baro = 0;
+            ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+            bias_baro = max_altitude_correction_;
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+            bias_baro = -max_altitude_correction_;
+          }
           altitudeEstimatorCorrection(bias_baro, "bias_baro");
         }
         ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
@@ -3416,12 +3437,12 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
       //}
 
-      // We want to detect flying above obstacle when the elevation innovation grows and the derivatives of altitude and height differ
+      // We want to detect flying above obstacle when the elevation innovation exceeds 3 standard deviations
       if (stddev_veldiff->hasEnoughSamples() && !obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance &&
-          std::pow(innovation, 2) > std::pow(6 * innovation_stddev, 2) && std::pow(veldiff, 2) > std::pow(1 * veldiff_stddev, 2)) {
+          std::pow(innovation, 2) > std::pow(3 * innovation_stddev, 2)) {
         obstacle_detected = true;
       }
-      if (obstacle_detected && std::pow(innovation, 2) < std::pow(6 * innovation_stddev, 2) && std::pow(veldiff, 2) < std::pow(2 * veldiff_stddev, 2)) {
+      if (obstacle_detected && std::pow(innovation, 2) < std::pow(1 * innovation_stddev, 2)) {
         obstacle_detected = false;
       }
 
@@ -3429,7 +3450,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
         std::scoped_lock lock(mutex_altitude_estimator);
         if (estimate_elevation && obstacle_detected) {
           altitudeEstimatorCorrection(elevation, "elevation");
-          ROS_INFO("[Odometry]: fusing elevation");
           ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation);
         }
       }
