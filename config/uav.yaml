@@ -6,7 +6,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "OPTFLOW"
 
 # available localization methods
 gps_available: true
@@ -53,7 +53,7 @@ null_tracker: "mrs_mav_manager/NullTracker"
 altitude:
 
   # ALTITUDE - barometric, HEIGHT - rangefinder
-  altitude_estimator: "ALTITUDE"
+  altitude_estimator: "HEIGHT"
   estimate_elevation: true
   estimate_baro_offset: true
 
