@@ -21,12 +21,14 @@
 
       <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <param name="enable_profiler" value="$(arg profiler)" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="false"/>
+      <param name="rosbag" type="bool" value="false"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->

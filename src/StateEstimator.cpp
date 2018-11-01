@@ -394,9 +394,9 @@ bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 //}
 
-/*  //{ setCovariance() */
+/*  //{ setQ() */
 
-bool StateEstimator::setCovariance(double cov, int measurement_type) {
+bool StateEstimator::setQ(double cov, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -442,9 +442,9 @@ bool StateEstimator::setCovariance(double cov, int measurement_type) {
 
 //}
 
-/*  //{ getCovariance() */
+/*  //{ getQ() */
 
-bool StateEstimator::getCovariance(double &cov, int measurement_type) {
+bool StateEstimator::getQ(double &cov, int measurement_type) {
 
   /*  //{ sanity checks */
 

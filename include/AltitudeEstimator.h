@@ -1,8 +1,7 @@
-#ifndef STATE_ESTIMATOR_H
-#define STATE_ESTIMATOR_H
+#ifndef ALTITUDE_ESTIMATOR_H
+#define ALTITUDE_ESTIMATOR_H
 
 #include <ros/ros.h>
-#include <mutex>
 
 #include <mrs_lib/Lkf.h>
 #include <mrs_lib/ParamLoader.h>
@@ -18,11 +17,12 @@
 namespace mrs_odometry
 {
 
-class StateEstimator {
+class AltitudeEstimator {
 
 public:
-  StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
-                 const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
+  AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
+                    const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A,
+                    const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
   bool        doPrediction(const Eigen::VectorXd &input, double dt);
   bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
@@ -32,6 +32,10 @@ public:
   bool        setState(int state_id, const Eigen::VectorXd &state);
   bool        setQ(double cov, int measurement_type);
   bool        getQ(double &cov, int measurement_type);
+  bool        getCovariance(Eigen::MatrixXd& cov);
+  bool        setCovariance(const Eigen::MatrixXd& cov);
+  bool        getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd& innovation);
+  bool        getInnovationCovariance(int measurement_type, Eigen::MatrixXd& innovation_cov);
   bool        reset(const Eigen::MatrixXd &states);
 
 private:
@@ -47,7 +51,6 @@ private:
   size_t m_n_measurement_types;
 
   mrs_lib::Lkf *mp_lkf_x;
-  mrs_lib::Lkf *mp_lkf_y;
 
   std::mutex mutex_lkf;
 
