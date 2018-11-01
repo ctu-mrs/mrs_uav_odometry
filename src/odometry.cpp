@@ -1554,7 +1554,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
       if (odom_stable.pose.pose.orientation.w == 0.0) {
-        odom_stable.pose.pose.orientation.w = 1.0;
+        /* odom_stable.pose.pose.orientation.w = 1.0; */
+        odom_stable.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
       }
       tf2::Quaternion q1, q2;
       tf2::fromMsg(odom_main.pose.pose.orientation, q1);
@@ -1562,14 +1563,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf2::Quaternion rot_diff = q2 * q1.inverse();
       m_rot_odom_offset        = rot_diff;
       m_rot_odom_offset.normalize();
-      ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
-      ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w());
+      /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
       ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
     }
 
-      ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
+      /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
     odom_stable                 = applyOdomOffset(odom_main);
-      ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
+      /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
     odom_stable.header.frame_id = "local_origin_stable";
 
     try {
@@ -1584,8 +1585,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = "local_origin_stable";
     tf.child_frame_id        = "local_origin";
-    tf.transform.translation = tf2::toMsg(m_pos_odom_offset);
-    tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset);
+    tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
+    tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
     try {
       broadcaster_->sendTransform(tf);
     }
