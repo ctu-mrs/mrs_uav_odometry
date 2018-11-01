@@ -53,12 +53,11 @@
 #include <StddevBuffer.h>
 #include <mrs_odometry/lkfConfig.h>
 
-#include "tf/LinearMath/Transform.h"
-#include <tf/transform_broadcaster.h>
-
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Vector3.h>
 
 /* #include <apriltags2_ros/AprilTagDetectionArray.h> */
 
@@ -110,9 +109,9 @@ private:
   ros::NodeHandle nh_;
 
 private:
-  ros::Publisher pub_odom_main_;  // the main fused odometry
+  ros::Publisher pub_odom_main_;    // the main fused odometry
   ros::Publisher pub_odom_stable_;  // the main fused odometry
-  ros::Publisher pub_slow_odom_;  // the main fused odometry, just slow
+  ros::Publisher pub_slow_odom_;    // the main fused odometry, just slow
   ros::Publisher pub_rtk_local;
   ros::Publisher pub_rtk_local_odom;
   ros::Publisher pub_gps_local_odom;
@@ -162,7 +161,7 @@ private:
   ros::ServiceServer ser_change_estimator_type_string;
 
 private:
-  tf::TransformBroadcaster *broadcaster_;
+  tf2_ros::TransformBroadcaster *broadcaster_;
 
   dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server;
   dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f;
@@ -273,15 +272,15 @@ private:
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // | --------------------- helper methods --------------------- |
-  void        stateEstimatorsPrediction(double x, double y, double dt);
-  void        stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
-  void        altitudeEstimatorCorrection(double value, const std::string &measurement_name);
-  void        getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
-  bool        changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
-  bool        isValidType(const mrs_msgs::EstimatorType &type);
-  std::string printOdometryDiag();
-  bool        stringInVector(const std::string &value, const std::vector<std::string> &vector);
-nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
+  void               stateEstimatorsPrediction(double x, double y, double dt);
+  void               stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
+  void               altitudeEstimatorCorrection(double value, const std::string &measurement_name);
+  void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
+  bool               changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
+  bool               isValidType(const mrs_msgs::EstimatorType &type);
+  std::string        printOdometryDiag();
+  bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
+  nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
   /* void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer); */
 
   // for keeping new odom
@@ -292,8 +291,8 @@ nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
   std::mutex         mutex_rtk_local_odom;
 
   nav_msgs::Odometry odom_stable;
-  tf2::Vector3 m_pos_odom_offset;
-  tf2::Quaternion m_rot_odom_offset;
+  tf2::Vector3       m_pos_odom_offset;
+  tf2::Quaternion    m_rot_odom_offset;
 
   // Teraranger altitude subscriber and callback
   ros::Subscriber    sub_terarangerone_;
@@ -991,7 +990,7 @@ void Odometry::onInit() {
   /* //{ publishers */
   // publisher for new odometry
   pub_odom_main_     = nh_.advertise<nav_msgs::Odometry>("odom_main_out", 1);
-  pub_odom_stable_     = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
+  pub_odom_stable_   = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
   pub_slow_odom_     = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
   pub_odometry_diag_ = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_      = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
@@ -1017,7 +1016,7 @@ void Odometry::onInit() {
   pub_gps_local_odom = nh_.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
 
   // publisher for tf
-  broadcaster_ = new tf::TransformBroadcaster();
+  broadcaster_ = new tf2_ros::TransformBroadcaster();
 
   // publishers for roll pitch yaw orientations in local_origin frame
   pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global", 1);
@@ -1532,8 +1531,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (!odometry_published) {
       odom_stable = odom_main;
+      odom_stable.pose.pose.orientation.x = 0.0;
+      odom_stable.pose.pose.orientation.y = 0.0;
+      odom_stable.pose.pose.orientation.z = 0.0;
+      odom_stable.pose.pose.orientation.w = 1.0;
       m_pos_odom_offset.setZero();
-      m_rot_odom_offset = tf2::Quaternion(0,0,0,1);
+      m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+      m_rot_odom_offset.normalize();
     }
 
     /* } else { */
@@ -1548,36 +1552,46 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf2::Vector3 pos_diff = v1 - v2;
       m_pos_odom_offset     = pos_diff;
 
+      // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
+      if (odom_stable.pose.pose.orientation.w == 0.0) {
+        odom_stable.pose.pose.orientation.w = 1.0;
+      }
       tf2::Quaternion q1, q2;
       tf2::fromMsg(odom_main.pose.pose.orientation, q1);
       tf2::fromMsg(odom_stable.pose.pose.orientation, q2);
       tf2::Quaternion rot_diff = q2 * q1.inverse();
       m_rot_odom_offset        = rot_diff;
+      m_rot_odom_offset.normalize();
+      ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
+      ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w());
       ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
     }
 
-    odom_stable = applyOdomOffset(odom_main);
-    odom_stable.header.frame_id = "odom_stable";
+      ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
+    odom_stable                 = applyOdomOffset(odom_main);
+      ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w);
+    odom_stable.header.frame_id = "local_origin_stable";
 
-  try {
-    pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
-  }
+    try {
+      pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+    }
 
-  // publish TF
-  geometry_msgs::Quaternion orientation = odom_stable.pose.pose.orientation;
-  geometry_msgs::Point      position    = odom_stable.pose.pose.position;
-  try {
-    broadcaster_->sendTransform(tf::StampedTransform(
-        tf::Transform(tf::Quaternion(orientation.x, orientation.y, orientation.z, orientation.w), tf::Vector3(position.x, position.y, position.z)),
-        odom_main.header.stamp, "odom_stable", std::string("fcu_stable_") + uav_name));
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing TF.");
-  }
-
+    // publish TF
+    geometry_msgs::TransformStamped tf;
+    tf.header.stamp          = ros::Time::now();
+    tf.header.frame_id       = "local_origin_stable";
+    tf.child_frame_id        = "local_origin";
+    tf.transform.translation = tf2::toMsg(m_pos_odom_offset);
+    tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset);
+    try {
+      broadcaster_->sendTransform(tf);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
   }
 
   // publish the odometry
@@ -1604,15 +1618,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
   // publish TF
-  geometry_msgs::Quaternion orientation = odom_main.pose.pose.orientation;
-  geometry_msgs::Point      position    = odom_main.pose.pose.position;
+  geometry_msgs::Vector3 position;
+  position.x = odom_main.pose.pose.position.x;
+  position.y = odom_main.pose.pose.position.y;
+  position.z = odom_main.pose.pose.position.z;
+  geometry_msgs::TransformStamped tf;
+  tf.header.stamp          = ros::Time::now();
+  tf.header.frame_id       = "local_origin";
+  tf.child_frame_id        = std::string("fcu_") + uav_name;
+  tf.transform.translation = position;
+  tf.transform.rotation    = odom_main.pose.pose.orientation;
   try {
-    broadcaster_->sendTransform(tf::StampedTransform(
-        tf::Transform(tf::Quaternion(orientation.x, orientation.y, orientation.z, orientation.w), tf::Vector3(position.x, position.y, position.z)),
-        odom_main.header.stamp, "local_origin", std::string("fcu_") + uav_name));
+    broadcaster_->sendTransform(tf);
   }
   catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing TF.");
+    ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
   }
 }
 
@@ -1938,10 +1958,22 @@ void Odometry::transformTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event);
 
-  tf::Quaternion q;
+  tf2::Quaternion q;
   q.setRPY(0.0, 0.0, m_init_heading);
-  broadcaster_->sendTransform(tf::StampedTransform(tf::Transform(q, tf::Vector3(0.0, 0.0, 0.0)), ros::Time::now(), "local_origin",
-                                                   std::string("fcu_") + uav_name + std::string("_origin")));
+  q.normalize();
+
+  geometry_msgs::TransformStamped tf;
+  tf.header.stamp          = ros::Time::now();
+  tf.header.frame_id       = "local_origin";
+  tf.child_frame_id        = std::string("fcu_") + uav_name + std::string("_origin");
+  tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0));
+  tf.transform.rotation    = tf2::toMsg(q);
+  try {
+    broadcaster_->sendTransform(tf);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+  }
 }
 
 //}
@@ -2120,6 +2152,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       q.setZ(odom_pixhawk.pose.pose.orientation.z);
       q.setW(odom_pixhawk.pose.pose.orientation.w);
     }
+    q.normalize();
 
     double roll, pitch;
     tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
@@ -2869,6 +2902,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     q.setZ(odom_pixhawk.pose.pose.orientation.z);
     q.setW(odom_pixhawk.pose.pose.orientation.w);
   }
+  q.normalize();
 
   double roll, pitch, yaw;
   tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
@@ -2883,6 +2917,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     q_vio.setY(odom_vio.pose.pose.orientation.y);
     q_vio.setZ(odom_vio.pose.pose.orientation.z);
     q_vio.setW(odom_vio.pose.pose.orientation.w);
+    q_vio.normalize();
 
     double roll_vio, pitch_vio, yaw_vio;
     tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
@@ -3255,8 +3290,8 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_pixhawk);
     quat = odom_pixhawk.pose.pose.orientation;
   }
-  tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-  tf::Matrix3x3(qt).getRPY(roll, pitch, yaw);
+  tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+  tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
   double measurement = 0;
   // compensate for tilting of the sensor
@@ -3346,8 +3381,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_pixhawk);
     quat = odom_pixhawk.pose.pose.orientation;
   }
-  tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-  tf::Matrix3x3(qt).getRPY(roll, pitch, yaw);
+  tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+  tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
   // Check for excessive tilts
   if (roll > _excessive_tilt || pitch > _excessive_tilt) {
@@ -4146,29 +4181,16 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 /* //{ getGlobalRot() */
 void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
 
-  tf::Quaternion q_orig, q_rot, q_new;
-
-  quaternionMsgToTF(q_msg, q_orig);
+  tf2::Quaternion q_orig;
+  tf2::fromMsg(q_msg, q_orig);
+  q_orig.normalize();
 
   // Get roll, pitch, yaw in body frame
   double r, p, y, r_new, p_new;
-  tf::Matrix3x3(q_orig).getRPY(r, p, y);
+  tf2::Matrix3x3(q_orig).getRPY(r, p, y);
 
   p_new = p * cos(-y) - r * sin(-y);
   r_new = r * cos(-y) + p * sin(-y);
-
-  // Get quaternion of yaw rotation
-  /* q_rot = tf::createQuaternionFromRPY(0.0, 0.0, y); */
-
-  // Apply yaw rotation
-  /* q_new = q_rot * q_orig; */
-  /* q_new.normalize(); */
-
-  // Get quaternion of yaw rotation
-  /* q_new = tf::createQuaternionFromRPY(r_new, p_new, y); */
-
-  // Get rotations in inertial frame
-  /* tf::Matrix3x3(q_new).getRPY(rx, ry, rz); */
 
   rx = r_new;
   ry = p_new;
