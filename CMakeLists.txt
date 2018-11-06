@@ -39,7 +39,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES Odometry
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_lib mrs_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
   DEPENDS Eigen
   )
 
