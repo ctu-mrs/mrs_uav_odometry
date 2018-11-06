@@ -1008,7 +1008,7 @@ void Odometry::onInit() {
   /* check validity and set takeoff estimator //{ */
 
   ROS_INFO("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff.name.c_str());
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOW && !_optflow_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOW && (!_optflow_available || !got_optflow)) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
@@ -1018,22 +1018,22 @@ void Odometry::onInit() {
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !_optflow_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOWGPS && (!_optflow_available || !got_optflow)) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && !_rtk_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && (!_rtk_available || !got_rtk)) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && (!_lidar_available || !got_icp)) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && !_vio_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && (!_vio_available || !got_vio)) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual odometry localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
@@ -1639,7 +1639,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   // optflow velocities
   interval = ros::Time::now() - optflow_twist_last_update;
-  if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW && got_optflow && interval.toSec() > 1.0) {
+  if (got_optflow && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
     got_optflow = false;
   }
@@ -1653,14 +1653,14 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   //  vio odometry
   interval = ros::Time::now() - odom_vio_last_update;
-  if (_estimator_type.type == mrs_msgs::EstimatorType::VIO && got_vio && interval.toSec() > 1.0) {
+  if (got_vio && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: VIO odometry not received for %f seconds.", interval.toSec());
     got_vio = false;
   }
 
   //  object odometry
   interval = ros::Time::now() - odom_object_last_update;
-  if (_estimator_type.type == mrs_msgs::EstimatorType::OBJECT && got_object && interval.toSec() > 1.0) {
+  if (got_object && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: OBJECT odometry not received for %f seconds.", interval.toSec());
     got_object      = false;
     object_reliable = false;
@@ -1668,14 +1668,14 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   //  icp velocities
   interval = ros::Time::now() - icp_odom_last_update;
-  if (_estimator_type.type == mrs_msgs::EstimatorType::ICP && got_icp && interval.toSec() > 1.0) {
+  if (got_icp && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP velocities not received for %f seconds.", interval.toSec());
     got_icp = false;
   }
 
   //  icp position
   interval = ros::Time::now() - icp_global_odom_last_update;
-  if (_estimator_type.type == mrs_msgs::EstimatorType::ICP && got_icp_global && interval.toSec() > 1.0) {
+  if (got_icp_global && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP position not received for %f seconds.", interval.toSec());
     got_icp_global = false;
   }
@@ -3691,6 +3691,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    if (!got_optflow) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. No new optic flow msgs received.");
+      return false;
+    }
+
     if (main_altitude_kalman->getState(0) > _max_optflow_altitude) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Current altitude %f. Must descend to %f.", main_altitude_kalman->getState(0),
                 _max_optflow_altitude);
@@ -3722,6 +3727,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    if (!got_optflow) {
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. No new optic flow msgs received.");
+      return false;
+    }
+
     if (main_altitude_kalman->getState(0) > _max_optflow_altitude) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Current altitude %f. Must descend to %f.", main_altitude_kalman->getState(0),
                 _max_optflow_altitude);
@@ -3749,6 +3759,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    if (!got_rtk) {
+      ROS_ERROR("[Odometry]: Cannot transition to RTK type. No new rtk msgs received.");
+      return false;
+    }
+
     if (!_gps_available) {
       ROS_ERROR("[Odometry]: Cannot transition to RTK type. GPS signal not available in this world.");
       return false;
@@ -3769,11 +3784,21 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    if (!got_icp) {
+      ROS_ERROR("[Odometry]: Cannot transition to ICP type. No new icp msgs received.");
+      return false;
+    }
+
     // Vio localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
 
     if (!_vio_available) {
       ROS_ERROR("[Odometry]: Cannot transition to VIO type. Visual odometry not available in this world.");
+      return false;
+    }
+
+    if (!got_vio) {
+      ROS_ERROR("[Odometry]: Cannot transition to VIO type. No new vio msgs received.");
       return false;
     }
 
@@ -3788,6 +3813,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     if (!_object_available) {
       ROS_ERROR("[Odometry]: Cannot transition to OBJECT type. Object odometry not available in this world.");
+      return false;
+    }
+
+    if (!got_object) {
+      ROS_ERROR("[Odometry]: Cannot transition to OBJECT type. No new object msgs received.");
       return false;
     }
 
