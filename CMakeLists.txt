@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   geometry_msgs
+  tf2_geometry_msgs
   std_msgs
   nav_msgs
   tf
