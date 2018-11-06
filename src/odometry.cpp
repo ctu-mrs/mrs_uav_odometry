@@ -1571,7 +1571,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
     odom_stable                 = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-    odom_stable.header.frame_id = "local_origin_stable";
+    odom_stable.header.frame_id = "local_origin_stable" + uav_name;
 
     try {
       pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
@@ -1583,7 +1583,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // publish TF
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
-    tf.header.frame_id       = "local_origin_stable";
+    tf.header.frame_id       = "local_origin_stable" + uav_name;
     tf.child_frame_id        = "local_origin";
     tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
     tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
