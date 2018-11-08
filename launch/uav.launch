@@ -35,6 +35,7 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
+      <remap from="~object_in" to="~odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
@@ -46,6 +47,7 @@
       <remap from="~icp_global_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
+      <remap from="~april_detections_in" to="apriltags2_ros/tag_detections" />
 
       <!-- Publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
@@ -56,6 +58,7 @@
       <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~slow_odom_out" to="~slow_odom" />
+      <remap from="~odom_april_out" to="~odom_april" />
       <remap from="~rtk_local_out" to="~rtk_local" />
       <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />
       <remap from="~gps_local_odom_out" to="~gps_local_odom" />

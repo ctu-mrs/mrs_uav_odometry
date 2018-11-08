@@ -11,22 +11,17 @@ takeoff_estimator: "OPTFLOW"
 # available localization methods
 gps_available: true
 optflow_available: true
-vio_available: true
+vio_available: false
 rtk_available: false
 lidar_available: false
 
 min_satellites: 6
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
-
-averagingNumSamples: 20
-
-# # for fusing object altitude
-# staticObjectHeight: 0.2 # [m]
-# dynamicObjectHeight: 0.2 # [m]
+april_objects: false
 
 use_differential_gps: true
-publish_fused_odom: true
+publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
@@ -101,12 +96,14 @@ lateral:
     vel_icp: [10000]
     pos_vio: [100000]
     vel_vio: [10000]
+    pos_object: [1000]
+    vel_object: [10000]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 1, 0,
+      0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]
