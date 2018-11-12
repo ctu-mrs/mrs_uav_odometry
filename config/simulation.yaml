@@ -14,10 +14,10 @@ optflow_available: true
 vio_available: false
 rtk_available: true
 lidar_available: false
-object_available: true
+object_available: false
 
 min_satellites: 6
-max_default_altitude: 10.0
+max_default_altitude: 100.0
 max_optflow_altitude: 3.0
 april_objects: false
 

@@ -19,15 +19,10 @@ object_available: false
 min_satellites: 6
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
-
-averagingNumSamples: 20
-
-# # for fusing object altitude
-# staticObjectHeight: 0.2 # [m]
-# dynamicObjectHeight: 0.2 # [m]
+april_objects: false
 
 use_differential_gps: true
-publish_fused_odom: true
+publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
