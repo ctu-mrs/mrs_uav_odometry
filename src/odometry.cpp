@@ -1522,6 +1522,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       current_estimator->getState(0, pos_vec);
       current_estimator->getState(1, vel_vec);
       odom_main.child_frame_id = current_estimator->getName();
+      if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
+        odom_main.child_frame_id += odom_object.child_frame_id;
+      }
     }
 
     odom_main.pose.pose.position.x = pos_vec(0);
@@ -1530,7 +1533,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_main.twist.twist.linear.y = vel_vec(1);
 
     if (!odometry_published) {
-      odom_stable = odom_main;
+      odom_stable                         = odom_main;
       odom_stable.pose.pose.orientation.x = 0.0;
       odom_stable.pose.pose.orientation.y = 0.0;
       odom_stable.pose.pose.orientation.z = 0.0;
@@ -1563,14 +1566,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf2::Quaternion rot_diff = q2 * q1.inverse();
       m_rot_odom_offset        = rot_diff;
       m_rot_odom_offset.normalize();
-      /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+       * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
       /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
       ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
     }
 
-      /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-    odom_stable                 = applyOdomOffset(odom_main);
-      /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+    /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+     * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+    odom_stable = applyOdomOffset(odom_main);
+    /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+     * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
     odom_stable.header.frame_id = "local_origin_stable";
 
     try {
@@ -1695,6 +1701,9 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     odom_aux->second.pose.pose.position.y = pos_vec(1);
     odom_aux->second.twist.twist.linear.y = vel_vec(1);
 
+    if (std::strcmp(estimator.second->getName().c_str(), "OBJECT") == STRING_EQUAL) {
+      odom_aux->second.child_frame_id = "OBJECT" + odom_object.child_frame_id;
+    }
 
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
@@ -2338,7 +2347,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
             }
             altitudeEstimatorCorrection(bias_baro, "bias_baro");
           }
-          ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
+          /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
         }  // if (!obstacle_detected && !excessive_tilt)
       }    // if (isUavFlying()) else ...
     }      // if (estimate_baro_offset)
@@ -3059,20 +3068,40 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     /* vel_object_x = odom_object.twist.twist.linear.x; */
     /* vel_object_y = odom_object.twist.twist.linear.y; */
-    vel_object_x = (odom_object.pose.pose.position.x - odom_object_previous.pose.pose.position.x) / interval2.toSec();
-    vel_object_y = (odom_object.pose.pose.position.y - odom_object_previous.pose.pose.position.y) / interval2.toSec();
+    vel_object_x = -(odom_object.pose.pose.position.z - odom_object_previous.pose.pose.position.z) / interval2.toSec();
+    vel_object_y = (odom_object.pose.pose.position.x - odom_object_previous.pose.pose.position.x) / interval2.toSec();
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vel_object_x, vel_object_y, "vel_object");
 
   //}
+
   /* //{ fuse object position */
 
+  // Transform to balloon frame
+  double object_pos_x_bal              = -odom_object.pose.pose.position.z;
+  double object_pos_y_bal              = odom_object.pose.pose.position.x;
+  double object_pos_z_bal              = odom_object.pose.pose.position.y;
+
+  // getting roll, pitch, yaw
+  double                    roll, pitch, yaw;
+  geometry_msgs::Quaternion quat;
+  {
+    std::scoped_lock lock(mutex_odom_pixhawk);
+    quat = odom_pixhawk.pose.pose.orientation;
+  }
+  tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+  tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
+
+  // compensate for tilting of the sensor
+  double object_pos_x = object_pos_x_bal; 
+  double object_pos_y = object_pos_y_bal; 
+  double object_pos_z = object_pos_z_bal; 
+
   // Saturate correction
-  double object_pos_x              = odom_object.pose.pose.position.x;
-  double object_pos_y              = odom_object.pose.pose.position.y;
   double max_object_pos_correction = 0.5;
+
   for (auto &estimator : m_state_estimators) {
     if (std::strcmp(estimator.first.c_str(), "OBJECT") == 0) {
       Eigen::VectorXd pos_vec(2);
@@ -3085,10 +3114,10 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       } else if (object_pos_x - pos_vec(0) > max_object_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT X pos correction %f -> %f", object_pos_x - pos_vec(0), max_object_pos_correction);
-        object_pos_x = max_object_pos_correction;
+        object_pos_x = pos_vec(0) + max_object_pos_correction;
       } else if (object_pos_x - pos_vec(0) < -max_object_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT X pos correction %f -> %f", object_pos_x - pos_vec(0), -max_object_pos_correction);
-        object_pos_x = -max_object_pos_correction;
+        object_pos_x = pos_vec(0) - max_object_pos_correction;
       }
 
       // Y position
@@ -3098,10 +3127,10 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       } else if (object_pos_y - pos_vec(1) > max_object_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", object_pos_y - pos_vec(1), max_object_pos_correction);
-        object_pos_y = max_object_pos_correction;
+        object_pos_y = pos_vec(1) + max_object_pos_correction;
       } else if (object_pos_y - pos_vec(1) < -max_object_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", object_pos_y - pos_vec(1), -max_object_pos_correction);
-        object_pos_y = -max_object_pos_correction;
+        object_pos_y = pos_vec(1) - max_object_pos_correction;
       }
     }
   }

@@ -43,7 +43,7 @@ state_estimators:
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
     ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
     VIO: ["tilt_mavros", "pos_vio"]
-    OBJECT: ["tilt_mavros", "pos_object", "vel_object"]
+    OBJECT: ["tilt_mavros", "pos_object"]
 
   # Mapping of measurements to states
   measurement_states:
