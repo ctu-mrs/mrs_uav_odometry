@@ -40,8 +40,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <nodelet plugin="${prefix}/odometry.xml" />
-    <nodelet plugin="${prefix}/rtk_republisher.xml" />
+    <nodelet plugin="${prefix}/plugins.xml" />
   </export>
 
 </package>

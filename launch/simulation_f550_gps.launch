@@ -27,7 +27,7 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/simulation.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/simulation/f550_gps.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(arg world_file)" />
 
