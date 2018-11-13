@@ -6,8 +6,8 @@ altitude_estimators:
   # The available altitude estimators
   altitude_estimators: [
     "HEIGHT",
-    # "ALTITUDE",
-    # "ELEVATION" 
+    "ALTITUDE",
+    "ELEVATION" 
   ] 
 
   # The measured states of the model

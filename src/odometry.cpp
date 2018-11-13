@@ -1824,7 +1824,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
 
     if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == 0.2) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f , %f, %f", current_altitude(0), current_altitude(1), current_altitude(2), current_altitude(3));
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f , %f, %f", current_altitude(0), current_altitude(1), current_altitude(2),
+                        current_altitude(3));
     }
 
     Eigen::VectorXd pos_vec(2);
@@ -2498,8 +2499,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           /*   bias_baro_estimation_enabled = false; */
           /* } */
 
-          /* if (!obstacle_detected && !excessive_tilt) { */
-          if (!excessive_tilt) {
+          if (!obstacle_detected && !excessive_tilt) {
+            /* if (!excessive_tilt) { */
 
             // When there is no obstacle under the drone, reset the elevation to zero
             if (estimate_elevation && current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
@@ -2513,8 +2514,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
                 bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) - max_altitude_correction_;
               }
               {
-              std::scoped_lock lock(mutex_altitude_estimator);
-              altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
+                std::scoped_lock lock(mutex_altitude_estimator);
+                altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
               }
               if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
                 std::scoped_lock lock(mutex_altitude_estimator);
@@ -2599,13 +2600,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // Initialize all altitude estimators
     for (auto &estimator : m_altitude_estimators) {
-    estimator.second->setState(0, altitude);
-    estimator.second->setState(1, d_altitude);
-    estimator.second->setState(2, height);
-    estimator.second->setState(3, d_altitude);
-    estimator.second->setState(4, elevation);
-    estimator.second->setState(5, bias);
-    estimator.second->setCovariance(init_cov);
+      estimator.second->setState(0, altitude);
+      estimator.second->setState(1, d_altitude);
+      estimator.second->setState(2, height);
+      estimator.second->setState(3, d_altitude);
+      estimator.second->setState(4, elevation);
+      estimator.second->setState(5, bias);
+      estimator.second->setCovariance(init_cov);
     }
     is_altitude_estimator_initialized = true;
   }
@@ -3618,7 +3619,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
   // Check for excessive tilts
-  if (roll > _excessive_tilt || pitch > _excessive_tilt) {
+  if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
     excessive_tilt = true;
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing baro offset and elevation correction due to excessive tilt");
   } else {
@@ -3793,13 +3794,11 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
             obstacle_detected = false;
           }
 
-          {
             if (estimate_elevation && obstacle_detected) {
             std::scoped_lock lock(mutex_altitude_estimator);
-              altitudeEstimatorCorrection(elevation, "elevation");
-              /* ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation); */
+            altitudeEstimatorCorrection(elevation, "elevation");
+            /* ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation); */
             }
-          }
         }
       }
 
@@ -4259,13 +4258,30 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
     if (!land_position_set) {  // if taking off for the first time
 
-      states(0, 0) = local_origin_x_;
-      states(0, 1) = local_origin_y_;
+      if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
+        got_pixhawk_odom_offset = false;
+        if (!calculatePixhawkOdomOffset()) {
+          ROS_ERROR("Calculating pixhawk odom offset");
+        }
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+      } else {
+        states(0, 0) = local_origin_x_;
+        states(0, 1) = local_origin_y_;
+      }
 
     } else if (use_local_origin_) {  // taking off again
-
-      states(0, 0) = land_position_x;
-      states(0, 1) = land_position_y;
+      if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
+        got_pixhawk_odom_offset = false;
+        if (!calculatePixhawkOdomOffset()) {
+          ROS_ERROR("Calculating pixhawk odom offset");
+        }
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+      } else {
+        states(0, 0) = land_position_x;
+        states(0, 1) = land_position_y;
+      }
     }
   }
 
