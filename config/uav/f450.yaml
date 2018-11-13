@@ -6,20 +6,20 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "OPTFLOW"
+takeoff_estimator: "GPS"
 
 # available localization methods
-gps_available: false
-optflow_available: true
+gps_available: true
+optflow_available: false
 vio_available: false
 rtk_available: false
 lidar_available: false
-object_available: true
+object_available: false
 
-min_satellites: 6
+min_satellites: 0
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
-april_objects: true
+april_objects: false
 
 use_differential_gps: false
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
