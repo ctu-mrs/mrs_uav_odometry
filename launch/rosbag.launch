@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="uav_name" default="uav10"/>
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
   <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
@@ -9,9 +9,9 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
-  <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
+  <!-- <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" /> -->
 
-  <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" />
+  <!-- <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" /> -->
 
   <group ns="$(arg uav_name)">
 
@@ -21,12 +21,14 @@
 
       <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <param name="enable_profiler" value="$(arg profiler)" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="false"/>
+      <param name="rosbag" type="bool" value="true"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->
@@ -59,6 +61,10 @@
       <remap from="~gps_local_odom_out" to="~gps_local_odom" />
       <remap from="~odometry_diag_out" to="~diagnostics" />
       <remap from="~altitude_out" to="~altitude" />
+      <remap from="~altitude_state_out" to="~/processed/altitude_state" />
+      <remap from="~inno_elevation_out" to="~/processed/inno_elevation" />
+      <remap from="~inno_stddev_elevation_out" to="~/processed/inno_stddev_elevation" />
+      <remap from="~veldiff_stddev_out" to="~/processed/veldiff_stddev" />
       <remap from="~max_altitude_out" to="~max_altitude" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />

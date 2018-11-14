@@ -29,11 +29,13 @@
 
       <rosparam file="$(find mrs_odometry)/config/simulation/f550_gps.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="simulation" type="bool" value="true"/>
+      <param name="rosbag" type="bool" value="false"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->
@@ -42,7 +44,7 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
-      <remap from="~object_in" to="~odom_april" />
+      <remap from="~object_in" to="balloon_planner/balloon_odom_out" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
@@ -58,6 +60,7 @@
 
       <!-- Publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
+      <remap from="~odom_stable_out" to="~odom_stable" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
@@ -68,6 +71,7 @@
       <remap from="~gps_local_odom_out" to="~gps_local_odom" />
       <remap from="~odometry_diag_out" to="~diagnostics" />
       <remap from="~altitude_out" to="~altitude" />
+      <remap from="~altitude_state_out" to="~altitude_state" />
       <remap from="~max_altitude_out" to="~max_altitude" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />

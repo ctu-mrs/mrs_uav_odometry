@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   geometry_msgs
+  tf2_geometry_msgs
   std_msgs
   nav_msgs
   tf
@@ -19,7 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
   # apriltags2_ros
   )
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
+# set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
+set(CMAKE_CXX_FLAGS "-std=c++17")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)
@@ -37,7 +39,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES Odometry
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs geometry_msgs mrs_lib mrs_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
   DEPENDS Eigen
   )
 
@@ -55,15 +57,17 @@ include_directories(
   )
 
 add_library(range_filter src/range_filter.cpp)
+add_library(stddev_buffer src/StddevBuffer.cpp)
 
 ## Declare a C++ executable
-add_library(Odometry src/StateEstimator.cpp src/odometry.cpp)
+add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
   range_filter
+  stddev_buffer
   )
 
 ## Add configure headers for dynamic reconfigure
