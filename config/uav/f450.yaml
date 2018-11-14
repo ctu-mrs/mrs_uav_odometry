@@ -6,10 +6,9 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "OPTFLOW"
 
 # available localization methods
-<<<<<<< HEAD:ros_packages/mrs_odometry/config/uav/f450.yaml
 gps_available: false
 optflow_available: true
 vio_available: false
@@ -49,7 +48,7 @@ null_tracker: "mrs_mav_manager/NullTracker"
 altitude:
 
   # ALTITUDE - barometric, HEIGHT - rangefinder
-  altitude_estimator: "HEIGHT"
+  altitude_estimator: "ALTITUDE"
   estimate_elevation: true
   estimate_baro_offset: true
 
