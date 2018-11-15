@@ -2257,9 +2257,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  if (!got_pixhawk_odom_offset) {
-    return;
-  }
 
   // --------------------------------------------------------------
   // |                        callback body                       |
@@ -2507,6 +2504,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* state estimators update //{ */
 
+  if (!got_pixhawk_odom_offset) {
+    return;
+  }
 
   /* mavros tilts in inertial frame //{ */
 
