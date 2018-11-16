@@ -1,20 +1,22 @@
-altitude_estimator:
+altitude_estimators:
 
   # The number of model states
   n_model_states: 6
 
-  # The available state estimators
-  state_estimators: [
-    "ALTITUDE" 
+  # The available altitude estimators
+  altitude_estimators: [
+    "HEIGHT",
+    "ALTITUDE",
+    "ELEVATION" 
   ] 
 
   # The measured states of the model
   model_states: [
     "ALTITUDE", 
-    "HEIGHT", 
-    "ELEVATION", 
     "VEL_ALT", 
+    "HEIGHT", 
     "VEL_HEIGHT", 
+    "ELEVATION", 
     "BIAS" 
   ] 
 
@@ -29,7 +31,9 @@ altitude_estimator:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    ALTITUDE: ["alt_baro", "height_range", "vel_mavros", "bias_baro", "elevation"]
+    HEIGHT: ["alt_baro", "height_range", "vel_mavros"]
+    ALTITUDE: ["alt_baro", "height_range", "vel_mavros", "bias_baro"]
+    ELEVATION: ["alt_baro", "height_range", "vel_mavros", "bias_baro", "elevation"]
 
   # Mapping of measurements to states
   measurement_states:
