@@ -17,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   nodelet
   dynamic_reconfigure
-  # apriltags2_ros
+  apriltags2_ros
   )
 
 # set(CMAKE_CXX_FLAGS "-std=c++17 -fno-diagnostics-color")
