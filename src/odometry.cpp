@@ -3239,9 +3239,12 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse object position */
 
   // Transform to balloon frame
+  // Balloons
   /* double object_pos_x_bal = -odom_object.pose.pose.position.z; */
   /* double object_pos_y_bal = odom_object.pose.pose.position.x; */
   /* double object_pos_z_bal = odom_object.pose.pose.position.y; */
+
+  // April tags
   double object_pos_x_bal = odom_object.pose.pose.position.x;
   double object_pos_y_bal = odom_object.pose.pose.position.y;
   double object_pos_z_bal = odom_object.pose.pose.position.z;

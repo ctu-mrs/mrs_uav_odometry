@@ -8,8 +8,6 @@ Panels:
         - /Status1
         - /position_cmd1/Shape1
         - /gps_local1/Shape1
-        - /Image1
-        - /Odometry1
         - /Odometry1/Shape1
       Splitter Ratio: 0.5
     Tree Height: 735
@@ -31,7 +29,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Visualization Manager:
@@ -75,7 +73,7 @@ Visualization Manager:
       Enabled: true
       Keep: 1
       Name: odom_main
-      Position Tolerance: 0.10000000149011612
+      Position Tolerance: 0.009999999776482582
       Shape:
         Alpha: 1
         Axes Length: 1
@@ -109,7 +107,7 @@ Visualization Manager:
       Enabled: true
       Keep: 1
       Name: position_cmd
-      Position Tolerance: 0.10000000149011612
+      Position Tolerance: 0.009999999776482582
       Shape:
         Alpha: 1
         Axes Length: 1
@@ -159,7 +157,7 @@ Visualization Manager:
       Enabled: true
       Keep: 1
       Name: gps_local
-      Position Tolerance: 0.10000000149011612
+      Position Tolerance: 0.009999999776482582
       Shape:
         Alpha: 1
         Axes Length: 1
@@ -193,7 +191,7 @@ Visualization Manager:
       Enabled: true
       Keep: 1
       Name: rtk_local
-      Position Tolerance: 0.10000000149011612
+      Position Tolerance: 0.009999999776482582
       Shape:
         Alpha: 1
         Axes Length: 1
