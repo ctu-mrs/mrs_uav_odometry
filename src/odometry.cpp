@@ -59,7 +59,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Vector3.h>
 
-/* #include <apriltags2_ros/AprilTagDetectionArray.h> */
+#include <apriltags2_ros/AprilTagDetectionArray.h>
 
 #include <string>
 #include <locale>
@@ -124,7 +124,7 @@ private:
   ros::Publisher pub_max_altitude_;
   ros::Publisher pub_lkf_states_x_;
   ros::Publisher pub_lkf_states_y_;
-  /* ros::Publisher pub_odom_april_; */
+  ros::Publisher pub_odom_april_;
   ros::Publisher pub_altitude_state_;
   ros::Publisher pub_inno_elevation_;
   ros::Publisher pub_inno_stddev_elevation_;
@@ -143,7 +143,7 @@ private:
   ros::Subscriber sub_optflow_stddev_;
   ros::Subscriber sub_vio_;
   ros::Subscriber sub_object_;
-  /* ros::Subscriber sub_april_detections_; */
+  ros::Subscriber sub_april_detections_;
   ros::Subscriber rtk_gps_sub_;
   ros::Subscriber sub_icp_relative_;
   ros::Subscriber sub_icp_global_;
@@ -226,9 +226,9 @@ private:
   mrs_msgs::RtkGps rtk_local_previous;
   mrs_msgs::RtkGps rtk_local;
 
-  /* std::mutex                                         m_det_buffer_mtx; */
-  /* std::queue<apriltags2_ros::AprilTagDetectionArray> m_det_buffer; */
-  /* ros::Subscriber                                    m_det_sub; */
+  std::mutex                                         m_det_buffer_mtx;
+  std::queue<apriltags2_ros::AprilTagDetectionArray> m_det_buffer;
+  ros::Subscriber                                    m_det_sub;
 
   bool                     _is_estimator_tmp;
   mrs_msgs::EstimatorType  _estimator_type;
@@ -236,6 +236,7 @@ private:
   mrs_msgs::EstimatorType  _estimator_type_takeoff;
   std::vector<std::string> _estimator_type_names;
   std::vector<std::string> _altitude_type_names;
+  std::string              altitude_estimator_name;
   std::mutex               mutex_estimator_type;
 
   std::string child_frame_id;
@@ -262,7 +263,7 @@ private:
   void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void callbackVioState(const std_msgs::Bool &msg);
-  /* void callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg); */
+  void callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg);
 
   // | ------------------- service callbacks ------------------- |
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -273,17 +274,19 @@ private:
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // | --------------------- helper methods --------------------- |
-  bool        isReadyToTakeoff();
+  bool               isReadyToTakeoff();
   void               stateEstimatorsPrediction(double x, double y, double dt);
   void               stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
   void               altitudeEstimatorCorrection(double value, const std::string &measurement_name);
+  void               altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator);
+  bool               changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
   void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
   bool               changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
   bool               isValidType(const mrs_msgs::EstimatorType &type);
   std::string        printOdometryDiag();
   bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
   nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
-  /* void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer); */
+  void        processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer);
 
   // for keeping new odom
   nav_msgs::Odometry shared_odom;
@@ -371,27 +374,35 @@ private:
   double init_pose_x, init_pose_y, init_pose_z, init_pose_yaw;
 
   // altitude estimation
-  int                                    altitude_n, altitude_m, altitude_p;
-  Eigen::MatrixXd                        A_alt, B_alt, R_alt;
-  std::mutex                             mutex_altitude_estimator;
-  std::shared_ptr<AltitudeEstimator>     altitude_estimator;
-  std::string                            altitude_estimator_name;
-  std::vector<std::string>               _alt_model_state_names;
-  std::vector<std::string>               _alt_measurement_names;
-  std::map<std::string, Eigen::MatrixXd> map_alt_measurement_covariance;
-  std::map<std::string, std::string>     map_alt_measurement_state;
-  std::map<std::string, int>             map_alt_measurement_name_id;
-  std::map<std::string, Eigen::MatrixXd> map_alt_states;
-  bool                                   is_altitude_estimator_initialized = false;
-  int                                    counter_altitude                  = 0;
-  bool                                   obstacle_detected                 = false;
-  bool                                   bias_baro_estimation_enabled      = false;
-  double                                 _max_vel_baro_offset_estimation;
-  double                                 _elevation_tolerance;
-  double                                 _excessive_tilt;
-  int                                    current_altitude_type;
-  bool                                   estimate_elevation;
-  bool                                   estimate_baro_offset;
+  int                                                       altitude_n, altitude_m, altitude_p;
+  Eigen::MatrixXd                                           A_alt, B_alt, R_alt;
+  std::mutex                                                mutex_altitude_estimator;
+  std::vector<std::string>                                  _altitude_estimators_names;
+  std::vector<std::string>                                  _alt_model_state_names;
+  std::vector<std::string>                                  _alt_measurement_names;
+  std::map<std::string, std::vector<std::string>>           map_alt_estimator_measurement;
+  std::map<std::string, Eigen::MatrixXd>                    map_alt_measurement_covariance;
+  std::map<std::string, std::string>                        map_alt_measurement_state;
+  std::map<std::string, int>                                map_alt_measurement_name_id;
+  std::map<std::string, Eigen::MatrixXd>                    map_alt_states;
+  std::map<std::string, mrs_msgs::Float64Stamped>           map_alt_estimator_msg;
+  std::map<std::string, ros::Publisher>                     map_alt_estimator_pub;
+  std::map<std::string, std::shared_ptr<AltitudeEstimator>> m_altitude_estimators;
+  std::shared_ptr<AltitudeEstimator>                        current_alt_estimator;
+  std::string                                               current_alt_estimator_name;
+  mrs_msgs::AltitudeType                                    _alt_estimator_type;
+  mrs_msgs::AltitudeType                                    _alt_estimator_type_takeoff;
+  std::mutex                                                mutex_current_alt_estimator;
+  bool                                                      is_altitude_estimator_initialized = false;
+  int                                                       counter_altitude                  = 0;
+  bool                                                      obstacle_detected                 = false;
+  bool                                                      bias_baro_estimation_enabled      = false;
+  double                                                    _max_vel_baro_offset_estimation;
+  double                                                    _elevation_tolerance;
+  double                                                    _excessive_tilt;
+  int                                                       current_altitude_type;
+  bool                                                      estimate_elevation;
+  bool                                                      estimate_baro_offset;
 
   // State estimation
   int                                                    _n_model_states;
@@ -433,7 +444,7 @@ private:
   bool   _lidar_available   = false;
   bool   _object_available  = false;
   bool   object_reliable    = false;
-  /* bool   _april_objects     = false; */
+  bool   _april_objects     = false;
 
   // use differential gps
   bool   use_differential_gps = false;
@@ -564,8 +575,9 @@ void Odometry::onInit() {
     ROS_INFO("[Odometry]: _estimator_type[%d]=%s", i, _estimator_type_names[i].c_str());
   }
 
-  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ALTITUDE));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::HEIGHT));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ALTITUDE));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ELEVATION));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -670,7 +682,7 @@ void Odometry::onInit() {
   param_loader.load_param("rtk_available", _rtk_available);
   param_loader.load_param("lidar_available", _lidar_available);
   param_loader.load_param("object_available", _object_available);
-  /* param_loader.load_param("april_objects", _april_objects); */
+  param_loader.load_param("april_objects", _april_objects);
   gps_reliable        = _gps_available;
   object_reliable     = false;
   counter_odom_object = false;
@@ -686,12 +698,8 @@ void Odometry::onInit() {
 
   /* load parameters of altitude estimator //{ */
 
-  param_loader.load_param("altitude/altitude_estimator", altitude_estimator_name);
   param_loader.load_param("altitude/estimate_elevation", estimate_elevation);
   param_loader.load_param("altitude/estimate_baro_offset", estimate_baro_offset);
-
-  size_t pos_alt        = std::distance(_altitude_type_names.begin(), find(_altitude_type_names.begin(), _altitude_type_names.end(), altitude_estimator_name));
-  current_altitude_type = (int)pos_alt;
 
   param_loader.load_param("altitude/numberOfVariables", altitude_n);
   param_loader.load_param("altitude/numberOfInputs", altitude_m);
@@ -709,12 +717,19 @@ void Odometry::onInit() {
   param_loader.load_param("altitude/GarminMinQ", GarminMinQ);
   param_loader.load_param("altitude/GarminQChangeRate", GarminQChangeRate);
 
-  param_loader.load_param("altitude_estimator/model_states", _alt_model_state_names);
-  param_loader.load_param("altitude_estimator/measurements", _alt_measurement_names);
+  param_loader.load_param("altitude_estimators/model_states", _alt_model_state_names);
+  param_loader.load_param("altitude_estimators/measurements", _alt_measurement_names);
+  param_loader.load_param("altitude_estimators/altitude_estimators", _altitude_estimators_names);
 
   param_loader.load_param("altitude/max_vel_baro_offset_estimation", _max_vel_baro_offset_estimation);
   param_loader.load_param("altitude/elevation_tolerance", _elevation_tolerance);
   param_loader.load_param("altitude/excessive_tilt", _excessive_tilt);
+
+  param_loader.load_param("altitude/altitude_estimator", altitude_estimator_name);
+  size_t pos_alt = std::distance(_altitude_type_names.begin(), find(_altitude_type_names.begin(), _altitude_type_names.end(), altitude_estimator_name));
+
+  _alt_estimator_type_takeoff.name = altitude_estimator_name;
+  _alt_estimator_type_takeoff.type = (int)pos_alt;
 
   /* param_loader.load_param("altitude/rtkQ", rtkQ); */
 
@@ -737,27 +752,27 @@ void Odometry::onInit() {
   /* objectAltitudeFilter = new RangeFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
   // Load the measurements fused by each state estimator
-  /* for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) { */
+  for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
 
-  std::string              alt_estimator_name = "ALTITUDE";
-  std::vector<std::string> temp_vector;
-  param_loader.load_param("altitude_estimator/fused_measurements/" + alt_estimator_name, temp_vector);
+    /* std::string              alt_estimator_name = "ALTITUDE"; */
+    std::vector<std::string> temp_vector;
+    param_loader.load_param("altitude_estimators/fused_measurements/" + *it, temp_vector);
 
-  for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-    if (!stringInVector(*it2, _alt_measurement_names)) {
-      ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), alt_estimator_name.c_str());
-      ros::shutdown();
+    for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
+      if (!stringInVector(*it2, _alt_measurement_names)) {
+        ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
+        ros::shutdown();
+      }
     }
-  }
 
-  /* map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector)); */
-  /* } */
+    map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
+  }
 
   // Load the model state of each measurement
   for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it != _alt_measurement_names.end(); ++it) {
 
     std::string temp_value;
-    param_loader.load_param("altitude_estimator/measurement_states/" + *it, temp_value);
+    param_loader.load_param("altitude_estimators/measurement_states/" + *it, temp_value);
 
     if (!stringInVector(temp_value, _alt_model_state_names)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
@@ -771,7 +786,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _alt_model_state_names.begin(); it != _alt_model_state_names.end(); ++it) {
 
     Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, altitude_n);
-    param_loader.load_matrix_static("altitude_estimator/state_mapping/" + *it, temp_P, 1, altitude_n);
+    param_loader.load_matrix_static("altitude_estimators/state_mapping/" + *it, temp_P, 1, altitude_n);
 
     map_alt_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
   }
@@ -793,35 +808,58 @@ void Odometry::onInit() {
 
   /* create altitude estimator //{ */
 
-  std::vector<bool>            alt_fusing_measurement;
-  std::vector<Eigen::MatrixXd> P_arr_alt, Q_arr_alt;
 
-  // Loop through all measurements
-  for (std::vector<std::string>::iterator it2 = _alt_measurement_names.begin(); it2 != _alt_measurement_names.end(); ++it2) {
+  // Loop through all estimators
+  for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
 
-    // Check whether measurement is fused by the estimator
-    if (stringInVector(*it2, _alt_measurement_names)) {
-      alt_fusing_measurement.push_back(true);
-    } else {
-      alt_fusing_measurement.push_back(false);
+    std::vector<bool>            alt_fusing_measurement;
+    std::vector<Eigen::MatrixXd> P_arr_alt, Q_arr_alt;
+
+    // Find measurements fused by the estimator
+    std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_alt_estimator_measurement.find(*it);
+
+    // Loop through all measurements
+    for (std::vector<std::string>::iterator it2 = _alt_measurement_names.begin(); it2 != _alt_measurement_names.end(); ++it2) {
+
+      // Check whether measurement is fused by the estimator
+      if (stringInVector(*it2, temp_vec->second)) {
+        alt_fusing_measurement.push_back(true);
+      } else {
+        alt_fusing_measurement.push_back(false);
+      }
+
+      // Find state name
+      std::map<std::string, std::string>::iterator pair_measurement_state = map_alt_measurement_state.find(*it2);
+
+      // Find measurement to state mapping
+      std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_alt_states.find(pair_measurement_state->second);
+      P_arr_alt.push_back(pair_state_matrix->second);
+
+      // Find measurement covariance
+      std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_alt_measurement_covariance.find(*it2);
+      Q_arr_alt.push_back(pair_measurement_covariance->second);
     }
 
-    // Find state name
-    std::map<std::string, std::string>::iterator pair_measurement_state = map_alt_measurement_state.find(*it2);
+    /* main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
+    /* failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
+    /* altitude_estimator = std::make_shared<AltitudeEstimator>(alt_estimator_name, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_alt, B_alt, R_alt); */
 
-    // Find measurement to state mapping
-    std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_alt_states.find(pair_measurement_state->second);
-    P_arr_alt.push_back(pair_state_matrix->second);
+    // Add pointer to altitude estimator to array
+    // this is how to create shared pointers!!! the correct way
+    m_altitude_estimators.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
+        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_alt, B_alt, R_alt)));
 
-    // Find measurement covariance
-    std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_alt_measurement_covariance.find(*it2);
-    Q_arr_alt.push_back(pair_measurement_covariance->second);
+    // Map odometry to estimator name
+    mrs_msgs::Float64Stamped alt_msg;
+    std::string              alt_estimator_name = *it;
+    std::transform(alt_estimator_name.begin(), alt_estimator_name.end(), alt_estimator_name.begin(), ::tolower);
+    /* alt_msg.child_frame_id = alt_estimator_name; */
+    map_alt_estimator_msg.insert(std::pair<std::string, mrs_msgs::Float64Stamped>(*it, alt_msg));
+
+    // Map publisher to estimator name
+    ros::Publisher pub = nh_.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
+    map_alt_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
   }
-
-  /* main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
-  /* failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
-  altitude_estimator = std::make_shared<AltitudeEstimator>(alt_estimator_name, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_alt, B_alt, R_alt);
-
 
   ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: "
                   << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_alt << ", B: " << B_alt << ", R: " << R_alt
@@ -1000,7 +1038,7 @@ void Odometry::onInit() {
   pub_max_altitude_  = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
   pub_lkf_states_x_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
   pub_lkf_states_y_  = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
-  /* pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1); */
+  pub_odom_april_    = nh_.advertise<nav_msgs::Odometry>("odom_april_out", 1);
   pub_altitude_state_        = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
   pub_inno_elevation_        = nh_.advertise<mrs_msgs::Float64Stamped>("inno_elevation_out", 1);
   pub_inno_stddev_elevation_ = nh_.advertise<mrs_msgs::Float64Stamped>("inno_stddev_elevation_out", 1);
@@ -1053,9 +1091,9 @@ void Odometry::onInit() {
   // subscriber to object odometry
   if (_object_available) {
     sub_object_ = nh_.subscribe("object_in", 1, &Odometry::callbackObjectOdometry, this, ros::TransportHints().tcpNoDelay());
-    /* if (_april_objects) { */
-    /* sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay()); */
-    /* } */
+    if (_april_objects) {
+    sub_april_detections_ = nh_.subscribe("april_detections_in", 1, &Odometry::callbackApriltagDetection, this, ros::TransportHints().tcpNoDelay());
+    }
   }
 
   // subscriber for differential gps
@@ -1133,34 +1171,34 @@ void Odometry::onInit() {
   // If required sensor is not available shutdown
   ROS_INFO_ONCE("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff.name.c_str());
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOW && !_optflow_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::GPS && !_gps_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. GPS localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. GPS localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !_optflow_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && !_rtk_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && !_vio_available) {
-      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual odometry localization not available. Shutting down.",
-                _estimator_type_takeoff.name.c_str());
-      ros::shutdown();
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual odometry localization not available. Shutting down.",
+              _estimator_type_takeoff.name.c_str());
+    ros::shutdown();
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OBJECT) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
@@ -1168,11 +1206,20 @@ void Odometry::onInit() {
     ros::shutdown();
   }
 
-  bool success = changeCurrentEstimator(_estimator_type_takeoff);
+  bool success;
+
+  success = changeCurrentAltitudeEstimator(_alt_estimator_type_takeoff);
+  if (!success) {
+    ROS_ERROR("[Odometry]: The takeoff altitude estimator type %s could not be set. Shutting down.", _alt_estimator_type_takeoff.name.c_str());
+    ros::shutdown();
+  }
+
+  success = changeCurrentEstimator(_estimator_type_takeoff);
   if (!success) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Shutting down.", _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
+
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   //}
@@ -1190,11 +1237,11 @@ void Odometry::onInit() {
   current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
   current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
 
-  altitude_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
-  altitude_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
-  altitude_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-  altitude_estimator->getQ(last_drs_config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
-  altitude_estimator->getQ(last_drs_config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
+  current_alt_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
+  current_alt_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
+  current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+  current_alt_estimator->getQ(last_drs_config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
+  current_alt_estimator->getQ(last_drs_config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
   reconfigure_server_->updateConfig(last_drs_config);
 
   //}
@@ -1365,17 +1412,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_altitude_estimator);
     /* new_altitude.value = main_altitude_kalman->getState(0); */
-    if (!altitude_estimator->getStates(current_altitude)) {
+    if (!current_alt_estimator->getStates(current_altitude)) {
       ROS_WARN("[Odometry]: Altitude estimator not initialized.");
       return;
     }
     /* ROS_WARN_STREAM_THROTTLE(1.0, "[Odometry]: altitude states:" << std::endl << current_altitude); */
-    if (current_altitude_type == mrs_msgs::AltitudeType::ALTITUDE) {
+    if (_alt_estimator_type.type == mrs_msgs::AltitudeType::ALTITUDE || _alt_estimator_type.type == mrs_msgs::AltitudeType::ELEVATION) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
-    } else if (current_altitude_type == mrs_msgs::AltitudeType::HEIGHT) {
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", current_altitude_type);
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
     }
   }
 
@@ -1561,12 +1608,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_altitude_estimator);
 
-    if (current_altitude_type == mrs_msgs::AltitudeType::ALTITUDE) {
+    if (_alt_estimator_type.type == mrs_msgs::AltitudeType::ALTITUDE || _alt_estimator_type.type == mrs_msgs::AltitudeType::ELEVATION) {
       odom_main.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
-    } else if (current_altitude_type == mrs_msgs::AltitudeType::HEIGHT) {
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
       odom_main.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", current_altitude_type);
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
     }
   }
 #endif
@@ -1757,17 +1804,17 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     // update the altitude state
     {
       std::scoped_lock lock(mutex_altitude_estimator);
-      if (!altitude_estimator->getStates(current_altitude)) {
+      if (!current_alt_estimator->getStates(current_altitude)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
         return;
       }
 
-      if (current_altitude_type == mrs_msgs::AltitudeType::ALTITUDE) {
+      if (_alt_estimator_type.type == mrs_msgs::AltitudeType::ALTITUDE || _alt_estimator_type.type == mrs_msgs::AltitudeType::ELEVATION) {
         odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
-      } else if (current_altitude_type == mrs_msgs::AltitudeType::HEIGHT) {
+      } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
         odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
       } else {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", current_altitude_type);
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
       }
     }
 
@@ -2289,7 +2336,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
     {
       std::scoped_lock lock(mutex_altitude_estimator);
-      altitude_estimator->getCovariance(cov);
+      current_alt_estimator->getCovariance(cov);
     }
     mrs_msgs::Float64ArrayStamped cov_msg;
     cov_msg.header.stamp    = ros::Time::now();
@@ -2308,129 +2355,155 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     /* do correction of barometer altitude //{ */
 
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-    if (!altitude_estimator->getStates(current_altitude)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-      return;
-    }
+    for (auto &estimator : m_altitude_estimators) {
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      if (!current_alt_estimator->getStates(current_altitude)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+        return;
+      }
 
-    double correction = msg->pose.pose.position.z;
+      double correction = msg->pose.pose.position.z;
 
-    // saturate the correction
-    correction -= current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
+      // For HEIGHT estimator do now use baro offset
+      if (std::strcmp(estimator.first.c_str(), "HEIGHT") == 0) {
 
-    if (!std::isfinite(correction)) {
-      correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"correction\", setting it to 0!!!");
-    } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-      correction = max_altitude_correction_;
-    } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-      correction = -max_altitude_correction_;
-    }
+        // saturate the correction
+        correction -= current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
 
-    correction += current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
-
-    // Compensate the offset
-    double alt_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
-
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      altitudeEstimatorCorrection(alt_baro, "alt_baro");
-    }
-
-    //}
-
-    /* publish innovation covariance //{ */
-
-    std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("bias_baro");
-    Eigen::MatrixXd                      innovation_cov    = Eigen::MatrixXd::Zero(1, 1);
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      altitude_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
-    }
-    mrs_msgs::Float64Stamped inno_cov_msg;
-    inno_cov_msg.header.stamp    = ros::Time::now();
-    inno_cov_msg.header.frame_id = "local_origin";
-    inno_cov_msg.value           = innovation_cov(0, 0);
-    try {
-      pub_inno_cov_bias_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
-    }
-    catch (...) {
-      ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_bias_.getTopic().c_str());
-    }
-
-    //}
-
-    /* do correction of barometer offset //{ */
-
-    if (estimate_baro_offset) {
-      // Estimate the initial baro offset before taking off
-      if (!isUavFlying()) {
-        double bias_baro = msg->pose.pose.position.z - fcu_height_;
-        if (!std::isfinite(bias_baro)) {
-          bias_baro = 0;
-          ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
-        } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-          bias_baro = max_altitude_correction_;
-        } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-          bias_baro = -max_altitude_correction_;
+        if (!std::isfinite(correction)) {
+          correction = 0;
+          ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"correction\", setting it to 0!!!");
+        } else if (correction > max_altitude_correction_) {
+          correction = max_altitude_correction_;
+        } else if (correction < -max_altitude_correction_) {
+          correction = -max_altitude_correction_;
         }
-        altitudeEstimatorCorrection(bias_baro, "bias_baro");
-        /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground."); */
-        /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
 
+        correction += current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
+
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          altitudeEstimatorCorrection(correction, "alt_baro", estimator.second);
+        }
       } else {
 
-        double bias_baro = correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
-        double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
+        // saturate the correction
+        correction -= current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
 
-        // We want to estimate barometer offset only when the altitude is constant
-        /* if (estimate_baro_offset && !bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) <
-         * _max_vel_baro_offset_estimation
-         * && */
-        /*     current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < _max_vel_baro_offset_estimation) { */
-        /* if (estimate_baro_offset && !bias_baro_estimation_enabled) { */
-        /*   bias_baro_estimation_enabled = true; */
-        /* } */
-        /* if (bias_baro_estimation_enabled && (!estimate_baro_offset || current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) >
-         * _max_vel_baro_offset_estimation
-         * || */
-        /*                                      current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > _max_vel_baro_offset_estimation)) { */
-        /* if (bias_baro_estimation_enabled && !estimate_baro_offset) { */
-        /*   bias_baro_estimation_enabled = false; */
-        /* } */
+        if (!std::isfinite(correction)) {
+          correction = 0;
+          ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"correction\", setting it to 0!!!");
+        } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+          correction = max_altitude_correction_;
+        } else if (correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+          correction = -max_altitude_correction_;
+        }
 
-        if (!obstacle_detected && !excessive_tilt) {
+        correction += current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE);
 
-          // When there is no obstacle under the drone, reset the elevation to zero
-          if (estimate_elevation && current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
-            bias_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-            if (!std::isfinite(bias_baro)) {
-              bias_baro = 0;
-              ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-              bias_baro = max_altitude_correction_;
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-              bias_baro = -max_altitude_correction_;
-            }
-            altitudeEstimatorCorrection(bias_baro, "bias_baro");
-            altitudeEstimatorCorrection(0.0, "elevation");
+        // Compensate the offset
+        double alt_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
 
-          } else {
-            if (!std::isfinite(bias_baro)) {
-              bias_baro = 0;
-              ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-              bias_baro = max_altitude_correction_;
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-              bias_baro = -max_altitude_correction_;
-            }
-            altitudeEstimatorCorrection(bias_baro, "bias_baro");
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          altitudeEstimatorCorrection(alt_baro, "alt_baro");
+        }
+
+        //}
+
+        /* publish innovation covariance //{ */
+
+        std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("bias_baro");
+        Eigen::MatrixXd                      innovation_cov    = Eigen::MatrixXd::Zero(1, 1);
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          current_alt_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
+        }
+        mrs_msgs::Float64Stamped inno_cov_msg;
+        inno_cov_msg.header.stamp    = ros::Time::now();
+        inno_cov_msg.header.frame_id = "local_origin";
+        inno_cov_msg.value           = innovation_cov(0, 0);
+        try {
+          pub_inno_cov_bias_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
+        }
+        catch (...) {
+          ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_bias_.getTopic().c_str());
+        }
+
+        //}
+
+        /* do correction of barometer offset //{ */
+
+        // Estimate the initial baro offset before taking off
+        if (!isUavFlying()) {
+          double bias_baro = msg->pose.pose.position.z - fcu_height_;
+          if (!std::isfinite(bias_baro)) {
+            bias_baro = 0;
+            ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+            bias_baro = max_altitude_correction_;
+          } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+            bias_baro = -max_altitude_correction_;
           }
+          altitudeEstimatorCorrection(bias_baro, "bias_baro");
+          /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground."); */
           /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
-        }  // if (!obstacle_detected && !excessive_tilt)
-      }    // if (isUavFlying()) else ...
-    }      // if (estimate_baro_offset)
+
+        } else {
+
+          double bias_baro = correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
+          double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
+
+          // We want to estimate barometer offset only when the altitude is constant
+          /* if (estimate_baro_offset && !bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) <
+           * _max_vel_baro_offset_estimation
+           * && */
+          /*     current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) < _max_vel_baro_offset_estimation) { */
+          /* if (estimate_baro_offset && !bias_baro_estimation_enabled) { */
+          /*   bias_baro_estimation_enabled = true; */
+          /* } */
+          /* if (bias_baro_estimation_enabled && (!estimate_baro_offset || current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) >
+           * _max_vel_baro_offset_estimation
+           * || */
+          /*                                      current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT) > _max_vel_baro_offset_estimation)) { */
+          /* if (bias_baro_estimation_enabled && !estimate_baro_offset) { */
+          /*   bias_baro_estimation_enabled = false; */
+          /* } */
+
+          if (!obstacle_detected && !excessive_tilt) {
+
+            // When there is no obstacle under the drone, reset the elevation to zero
+            if (estimate_elevation && current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
+              bias_baro = correction - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+              if (!std::isfinite(bias_baro)) {
+                bias_baro = 0;
+                ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
+              } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+                bias_baro = max_altitude_correction_;
+              } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+                bias_baro = -max_altitude_correction_;
+              }
+              altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
+              if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
+                altitudeEstimatorCorrection(0.0, "elevation", estimator.second);
+              }
+
+            } else {
+              if (!std::isfinite(bias_baro)) {
+                bias_baro = 0;
+                ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
+              } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
+                bias_baro = max_altitude_correction_;
+              } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
+                bias_baro = -max_altitude_correction_;
+              }
+              altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
+            }
+            /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
+          }
+        }
+      }
+    }
 
 
     ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
@@ -2441,7 +2514,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     /* do correction of mavros z velocity //{ */
 
     // create a correction value
-    correction = msg->twist.twist.linear.z;
+    double correction = msg->twist.twist.linear.z;
 
     // saturate the correction
     if (!std::isfinite(correction)) {
@@ -2468,7 +2541,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
-      altitude_estimator->doPrediction(input, interval2.toSec());
+      current_alt_estimator->doPrediction(input, interval2.toSec());
       /* ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input); */
     }
 
@@ -2489,13 +2562,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     bias << msg->pose.pose.position.z - height(0, 0);
     altitude << msg->pose.pose.position.z - bias(0);
     elevation << 0.0;
-    altitude_estimator->setState(0, altitude);
-    altitude_estimator->setState(1, d_altitude);
-    altitude_estimator->setState(2, height);
-    altitude_estimator->setState(3, d_altitude);
-    altitude_estimator->setState(4, elevation);
-    altitude_estimator->setState(5, bias);
-    altitude_estimator->setCovariance(init_cov);
+    current_alt_estimator->setState(0, altitude);
+    current_alt_estimator->setState(1, d_altitude);
+    current_alt_estimator->setState(2, height);
+    current_alt_estimator->setState(3, d_altitude);
+    current_alt_estimator->setState(4, elevation);
+    current_alt_estimator->setState(5, bias);
+    current_alt_estimator->setCovariance(init_cov);
     is_altitude_estimator_initialized = true;
   }
 
@@ -3072,6 +3145,8 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized)
     return;
 
+  /* ROS_INFO_THROTTLE(1.0, "[Odometry]: Object callback"); */
+
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackObjectOdometry");
 
   odom_object_last_update = ros::Time::now();
@@ -3164,9 +3239,15 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse object position */
 
   // Transform to balloon frame
-  double object_pos_x_bal              = -odom_object.pose.pose.position.z;
-  double object_pos_y_bal              = odom_object.pose.pose.position.x;
-  double object_pos_z_bal              = odom_object.pose.pose.position.y;
+  // Balloons
+  /* double object_pos_x_bal = -odom_object.pose.pose.position.z; */
+  /* double object_pos_y_bal = odom_object.pose.pose.position.x; */
+  /* double object_pos_z_bal = odom_object.pose.pose.position.y; */
+
+  // April tags
+  double object_pos_x_bal = odom_object.pose.pose.position.x;
+  double object_pos_y_bal = odom_object.pose.pose.position.y;
+  double object_pos_z_bal = odom_object.pose.pose.position.z;
 
   // getting roll, pitch, yaw
   double                    roll, pitch, yaw;
@@ -3179,9 +3260,9 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
   tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
   // compensate for tilting of the sensor
-  double object_pos_x = object_pos_x_bal; 
-  double object_pos_y = object_pos_y_bal; 
-  double object_pos_z = object_pos_z_bal; 
+  double object_pos_x = object_pos_x_bal;
+  double object_pos_y = object_pos_y_bal;
+  double object_pos_z = object_pos_z_bal;
 
   // Saturate correction
   double max_object_pos_correction = 0.5;
@@ -3437,7 +3518,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
     // fuse the measurement only when terarangerFilter produced positive value, i.e. feasible value
     if (measurement > 0.2) {
       Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-      if (!altitude_estimator->getStates(current_altitude)) {
+      if (!current_alt_estimator->getStates(current_altitude)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
         return;
       }
@@ -3539,140 +3620,144 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     // fuse the measurement only when garminFilter produced positive value, i.e. feasible value
     if (measurement > 0.01) {
-      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-      if (!altitude_estimator->getStates(current_altitude)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-        return;
-      }
-      // create a correction value
-      double correction;
-      correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+      for (auto &estimator : m_altitude_estimators) {
+        Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+        if (!estimator.second->getStates(current_altitude)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+          return;
+        }
+        // create a correction value
+        double correction;
+        correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
 
-      // saturate the correction
-      if (!std::isfinite(correction)) {
-        correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
-      } else if (correction > max_altitude_correction_) {
-        correction = max_altitude_correction_;
-      } else if (correction < -max_altitude_correction_) {
-        correction = -max_altitude_correction_;
-      }
+        // saturate the correction
+        if (!std::isfinite(correction)) {
+          correction = 0;
+          ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
+        } else if (correction > max_altitude_correction_) {
+          correction = max_altitude_correction_;
+        } else if (correction < -max_altitude_correction_) {
+          correction = -max_altitude_correction_;
+        }
 
-      // set the measurement vector
-      double height_range, elevation;
-      height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
+        // set the measurement vector
+        double height_range, elevation;
+        height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
 
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        altitudeEstimatorCorrection(height_range, "height_range");
-        /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
-      }
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+          /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
+        }
 
-      elevation         = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-      double innovation = elevation - current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION);
+        if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
+          elevation         = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+          double innovation = elevation - current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION);
 
-      /* publish innovation //{ */
-
-
-      std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("elevation");
-
-      Eigen::VectorXd innovation_vec = Eigen::VectorXd::Zero(1);
-      Eigen::VectorXd elevation_vec  = Eigen::VectorXd::Zero(1);
-      elevation_vec(0)               = elevation;
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        altitude_estimator->getInnovation(elevation_vec, it_measurement_id->second, innovation_vec);
-      }
-      mrs_msgs::Float64Stamped inno_elevation;
-      inno_elevation.header.stamp    = ros::Time::now();
-      inno_elevation.header.frame_id = "local_origin";
-      inno_elevation.value           = innovation_vec(0);
-      try {
-        pub_inno_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_elevation)));
-      }
-      catch (...) {
-        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_elevation_.getTopic().c_str());
-      }
-
-      double innovation_stddev = stddev_inno_elevation->getStddev(innovation);
-
-      /* publish innovation stddev //{ */
-
-      mrs_msgs::Float64Stamped inno_stddev_msg;
-      inno_stddev_msg.header.stamp    = ros::Time::now();
-      inno_stddev_msg.header.frame_id = "local_origin";
-      inno_stddev_msg.value           = innovation_stddev;
-      try {
-        pub_inno_stddev_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_stddev_msg)));
-      }
-      catch (...) {
-        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_stddev_elevation_.getTopic().c_str());
-      }
-
-      //}
-
-      //}
-
-      /* publish innovation covariance //{ */
+          /* publish innovation //{ */
 
 
-      Eigen::MatrixXd innovation_cov = Eigen::MatrixXd::Zero(1, 1);
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        altitude_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
-      }
-      mrs_msgs::Float64Stamped inno_cov_msg;
-      inno_cov_msg.header.stamp    = ros::Time::now();
-      inno_cov_msg.header.frame_id = "local_origin";
-      inno_cov_msg.value           = innovation_cov(0, 0);
-      try {
-        pub_inno_cov_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
-      }
-      catch (...) {
-        ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_elevation_.getTopic().c_str());
-      }
+          std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find("elevation");
+
+          Eigen::VectorXd innovation_vec = Eigen::VectorXd::Zero(1);
+          Eigen::VectorXd elevation_vec  = Eigen::VectorXd::Zero(1);
+          elevation_vec(0)               = elevation;
+          {
+            std::scoped_lock lock(mutex_altitude_estimator);
+            current_alt_estimator->getInnovation(elevation_vec, it_measurement_id->second, innovation_vec);
+          }
+          mrs_msgs::Float64Stamped inno_elevation;
+          inno_elevation.header.stamp    = ros::Time::now();
+          inno_elevation.header.frame_id = "local_origin";
+          inno_elevation.value           = innovation_vec(0);
+          try {
+            pub_inno_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_elevation)));
+          }
+          catch (...) {
+            ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_elevation_.getTopic().c_str());
+          }
+
+          double innovation_stddev = stddev_inno_elevation->getStddev(innovation);
+
+          /* publish innovation stddev //{ */
+
+          mrs_msgs::Float64Stamped inno_stddev_msg;
+          inno_stddev_msg.header.stamp    = ros::Time::now();
+          inno_stddev_msg.header.frame_id = "local_origin";
+          inno_stddev_msg.value           = innovation_stddev;
+          try {
+            pub_inno_stddev_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_stddev_msg)));
+          }
+          catch (...) {
+            ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_stddev_elevation_.getTopic().c_str());
+          }
+
+          //}
+
+          //}
+
+          /* publish innovation covariance //{ */
 
 
-      //}
+          Eigen::MatrixXd innovation_cov = Eigen::MatrixXd::Zero(1, 1);
+          {
+            std::scoped_lock lock(mutex_altitude_estimator);
+            current_alt_estimator->getInnovationCovariance(it_measurement_id->second, innovation_cov);
+          }
+          mrs_msgs::Float64Stamped inno_cov_msg;
+          inno_cov_msg.header.stamp    = ros::Time::now();
+          inno_cov_msg.header.frame_id = "local_origin";
+          inno_cov_msg.value           = innovation_cov(0, 0);
+          try {
+            pub_inno_cov_elevation_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(inno_cov_msg)));
+          }
+          catch (...) {
+            ROS_ERROR("Exception caught during publishing topic %s.", pub_inno_cov_elevation_.getTopic().c_str());
+          }
 
-      double veldiff        = current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT);
-      double veldiff_stddev = 0.0;
 
-      // Start estimating stddev of velocity difference when we are in the air
-      /* if (current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance) { */
-      if (isUavFlying() && !isUavLandoff()) {
-        veldiff_stddev = stddev_veldiff->getStddev(veldiff);
-      }
+          //}
 
-      /* publish innovation stddev //{ */
+          double veldiff        = current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) - current_altitude(mrs_msgs::AltitudeStateNames::VEL_HEIGHT);
+          double veldiff_stddev = 0.0;
 
-      mrs_msgs::Float64Stamped veldiff_stddev_msg;
-      veldiff_stddev_msg.header.stamp    = ros::Time::now();
-      veldiff_stddev_msg.header.frame_id = "local_origin";
-      veldiff_stddev_msg.value           = veldiff_stddev;
-      try {
-        pub_veldiff_stddev_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(veldiff_stddev_msg)));
-      }
-      catch (...) {
-        ROS_ERROR("Exception caught during publishing topic %s.", pub_veldiff_stddev_.getTopic().c_str());
-      }
+          // Start estimating stddev of velocity difference when we are in the air
+          /* if (current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance) { */
+          if (isUavFlying() && !isUavLandoff()) {
+            veldiff_stddev = stddev_veldiff->getStddev(veldiff);
+          }
 
-      //}
+          /* publish innovation stddev //{ */
 
-      // We want to detect flying above obstacle when the elevation innovation exceeds 3 standard deviations
-      if (stddev_veldiff->hasEnoughSamples() && !obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance &&
-          std::pow(innovation, 2) > std::pow(3 * innovation_stddev, 2)) {
-        obstacle_detected = true;
-      }
-      if (obstacle_detected && std::pow(innovation, 2) < std::pow(1 * innovation_stddev, 2)) {
-        obstacle_detected = false;
-      }
+          mrs_msgs::Float64Stamped veldiff_stddev_msg;
+          veldiff_stddev_msg.header.stamp    = ros::Time::now();
+          veldiff_stddev_msg.header.frame_id = "local_origin";
+          veldiff_stddev_msg.value           = veldiff_stddev;
+          try {
+            pub_veldiff_stddev_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(veldiff_stddev_msg)));
+          }
+          catch (...) {
+            ROS_ERROR("Exception caught during publishing topic %s.", pub_veldiff_stddev_.getTopic().c_str());
+          }
 
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        if (estimate_elevation && obstacle_detected) {
-          altitudeEstimatorCorrection(elevation, "elevation");
-          /* ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation); */
+          //}
+
+          // We want to detect flying above obstacle when the elevation innovation exceeds 3 standard deviations
+          if (stddev_veldiff->hasEnoughSamples() && !obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance &&
+              std::pow(innovation, 2) > std::pow(3 * innovation_stddev, 2)) {
+            obstacle_detected = true;
+          }
+          if (obstacle_detected && std::pow(innovation, 2) < std::pow(1 * innovation_stddev, 2)) {
+            obstacle_detected = false;
+          }
+
+          {
+            std::scoped_lock lock(mutex_altitude_estimator);
+            if (estimate_elevation && obstacle_detected) {
+              altitudeEstimatorCorrection(elevation, "elevation");
+              /* ROS_WARN_THROTTLE(1.0, "Elevation correction: %f", elevation); */
+            }
+          }
         }
       }
 
@@ -3899,15 +3984,15 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 
 /* callbackApriltagDetection() //{ */
 
-/* void Odometry::callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg) { */
+void Odometry::callbackApriltagDetection(const apriltags2_ros::AprilTagDetectionArrayConstPtr &det_msg) {
 
-/*   { */
-/*     std::lock_guard lck(m_det_buffer_mtx); */
-/*     m_det_buffer.push(*det_msg); */
-/*   } */
+  {
+    std::lock_guard lck(m_det_buffer_mtx);
+    m_det_buffer.push(*det_msg);
+  }
 
-/*   processApriltagQueue(m_det_buffer); */
-/* } */
+  processApriltagQueue(m_det_buffer);
+}
 
 //}
 
@@ -4212,11 +4297,13 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
     estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
   }
 
-  altitude_estimator->setQ(config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
-  altitude_estimator->setQ(config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
-  altitude_estimator->setQ(config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-  altitude_estimator->setQ(config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
-  altitude_estimator->setQ(config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
+  for (auto &estimator : m_altitude_estimators) {
+    estimator.second->setQ(config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
+    estimator.second->setQ(config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
+    estimator.second->setQ(config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+    estimator.second->setQ(config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
+    estimator.second->setQ(config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
+  }
 }
 //}
 
@@ -4303,7 +4390,32 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   mes << value;
 
 
-  altitude_estimator->doCorrection(mes, it_measurement_id->second);
+  for (auto &estimator : m_altitude_estimators) {
+    estimator.second->doCorrection(mes, it_measurement_id->second);
+  }
+}
+
+//}
+
+/*  //{ altitudeEstimatorCorrection() */
+
+void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator) {
+
+  std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find(measurement_name);
+  if (it_measurement_id == map_alt_measurement_name_id.end()) {
+    ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
+    return;
+  }
+
+  if (!std::isfinite(value)) {
+    ROS_ERROR("NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    return;
+  }
+
+  Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
+  mes << value;
+
+  estimator->doCorrection(mes, it_measurement_id->second);
 }
 
 //}
@@ -4337,7 +4449,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
   {
     std::scoped_lock lock(mutex_altitude_estimator);
-    if (!altitude_estimator->getStates(current_altitude)) {
+    if (!current_alt_estimator->getStates(current_altitude)) {
       ROS_WARN("[Odometry]: Altitude estimator not initialized.");
       return false;
     }
@@ -4530,6 +4642,41 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
 //}
 
+/* //{ changeCurrentAltitudeEstimator() */
+bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator) {
+
+  mrs_msgs::AltitudeType target_estimator = desired_estimator;
+  target_estimator.name                   = _altitude_estimators_names[target_estimator.type];
+
+  if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::ALTITUDE &&
+      target_estimator.type != mrs_msgs::AltitudeType::ELEVATION) {
+    ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
+    return false;
+  }
+
+  if (stringInVector(target_estimator.name, _altitude_estimators_names)) {
+    {
+      std::scoped_lock lock(mutex_current_alt_estimator);
+
+      /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
+      current_alt_estimator      = m_altitude_estimators.find(target_estimator.name)->second;
+      current_alt_estimator_name = current_alt_estimator->getName();
+    }
+
+    ROS_WARN("[Odometry]: Transition to %s altitude estimator successful", current_estimator_name.c_str());
+
+  } else {
+    ROS_WARN("[Odometry]: Requested transition to nonexistent altitude estimator %s", target_estimator.name.c_str());
+    return false;
+  }
+
+  _alt_estimator_type      = target_estimator;
+  _alt_estimator_type.name = _altitude_type_names[_alt_estimator_type.type];
+  return true;
+}
+
+//}
+
 /* //{ isValidType() */
 bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
 
@@ -4655,82 +4802,84 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 //}
 
 /* processApriltagQueue() //{ */
-/* void Odometry::processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer) { */
+void Odometry::processApriltagQueue(std::queue<apriltags2_ros::AprilTagDetectionArray> &msg_buffer) {
 
-/*   // process all messages in the buffer */
-/*   bool buffer_empty; */
-/*   { */
-/*     std::lock_guard lck(m_det_buffer_mtx); */
-/*     buffer_empty = msg_buffer.empty(); */
-/*   } */
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: april callback");
 
-/*   while (!buffer_empty) { */
-/*     // get a new message from the queue */
-/*     apriltags2_ros::AprilTagDetectionArray cur_msg; */
-/*     { */
-/*       std::lock_guard lck(m_det_buffer_mtx); */
-/*       cur_msg = msg_buffer.front(); */
-/*       msg_buffer.pop(); */
-/*       buffer_empty = msg_buffer.empty(); */
-/*     } */
+  // process all messages in the buffer
+  bool buffer_empty;
+  {
+    std::lock_guard lck(m_det_buffer_mtx);
+    buffer_empty = msg_buffer.empty();
+  }
+
+  while (!buffer_empty) {
+    // get a new message from the queue
+    apriltags2_ros::AprilTagDetectionArray cur_msg;
+    {
+      std::lock_guard lck(m_det_buffer_mtx);
+      cur_msg = msg_buffer.front();
+      msg_buffer.pop();
+      buffer_empty = msg_buffer.empty();
+    }
 
 
-/*     // update positions of all detected ground truth tags */
-/*     for (const auto &det : cur_msg.detections) { */
-/*       bool found_match = false; */
-/*       // process the detection based on which of the tags was detected */
-/*       if (det.id[0] == 0) { */
-/*         // the a matching bundle was found, update its pose */
-/*         geometry_msgs::Pose cur_pose = det.pose.pose.pose; */
-/*         nav_msgs::Odometry  odom_april; */
-/*         odom_april.pose.pose       = det.pose.pose.pose; */
-/*         odom_april.header.stamp    = ros::Time::now(); */
-/*         odom_april.header.frame_id = "april_tag0"; */
-/*         odom_april.child_frame_id  = cur_msg.header.frame_id; */
+    // update positions of all detected ground truth tags
+    for (const auto &det : cur_msg.detections) {
+      bool found_match = false;
+      // process the detection based on which of the tags was detected
+      if (det.id[0] == 0) {
+        // the a matching bundle was found, update its pose
+        geometry_msgs::Pose cur_pose = det.pose.pose.pose;
+        nav_msgs::Odometry  odom_april;
+        odom_april.pose.pose       = det.pose.pose.pose;
+        odom_april.header.stamp    = ros::Time::now();
+        odom_april.header.frame_id = "april_tag0";
+        odom_april.child_frame_id  = cur_msg.header.frame_id;
 
-/*         double                    x = -det.pose.pose.pose.position.y; */
-/*         double                    y = -det.pose.pose.pose.position.x; */
-/*         double                    z = det.pose.pose.pose.position.z; */
-/*         double                    roll, pitch, yaw; */
-/*         double                    roll_tag, pitch_tag, yaw_tag; */
-/*         geometry_msgs::Quaternion quat; */
-/*         geometry_msgs::Quaternion quat_tag = det.pose.pose.pose.orientation; */
-/*         { */
-/*           std::scoped_lock lock(mutex_odom_pixhawk); */
-/*           quat = odom_pixhawk.pose.pose.orientation; */
-/*         } */
-/*         tf::Quaternion qt(quat.x, quat.y, quat.z, quat.w); */
-/*         tf::Quaternion qt_tag(quat_tag.x, quat_tag.y, quat_tag.z, quat_tag.w); */
-/*         tf::Matrix3x3(qt).getRPY(roll, pitch, yaw); */
-/*         tf::Matrix3x3(qt).getRPY(roll_tag, pitch_tag, yaw_tag); */
+        double                    x = -det.pose.pose.pose.position.y;
+        double                    y = -det.pose.pose.pose.position.x;
+        double                    z = det.pose.pose.pose.position.z;
+        double                    roll, pitch, yaw;
+        double                    roll_tag, pitch_tag, yaw_tag;
+        geometry_msgs::Quaternion quat;
+        geometry_msgs::Quaternion quat_tag = det.pose.pose.pose.orientation;
+        {
+          std::scoped_lock lock(mutex_odom_pixhawk);
+          quat = odom_pixhawk.pose.pose.orientation;
+        }
+        tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+        tf2::Quaternion qt_tag(quat_tag.x, quat_tag.y, quat_tag.z, quat_tag.w);
+        tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
+        tf2::Matrix3x3(qt).getRPY(roll_tag, pitch_tag, yaw_tag);
 
-/*         double sy = sin(-yaw); */
-/*         double cy = cos(-yaw); */
-/*         double sp = sin(pitch*0.8); */
-/*         double cp = cos(pitch*0.8); */
-/*         double sr = sin(roll*0.8); */
-/*         double cr = cos(roll*0.8); */
-/*         /1* odom_april.pose.pose.position.y = -(x*cos(-yaw) - y*sin(-yaw)); *1/ */
-/*         /1* odom_april.pose.pose.position.x = -(x*sin(-yaw) + y*cos(-yaw)); *1/ */
-/*         odom_april.pose.pose.position.x = (x*(cy*cp) + y*(cy*sp*sr-sy*cr) + z*(cy*sp*cr+sy*sr)); */
-/*         odom_april.pose.pose.position.y = (x*(sy*cp) + y*(sy*sp*sr+cy*cr) + z*(sy*sp*cr-cy*sr)); */
-/*         /1* odom_april.pose.pose.position.x = x; *1/ */
-/*         /1* odom_april.pose.pose.position.y = y; *1/ */
-/*         /1* odom_april.pose.pose.position.x = x*cos(yaw - yaw_tag) - y*sin(yaw - yaw_tag); *1/ */
-/*         /1* odom_april.pose.pose.position.y = x*sin(yaw - yaw_tag) + y*cos(yaw - yaw_tag); *1/ */
-/*         /1* tf2::doTransform(cur_pose, cur_pose, c2w_tf); *1/ */
-/*         /1* bundle->update_position(cur_pose); *1/ */
-/*         try { */
-/*           pub_odom_april_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_april))); */
-/*         } */
-/*         catch (...) { */
-/*           ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_april_.getTopic().c_str()); */
-/*         } */
-/*       } */
+        double sy = sin(-yaw);
+        double cy = cos(-yaw);
+        double sp = sin(pitch*0.8);
+        double cp = cos(pitch*0.8);
+        double sr = sin(roll*0.8);
+        double cr = cos(roll*0.8);
+        /* odom_april.pose.pose.position.y = -(x*cos(-yaw) - y*sin(-yaw)); */
+        /* odom_april.pose.pose.position.x = -(x*sin(-yaw) + y*cos(-yaw)); */
+        odom_april.pose.pose.position.x = (x*(cy*cp) + y*(cy*sp*sr-sy*cr) + z*(cy*sp*cr+sy*sr));
+        odom_april.pose.pose.position.y = (x*(sy*cp) + y*(sy*sp*sr+cy*cr) + z*(sy*sp*cr-cy*sr));
+        /* odom_april.pose.pose.position.x = x; */
+        /* odom_april.pose.pose.position.y = y; */
+        /* odom_april.pose.pose.position.x = x*cos(yaw - yaw_tag) - y*sin(yaw - yaw_tag); */
+        /* odom_april.pose.pose.position.y = x*sin(yaw - yaw_tag) + y*cos(yaw - yaw_tag); */
+        /* tf2::doTransform(cur_pose, cur_pose, c2w_tf); */
+        /* bundle->update_position(cur_pose); */
+        try {
+          pub_odom_april_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_april)));
+        }
+        catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_april_.getTopic().c_str());
+        }
+      }
 
-/*     }  // for */
-/*   }    // while (buffer_empty) */
-/* } */
+    }  // for
+  }    // while (buffer_empty)
+}
 //}
 
 /* applyOdomOffset //{ */
