@@ -767,7 +767,7 @@ void Odometry::onInit() {
       }
     }
 
-    map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
+    map_alt_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
   }
 
   // Load the model state of each measurement
@@ -829,6 +829,7 @@ void Odometry::onInit() {
       } else {
         alt_fusing_measurement.push_back(false);
       }
+      ROS_WARN("[Odometry]: estimator: %s measurement: %s fusing: %s", it->c_str(), it2->c_str(), btoa(stringInVector(*it2, temp_vec->second)));
 
       // Find state name
       std::map<std::string, std::string>::iterator pair_measurement_state = map_alt_measurement_state.find(*it2);
@@ -1427,6 +1428,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     } else {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
     }
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Publishing altitude from estimator type: %d", _alt_estimator_type.type);
   }
 
   /* if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) { */
@@ -1819,6 +1821,10 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       } else {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
       }
+    }
+
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == 0.2) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f , %f, %f", current_altitude(0), current_altitude(1), current_altitude(2), current_altitude(3));
     }
 
     Eigen::VectorXd pos_vec(2);
@@ -2506,8 +2512,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
               } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
                 bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) - max_altitude_correction_;
               }
+              {
               std::scoped_lock lock(mutex_altitude_estimator);
               altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
+              }
               if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
                 std::scoped_lock lock(mutex_altitude_estimator);
                 altitudeEstimatorCorrection(0.0, "elevation", estimator.second);
@@ -2588,13 +2596,17 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     bias << msg->pose.pose.position.z - height(0, 0);
     altitude << msg->pose.pose.position.z - bias(0);
     elevation << 0.0;
-    current_alt_estimator->setState(0, altitude);
-    current_alt_estimator->setState(1, d_altitude);
-    current_alt_estimator->setState(2, height);
-    current_alt_estimator->setState(3, d_altitude);
-    current_alt_estimator->setState(4, elevation);
-    current_alt_estimator->setState(5, bias);
-    current_alt_estimator->setCovariance(init_cov);
+
+    // Initialize all altitude estimators
+    for (auto &estimator : m_altitude_estimators) {
+    estimator.second->setState(0, altitude);
+    estimator.second->setState(1, d_altitude);
+    estimator.second->setState(2, height);
+    estimator.second->setState(3, d_altitude);
+    estimator.second->setState(4, elevation);
+    estimator.second->setState(5, bias);
+    estimator.second->setCovariance(init_cov);
+    }
     is_altitude_estimator_initialized = true;
   }
 
@@ -4421,7 +4433,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
 
   for (auto &estimator : m_altitude_estimators) {
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: estimator name: %s", estimator.second->getName().c_str());
+    /* ROS_INFO_THROTTLE(1.0, "[Odometry]: estimator name: %s", estimator.second->getName().c_str()); */
     estimator.second->doCorrection(mes, it_measurement_id->second);
   }
 }
@@ -4695,7 +4707,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       current_alt_estimator_name = current_alt_estimator->getName();
     }
 
-    ROS_WARN("[Odometry]: Transition to %s altitude estimator successful", current_estimator_name.c_str());
+    ROS_WARN("[Odometry]: Transition to %s altitude estimator successful", current_alt_estimator_name.c_str());
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to nonexistent altitude estimator %s", target_estimator.name.c_str());
