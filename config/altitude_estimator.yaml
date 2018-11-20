@@ -6,8 +6,8 @@ altitude_estimators:
   # The available altitude estimators
   altitude_estimators: [
     "HEIGHT",
-    "ALTITUDE",
-    "ELEVATION" 
+    # "ALTITUDE",
+    # "ELEVATION" 
   ] 
 
   # The measured states of the model
@@ -31,7 +31,7 @@ altitude_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    HEIGHT: ["alt_baro", "height_range", "vel_mavros"]
+    HEIGHT: ["height_range", "vel_mavros"]
     ALTITUDE: ["alt_baro", "height_range", "vel_mavros", "bias_baro"]
     ELEVATION: ["alt_baro", "height_range", "vel_mavros", "bias_baro", "elevation"]
 

@@ -1890,7 +1890,6 @@ namespace mrs_odometry
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_esp_odom_.getTopic().c_str());
     }
-
   }
 
   //}
@@ -2461,14 +2460,14 @@ namespace mrs_odometry
             if (!std::isfinite(bias_baro)) {
               bias_baro = 0;
               ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-              bias_baro = max_altitude_correction_;
-            } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-              bias_baro = -max_altitude_correction_;
+              /* } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) { */
+              /*   bias_baro = max_altitude_correction_; */
+              /* } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) { */
+              /*   bias_baro = -max_altitude_correction_; */
             }
             altitudeEstimatorCorrection(bias_baro, "bias_baro");
-            /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground."); */
-            /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground.");
+            ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
 
           } else {
 
@@ -2492,7 +2491,8 @@ namespace mrs_odometry
             /*   bias_baro_estimation_enabled = false; */
             /* } */
 
-            if (!obstacle_detected && !excessive_tilt) {
+            /* if (!obstacle_detected && !excessive_tilt) { */
+            if (!excessive_tilt) {
 
               // When there is no obstacle under the drone, reset the elevation to zero
               if (estimate_elevation && current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION) < _elevation_tolerance) {
@@ -2501,9 +2501,9 @@ namespace mrs_odometry
                   bias_baro = 0;
                   ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
                 } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-                  bias_baro = max_altitude_correction_;
+                  bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) + max_altitude_correction_;
                 } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-                  bias_baro = -max_altitude_correction_;
+                  bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) - max_altitude_correction_;
                 }
                 altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
                 if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
@@ -2515,13 +2515,13 @@ namespace mrs_odometry
                   bias_baro = 0;
                   ROS_ERROR("[Odometry]: NaN detected in Barometer variable \"bias_baro\", setting it to 0!!!");
                 } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) > max_altitude_correction_) {
-                  bias_baro = max_altitude_correction_;
+                  bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) + max_altitude_correction_;
                 } else if (bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) < -max_altitude_correction_) {
-                  bias_baro = -max_altitude_correction_;
+                  bias_baro = current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET) - max_altitude_correction_;
                 }
                 altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
               }
-              /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
+              ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
             }
           }
         }
@@ -3605,7 +3605,7 @@ namespace mrs_odometry
     // Check for excessive tilts
     if (roll > _excessive_tilt || pitch > _excessive_tilt) {
       excessive_tilt = true;
-      ROS_WARN("[Odometry]: Not fusing Garmin height correction due to excessive tilt (roll>pi/6 or pitch>pi/6)");
+      ROS_WARN("[Odometry]: Not fusing baro offset and elevation correction due to excessive tilt");
     } else {
       excessive_tilt = false;
     }
@@ -3649,18 +3649,20 @@ namespace mrs_odometry
             ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
             return;
           }
+          ROS_WARN_THROTTLE(1.0, "Garmin measurement: %f", measurement);
           // create a correction value
           double correction;
           correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+          ROS_WARN_THROTTLE(1.0, "Garmin correction: %f", correction);
 
           // saturate the correction
           if (!std::isfinite(correction)) {
             correction = 0;
             ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
-          } else if (correction > max_altitude_correction_) {
-            correction = max_altitude_correction_;
-          } else if (correction < -max_altitude_correction_) {
-            correction = -max_altitude_correction_;
+            /* } else if (correction > max_altitude_correction_) { */
+            /*   correction = max_altitude_correction_; */
+            /* } else if (correction < -max_altitude_correction_) { */
+            /*   correction = -max_altitude_correction_; */
           }
 
           // set the measurement vector
@@ -3670,7 +3672,9 @@ namespace mrs_odometry
           {
             std::scoped_lock lock(mutex_altitude_estimator);
             altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
-            /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
+            ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range);
+            estimator.second->getStates(current_altitude);
+            ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT));
           }
 
           if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
