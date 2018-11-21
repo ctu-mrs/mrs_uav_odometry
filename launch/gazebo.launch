@@ -11,7 +11,8 @@
   <arg name="verbose" default="true"/>
   <arg name="vehicle" default="iris"/>
   <arg name="est" default="ekf2"/>
-  <arg name="world_name" default="$(find mrs_odometry)/gazebo_files/worlds/april.world"/> 
+  <!-- <arg name="world_name" default="$(find mrs_odometry)/gazebo_files/worlds/april.world"/> --> 
+  <arg name="world_name" default="$(find mrs_odometry)/gazebo_files/worlds/altitude_testing.world"/> 
 
   <!-- set use_sim_time flag -->
   <group if="$(arg use_sim_time)">
