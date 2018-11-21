@@ -4258,13 +4258,30 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
     if (!land_position_set) {  // if taking off for the first time
 
-      states(0, 0) = local_origin_x_;
-      states(0, 1) = local_origin_y_;
+      if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
+        got_pixhawk_odom_offset = false;
+        if (!calculatePixhawkOdomOffset()) {
+          ROS_ERROR("Calculating pixhawk odom offset");
+        }
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+      } else {
+        states(0, 0) = local_origin_x_;
+        states(0, 1) = local_origin_y_;
+      }
 
     } else if (use_local_origin_) {  // taking off again
-
-      states(0, 0) = land_position_x;
-      states(0, 1) = land_position_y;
+      if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
+        got_pixhawk_odom_offset = false;
+        if (!calculatePixhawkOdomOffset()) {
+          ROS_ERROR("Calculating pixhawk odom offset");
+        }
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+      } else {
+        states(0, 0) = land_position_x;
+        states(0, 1) = land_position_y;
+      }
     }
   }
 
