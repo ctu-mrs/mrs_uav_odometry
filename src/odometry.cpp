@@ -4255,7 +4255,7 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
     states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
 
   } else if (use_local_origin_) {
-
+//TODO there is a bug: when taking off, the position is set to local_origin instead of current pixhawk odom
     if (!land_position_set) {  // if taking off for the first time
 
       if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
