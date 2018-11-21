@@ -16,7 +16,7 @@ rtk_available: false
 lidar_available: false
 object_available: false
 
-min_satellites: 6
+min_satellites: 0
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
 april_objects: false
@@ -98,7 +98,7 @@ altitude:
     alt_baro: [100]
     height_range: [1000] # 0.04 stddev in simulation
     vel_mavros: [0.001]
-    bias_baro: [0.01] 
+    bias_baro: [0.1] 
     elevation: [0.01] 
 
   # bounds for the measurement covariance
