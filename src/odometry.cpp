@@ -3621,7 +3621,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
     excessive_tilt = true;
-    ROS_WARN("[Odometry]: Not fusing baro offset and elevation due to excessive tilt.");
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing baro offset and elevation correction due to excessive tilt");
   } else {
     excessive_tilt = false;
   }

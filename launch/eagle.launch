@@ -18,7 +18,7 @@
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/uav/f450.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/uav/eagle.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <param name="enable_profiler" value="$(arg profiler)" />

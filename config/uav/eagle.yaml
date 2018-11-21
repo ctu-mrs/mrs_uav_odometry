@@ -16,7 +16,7 @@ rtk_available: false
 lidar_available: false
 object_available: false
 
-min_satellites: 6
+min_satellites: 0
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
 april_objects: false
@@ -29,6 +29,7 @@ max_altitude_correction: 0.25 # [m]
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: 0.02 # [m]
 # mobius_z_offset: 0.06 # [m]
+fcu_height: 0.4 # [m]
 
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
@@ -46,26 +47,70 @@ null_tracker: "mrs_mav_manager/NullTracker"
 
 altitude:
 
-  numberOfVariables: 1
+  # ALTITUDE - barometric, HEIGHT - rangefinder
+  altitude_estimator: "HEIGHT"
+  estimate_elevation: false
+  estimate_baro_offset: true
+
+  # z-axis (altitude, height) velocity limit for barometer offset estimation
+  # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
+  max_vel_baro_offset_estimation: 0.2 # [m/s]
+
+  # changes of elevation under this value will be treated as flat terrain
+  elevation_tolerance: 0.5 # [m]
+
+  # do not fuse rangefinder measurements when the UAV is tilted more than this angle
+  excessive_tilt: 0.5 # ~pi/6 [rad]
+
+  # Altitude Kalman filter parameters
+  numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1
 
-  A: [1]
-  B: [0.01] # 1/rate
-  R: [0.001]
-  Q: [5000]
-  P: [1]
+  # The system matrix
+  # altitude, velocity, acceleration, height, elevation, offset
+  # altitude = height + elevation
+  A: [1, 0.02, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0.02, 0, 0, 
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 1]
+
+  # The input matrix
+  B: [0,
+      0,
+      0,
+      0,
+      0,
+      0]
+
+  # Process covariance
+  R: [1, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 1, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 1]
+
+  # Covariances of measurements
+  Q:
+    alt_baro: [100]
+    height_range: [1000] # 0.04 stddev in simulation
+    vel_mavros: [0.001]
+    bias_baro: [0.1] 
+    elevation: [0.01] 
 
   # bounds for the measurement covariance
   TrgMaxQ: 100000
   TrgMinQ: 0.5
 
   GarminMaxQ: 100000
-  GarminMinQ: 10.0
+  GarminMinQ: 0.5
 
   # rate for changing the measurement covariance
-  TrgQChangeRate: 1000  
-  GarminQChangeRate: 1000  
+  TrgQChangeRate: 1000
+  GarminQChangeRate: 1000
 
   rtkQ: 0.1
   # objectQ: 0.1

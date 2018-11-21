@@ -95,9 +95,9 @@ altitude:
 
   # Covariances of measurements
   Q:
-    alt_baro: [10]
-    height_range: [10] # 0.04 stddev in simulation
-    vel_mavros: [0.01]
+    alt_baro: [100]
+    height_range: [1000] # 0.04 stddev in simulation
+    vel_mavros: [0.001]
     bias_baro: [0.1] 
     elevation: [0.01] 
 
