@@ -4267,8 +4267,8 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
         if (!calculatePixhawkOdomOffset()) {
           ROS_ERROR("Calculating pixhawk odom offset failed");
         }
-        states(0, 0) = pixhawk_odom_offset_x;
-        states(0, 1) = pixhawk_odom_offset_y;
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
         ROS_INFO("[Odometry]: Resetting estimators to pijhawk shifted odom x: %f y: %f", states(0,0), states(0,1));
       } else {
         states(0, 0) = local_origin_x_;
@@ -4281,8 +4281,8 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
         if (!calculatePixhawkOdomOffset()) {
           ROS_ERROR("Calculating pixhawk odom offset failed");
         }
-        states(0, 0) = land_position_x;
-        states(0, 1) = land_position_y;
+        states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
+        states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
         ROS_INFO("[Odometry]: Resetting estimators to pixhawk shifted odom x: %f y: %f", states(0,0), states(0,1));
       } else {
         states(0, 0) = land_position_x;
