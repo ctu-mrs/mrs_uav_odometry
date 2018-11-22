@@ -1428,7 +1428,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     } else {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
     }
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Publishing altitude from estimator type: %d", _alt_estimator_type.type);
+    /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Publishing altitude from estimator type: %d", _alt_estimator_type.type); */
   }
 
   /* if (fabs(main_altitude_kalman->getState(0) - failsafe_teraranger_kalman->getState(0)) > 0.5) { */
@@ -1774,6 +1774,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
   }
+
+  if (!isUavFlying()) {
+    ROS_WARN_THROTTLE(5.0, "[Odometry]: Preflight check: \nodom: x: %f y: %f z: %f\n%s: x: %f y: %f\nlateral_estimator: %s\naltitude_estimator: %s", odom_main.pose.pose.position.x, odom_main.pose.pose.position.y, odom_main.pose.pose.position.z, use_local_origin_ ? "local_origin" : "utm_origin", use_local_origin_ ? local_origin_x_ : utm_origin_x_, use_local_origin_ ? local_origin_y_ : utm_origin_y_, current_estimator_name.c_str(), current_alt_estimator_name.c_str());
+  }
 }
 
 //}
@@ -1823,8 +1827,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == 0.2) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f , %f, %f", current_altitude(0), current_altitude(1), current_altitude(2),
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f , %f, %f. Check if altitude fusion is running correctly", current_altitude(0), current_altitude(1), current_altitude(2),
                         current_altitude(3));
     }
 
@@ -2475,8 +2479,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
             std::scoped_lock lock(mutex_altitude_estimator);
             altitudeEstimatorCorrection(bias_baro, "bias_baro");
           }
-          ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground.");
-          ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
+          /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Estimating baro offset on the ground."); */
+          /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
 
         } else {
 
@@ -2534,7 +2538,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
               std::scoped_lock lock(mutex_altitude_estimator);
               altitudeEstimatorCorrection(bias_baro, "bias_baro", estimator.second);
             }
-            ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro);
+            /* ROS_WARN_THROTTLE(1.0, "Barometer bias correction: %f", bias_baro); */
           }
         }
       }
@@ -2577,7 +2581,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     {
       std::scoped_lock lock(mutex_altitude_estimator);
       current_alt_estimator->doPrediction(input, interval2.toSec());
-      ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input);
+      /* ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input); */
     }
 
     //}
@@ -2706,6 +2710,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //}
 
   //}
+  
 }  // namespace mrs_odometry
 
 //}
@@ -3665,11 +3670,11 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
           ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
           return;
         }
-        ROS_WARN_THROTTLE(1.0, "Garmin measurement: %f", measurement);
+        /* ROS_WARN_THROTTLE(1.0, "Garmin measurement: %f", measurement); */
         // create a correction value
         double correction;
         correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-        ROS_WARN_THROTTLE(1.0, "Garmin correction: %f", correction);
+        /* ROS_WARN_THROTTLE(1.0, "Garmin correction: %f", correction); */
 
         // saturate the correction
         if (!std::isfinite(correction)) {
@@ -3688,9 +3693,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
         {
           std::scoped_lock lock(mutex_altitude_estimator);
           altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
-          ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range);
+          /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
           estimator.second->getStates(current_altitude);
-          ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT));
+          /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
         }
 
         if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
@@ -4259,28 +4264,30 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
     if (!land_position_set) {  // if taking off for the first time
 
       if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
-        got_pixhawk_odom_offset = false;
         if (!calculatePixhawkOdomOffset()) {
-          ROS_ERROR("Calculating pixhawk odom offset");
+          ROS_ERROR("Calculating pixhawk odom offset failed");
         }
         states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
         states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+        ROS_INFO("[Odometry]: Resetting estimators to pijhawk shifted odom x: %f y: %f", states(0,0), states(0,1));
       } else {
         states(0, 0) = local_origin_x_;
         states(0, 1) = local_origin_y_;
+        ROS_INFO("[Odometry]: Resetting estimators to local_origin x: %f y: %f", states(0,0), states(0,1));
       }
 
     } else if (use_local_origin_) {  // taking off again
       if (_estimator_type.type==mrs_msgs::EstimatorType::GPS || _estimator_type.type==mrs_msgs::EstimatorType::OPTFLOWGPS || _estimator_type.type==mrs_msgs::EstimatorType::RTK) {
-        got_pixhawk_odom_offset = false;
         if (!calculatePixhawkOdomOffset()) {
-          ROS_ERROR("Calculating pixhawk odom offset");
+          ROS_ERROR("Calculating pixhawk odom offset failed");
         }
         states(0, 0) = odom_pixhawk_shifted.pose.pose.position.x;
         states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
+        ROS_INFO("[Odometry]: Resetting estimators to pixhawk shifted odom x: %f y: %f", states(0,0), states(0,1));
       } else {
         states(0, 0) = land_position_x;
         states(0, 1) = land_position_y;
+        ROS_INFO("[Odometry]: Resetting estimators to land position x: %f y: %f", states(0,0), states(0,1));
       }
     }
   }
