@@ -9,9 +9,3 @@
     <description>RtkRepublisher nodelet</description>
   </class>
 </library>
-
-<library path="lib/libGpsRepublisher">
-  <class name="mrs_odometry/GpsRepublisher" type="mrs_odometry::GpsRepublisher" base_class_type="nodelet::Nodelet">
-    <description>GpsRepublisher nodelet</description>
-  </class>
-</library>

@@ -80,11 +80,3 @@ add_library(RtkRepublisher src/rtk_republisher.cpp)
 target_link_libraries(RtkRepublisher
   ${catkin_LIBRARIES}
   )
-
-## Declare a C++ executable
-add_library(GpsRepublisher src/gps_republisher.cpp)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(GpsRepublisher
-  ${catkin_LIBRARIES}
-  )

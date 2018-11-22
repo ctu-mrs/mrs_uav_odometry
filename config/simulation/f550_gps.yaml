@@ -48,8 +48,8 @@ null_tracker: "mrs_mav_manager/NullTracker"
 altitude:
 
   # ALTITUDE - barometric, HEIGHT - rangefinder
-  altitude_estimator: "ELEVATION"
-  estimate_elevation: true
+  altitude_estimator: "HEIGHT"
+  estimate_elevation: false
   estimate_baro_offset: true 
 
   # z-axis (altitude, height) velocity limit for barometer offset estimation
