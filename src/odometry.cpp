@@ -3626,7 +3626,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
     excessive_tilt = true;
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing baro offset and elevation correction due to excessive tilt");
   } else {
     excessive_tilt = false;
   }
@@ -3660,10 +3659,27 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   //////////////////// Fuse main altitude kalman ////////////////////
-  if (garmin_enabled) {
+  if (!garmin_enabled) {
+    ROS_WARN_ONCE("[Odometry]: Garmin not enabled. Not fusing range corrections.");
+    return;
+  }
 
-    // fuse the measurement only when garminFilter produced positive value, i.e. feasible value
-    if (measurement > 0.01) {
+  if (measurement < 0.01) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", measurement, 0.01);
+    return;
+  }
+
+  if (measurement > garmin_max_valid_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > %f. Not fusing.", measurement, garmin_max_valid_altitude);
+    return;
+  }
+
+  if (excessive_tilt) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    return;
+  }
+  
+    // Fuse garmin measurement for each altitude estimator
       for (auto &estimator : m_altitude_estimators) {
         Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
         if (!estimator.second->getStates(current_altitude)) {
@@ -3693,12 +3709,14 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
         {
           std::scoped_lock lock(mutex_altitude_estimator);
           altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
-          /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
           estimator.second->getStates(current_altitude);
+          if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT")==0) {
+          /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
           /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
+          }
         }
 
-        if (std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
+        if (estimate_elevation && std::strcmp(estimator.first.c_str(), "ELEVATION") == 0) {
           elevation         = current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
           double innovation = elevation - current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION);
 
@@ -3808,8 +3826,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       }
 
       ROS_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
-    }
-  }
 }
 
 //}

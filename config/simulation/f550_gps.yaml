@@ -24,7 +24,7 @@ april_objects: true
 use_differential_gps: true
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
-max_altitude_correction: 0.25 # [m]
+max_altitude_correction: 0.1 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: 0.02 # [m]
