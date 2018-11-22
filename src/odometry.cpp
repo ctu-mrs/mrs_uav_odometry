@@ -3675,10 +3675,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
         if (!std::isfinite(correction)) {
           correction = 0;
           ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
-          /* } else if (correction > max_altitude_correction_) { */
-          /*   correction = max_altitude_correction_; */
-          /* } else if (correction < -max_altitude_correction_) { */
-          /*   correction = -max_altitude_correction_; */
+          } else if (correction > max_altitude_correction_) {
+            correction = max_altitude_correction_;
+          } else if (correction < -max_altitude_correction_) {
+            correction = -max_altitude_correction_;
         }
 
         // set the measurement vector

@@ -46,7 +46,7 @@ altitude_estimators:
   # Mapping states to model
   state_mapping:
     ALTITUDE: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    VEL_ALT: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    VEL_ALT: [0.0, 1.0, 0.0, 1.0, 0.0, 0.0]
     HEIGHT: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
     VEL_HEIGHT: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     ELEVATION: [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
