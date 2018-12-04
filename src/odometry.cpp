@@ -56,6 +56,8 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Vector3.h>
@@ -165,6 +167,8 @@ private:
 
 private:
   tf2_ros::TransformBroadcaster *broadcaster_;
+  tf2_ros::Buffer m_tf_buffer;
+  std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
 
   dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server;
   dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f;
@@ -314,6 +318,7 @@ private:
   // Garmin altitude subscriber and callback
   ros::Subscriber               sub_garmin_;
   sensor_msgs::Range            range_garmin_;
+  std::mutex            mutex_range_garmin;
   void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
   RangeFilter *                 garminFilter;
   int                           garmin_filter_buffer_size;
@@ -1009,6 +1014,11 @@ void Odometry::onInit() {
   rtk_altitude_enabled = false;
 
   // --------------------------------------------------------------
+  // |                         tf listener                        |
+  // --------------------------------------------------------------
+  m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
+
+  // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
   // --------------------------------------------------------------
 
@@ -1373,6 +1383,8 @@ bool Odometry::isUavLandoff() {
 }
 
 //}
+
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -3607,7 +3619,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
 
+  {
+  std::scoped_lock lock(mutex_range_garmin);
   range_garmin_ = *msg;
+  }
 
   if (!got_odom_pixhawk) {
     return;
@@ -3630,9 +3645,21 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     excessive_tilt = false;
   }
 
-  double measurement = 0;
-  measurement        = range_garmin_.range * cos(roll) * cos(pitch) + garmin_z_offset_;
+  
+  double range_fcu = 0;
+  {
+  std::scoped_lock lock(mutex_range_garmin);
+  try {
+  const ros::Duration timeout(1.0 / 100.0);
+  geometry_msgs::TransformStamped tf_fcu2garmin = m_tf_buffer.lookupTransform("fcu_"+uav_name, range_garmin_.header.frame_id, range_garmin_.header.stamp, timeout);
+  range_fcu = range_garmin_.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) + tf_fcu2garmin.transform.translation.y * tan(roll);
+  } catch (tf2::TransformException& ex) {
+  ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s", range_garmin_.header.frame_id.c_str(), ("fcu_"+uav_name).c_str(), ex.what());
+  range_fcu        = range_garmin_.range + garmin_z_offset_;
+  }
+  }
 
+  double measurement        = range_fcu * cos(roll) * cos(pitch);
 
   if (!std::isfinite(measurement)) {
 
@@ -3652,7 +3679,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (isUavFlying()) {
 
     ros::Duration interval;
+  {
+  std::scoped_lock lock(mutex_range_garmin);
     interval = ros::Time::now() - range_garmin_.header.stamp;
+  }
     if (!rosbag_) {
       measurement = garminFilter->getValue(measurement, interval);
     }
