@@ -428,6 +428,11 @@ private:
   std::mutex                                             mutex_current_estimator;
   std::string                                            current_estimator_name;
 
+  bool saturate_mavros_position_;
+  double max_mavros_pos_correction;
+  double max_vio_pos_correction;
+  double max_object_pos_correction;
+
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A_lat, B_lat, R_lat;
 
@@ -999,6 +1004,11 @@ void Odometry::onInit() {
   param_loader.load_param("publish_fused_odom", _publish_fused_odom);
   param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
   param_loader.load_param("max_altitude_correction", max_altitude_correction_);
+
+  param_loader.load_param("lateral/saturate_mavros_position", saturate_mavros_position_);
+  param_loader.load_param("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
+  param_loader.load_param("lateral/max_vio_pos_correction", max_vio_pos_correction);
+  param_loader.load_param("lateral/max_object_pos_correction", max_object_pos_correction);
 
   if (pass_rtk_as_odom && !use_differential_gps) {
     ROS_ERROR("[Odometry]: cant have pass_rtk_as_odom TRUE when use_differential_gps FALSE");
@@ -2713,17 +2723,53 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       pos_mavros_y = odom_pixhawk_shifted.pose.pose.position.y;
     }
 
+  // Saturate correction
+
+    if (saturate_mavros_position_) {
+  for (auto &estimator : m_state_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "GPS") == 0) {
+      Eigen::VectorXd pos_vec(2);
+      estimator.second->getState(0, pos_vec);
+
+      // X position
+      if (!std::isfinite(pos_mavros_x)) {
+        pos_mavros_x = 0;
+        ROS_ERROR("NaN detected in variable \"pos_mavros_x\", setting it to 0 and returning!!!");
+        return;
+      } else if (pos_mavros_x - pos_vec(0) > max_mavros_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", pos_mavros_x - pos_vec(0), max_mavros_pos_correction);
+        pos_mavros_x = pos_vec(0) + max_mavros_pos_correction;
+      } else if (pos_mavros_x - pos_vec(0) < -max_mavros_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", pos_mavros_x - pos_vec(0), -max_mavros_pos_correction);
+        pos_mavros_x = pos_vec(0) - max_mavros_pos_correction;
+      }
+
+      // Y position
+      if (!std::isfinite(pos_mavros_y)) {
+        pos_mavros_y = 0;
+        ROS_ERROR("NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
+        return;
+      } else if (pos_mavros_y - pos_vec(1) > max_mavros_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), max_mavros_pos_correction);
+        pos_mavros_y = pos_vec(1) + max_mavros_pos_correction;
+      } else if (pos_mavros_y - pos_vec(1) < -max_mavros_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), -max_mavros_pos_correction);
+        pos_mavros_y = pos_vec(1) - max_mavros_pos_correction;
+      }
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
 
     ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
   }
+  }
+    }
 
   //}
 
   //}
-  
-}  // namespace mrs_odometry
+
+}
+}
 
 //}
 
@@ -3151,7 +3197,6 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Saturate correction
-  double max_vio_pos_correction = 0.5;
   for (auto &estimator : m_state_estimators) {
     if (std::strcmp(estimator.first.c_str(), "VIO") == 0) {
       Eigen::VectorXd pos_vec(2);
@@ -3164,10 +3209,10 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       } else if (vio_pos_x - pos_vec(0) > max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), max_vio_pos_correction);
-        vio_pos_x = max_vio_pos_correction;
+        vio_pos_x = pos_vec(0) + max_vio_pos_correction;
       } else if (vio_pos_x - pos_vec(0) < -max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), -max_vio_pos_correction);
-        vio_pos_x = -max_vio_pos_correction;
+        vio_pos_x = pos_vec(0) - max_vio_pos_correction;
       }
 
       // Y position
@@ -3177,10 +3222,10 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       } else if (vio_pos_y - pos_vec(1) > max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), max_vio_pos_correction);
-        vio_pos_y = max_vio_pos_correction;
+        vio_pos_y = pos_vec(1) + max_vio_pos_correction;
       } else if (vio_pos_y - pos_vec(1) < -max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), -max_vio_pos_correction);
-        vio_pos_y = -max_vio_pos_correction;
+        vio_pos_y = pos_vec(1) - max_vio_pos_correction;
       }
     }
   }
@@ -3321,7 +3366,6 @@ void Odometry::callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg) {
   double object_pos_z = object_pos_z_bal;
 
   // Saturate correction
-  double max_object_pos_correction = 0.5;
 
   for (auto &estimator : m_state_estimators) {
     if (std::strcmp(estimator.first.c_str(), "OBJECT") == 0) {
