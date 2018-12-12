@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /position_cmd1/Shape1
         - /gps_local1/Shape1
+        - /Odometry1
         - /Odometry1/Shape1
       Splitter Ratio: 0.5
     Tree Height: 735
@@ -224,7 +225,7 @@ Visualization Manager:
       Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Value: true
-    - Angle Tolerance: 0.10000000149011612
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
@@ -244,7 +245,7 @@ Visualization Manager:
       Enabled: true
       Keep: 1
       Name: Odometry
-      Position Tolerance: 0.10000000149011612
+      Position Tolerance: 0.009999999776482582
       Shape:
         Alpha: 1
         Axes Length: 1
@@ -255,7 +256,7 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uav1/odometry/odom_vio_out
+      Topic: /uav1/odometry/odom_icp_out
       Unreliable: false
       Value: true
   Enabled: true
@@ -283,7 +284,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.4432098865509033
+      Distance: 8.525260925292969
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -298,10 +299,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7553980946540833
+      Pitch: 0.7153983116149902
       Target Frame: fcu_uav1
       Value: Orbit (rviz)
-      Yaw: 3.475397825241089
+      Yaw: 4.075397968292236
     Saved: ~
 Window Geometry:
   Displays:
