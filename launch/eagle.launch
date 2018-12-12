@@ -9,7 +9,6 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
-
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" />
@@ -19,7 +18,7 @@
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/uav/eagle.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <param name="enable_profiler" value="$(arg profiler)" />
@@ -60,6 +59,7 @@
       <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~slow_odom_out" to="~slow_odom" />
+      <remap from="~esp_odom_out" to="~esp_odom" />
       <remap from="~odom_april_out" to="~odom_april" />
       <remap from="~rtk_local_out" to="~rtk_local" />
       <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />

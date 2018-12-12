@@ -23,7 +23,6 @@
   <build_depend>mrs_msgs</build_depend>
   <build_depend>nodelet</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
-  <build_depend>apriltags2_ros</build_depend>
 
   <run_depend>geometry_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
@@ -38,12 +37,10 @@
   <run_depend>mrs_mavros_interface</run_depend>
   <run_depend>nodelet</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
-  <run_depend>apriltags2_ros</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <nodelet plugin="${prefix}/odometry.xml" />
-    <nodelet plugin="${prefix}/rtk_republisher.xml" />
+    <nodelet plugin="${prefix}/plugins.xml" />
   </export>
 
 </package>

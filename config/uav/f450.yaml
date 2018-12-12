@@ -16,12 +16,12 @@ rtk_available: false
 lidar_available: false
 object_available: false
 
-min_satellites: 6
+min_satellites: 0
 max_default_altitude: 10.0
 max_optflow_altitude: 3.0
 april_objects: false
 
-use_differential_gps: true
+use_differential_gps: false
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
@@ -49,7 +49,7 @@ altitude:
 
   # ALTITUDE - barometric, HEIGHT - rangefinder
   altitude_estimator: "HEIGHT"
-  estimate_elevation: true
+  estimate_elevation: false
   estimate_baro_offset: true
 
   # z-axis (altitude, height) velocity limit for barometer offset estimation
@@ -95,9 +95,9 @@ altitude:
 
   # Covariances of measurements
   Q:
-    alt_baro: [10]
-    height_range: [10] # 0.04 stddev in simulation
-    vel_mavros: [0.01]
+    alt_baro: [100]
+    height_range: [1000] # 0.04 stddev in simulation
+    vel_mavros: [0.001]
     bias_baro: [0.1] 
     elevation: [0.01] 
 
@@ -123,12 +123,16 @@ altitude:
   # object_altitude_max_down_difference: 0.5
   # object_altitude_max_abs_difference: 1.0
 
-
 lateral:
 
   numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1
+
+  saturate_mavros_position: false
+  max_mavros_pos_correction: 0.5
+  max_vio_pos_correction: 0.5
+  max_object_pos_correction: 0.5
 
   dynamic_optflow_cov: false
 

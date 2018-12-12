@@ -1,5 +1,0 @@
-<library path="lib/libOdometry">
-  <class name="mrs_odometry/Odometry" type="mrs_odometry::Odometry" base_class_type="nodelet::Nodelet">
-    <description>Odometry nodelet</description>
-  </class>
-</library>
