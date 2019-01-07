@@ -6,11 +6,11 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "OPTFLOW"
 
 # available localization methods
-gps_available: true
-optflow_available: false
+gps_available: false
+optflow_available: true
 vio_available: false
 rtk_available: false
 lidar_available: false
@@ -27,7 +27,7 @@ pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
-garmin_z_offset: 0.02 # [m]
+garmin_z_offset: -0.15 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
@@ -96,7 +96,7 @@ altitude:
   # Covariances of measurements
   Q:
     alt_baro: [100]
-    height_range: [1000] # 0.04 stddev in simulation
+    height_range: [10] # 0.04 stddev in simulation
     vel_mavros: [0.001]
     bias_baro: [0.1] 
     elevation: [0.01] 
