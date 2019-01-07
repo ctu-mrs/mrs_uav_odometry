@@ -15,11 +15,11 @@
 
   <group ns="$(arg uav_name)">
 
-    <node pkg="nodelet" type="nodelet" name="odometry" args="standalone mrs_odometry/Odometry" output="screen" launch-prefix="$(arg launch_prefix)">
+    <node pkg="nodelet" type="nodelet" name="odometry_bag" args="standalone mrs_odometry/Odometry" output="screen" launch-prefix="$(arg launch_prefix)">
     <!-- <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)"> -->
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/uav.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/rosbag/f550_icp.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <param name="enable_profiler" value="$(arg profiler)" />
@@ -39,13 +39,13 @@
       <remap from="~vio_in" to="orb_slam/processed/odom" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
-      <remap from="~garmin_in" to="garmin/range" />
+      <remap from="~garmin_in" to="/garmin" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~object_altitude_in" to="landing_object_controller/current_target" />
-      <remap from="~icp_relative_in" to="forest_slam/odom_corr" />
-      <remap from="~icp_global_in" to="forest_slam/odom_corr_global" />
+      <remap from="~icp_relative_in" to="forest_slam_bag/odom_corr" />
+      <remap from="~icp_global_in" to="forest_slam_bag/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
 
