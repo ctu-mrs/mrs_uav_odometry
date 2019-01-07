@@ -1379,7 +1379,6 @@ namespace mrs_odometry
 
   //}
 
-
   // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
@@ -2740,20 +2739,20 @@ namespace mrs_odometry
               ROS_ERROR("NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
               return;
             } else if (pos_mavros_y - pos_vec(1) > max_mavros_pos_correction) {
-              ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), max_mavros_pos_correction);
+              ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), max_mavros_pos_correction);
               pos_mavros_y = pos_vec(1) + max_mavros_pos_correction;
             } else if (pos_mavros_y - pos_vec(1) < -max_mavros_pos_correction) {
-              ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating OBJECT Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), -max_mavros_pos_correction);
+              ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), -max_mavros_pos_correction);
               pos_mavros_y = pos_vec(1) - max_mavros_pos_correction;
             }
-            // Apply correction step to all state estimators
-            stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
-
-            ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
+            }
           }
         }
-      }
 
+        // Apply correction step to all state estimators
+        stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
+
+        ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
       //}
 
       //}
@@ -2989,6 +2988,8 @@ namespace mrs_odometry
 
       // Apply correction step to all state estimators
       stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
+
+      ROS_WARN_ONCE("[Odometry]: Fusing RTK position");
     }
 
     /* TODO RTK altitude not supported now //{ */
@@ -3147,6 +3148,7 @@ namespace mrs_odometry
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio");
 
+    ROS_WARN_ONCE("[Odometry]: Fusing VIO velocity");
     //}
 
     /* //{ fuse vio position */
@@ -3224,6 +3226,7 @@ namespace mrs_odometry
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
 
+    ROS_WARN_ONCE("[Odometry]: Fusing VIO position");
     //}
   }
 
@@ -3325,6 +3328,8 @@ namespace mrs_odometry
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vel_object_x, vel_object_y, "vel_object");
 
+    ROS_WARN_ONCE("[Odometry]: Fusing OBJECT velocity");
+
     //}
 
     /* //{ fuse object position */
@@ -3404,6 +3409,7 @@ namespace mrs_odometry
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(object_pos_x, object_pos_y, "pos_object");
 
+    ROS_WARN_ONCE("[Odometry]: Fusing OBJECT position");
     //}
   }
 
@@ -3447,12 +3453,12 @@ namespace mrs_odometry
     {
       std::scoped_lock lock(mutex_icp);
 
-      interval2 = icp_odom.header.stamp - icp_odom.header.stamp;
+      interval2 = icp_odom.header.stamp - icp_odom_previous.header.stamp;
     }
 
     if (fabs(interval2.toSec()) < 0.001) {
 
-      ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
+      ROS_WARN("[Odometry]: ICP velocity messages came within %1.8f s", interval2.toSec());
 
       return;
     }
@@ -3474,6 +3480,8 @@ namespace mrs_odometry
 
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vel_icp_x, vel_icp_y, "vel_icp");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing ICP velocity");
   }
   //}
 
@@ -3520,7 +3528,7 @@ namespace mrs_odometry
 
     if (fabs(interval2.toSec()) < 0.001) {
 
-      ROS_WARN("[Odometry]: ICP relative messages came within %1.8f s", interval2.toSec());
+      ROS_WARN("[Odometry]: ICP absolute messages came within %1.8f s", interval2.toSec());
 
       return;
     }
@@ -3543,6 +3551,8 @@ namespace mrs_odometry
 
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_icp_x, pos_icp_y, "pos_icp");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing ICP position");
   }
   //}
 
