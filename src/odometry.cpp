@@ -1310,7 +1310,7 @@ namespace mrs_odometry
       if (got_icp) {
         return true;
       } else {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for lidar msg to initialize takeoff estimator");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for icp msg to initialize takeoff estimator");
         return false;
       }
     }
