@@ -173,3 +173,34 @@ lateral:
       0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 10000000, 0,
       0, 0, 0, 0, 0, 1000]
+
+heading:
+
+  use_heading_estimator: true # otherwise use PixHawk heading estimate
+  heading_estimator: "GYRO" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
+  estimate_gyro_bias: false 
+
+  numberOfVariables: 6
+  numberOfInputs: 1
+  numberOfMeasurements: 1
+
+  # The system matrix (add gyro gain? EKF needed)
+  A: [1, 0.02, 0,  # yaw
+      0, 0, 1,     # yaw rate
+      0, 0, 1]     # gyro bias
+
+  # The input matrix (yaw rate or yaw + yaw rate?)
+  B: [0, 0,
+      0, 1,
+      0, 0]
+
+  # Process covariance
+  R: [0.0001, 0, 0,
+      0, 0.0001, 0,
+      0, 0, 0.0001]
+
+  # Covariances of measurements
+  Q:
+    compass_yaw: [0.1]
+    gyro_rate: [0.1]
+    optflow_rate: [0.1]

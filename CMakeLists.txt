@@ -74,7 +74,7 @@ add_library(range_filter src/range_filter.cpp)
 add_library(stddev_buffer src/StddevBuffer.cpp)
 
 ## Declare a C++ executable
-add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/odometry.cpp)
+add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
