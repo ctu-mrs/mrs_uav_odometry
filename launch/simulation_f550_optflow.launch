@@ -32,6 +32,7 @@
       <rosparam file="$(find mrs_odometry)/config/simulation/f550_optflow.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->

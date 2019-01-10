@@ -37,7 +37,6 @@ public:
   bool        getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd& innovation);
   bool        getInnovationCovariance(int measurement_type, Eigen::MatrixXd& innovation_cov);
   bool        reset(const Eigen::MatrixXd &states);
-  double      unwrap(const double yaw, const double yaw_previous);
 
 private:
   std::string                  m_estimator_name;
@@ -49,6 +48,8 @@ private:
   Eigen::MatrixXd              m_R;
 
   int    m_n_states;
+  int    m_n_inputs;
+  int    m_n_measurements;
   size_t m_n_measurement_types;
 
   mrs_lib::Lkf *mp_lkf_x;

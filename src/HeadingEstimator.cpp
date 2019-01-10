@@ -29,6 +29,12 @@ HeadingEstimator::HeadingEstimator(
   // Number of states
   m_n_states = m_A.rows();
 
+  // Number of inputs
+  m_n_inputs = m_B.cols();
+
+  // Measurement mapping matrix is changing with every measurement
+  m_n_measurements = 1;
+
   // Number of measurement types
   m_n_measurement_types = m_fusing_measurement.size();
 
@@ -43,9 +49,9 @@ HeadingEstimator::HeadingEstimator(
   }
 
   // Check size of m_B
-  if (m_B.rows() != m_n_states) {
+  if (m_B.rows() != m_n_states || m_B.cols() != m_n_inputs) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"B\". Should be: " << m_n_states << " is:" << m_B.cols() << std::endl;
+              << "): wrong size of \"B\". Should be: " << m_n_states << "," << m_n_inputs << " is:" << m_B.rows() << "," << m_B.cols() << std::endl;
     return;
   }
 
@@ -139,9 +145,9 @@ bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
     return false;
 
   // Check size of input
-  if (input.size() != 1) {
+  if (input.size() != m_n_inputs) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input << ", double dt=" << dt
-              << "): wrong size of \"input\". Should be: " << 1 << " is:" << input.size() << std::endl;
+              << "): wrong size of \"input\". Should be: " << m_n_inputs << " is:" << input.size() << std::endl;
     return false;
   }
 
@@ -169,17 +175,6 @@ bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
   /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing input: " << input << " with time step: " << dt << std::endl; */
 
-  Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
-
-  getState(0, current_yaw);
-
-  Eigen::VectorXd input_vec = Eigen::VectorXd::Zero(1);
-
-  input_vec(0) = input(0);
-  input_vec(1) = input(1);
-
-  input_vec(0) = unwrap(input_vec(0), current_yaw(0));
-
   Eigen::MatrixXd newA = m_A;
   newA(0, 1)           = dt;
 
@@ -195,7 +190,7 @@ bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
     std::scoped_lock lock(mutex_lkf);
 
     mp_lkf_x->setA(newA);
-    mp_lkf_x->setInput(input_vec);
+    mp_lkf_x->setInput(input);
     mp_lkf_x->iterateWithoutCorrection();
   }
 
@@ -208,7 +203,6 @@ bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
 bool HeadingEstimator::doCorrection(const Eigen::VectorXd &measurement, int measurement_type) {
 
-
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
@@ -217,7 +211,7 @@ bool HeadingEstimator::doCorrection(const Eigen::VectorXd &measurement, int meas
   // Check size of measurement
   if (measurement.size() != 1) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): wrong size of \"input\". Should be: " << 2 << " is:" << measurement.size() << std::endl;
+              << ", int measurement_type=" << measurement_type << "): wrong size of \"measurement\". Should be: " << 2 << " is:" << measurement.size() << std::endl;
     return false;
   }
 
@@ -252,15 +246,9 @@ bool HeadingEstimator::doCorrection(const Eigen::VectorXd &measurement, int meas
 
   mes_vec << measurement(0);
 
-  Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
-
-  getState(0, current_yaw);
-
-  mes_vec(0) = unwrap(mes_vec(0), current_yaw(0));
-
   // Fuse the measurement if this estimator allows it
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: "
-   * <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
+   /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: " */
+    /* <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
   {
     std::scoped_lock lock(mutex_lkf);
 
@@ -682,16 +670,6 @@ bool HeadingEstimator::reset(const Eigen::MatrixXd &states) {
   return true;
 }
 
-//}
-
-/* unwrap() //{ */
-double HeadingEstimator::unwrap(const double yaw, const double yaw_previous) {
-    if (yaw-yaw_previous > M_PI) {
-      return yaw - 2*M_PI;
-    } else if (yaw-yaw_previous < M_PI) {
-      return yaw + 2*M_PI;
-    }
-}
 //}
 
 }  // namespace mrs_odometry
