@@ -128,6 +128,7 @@ namespace mrs_odometry
     ros::Publisher pub_orientation_gt_;
     ros::Publisher pub_orientation_mavros_;
     ros::Publisher pub_target_attitude_global_;
+    ros::Publisher pub_compass_yaw_;
     ros::Publisher pub_odometry_diag_;
     ros::Publisher pub_altitude_;
     ros::Publisher pub_max_altitude_;
@@ -316,6 +317,7 @@ namespace mrs_odometry
     bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
     double      unwrap(const double yaw, const double yaw_previous);
+    double      wrap(const double angle_in);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -1299,10 +1301,12 @@ namespace mrs_odometry
     // publisher for tf
     broadcaster_ = new tf2_ros::TransformBroadcaster();
 
+    pub_compass_yaw_     = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
+
     // publishers for roll pitch yaw orientations in local_origin frame
-    pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global", 1);
-    pub_orientation_gt_         = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt", 1);
-    pub_orientation_mavros_     = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros", 1);
+    pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global_out", 1);
+    pub_orientation_gt_         = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
+    pub_orientation_mavros_     = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
     //}
 
     // --------------------------------------------------------------
@@ -2132,12 +2136,7 @@ namespace mrs_odometry
         }
       }
 
-      while (current_heading(0)>2*M_PI) {
-        current_heading(0) -= 2*M_PI;
-      }
-      while (current_heading(0)<0) {
-       current_heading(0) += 2*M_PI;
-      }
+      current_heading(0) = wrap(current_heading(0));
 
         for (int i=0; i<current_heading.rows(); i++) {
           heading_aux.values.push_back(current_heading(i));
@@ -3194,6 +3193,14 @@ namespace mrs_odometry
 
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(yaw, "yaw_compass");
+
+    yaw = wrap(yaw);
+
+    mrs_msgs::Float64Stamped compass_yaw_out;
+    compass_yaw_out.header.stamp = ros::Time::now();
+    compass_yaw_out.header.frame_id = "local_origin";
+    compass_yaw_out.value = yaw;
+    pub_compass_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(compass_yaw_out)));
 
     ROS_WARN_ONCE("[Odometry]: Fusing yaw from PixHawk compass");
 
@@ -5066,7 +5073,9 @@ namespace mrs_odometry
     Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
     estimator.second->getState(0, current_yaw);
     input(0) = unwrap(input(0), current_yaw(0));
-
+    if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
+      ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0));
+    }
       estimator.second->doPrediction(input, dt);
       Eigen::VectorXd yaw_state(1);
       Eigen::VectorXd yaw_rate_state(1);
@@ -5107,6 +5116,9 @@ namespace mrs_odometry
       estimator.second->getState(0, current_yaw);
       
       mes(0) = unwrap(mes(0), current_yaw(0));
+    if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
+      ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0));
+    }
       }
 
       if (estimator.second->doCorrection(mes, it_measurement_id->second)) {
@@ -5564,6 +5576,24 @@ double Odometry::unwrap(const double yaw, const double yaw_previous) {
       return yaw + 2*M_PI;
     }
 }
+
+/* wrap() //{ */
+double Odometry::wrap(const double angle_in) {
+
+  double angle_wrapped = angle_in;
+
+      while (angle_wrapped>M_PI) {
+        angle_wrapped -= 2*M_PI;
+      }
+
+      while (angle_wrapped<-M_PI) {
+       angle_wrapped += 2*M_PI;
+      }
+
+      return angle_wrapped;
+}
+//}
+
 //}
 
 }  // namespace mrs_odometry
