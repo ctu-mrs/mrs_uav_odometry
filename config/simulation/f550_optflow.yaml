@@ -186,12 +186,12 @@ heading:
 
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
-  A: [0.9, 0.02, 0,  # yaw
+  A: [1, 0.02, 0,  # yaw
       0, 0.9, 0,     # yaw rate
       0, 0, 0]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
-  B: [0.1, 0,
+  B: [0, 0,
       0, 0.1,
       0, 0]
 
