@@ -1937,7 +1937,7 @@ namespace mrs_odometry
           yaw(0) = wrap(yaw(0));
           setYaw(odom_main.pose.pose.orientation, yaw(0));
           odom_main.twist.twist.angular.z = yaw_rate(0);
-          odom_main.child_frame_id += "_" + current_estimator->getName();
+          odom_main.child_frame_id += "_" + current_hdg_estimator->getName();
       }
 
       odom_main.pose.pose.position.x = pos_vec(0);
@@ -5576,6 +5576,9 @@ namespace mrs_odometry
   /* //{ printOdometryDiag() */
   std::string Odometry::printOdometryDiag() {
 
+    std::string s_diag;
+
+    // lateral
     mrs_msgs::EstimatorType type;
 
     {
@@ -5584,9 +5587,7 @@ namespace mrs_odometry
       type.type = _estimator_type.type;
     }
 
-    std::string s_diag;
-
-    s_diag += "Current estimator type: ";
+    s_diag += "Current lateral estimator type: ";
     s_diag += std::to_string(type.type);
     s_diag += " - ";
 
@@ -5604,6 +5605,28 @@ namespace mrs_odometry
       s_diag += "VIO";
     } else if (type.type == mrs_msgs::EstimatorType::OBJECT) {
       s_diag += "OBJECT";
+    } else {
+      s_diag += "UNKNOWN";
+    }
+
+    //heading
+    mrs_msgs::HeadingType hdg_type;
+
+    {
+      std::scoped_lock lock(mutex_hdg_estimator_type);
+
+      hdg_type.type = _hdg_estimator_type.type;
+    }
+    s_diag += "Current heading estimator type: ";
+    s_diag += std::to_string(type.type);
+    s_diag += " - ";
+
+    if (type.type == mrs_msgs::HeadingType::GYRO) {
+      s_diag += "GYRO";
+    } else if (type.type == mrs_msgs::HeadingType::COMPASS) {
+      s_diag += "COMPASS";
+    } else if (type.type == mrs_msgs::HeadingType::OPTFLOW) {
+      s_diag += "OPTFLOW";
     } else {
       s_diag += "UNKNOWN";
     }
