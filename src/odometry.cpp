@@ -318,6 +318,7 @@ namespace mrs_odometry
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
     double      unwrap(const double yaw, const double yaw_previous);
     double      wrap(const double angle_in);
+    void        setYaw(geometry_msgs::Quaternion& q_msg,  const double yaw_in);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -431,7 +432,6 @@ namespace mrs_odometry
     std::mutex                                                mutex_current_hdg_estimator;
     bool                                                      is_heading_estimator_initialized = false;
     bool                                                      _use_heading_estimator;
-    bool                                                      _estimate_gyro_bias;
 
     // altitude estimation
     int                                                       altitude_n, altitude_m, altitude_p;
@@ -1074,8 +1074,6 @@ namespace mrs_odometry
 
     /* load parameters of heading estimator //{ */
 
-    param_loader.load_param("heading/estimate_gyro_bias", _estimate_gyro_bias);
-
     param_loader.load_param("heading/numberOfVariables", heading_n);
     param_loader.load_param("heading/numberOfInputs", heading_m);
     param_loader.load_param("heading/numberOfMeasurements", heading_p);
@@ -1089,6 +1087,7 @@ namespace mrs_odometry
     param_loader.load_param("heading_estimators/heading_estimators", _heading_estimators_names);
 
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
+    param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
     _hdg_estimator_type_takeoff.name = heading_estimator_name;
@@ -1188,10 +1187,6 @@ namespace mrs_odometry
         std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_hdg_measurement_covariance.find(*it2);
         Q_arr_hdg.push_back(pair_measurement_covariance->second);
       }
-
-      /* main_heading_kalman       = new mrs_lib::Lkf(heading_n, heading_m, heading_p, A1, B1, R1, Q1, P1); */
-      /* failsafe_teraranger_kalman = new mrs_lib::Lkf(heading_n, heading_m, heading_p, A1, B1, R1, Q1, P1); */
-      /* heading_estimator = std::make_shared<headingEstimator>(hdg_estimator_name, hdg_fusing_measurement, P_arr_hdg, Q_arr_hdg, A_hdg, B_hdg, R_hdg); */
 
       // Add pointer to heading estimator to array
       // this is how to create shared pointers!!! the correct way
@@ -1914,6 +1909,23 @@ namespace mrs_odometry
         if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
           odom_main.child_frame_id += odom_object.child_frame_id;
         }
+      }
+
+      if (_use_heading_estimator) {
+
+      Eigen::VectorXd yaw(1);
+      Eigen::VectorXd yaw_rate(1);
+
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, yaw);
+        current_hdg_estimator->getState(1, yaw_rate);
+      }
+          yaw(0) = wrap(yaw(0));
+          setYaw(odom_main.pose.pose.orientation, yaw(0));
+          odom_main.twist.twist.angular.z = yaw_rate(0);
+          odom_main.child_frame_id += "_" + current_estimator->getName();
       }
 
       odom_main.pose.pose.position.x = pos_vec(0);
@@ -4523,8 +4535,8 @@ namespace mrs_odometry
       }
     }
 
-    ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %f seconds. Estimator: %s Max altitude: %f Satellites: %d", (ros::Time::now() - t_start).toSec(),
-                      current_estimator_name.c_str(), max_altitude, mavros_diag.gps.satellites_visible);
+    ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %f seconds. Lateral estimator: %s Altitude estimator: %s Heading estimator: %s Max altitude: %f Satellites: %d", (ros::Time::now() - t_start).toSec(),
+                      current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(), max_altitude, mavros_diag.gps.satellites_visible);
   }
   //}
 
@@ -5072,9 +5084,11 @@ namespace mrs_odometry
 
     Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
     estimator.second->getState(0, current_yaw);
+    /* ROS_INFO("[Odometry]: Unwrapping %f with state %f", input(0), current_yaw(0)); */
     input(0) = unwrap(input(0), current_yaw(0));
+    /* ROS_INFO("[Odometry]: After unwrap: %f", input(0)); */
     if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
-      ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0));
+      /* ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0)); */
     }
       estimator.second->doPrediction(input, dt);
       Eigen::VectorXd yaw_state(1);
@@ -5117,7 +5131,7 @@ namespace mrs_odometry
       
       mes(0) = unwrap(mes(0), current_yaw(0));
     if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
-      ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0));
+      /* ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0)); */
     }
       }
 
@@ -5572,9 +5586,10 @@ namespace mrs_odometry
 double Odometry::unwrap(const double yaw, const double yaw_previous) {
     if (yaw-yaw_previous > M_PI) {
       return yaw - 2*M_PI;
-    } else if (yaw-yaw_previous < M_PI) {
+    } else if (yaw-yaw_previous < -M_PI) {
       return yaw + 2*M_PI;
     }
+    return yaw;
 }
 
 /* wrap() //{ */
@@ -5594,6 +5609,20 @@ double Odometry::wrap(const double angle_in) {
 }
 //}
 
+//}
+
+/* setYaw() //{ */
+void Odometry::setYaw(geometry_msgs::Quaternion& q_msg,  const double yaw_in) {
+  tf2::Quaternion q_tf;
+  tf2::fromMsg(q_msg, q_tf);
+  double roll, pitch, yaw;
+  tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+  yaw = yaw_in;
+  q_tf.setRPY(roll, pitch, yaw);
+  q_msg = tf2::toMsg(q_tf);
+
+  q_tf.normalize();
+}
 //}
 
 }  // namespace mrs_odometry
