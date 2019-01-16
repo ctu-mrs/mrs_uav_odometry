@@ -35,6 +35,7 @@
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/ChangeEstimator.h>
+#include <mrs_msgs/ChangeHdgEstimator.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/LkfStates.h>
@@ -170,6 +171,8 @@ namespace mrs_odometry
     ros::ServiceServer ser_toggle_rtk_altitude;
     ros::ServiceServer ser_change_estimator_type;
     ros::ServiceServer ser_change_estimator_type_string;
+    ros::ServiceServer ser_change_hdg_estimator_type;
+    ros::ServiceServer ser_change_hdg_estimator_type_string;
 
   private:
     tf2_ros::TransformBroadcaster *             broadcaster_;
@@ -296,6 +299,8 @@ namespace mrs_odometry
     bool callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, mrs_msgs::ChangeEstimator::Response &res);
     bool callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
     bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+    bool callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res);
+    bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
 
     // | --------------------- helper methods --------------------- |
     bool isReadyToTakeoff();
@@ -313,6 +318,7 @@ namespace mrs_odometry
 
     void getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
     bool isValidType(const mrs_msgs::EstimatorType &type);
+    bool isValidType(const mrs_msgs::HeadingType &type);
     std::string        printOdometryDiag();
     bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
@@ -412,6 +418,7 @@ namespace mrs_odometry
     int                                                       heading_n, heading_m, heading_p;
     Eigen::MatrixXd                                           A_hdg, B_hdg, R_hdg;
     std::mutex                                                mutex_heading_estimator;
+    std::mutex                                                mutex_hdg_estimator_type;
     std::vector<std::string>                                  _heading_estimators_names;
     std::vector<std::string>                                  _hdg_model_state_names;
     std::vector<std::string>                                  _hdg_measurement_names;
@@ -1388,6 +1395,11 @@ namespace mrs_odometry
 
     // change current estimator
     ser_change_estimator_type_string = nh_.advertiseService("change_estimator_type_string_in", &Odometry::callbackChangeEstimatorString, this);
+
+    ser_change_hdg_estimator_type = nh_.advertiseService("change_hdg_estimator_type_in", &Odometry::callbackChangeHdgEstimator, this);
+
+    ser_change_hdg_estimator_type_string = nh_.advertiseService("change_hdg_estimator_type_string_in", &Odometry::callbackChangeHdgEstimatorString, this);
+
     //}
 
     // --------------------------------------------------------------
@@ -4757,6 +4769,102 @@ namespace mrs_odometry
 
   //}
 
+  /* //{ callbackChangeHdgEstimator() */
+
+  bool Odometry::callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res) {
+
+    if (!is_initialized)
+      return false;
+
+    // Check whether a valid type was requested
+    if (!isValidType(req.estimator_type)) {
+      ROS_ERROR("[Odometry]: %d is not a valid heading estimator type", req.estimator_type.type);
+      res.success = false;
+      res.message = ("Not a valid heading estimator type");
+      {
+        std::scoped_lock lock(mutex_hdg_estimator_type);
+
+        res.estimator_type.type = _hdg_estimator_type.type;
+      }
+      return true;
+    }
+
+    bool success = false;
+    {
+      std::scoped_lock lock(mutex_hdg_estimator_type);
+
+      mrs_msgs::HeadingType desired_estimator;
+      desired_estimator.type = req.estimator_type.type;
+      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      success                = changeCurrentHeadingEstimator(desired_estimator);
+    }
+
+    ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+    res.success = success;
+    res.message = (printOdometryDiag().c_str());
+    {
+      std::scoped_lock lock(mutex_hdg_estimator_type);
+
+      res.estimator_type.type = _hdg_estimator_type.type;
+    }
+
+    return true;
+  }
+
+  //}
+  
+  /* //{ callbackChangeHdgEstimatorString() */
+
+  bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
+
+    if (!is_initialized)
+      return false;
+
+    mrs_msgs::HeadingType desired_estimator;
+
+    std::string type = req.value;
+    std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+    if (std::strcmp(type.c_str(), "GYRO") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+    } else if (std::strcmp(type.c_str(), "COMPASS") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::COMPASS;
+    } else if (std::strcmp(type.c_str(), "OPTFLOW") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    } else {
+      ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
+      res.success = false;
+      res.message = ("Not a valid heading estimator type");
+      return true;
+    }
+
+    // Check whether a valid type was requested
+    if (!isValidType(desired_estimator)) {
+      ROS_ERROR("[Odometry]: %d is not a valid heading estimator type", desired_estimator.type);
+      res.success = false;
+      res.message = ("Not a valid heading estimator type");
+      return true;
+    }
+
+    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+
+    bool success = false;
+    {
+      std::scoped_lock lock(mutex_hdg_estimator_type);
+
+      success = changeCurrentHeadingEstimator(desired_estimator);
+    }
+
+    ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+    res.success = success;
+    res.message = (printOdometryDiag().c_str());
+
+    return true;
+  }  // namespace mrs_odometry
+
+  //}
+  
   /* //{ callbackToggleTeraranger() */
 
   bool Odometry::callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
@@ -5453,6 +5561,18 @@ namespace mrs_odometry
 
   //}
 
+  /* //{ isValidType() */
+  bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
+
+    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW) {
+      return true;
+    }
+
+    return false;
+  }
+
+  //}
+  
   /* //{ printOdometryDiag() */
   std::string Odometry::printOdometryDiag() {
 
