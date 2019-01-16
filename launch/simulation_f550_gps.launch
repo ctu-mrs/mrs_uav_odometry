@@ -32,6 +32,7 @@
       <rosparam file="$(find mrs_odometry)/config/simulation/f550_gps.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg world_file)" />
 
       <!-- parameter -->
@@ -42,6 +43,8 @@
 
       <!-- Subscribers -->
       <remap from="~target_attitude_in" to="mavros/setpoint_raw/target_attitude" />
+      <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
+      <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
@@ -78,6 +81,10 @@
       <remap from="~max_altitude_out" to="~max_altitude" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />
+      <remap from="~orientation_gt_out" to="~orientation_gt" />
+      <remap from="~orientation_mavros_out" to="~orientation_mavros" />
+      <remap from="~orientation_target_out" to="~orientation_target" />
+      <remap from="~compass_yaw_out" to="~compass_yaw" />
       <remap from="~profiler" to="profiler" />
 
       <!-- Services -->
@@ -86,6 +93,8 @@
       <remap from="~toggle_rtk_altitude_in" to="~toggle_rtk_altitude" />
       <remap from="~change_estimator_type_in" to="~change_estimator_type" />
       <remap from="~change_estimator_type_string_in" to="~change_estimator_type_string" />
+      <remap from="~change_hdg_estimator_type_in" to="~change_hdg_estimator_type" />
+      <remap from="~change_hdg_estimator_type_string_in" to="~change_hdg_estimator_type_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
 
     </node>

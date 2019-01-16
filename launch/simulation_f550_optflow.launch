@@ -4,7 +4,6 @@
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
   <arg name="world_file" default="$(find mrs_main)/config/world_simulation.yaml"/>
-
   <arg name="debug" default="false" />
 
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
@@ -33,7 +32,10 @@
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
+
       <rosparam file="$(arg world_file)" />
+
+      <param name="enable_profiler" value="$(arg profiler)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
@@ -62,13 +64,15 @@
       <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
-      <remap from="~april_detections_in" to="apriltags2_ros/tag_detections" />
 
       <!-- Publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_stable_out" to="~odom_stable" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
+      <remap from="~odom_icp_out" to="~odom_icp" />
+      <remap from="~odom_rtk_out" to="~odom_rtk" />
+      <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~slow_odom_out" to="~slow_odom" />
       <remap from="~esp_odom_out" to="~esp_odom" />
