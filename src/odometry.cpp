@@ -437,6 +437,15 @@ namespace mrs_odometry
     std::vector<std::string>                                 _heading_type_names;
     std::string                                               heading_estimator_name;
     std::mutex                                                mutex_current_hdg_estimator;
+    int _optflow_yaw_rate_filter_buffer_size;
+    double _optflow_yaw_rate_filter_max_valid;
+    double _optflow_yaw_rate_filter_max_diff;
+
+    int _compass_yaw_filter_buffer_size;
+    double _compass_yaw_filter_max_diff;
+
+    std::shared_ptr<RangeFilter>                              optflow_yaw_rate_filter;
+    std::shared_ptr<RangeFilter>                              compass_yaw_filter;
     bool                                                      is_heading_estimator_initialized = false;
     bool                                                      _use_heading_estimator;
 
@@ -1093,8 +1102,21 @@ namespace mrs_odometry
     param_loader.load_param("heading_estimators/measurements", _hdg_measurement_names);
     param_loader.load_param("heading_estimators/heading_estimators", _heading_estimators_names);
 
+    param_loader.load_param("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size);
+    param_loader.load_param("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid);
+    param_loader.load_param("heading/optflow_yaw_rate_filter_max_diff", _optflow_yaw_rate_filter_max_diff);
+
+    param_loader.load_param("heading/compass_yaw_filter_buffer_size", _compass_yaw_filter_buffer_size);
+    /* param_loader.load_param("heading/compass_yaw_filter_max_valid", _compass_yaw_filter_max_valid); */
+    param_loader.load_param("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff);
+
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
+
+    optflow_yaw_rate_filter     = std::make_shared<RangeFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
+
+    compass_yaw_filter     = std::make_shared<RangeFilter>(_compass_yaw_filter_buffer_size, 1000000, _compass_yaw_filter_max_diff);
+
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
     _hdg_estimator_type_takeoff.name = heading_estimator_name;
@@ -3213,6 +3235,14 @@ namespace mrs_odometry
     yaw_previous = yaw;
     yaw = M_PI/2 - yaw;
 
+    compass_yaw_filter->getValue(yaw, interval2);
+
+    if (yaw==0) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent. Not fusing.");
+      return;
+
+    }
+
     if (std::isfinite(yaw)) {
 
     // Apply correction step to all heading estimators
@@ -3318,6 +3348,15 @@ namespace mrs_odometry
       yaw_rate = optflow_twist.twist.angular.z;
     }
 
+      if (!rosbag_) {
+        yaw_rate = optflow_yaw_rate_filter->getValue(yaw_rate, interval2);
+      }
+
+      if (yaw_rate==0.0) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Yaw rate from optic flow is inconsistent. Not fusing.");
+        return;
+      }
+
     if (std::isfinite(yaw_rate)) {
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(yaw_rate, "rate_optflow");
@@ -3326,7 +3365,7 @@ namespace mrs_odometry
 
     } else {
 
-      ROS_ERROR("NaN detected in PixHawk compass variable \"yaw\", not fusing!!!");
+      ROS_ERROR("NaN detected in optflow variable \"yaw_rate\", not fusing!!!");
 
     }
   }
@@ -4547,7 +4586,7 @@ namespace mrs_odometry
       }
     }
 
-    ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %f seconds. Lateral estimator: %s Altitude estimator: %s Heading estimator: %s Max altitude: %f Satellites: %d", (ros::Time::now() - t_start).toSec(),
+    ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d", (ros::Time::now() - t_start).toSec(),
                       current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(), max_altitude, mavros_diag.gps.satellites_visible);
   }
   //}
@@ -5617,7 +5656,7 @@ namespace mrs_odometry
 
       hdg_type.type = _hdg_estimator_type.type;
     }
-    s_diag += " Current heading estimator type: ";
+    s_diag += ", Current heading estimator type: ";
     s_diag += std::to_string(type.type);
     s_diag += " - ";
 

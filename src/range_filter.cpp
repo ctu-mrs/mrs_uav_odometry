@@ -38,7 +38,8 @@ double RangeFilter::getValue(double input, ros::Duration interval) {
   }
 
   // check if new teraranger altitude is valid
-  if (!isValid(input, interval)) {
+  /* if (!isValid(input, interval)) { */
+  if (input>trg_max_valid_altitude) {
     return 0;
   }
 
