@@ -51,10 +51,10 @@
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
+#include <mrs_lib/MedianFilter.h>
 #include <mrs_lib/GpsConversions.h>
 #include <mrs_lib/ParamLoader.h>
 
-#include <range_filter.h>
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
@@ -341,7 +341,7 @@ namespace mrs_odometry
     ros::Subscriber    sub_terarangerone_;
     sensor_msgs::Range range_terarangerone_;
     void               callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
-    RangeFilter *      terarangerFilter;
+    std::shared_ptr<MedianFilter>      terarangerFilter;
     int                trg_filter_buffer_size;
     double             trg_max_valid_altitude;
     double             trg_filter_max_difference;
@@ -352,7 +352,7 @@ namespace mrs_odometry
     sensor_msgs::Range            range_garmin_;
     std::mutex                    mutex_range_garmin;
     void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-    RangeFilter *                 garminFilter;
+    std::shared_ptr<MedianFilter>                  garminFilter;
     int                           garmin_filter_buffer_size;
     double                        garmin_max_valid_altitude;
     double                        garmin_filter_max_difference;
@@ -444,8 +444,8 @@ namespace mrs_odometry
     int _compass_yaw_filter_buffer_size;
     double _compass_yaw_filter_max_diff;
 
-    std::shared_ptr<RangeFilter>                              optflow_yaw_rate_filter;
-    std::shared_ptr<RangeFilter>                              compass_yaw_filter;
+    std::shared_ptr<MedianFilter>                              optflow_yaw_rate_filter;
+    std::shared_ptr<MedianFilter>                              compass_yaw_filter;
     bool                                                      is_heading_estimator_initialized = false;
     bool                                                      _use_heading_estimator;
 
@@ -841,8 +841,8 @@ namespace mrs_odometry
     /* param_loader.load_param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_); */
     /* param_loader.load_param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_); */
 
-    terarangerFilter = new RangeFilter(trg_filter_buffer_size, trg_max_valid_altitude, trg_filter_max_difference);
-    garminFilter     = new RangeFilter(garmin_filter_buffer_size, garmin_max_valid_altitude, garmin_filter_max_difference);
+    terarangerFilter = std::make_shared<MedianFilter>(trg_filter_buffer_size, trg_max_valid_altitude, 0, trg_filter_max_difference);
+    garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
 
     stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
     stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
@@ -850,7 +850,7 @@ namespace mrs_odometry
     ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
     ROS_INFO("[Odometry]: Teraranger max valid altitude: %2.2f", trg_max_valid_altitude);
 
-    /* objectAltitudeFilter = new RangeFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
+    /* objectAltitudeFilter = new MedianFilter(object_filter_buffer_size, 0, false, object_max_valid_altitude, object_filter_max_difference); */
 
     // Load the measurements fused by each state estimator
     for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
@@ -1113,9 +1113,9 @@ namespace mrs_odometry
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
 
-    optflow_yaw_rate_filter     = std::make_shared<RangeFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
+    optflow_yaw_rate_filter     = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid, -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
 
-    compass_yaw_filter     = std::make_shared<RangeFilter>(_compass_yaw_filter_buffer_size, 1000000, _compass_yaw_filter_max_diff);
+    compass_yaw_filter     = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
 
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
@@ -3235,9 +3235,8 @@ namespace mrs_odometry
     yaw_previous = yaw;
     yaw = M_PI/2 - yaw;
 
-    compass_yaw_filter->getValue(yaw, interval2);
+    if (!compass_yaw_filter->isValid(yaw)) {
 
-    if (yaw==0) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent. Not fusing.");
       return;
 
@@ -3348,11 +3347,8 @@ namespace mrs_odometry
       yaw_rate = optflow_twist.twist.angular.z;
     }
 
-      if (!rosbag_) {
-        yaw_rate = optflow_yaw_rate_filter->getValue(yaw_rate, interval2);
-      }
+        if (!optflow_yaw_rate_filter->isValid(yaw_rate)) {
 
-      if (yaw_rate==0.0) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Yaw rate from optic flow is inconsistent. Not fusing.");
         return;
       }
@@ -4153,7 +4149,9 @@ namespace mrs_odometry
 
       ros::Duration interval;
       interval    = ros::Time::now() - range_terarangerone_.header.stamp;
-      measurement = terarangerFilter->getValue(measurement, interval);
+      if (!terarangerFilter->isValid(measurement)) {
+        measurement = 0;
+      }
     }
 
     //////////////////// Fuse main altitude kalman ////////////////////
@@ -4275,8 +4273,8 @@ namespace mrs_odometry
         std::scoped_lock lock(mutex_range_garmin);
         interval = ros::Time::now() - range_garmin_.header.stamp;
       }
-      if (!rosbag_) {
-        measurement = garminFilter->getValue(measurement, interval);
+      if (!garminFilter->isValid(measurement)) {
+        measurement = 0;
       }
     }
 

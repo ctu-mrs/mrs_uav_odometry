@@ -27,21 +27,6 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
-# Compile with distcc when available (must be after find_package(catkin)
-find_file(DISTCC_FULL_PATH distcc)
-find_file(DISTCPP_FULL_PATH distg++)
-IF (EXISTS ${DISTCC_FULL_PATH})
- IF (EXISTS ${DISTCPP_FULL_PATH})
-   message("Found distcc and distg++, using distributed compilation")
-   SET(CMAKE_C_COMPILER ${DISTCC_FULL_PATH})
-   SET(CMAKE_CXX_COMPILER ${DISTCPP_FULL_PATH})
- ELSE()
-   message("Found only distcc, but not distg++, not using distributed compilation")
- ENDIF()
-ELSE()
-  message("Not found distcc, not using distributed compilation")
-ENDIF()
-
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -70,7 +55,6 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(range_filter src/range_filter.cpp)
 add_library(stddev_buffer src/StddevBuffer.cpp)
 
 ## Declare a C++ executable
@@ -80,7 +64,6 @@ add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/Headin
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
-  range_filter
   stddev_buffer
   )
 
