@@ -216,15 +216,15 @@ namespace mrs_odometry
     // IMU msgs
     sensor_msgs::Imu pixhawk_imu;
     sensor_msgs::Imu pixhawk_imu_previous;
-    std::mutex mutex_pixhawk_imu;
-    ros::Time pixhawk_imu_last_update;
+    std::mutex       mutex_pixhawk_imu;
+    ros::Time        pixhawk_imu_last_update;
 
     // Compass msgs
     std_msgs::Float64 compass_hdg;
     std_msgs::Float64 compass_hdg_previous;
-    double yaw_previous;
-    std::mutex mutex_compass_hdg;
-    ros::Time compass_hdg_last_update;
+    double            yaw_previous;
+    std::mutex        mutex_compass_hdg;
+    ros::Time         compass_hdg_last_update;
 
     geometry_msgs::Vector3Stamped orientation_mavros;
     geometry_msgs::Vector3Stamped orientation_gt;
@@ -316,15 +316,15 @@ namespace mrs_odometry
     void headingEstimatorsCorrection(const double value, const std::string &measurement_name);
     bool changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator);
 
-    void getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
-    bool isValidType(const mrs_msgs::EstimatorType &type);
-    bool isValidType(const mrs_msgs::HeadingType &type);
+    void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
+    bool               isValidType(const mrs_msgs::EstimatorType &type);
+    bool               isValidType(const mrs_msgs::HeadingType &type);
     std::string        printOdometryDiag();
     bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
-    double      unwrap(const double yaw, const double yaw_previous);
-    double      wrap(const double angle_in);
-    void        setYaw(geometry_msgs::Quaternion& q_msg,  const double yaw_in);
+    double             unwrap(const double yaw, const double yaw_previous);
+    double             wrap(const double angle_in);
+    void               setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -338,21 +338,21 @@ namespace mrs_odometry
     tf2::Quaternion    m_rot_odom_offset;
 
     // Teraranger altitude subscriber and callback
-    ros::Subscriber    sub_terarangerone_;
-    sensor_msgs::Range range_terarangerone_;
-    void               callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
-    std::shared_ptr<MedianFilter>      terarangerFilter;
-    int                trg_filter_buffer_size;
-    double             trg_max_valid_altitude;
-    double             trg_filter_max_difference;
-    double             TrgMaxQ, TrgMinQ, TrgQChangeRate;
+    ros::Subscriber               sub_terarangerone_;
+    sensor_msgs::Range            range_terarangerone_;
+    void                          callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
+    std::shared_ptr<MedianFilter> terarangerFilter;
+    int                           trg_filter_buffer_size;
+    double                        trg_max_valid_altitude;
+    double                        trg_filter_max_difference;
+    double                        TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
     // Garmin altitude subscriber and callback
     ros::Subscriber               sub_garmin_;
     sensor_msgs::Range            range_garmin_;
     std::mutex                    mutex_range_garmin;
     void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-    std::shared_ptr<MedianFilter>                  garminFilter;
+    std::shared_ptr<MedianFilter> garminFilter;
     int                           garmin_filter_buffer_size;
     double                        garmin_max_valid_altitude;
     double                        garmin_filter_max_difference;
@@ -374,7 +374,7 @@ namespace mrs_odometry
     bool got_altitude_sensors = false;
     bool got_lateral_sensors  = false;
     bool got_rtk_fix          = false;
-    bool got_pixhawk_imu              = false;
+    bool got_pixhawk_imu      = false;
     bool got_compass_hdg      = false;
 
     int got_icp_counter;
@@ -415,39 +415,39 @@ namespace mrs_odometry
     double init_pose_x, init_pose_y, init_pose_z, init_pose_yaw;
 
     // heading estimation
-    int                                                       heading_n, heading_m, heading_p;
-    Eigen::MatrixXd                                           A_hdg, B_hdg, R_hdg;
-    std::mutex                                                mutex_heading_estimator;
-    std::mutex                                                mutex_hdg_estimator_type;
-    std::vector<std::string>                                  _heading_estimators_names;
-    std::vector<std::string>                                  _hdg_model_state_names;
-    std::vector<std::string>                                  _hdg_measurement_names;
-    std::map<std::string, std::vector<std::string>>           map_hdg_estimator_measurement;
-    std::map<std::string, Eigen::MatrixXd>                    map_hdg_measurement_covariance;
-    std::map<std::string, std::string>                        map_hdg_measurement_state;
-    std::map<std::string, int>                                map_hdg_measurement_name_id;
-    std::map<std::string, Eigen::MatrixXd>                    map_hdg_states;
-    std::map<std::string, mrs_msgs::Float64ArrayStamped>      map_hdg_estimator_msg;
-    std::map<std::string, ros::Publisher>                     map_hdg_estimator_pub;
+    int                                                      heading_n, heading_m, heading_p;
+    Eigen::MatrixXd                                          A_hdg, B_hdg, R_hdg;
+    std::mutex                                               mutex_heading_estimator;
+    std::mutex                                               mutex_hdg_estimator_type;
+    std::vector<std::string>                                 _heading_estimators_names;
+    std::vector<std::string>                                 _hdg_model_state_names;
+    std::vector<std::string>                                 _hdg_measurement_names;
+    std::map<std::string, std::vector<std::string>>          map_hdg_estimator_measurement;
+    std::map<std::string, Eigen::MatrixXd>                   map_hdg_measurement_covariance;
+    std::map<std::string, std::string>                       map_hdg_measurement_state;
+    std::map<std::string, int>                               map_hdg_measurement_name_id;
+    std::map<std::string, Eigen::MatrixXd>                   map_hdg_states;
+    std::map<std::string, mrs_msgs::Float64ArrayStamped>     map_hdg_estimator_msg;
+    std::map<std::string, ros::Publisher>                    map_hdg_estimator_pub;
     std::map<std::string, std::shared_ptr<HeadingEstimator>> m_heading_estimators;
     std::shared_ptr<HeadingEstimator>                        current_hdg_estimator;
-    std::string                                               current_hdg_estimator_name;
+    std::string                                              current_hdg_estimator_name;
     mrs_msgs::HeadingType                                    _hdg_estimator_type;
     mrs_msgs::HeadingType                                    _hdg_estimator_type_takeoff;
     std::vector<std::string>                                 _heading_type_names;
-    std::string                                               heading_estimator_name;
-    std::mutex                                                mutex_current_hdg_estimator;
-    int _optflow_yaw_rate_filter_buffer_size;
-    double _optflow_yaw_rate_filter_max_valid;
-    double _optflow_yaw_rate_filter_max_diff;
+    std::string                                              heading_estimator_name;
+    std::mutex                                               mutex_current_hdg_estimator;
+    int                                                      _optflow_yaw_rate_filter_buffer_size;
+    double                                                   _optflow_yaw_rate_filter_max_valid;
+    double                                                   _optflow_yaw_rate_filter_max_diff;
 
-    int _compass_yaw_filter_buffer_size;
+    int    _compass_yaw_filter_buffer_size;
     double _compass_yaw_filter_max_diff;
 
-    std::shared_ptr<MedianFilter>                              optflow_yaw_rate_filter;
-    std::shared_ptr<MedianFilter>                              compass_yaw_filter;
-    bool                                                      is_heading_estimator_initialized = false;
-    bool                                                      _use_heading_estimator;
+    std::shared_ptr<MedianFilter> optflow_yaw_rate_filter;
+    std::shared_ptr<MedianFilter> compass_yaw_filter;
+    bool                          is_heading_estimator_initialized = false;
+    bool                          _use_heading_estimator;
 
     // altitude estimation
     int                                                       altitude_n, altitude_m, altitude_p;
@@ -623,8 +623,8 @@ namespace mrs_odometry
     got_pixhawk_imu       = false;
     got_compass_hdg       = false;
 
-    _is_estimator_tmp     = false;
-    got_rtk_counter       = 0;
+    _is_estimator_tmp = false;
+    got_rtk_counter   = 0;
 
     // got_object_altitude = false;
 
@@ -640,9 +640,9 @@ namespace mrs_odometry
     // ------------------------------------------------------------------------
     // |                        odometry estimator type                       |
     // ------------------------------------------------------------------------
-    
+
     /* check estimator type to name conversion //{ */
-    
+
     // prepare the array of names
     // IMPORTANT, update this with each update of the EstimatorType message
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::OPTFLOW));
@@ -652,42 +652,42 @@ namespace mrs_odometry
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::ICP));
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::VIO));
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::OBJECT));
-    
+
     ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
     for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
       std::size_t found        = _estimator_type_names[i].find_last_of(":");
       _estimator_type_names[i] = _estimator_type_names[i].substr(found + 1);
       ROS_INFO("[Odometry]: _estimator_type[%d]=%s", i, _estimator_type_names[i].c_str());
     }
-    
+
     // prepare the array of names
     // IMPORTANT, update this with each update of the AltitudeType message
     _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::HEIGHT));
     _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ALTITUDE));
     _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ELEVATION));
-    
+
     ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
     for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
       std::size_t found       = _altitude_type_names[i].find_last_of(":");
       _altitude_type_names[i] = _altitude_type_names[i].substr(found + 1);
       ROS_INFO("[Odometry]: _altitude_type[%d]=%s", i, _altitude_type_names[i].c_str());
     }
-    
+
     // prepare the array of names
     // IMPORTANT, update this with each update of the HeadingType message
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::GYRO));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::COMPASS));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::OPTFLOW));
-    
+
     ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
     for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
-      std::size_t found       = _heading_type_names[i].find_last_of(":");
+      std::size_t found      = _heading_type_names[i].find_last_of(":");
       _heading_type_names[i] = _heading_type_names[i].substr(found + 1);
       ROS_INFO("[Odometry]: _heading_type[%d]=%s", i, _heading_type_names[i].c_str());
     }
-    
+
     //}
-    
+
     param_loader.load_param("rate", rate_);
 
     param_loader.load_param("simulation", simulation_);
@@ -1113,9 +1113,10 @@ namespace mrs_odometry
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
 
-    optflow_yaw_rate_filter     = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid, -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
+    optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
+                                                             -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
 
-    compass_yaw_filter     = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
+    compass_yaw_filter = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
 
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
@@ -1176,13 +1177,13 @@ namespace mrs_odometry
     for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it < _hdg_measurement_names.end(); it++) {
       map_hdg_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_hdg_measurement_names.begin(), it)));
     }
-    for (auto &it : map_hdg_measurement_name_id) { 
+    for (auto &it : map_hdg_measurement_name_id) {
       ROS_INFO("[Odometry]: heading measurement mapping: %s - %d", it.first.c_str(), it.second);
     }
 
 
     //}
-    
+
     /* create heading estimator //{ */
 
     // Loop through all estimators
@@ -1224,7 +1225,7 @@ namespace mrs_odometry
 
       // Map odometry to estimator name
       mrs_msgs::Float64ArrayStamped hdg_msg;
-      std::string              hdg_estimator_name = *it;
+      std::string                   hdg_estimator_name = *it;
       std::transform(hdg_estimator_name.begin(), hdg_estimator_name.end(), hdg_estimator_name.begin(), ::tolower);
       /* hdg_msg.child_frame_id = hdg_estimator_name; */
       map_hdg_estimator_msg.insert(std::pair<std::string, mrs_msgs::Float64ArrayStamped>(*it, hdg_msg));
@@ -1232,16 +1233,15 @@ namespace mrs_odometry
       // Map publisher to heading estimator name
       ros::Publisher pub = nh_.advertise<mrs_msgs::Float64ArrayStamped>("hdg_" + hdg_estimator_name + "_out", 1);
       map_hdg_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
-
     }
 
-    ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: "
-                    << heading_n << ", m: " << heading_m << ", p: " << heading_p << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
+    ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << heading_n << ", m: " << heading_m << ", p: " << heading_p
+                                                                                                 << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
 
     ROS_INFO("[Odometry]: heading estimator prepared");
 
     //}
-    
+
     // use differential gps
     param_loader.load_param("use_differential_gps", use_differential_gps);
     param_loader.load_param("publish_fused_odom", _publish_fused_odom);
@@ -1325,7 +1325,7 @@ namespace mrs_odometry
     // publisher for tf
     broadcaster_ = new tf2_ros::TransformBroadcaster();
 
-    pub_compass_yaw_     = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
+    pub_compass_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
 
     // publishers for roll pitch yaw orientations in local_origin frame
     pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global_out", 1);
@@ -1947,19 +1947,19 @@ namespace mrs_odometry
 
       if (_use_heading_estimator) {
 
-      Eigen::VectorXd yaw(1);
-      Eigen::VectorXd yaw_rate(1);
+        Eigen::VectorXd yaw(1);
+        Eigen::VectorXd yaw_rate(1);
 
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
+        {
+          std::scoped_lock lock(mutex_current_hdg_estimator);
 
-        current_hdg_estimator->getState(0, yaw);
-        current_hdg_estimator->getState(1, yaw_rate);
-      }
-          yaw(0) = wrap(yaw(0));
-          setYaw(odom_main.pose.pose.orientation, yaw(0));
-          odom_main.twist.twist.angular.z = yaw_rate(0);
-          odom_main.child_frame_id += "_" + current_hdg_estimator->getName();
+          current_hdg_estimator->getState(0, yaw);
+          current_hdg_estimator->getState(1, yaw_rate);
+        }
+        yaw(0) = wrap(yaw(0));
+        setYaw(odom_main.pose.pose.orientation, yaw(0));
+        odom_main.twist.twist.angular.z = yaw_rate(0);
+        odom_main.child_frame_id += "_" + current_hdg_estimator->getName();
       }
 
       odom_main.pose.pose.position.x = pos_vec(0);
@@ -2184,9 +2184,9 @@ namespace mrs_odometry
 
       current_heading(0) = wrap(current_heading(0));
 
-        for (int i=0; i<current_heading.rows(); i++) {
-          heading_aux.values.push_back(current_heading(i));
-        }
+      for (int i = 0; i < current_heading.rows(); i++) {
+        heading_aux.values.push_back(current_heading(i));
+      }
 
       std::map<std::string, ros::Publisher>::iterator pub_hdg_aux = map_hdg_estimator_pub.find(estimator.second->getName());
 
@@ -3086,14 +3086,14 @@ namespace mrs_odometry
               ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), -max_mavros_pos_correction);
               pos_mavros_y = pos_vec(1) - max_mavros_pos_correction;
             }
-            }
           }
         }
+      }
 
-        // Apply correction step to all state estimators
-        stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
+      // Apply correction step to all state estimators
+      stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
 
-        ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
+      ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
       //}
 
       //}
@@ -3159,20 +3159,19 @@ namespace mrs_odometry
     }
 
     if (std::isfinite(yaw_rate)) {
-    // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(yaw_rate, "rate_gyro");
+      // Apply correction step to all heading estimators
+      headingEstimatorsCorrection(yaw_rate, "rate_gyro");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing gyro yaw rate from PixHawk IMU");
+      ROS_WARN_ONCE("[Odometry]: Fusing gyro yaw rate from PixHawk IMU");
 
     } else {
 
       ROS_ERROR("NaN detected in PixHawk IMU variable \"yaw_rate\", not fusing!!!");
-
     }
   }
 
   //}
-  
+
   /* //{ callbackPixhawkCompassHdg() */
 
   void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
@@ -3193,10 +3192,10 @@ namespace mrs_odometry
 
       } else {
 
-        compass_hdg_previous = *msg;
-        compass_hdg          = *msg;
-        yaw_previous = msg->data / 180 * M_PI;
-        got_compass_hdg      = true;
+        compass_hdg_previous    = *msg;
+        compass_hdg             = *msg;
+        yaw_previous            = msg->data / 180 * M_PI;
+        got_compass_hdg         = true;
         compass_hdg_last_update = ros::Time::now();
 
         return;
@@ -3209,9 +3208,7 @@ namespace mrs_odometry
 
     // compute the time between two last messages
     ros::Duration interval2;
-    {
-      interval2 = ros::Time::now() - compass_hdg_last_update;
-    }
+    { interval2 = ros::Time::now() - compass_hdg_last_update; }
 
     compass_hdg_last_update = ros::Time::now();
 
@@ -3230,43 +3227,40 @@ namespace mrs_odometry
       yaw = compass_hdg.data;
     }
 
-    yaw = yaw / 180 * M_PI;
-    yaw = unwrap(yaw, yaw_previous);
+    yaw          = yaw / 180 * M_PI;
+    yaw          = unwrap(yaw, yaw_previous);
     yaw_previous = yaw;
-    yaw = M_PI/2 - yaw;
+    yaw          = M_PI / 2 - yaw;
 
     if (!compass_yaw_filter->isValid(yaw)) {
 
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent. Not fusing.");
       return;
-
     }
 
     if (std::isfinite(yaw)) {
 
-    // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(yaw, "yaw_compass");
+      // Apply correction step to all heading estimators
+      headingEstimatorsCorrection(yaw, "yaw_compass");
 
-    yaw = wrap(yaw);
+      yaw = wrap(yaw);
 
-    mrs_msgs::Float64Stamped compass_yaw_out;
-    compass_yaw_out.header.stamp = ros::Time::now();
-    compass_yaw_out.header.frame_id = "local_origin";
-    compass_yaw_out.value = yaw;
-    pub_compass_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(compass_yaw_out)));
+      mrs_msgs::Float64Stamped compass_yaw_out;
+      compass_yaw_out.header.stamp    = ros::Time::now();
+      compass_yaw_out.header.frame_id = "local_origin";
+      compass_yaw_out.value           = yaw;
+      pub_compass_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(compass_yaw_out)));
 
-    ROS_WARN_ONCE("[Odometry]: Fusing yaw from PixHawk compass");
+      ROS_WARN_ONCE("[Odometry]: Fusing yaw from PixHawk compass");
 
     } else {
 
       ROS_ERROR("NaN detected in PixHawk compass variable \"yaw\", not fusing!!!");
-
     }
-
   }
 
   //}
-  
+
   /* //{ callbackOptflowTwist() */
 
   void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg) {
@@ -3347,22 +3341,21 @@ namespace mrs_odometry
       yaw_rate = optflow_twist.twist.angular.z;
     }
 
-        if (!optflow_yaw_rate_filter->isValid(yaw_rate)) {
+    if (!optflow_yaw_rate_filter->isValid(yaw_rate)) {
 
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Yaw rate from optic flow is inconsistent. Not fusing.");
-        return;
-      }
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Yaw rate from optic flow is inconsistent. Not fusing.");
+      return;
+    }
 
     if (std::isfinite(yaw_rate)) {
-    // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(yaw_rate, "rate_optflow");
+      // Apply correction step to all heading estimators
+      headingEstimatorsCorrection(yaw_rate, "rate_optflow");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing optflow yaw rate");
+      ROS_WARN_ONCE("[Odometry]: Fusing optflow yaw rate");
 
     } else {
 
       ROS_ERROR("NaN detected in optflow variable \"yaw_rate\", not fusing!!!");
-
     }
   }
 
@@ -3872,11 +3865,11 @@ namespace mrs_odometry
     /* double object_pos_y_bal = odom_object.pose.pose.position.x; */
     /* double object_pos_z_bal = odom_object.pose.pose.position.y; */
 
-    // Transform from camera frame to fcu frame 
-    const double offset_bluefox = -0.1; // TODO move to parameters
-    double x = -odom_object.pose.pose.position.y + offset_bluefox;
-    double y = -odom_object.pose.pose.position.x;
-    double z = odom_object.pose.pose.position.z;
+    // Transform from camera frame to fcu frame
+    const double offset_bluefox = -0.1;  // TODO move to parameters
+    double       x              = -odom_object.pose.pose.position.y + offset_bluefox;
+    double       y              = -odom_object.pose.pose.position.x;
+    double       z              = odom_object.pose.pose.position.z;
 
     // Get current UAV attitude
     double                    roll, pitch, yaw;
@@ -3889,7 +3882,7 @@ namespace mrs_odometry
     tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
     // Precalculate goniometric functions
-    double mc = 0.8; // Works in simulation
+    double mc = 0.8;  // Works in simulation
     double sy = sin(yaw);
     double cy = cos(yaw);
     double sp = sin(pitch * mc);
@@ -4148,7 +4141,7 @@ namespace mrs_odometry
     if (isUavFlying()) {
 
       ros::Duration interval;
-      interval    = ros::Time::now() - range_terarangerone_.header.stamp;
+      interval = ros::Time::now() - range_terarangerone_.header.stamp;
       if (!terarangerFilter->isValid(measurement)) {
         measurement = 0;
       }
@@ -4584,8 +4577,10 @@ namespace mrs_odometry
       }
     }
 
-    ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d", (ros::Time::now() - t_start).toSec(),
-                      current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(), max_altitude, mavros_diag.gps.satellites_visible);
+    ROS_INFO_THROTTLE(
+        10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d",
+        (ros::Time::now() - t_start).toSec(), current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
+        max_altitude, mavros_diag.gps.satellites_visible);
   }
   //}
 
@@ -4850,7 +4845,7 @@ namespace mrs_odometry
   }
 
   //}
-  
+
   /* //{ callbackChangeHdgEstimatorString() */
 
   bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
@@ -4901,7 +4896,7 @@ namespace mrs_odometry
   }  // namespace mrs_odometry
 
   //}
-  
+
   /* //{ callbackToggleTeraranger() */
 
   bool Odometry::callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
@@ -5224,23 +5219,24 @@ namespace mrs_odometry
 
     for (auto &estimator : m_heading_estimators) {
 
-    Eigen::VectorXd input = Eigen::VectorXd::Zero(2);
-    input << yaw, yaw_rate;
+      Eigen::VectorXd input = Eigen::VectorXd::Zero(2);
+      input << yaw, yaw_rate;
 
-    Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
-    estimator.second->getState(0, current_yaw);
-    /* ROS_INFO("[Odometry]: Unwrapping %f with state %f", input(0), current_yaw(0)); */
-    input(0) = unwrap(input(0), current_yaw(0));
-    /* ROS_INFO("[Odometry]: After unwrap: %f", input(0)); */
-    if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
-      /* ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0)); */
-    }
+      Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+      estimator.second->getState(0, current_yaw);
+      /* ROS_INFO("[Odometry]: Unwrapping %f with state %f", input(0), current_yaw(0)); */
+      input(0) = unwrap(input(0), current_yaw(0));
+      /* ROS_INFO("[Odometry]: After unwrap: %f", input(0)); */
+      if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
+        /* ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0)); */
+      }
       estimator.second->doPrediction(input, dt);
       Eigen::VectorXd yaw_state(1);
       Eigen::VectorXd yaw_rate_state(1);
       estimator.second->getState(0, yaw_state);
       estimator.second->getState(1, yaw_rate_state);
-      /* ROS_INFO("[Odometry]: %s after prediction with input: %f,%f dt: %f state: %f,%f", estimator.second->getName().c_str(), input(0), input(1), dt, yaw_state(0), yaw_rate_state(0)); */
+      /* ROS_INFO("[Odometry]: %s after prediction with input: %f,%f dt: %f state: %f,%f", estimator.second->getName().c_str(), input(0), input(1), dt,
+       * yaw_state(0), yaw_rate_state(0)); */
     }
   }
 
@@ -5263,29 +5259,29 @@ namespace mrs_odometry
     }
 
 
-
     for (auto &estimator : m_heading_estimators) {
       /* ROS_INFO_THROTTLE(1.0, "[Odometry]: estimator name: %s", estimator.second->getName().c_str()); */
 
       Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
       mes << value;
 
-      if (std::strcmp(measurement_name.c_str(), "yaw_compass")==STRING_EQUAL) {
-      Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
-      estimator.second->getState(0, current_yaw);
-      
-      mes(0) = unwrap(mes(0), current_yaw(0));
-    if (std::strcmp(estimator.second->getName().c_str(), "COMPASS")==STRING_EQUAL) {
-      /* ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0)); */
-    }
+      if (std::strcmp(measurement_name.c_str(), "yaw_compass") == STRING_EQUAL) {
+        Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+        estimator.second->getState(0, current_yaw);
+
+        mes(0) = unwrap(mes(0), current_yaw(0));
+        if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
+          /* ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0)); */
+        }
       }
 
       if (estimator.second->doCorrection(mes, it_measurement_id->second)) {
-      Eigen::VectorXd yaw_state(1);
-      Eigen::VectorXd yaw_rate_state(1);
-      estimator.second->getState(0, yaw_state);
-      estimator.second->getState(1, yaw_rate_state);
-      /* ROS_INFO("[Odometry]: %s after correction with measurement: %f - %s, state: %f,%f", estimator.second->getName().c_str(), mes(0), it_measurement_id->first.c_str(), yaw_state(0), yaw_rate_state(0)); */
+        Eigen::VectorXd yaw_state(1);
+        Eigen::VectorXd yaw_rate_state(1);
+        estimator.second->getState(0, yaw_state);
+        estimator.second->getState(1, yaw_rate_state);
+        /* ROS_INFO("[Odometry]: %s after correction with measurement: %f - %s, state: %f,%f", estimator.second->getName().c_str(), mes(0),
+         * it_measurement_id->first.c_str(), yaw_state(0), yaw_rate_state(0)); */
       }
     }
   }
@@ -5553,7 +5549,7 @@ namespace mrs_odometry
   bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator) {
 
     mrs_msgs::HeadingType target_estimator = desired_estimator;
-    target_estimator.name                   = _heading_estimators_names[target_estimator.type];
+    target_estimator.name                  = _heading_estimators_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
         target_estimator.type != mrs_msgs::HeadingType::OPTFLOW) {
@@ -5583,7 +5579,7 @@ namespace mrs_odometry
   }
 
   //}
-  
+
   /* //{ isValidType() */
   bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
 
@@ -5609,7 +5605,7 @@ namespace mrs_odometry
   }
 
   //}
-  
+
   /* //{ printOdometryDiag() */
   std::string Odometry::printOdometryDiag() {
 
@@ -5646,7 +5642,7 @@ namespace mrs_odometry
       s_diag += "UNKNOWN";
     }
 
-    //heading
+    // heading
     mrs_msgs::HeadingType hdg_type;
 
     {
@@ -5762,48 +5758,48 @@ namespace mrs_odometry
 
   //}
 
-/* unwrap() //{ */
-double Odometry::unwrap(const double yaw, const double yaw_previous) {
-    if (yaw-yaw_previous > M_PI) {
-      return yaw - 2*M_PI;
-    } else if (yaw-yaw_previous < -M_PI) {
-      return yaw + 2*M_PI;
+  /* unwrap() //{ */
+  double Odometry::unwrap(const double yaw, const double yaw_previous) {
+    if (yaw - yaw_previous > M_PI) {
+      return yaw - 2 * M_PI;
+    } else if (yaw - yaw_previous < -M_PI) {
+      return yaw + 2 * M_PI;
     }
     return yaw;
-}
+  }
 
-/* wrap() //{ */
-double Odometry::wrap(const double angle_in) {
+  /* wrap() //{ */
+  double Odometry::wrap(const double angle_in) {
 
-  double angle_wrapped = angle_in;
+    double angle_wrapped = angle_in;
 
-      while (angle_wrapped>M_PI) {
-        angle_wrapped -= 2*M_PI;
-      }
+    while (angle_wrapped > M_PI) {
+      angle_wrapped -= 2 * M_PI;
+    }
 
-      while (angle_wrapped<-M_PI) {
-       angle_wrapped += 2*M_PI;
-      }
+    while (angle_wrapped < -M_PI) {
+      angle_wrapped += 2 * M_PI;
+    }
 
-      return angle_wrapped;
-}
-//}
+    return angle_wrapped;
+  }
+  //}
 
-//}
+  //}
 
-/* setYaw() //{ */
-void Odometry::setYaw(geometry_msgs::Quaternion& q_msg,  const double yaw_in) {
-  tf2::Quaternion q_tf;
-  tf2::fromMsg(q_msg, q_tf);
-  double roll, pitch, yaw;
-  tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
-  yaw = yaw_in;
-  q_tf.setRPY(roll, pitch, yaw);
-  q_msg = tf2::toMsg(q_tf);
+  /* setYaw() //{ */
+  void Odometry::setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in) {
+    tf2::Quaternion q_tf;
+    tf2::fromMsg(q_msg, q_tf);
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+    yaw = yaw_in;
+    q_tf.setRPY(roll, pitch, yaw);
+    q_msg = tf2::toMsg(q_tf);
 
-  q_tf.normalize();
-}
-//}
+    q_tf.normalize();
+  }
+  //}
 
 }  // namespace mrs_odometry
 
