@@ -20,6 +20,7 @@
 
       <rosparam file="$(find mrs_odometry)/config/uav/f450.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg world_file)" />
 
