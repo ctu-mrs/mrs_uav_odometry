@@ -446,8 +446,10 @@ namespace mrs_odometry
 
     std::shared_ptr<MedianFilter> optflow_yaw_rate_filter;
     std::shared_ptr<MedianFilter> compass_yaw_filter;
+    int                           compass_inconsistent_samples;
     bool                          is_heading_estimator_initialized = false;
     bool                          _use_heading_estimator;
+    bool                          _gyro_fallback;
 
     // altitude estimation
     int                                                       altitude_n, altitude_m, altitude_p;
@@ -1112,11 +1114,13 @@ namespace mrs_odometry
 
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
+    param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
 
     optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
                                                              -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
 
     compass_yaw_filter = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
+    compass_inconsistent_samples = 0;
 
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
@@ -3233,12 +3237,23 @@ namespace mrs_odometry
     yaw          = M_PI / 2 - yaw;
 
     if (!compass_yaw_filter->isValid(yaw)) {
-
+      compass_inconsistent_samples++;
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent. Not fusing.");
+
+      if (_gyro_fallback && compass_inconsistent_samples > 20) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        compass_inconsistent_samples = 0;
+      }
       return;
     }
 
     if (std::isfinite(yaw)) {
+
+      compass_inconsistent_samples = 0;
 
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw, "yaw_compass");
