@@ -3338,6 +3338,30 @@ namespace mrs_odometry
       return;
     }
 
+  static int measurement_id = 0;
+  static bool got_init_optflow_Q = false;
+  static double init_Q = 0.0;
+
+  for (auto &estimator : m_state_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0) {
+
+      // Get initial Q
+      if (!got_init_optflow_Q) {
+        std::string measurement_name = "vel_optflow";
+        std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
+        if (it_measurement_id == map_measurement_name_id.end()) {
+          ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
+          return;
+        }
+
+      measurement_id = it_measurement_id->second;
+
+      estimator.second->getQ(init_Q, measurement_id);
+      got_init_optflow_Q = true;
+      }
+    }
+  }
+
     // TODO decouple x and y covariance components
     double twist_q = optflow_twist.twist.covariance[0];
 
@@ -3345,14 +3369,14 @@ namespace mrs_odometry
 
         // TODO parametrize scale and saturation
         // Scale covariance
-        twist_q *=1000000;
+        twist_q *=init_Q;
 
         // Saturate covariance
-        if (twist_q > 1000000) {
-          twist_q = 1000000;
-        } else if (twist_q <= 0.0001) {
-          twist_q = 0.0001;
-        }
+        /* if (twist_q > 1000000) { */
+        /*   twist_q = 1000000; */
+        /* } else if (twist_q <= 0.0001) { */
+        /*   twist_q = 0.0001; */
+        /* } */
 
         std::string measurement_name = "vel_optflow";
     std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
