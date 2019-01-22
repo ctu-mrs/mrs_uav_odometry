@@ -5,10 +5,11 @@
 #include <nodelet/nodelet.h>
 #include <dynamic_reconfigure/server.h>
 
-#include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/TwistWithCovarianceStamped.h>
+#include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/Vector3.h>
 
 #include <mavros_msgs/AttitudeTarget.h>
@@ -194,9 +195,9 @@ namespace mrs_odometry
 
     std::vector<nav_msgs::Odometry> vec_odom_aux;
 
-    geometry_msgs::TwistStamped optflow_twist;
+    geometry_msgs::TwistWithCovarianceStamped optflow_twist;
     std::mutex                  mutex_optflow;
-    geometry_msgs::TwistStamped optflow_twist_previous;
+    geometry_msgs::TwistWithCovarianceStamped optflow_twist_previous;
     ros::Time                   optflow_twist_last_update;
     geometry_msgs::Vector3      optflow_stddev;
     std::mutex                  mutex_optflow_stddev;
@@ -277,7 +278,7 @@ namespace mrs_odometry
     // | -------------------- message callbacks ------------------- |
     void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
     void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
-    void callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg);
+    void callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
     void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
     void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
     void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
@@ -3278,7 +3279,7 @@ namespace mrs_odometry
 
   /* //{ callbackOptflowTwist() */
 
-  void Odometry::callbackOptflowTwist(const geometry_msgs::TwistStampedConstPtr &msg) {
+  void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
     if (!is_initialized)
       return;
@@ -3337,12 +3338,43 @@ namespace mrs_odometry
       return;
     }
 
+    // TODO decouple x and y covariance components
+    double twist_q = optflow_twist.twist.covariance[0];
+
+    if (std::isfinite(twist_q)) {
+
+        // TODO parametrize scale and saturation
+        // Scale covariance
+        twist_q *=1000000;
+
+        // Saturate covariance
+        if (twist_q > 1000000) {
+          twist_q = 1000000;
+        } else if (twist_q <= 0.0001) {
+          twist_q = 0.0001;
+        }
+
+        std::string measurement_name = "vel_optflow";
+    std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
+    if (it_measurement_id == map_measurement_name_id.end()) {
+      ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
+      return;
+    }
+
+      for (auto &estimator : m_state_estimators) {
+        if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0) {
+          estimator.second->setQ(twist_q, it_measurement_id->second);
+          ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
+        }
+      }
+    }
+
     double optflow_vel_x, optflow_vel_y;
     {
       std::scoped_lock lock(mutex_optflow);
 
-      optflow_vel_x = optflow_twist.twist.linear.x;
-      optflow_vel_y = optflow_twist.twist.linear.y;
+      optflow_vel_x = optflow_twist.twist.twist.linear.x;
+      optflow_vel_y = optflow_twist.twist.twist.linear.y;
     }
 
     // Apply correction step to all state estimators
@@ -3353,7 +3385,7 @@ namespace mrs_odometry
     double yaw_rate;
     {
       std::scoped_lock lock(mutex_optflow);
-      yaw_rate = optflow_twist.twist.angular.z;
+      yaw_rate = optflow_twist.twist.twist.angular.z;
     }
 
     if (!optflow_yaw_rate_filter->isValid(yaw_rate)) {
@@ -3362,7 +3394,10 @@ namespace mrs_odometry
       return;
     }
 
+      
+
     if (std::isfinite(yaw_rate)) {
+
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw_rate, "rate_optflow");
 
