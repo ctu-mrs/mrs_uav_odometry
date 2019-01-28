@@ -1,5 +1,5 @@
-#ifndef ALTITUDE_ESTIMATOR_H
-#define ALTITUDE_ESTIMATOR_H
+#ifndef HEADING_ESTIMATOR_H
+#define HEADING_ESTIMATOR_H
 
 #include <ros/ros.h>
 
@@ -17,11 +17,11 @@
 namespace mrs_odometry
 {
 
-  class AltitudeEstimator {
+  class HeadingEstimator {
 
   public:
-    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
-                      const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
+    HeadingEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
+                     const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
     bool        doPrediction(const Eigen::VectorXd &input, double dt);
     bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
@@ -47,6 +47,8 @@ namespace mrs_odometry
     Eigen::MatrixXd              m_R;
 
     int    m_n_states;
+    int    m_n_inputs;
+    int    m_n_measurements;
     size_t m_n_measurement_types;
 
     mrs_lib::Lkf *mp_lkf_x;

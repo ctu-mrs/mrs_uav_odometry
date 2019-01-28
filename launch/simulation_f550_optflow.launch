@@ -4,7 +4,6 @@
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
   <arg name="world_file" default="$(find mrs_main)/config/world_simulation.yaml"/>
-
   <arg name="debug" default="false" />
 
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
@@ -32,7 +31,11 @@
       <rosparam file="$(find mrs_odometry)/config/simulation/f550_optflow.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
+
       <rosparam file="$(arg world_file)" />
+
+      <param name="enable_profiler" value="$(arg profiler)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
@@ -42,6 +45,8 @@
 
       <!-- Subscribers -->
       <remap from="~target_attitude_in" to="mavros/setpoint_raw/target_attitude" />
+      <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
+      <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
@@ -56,16 +61,18 @@
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~object_altitude_in" to="landing_object_controller/current_target" />
       <remap from="~icp_relative_in" to="forest_slam/odom_corr" />
-      <remap from="~icp_global_in" to="forest_slam/odom_corr_global" />
+      <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
-      <remap from="~april_detections_in" to="apriltags2_ros/tag_detections" />
 
       <!-- Publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_stable_out" to="~odom_stable" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
+      <remap from="~odom_icp_out" to="~odom_icp" />
+      <remap from="~odom_rtk_out" to="~odom_rtk" />
+      <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~slow_odom_out" to="~slow_odom" />
       <remap from="~esp_odom_out" to="~esp_odom" />
@@ -79,6 +86,10 @@
       <remap from="~max_altitude_out" to="~max_altitude" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />
+      <remap from="~orientation_gt_out" to="~orientation_gt" />
+      <remap from="~orientation_mavros_out" to="~orientation_mavros" />
+      <remap from="~orientation_target_out" to="~orientation_target" />
+      <remap from="~compass_yaw_out" to="~compass_yaw" />
       <remap from="~profiler" to="profiler" />
 
       <!-- Services -->
@@ -87,6 +98,8 @@
       <remap from="~toggle_rtk_altitude_in" to="~toggle_rtk_altitude" />
       <remap from="~change_estimator_type_in" to="~change_estimator_type" />
       <remap from="~change_estimator_type_string_in" to="~change_estimator_type_string" />
+      <remap from="~change_hdg_estimator_type_in" to="~change_hdg_estimator_type" />
+      <remap from="~change_hdg_estimator_type_string_in" to="~change_hdg_estimator_type_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
 
     </node>

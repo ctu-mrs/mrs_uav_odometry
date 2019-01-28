@@ -1,0 +1,44 @@
+heading_estimators:
+
+  # The number of model states
+  n_model_states: 3
+
+  # The available altitude estimators
+  heading_estimators: [
+    "GYRO",
+    "COMPASS",
+    "OPTFLOW" 
+  ] 
+
+  # The measured states of the model
+  model_states: [
+    "YAW", 
+    "YAW_RATE", 
+    "GYRO_BIAS" 
+  ] 
+
+  # The available measurements
+  measurements: [
+    "yaw_compass",
+    "rate_gyro",
+    "rate_optflow"
+  ]
+
+  # The fused measurements for each state estimator
+  fused_measurements:
+    GYRO: ["rate_gyro"]
+    COMPASS: ["rate_gyro", "yaw_compass"]
+    OPTFLOW: ["rate_gyro", "rate_optflow"]
+
+  # Mapping of measurements to states
+  measurement_states:
+    yaw_compass: YAW
+    rate_gyro: YAW_RATE
+    rate_optflow: YAW_RATE
+
+  # Mapping states to model
+  state_mapping:
+    YAW: [1.0, 0.0, 0.0]
+    YAW_RATE: [0.0, 1.0, 0.0]
+    GYRO_BIAS: [0.0, 0.0, 1.0]
+
