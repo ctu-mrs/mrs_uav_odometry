@@ -3,7 +3,7 @@
   <arg name="uav_name" default="uav10"/>
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
-  <arg name="world_file" default="$(find mrs_main)/config/world_current.yaml"/>
+  <arg name="world_file" default="$(find mrs_general)/config/world_current.yaml"/>
   <arg name="debug" default="false" />
 
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
