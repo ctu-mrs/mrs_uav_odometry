@@ -186,6 +186,7 @@ namespace mrs_odometry
     nav_msgs::Odometry odom_pixhawk;
     nav_msgs::Odometry odom_pixhawk_previous;
     nav_msgs::Odometry odom_pixhawk_shifted;
+    nav_msgs::Odometry odom_pixhawk_previous_shifted;
 
     std::mutex mutex_odom_pixhawk;
     std::mutex mutex_odom_pixhawk_shifted;
@@ -411,6 +412,8 @@ namespace mrs_odometry
     double pixhawk_odom_offset_x, pixhawk_odom_offset_y;
     bool   got_pixhawk_odom_offset  = false;
     bool   got_pixhawk_odom_shifted = false;
+
+    geometry_msgs::Vector3 mavros_glitch;
 
     // initial position
     double init_pose_x, init_pose_y, init_pose_z, init_pose_yaw;
@@ -2639,6 +2642,7 @@ namespace mrs_odometry
         std::scoped_lock lock(mutex_odom_pixhawk);
 
         odom_pixhawk_previous = odom_pixhawk;
+        odom_pixhawk_previous_shifted = odom_pixhawk_shifted;
         odom_pixhawk          = *msg;
         odom_pixhawk_shifted  = *msg;
 
@@ -2646,6 +2650,8 @@ namespace mrs_odometry
         if (got_pixhawk_odom_offset) {
           odom_pixhawk_shifted.pose.pose.position.x += pixhawk_odom_offset_x;
           odom_pixhawk_shifted.pose.pose.position.y += pixhawk_odom_offset_y;
+          odom_pixhawk_previous_shifted.pose.pose.position.x += pixhawk_odom_offset_x;
+          odom_pixhawk_previous_shifted.pose.pose.position.y += pixhawk_odom_offset_y;
           got_pixhawk_odom_shifted = true;
         }
       }
@@ -2658,6 +2664,12 @@ namespace mrs_odometry
         odom_pixhawk_previous = *msg;
         odom_pixhawk          = *msg;
       }
+      
+      if (simulation_) {
+        mavros_glitch.x = 0.0;
+        mavros_glitch.y = 0.0;
+        mavros_glitch.z = 0.0;
+      }
 
       got_odom_pixhawk         = true;
       odom_pixhawk_last_update = ros::Time::now();
@@ -2665,6 +2677,29 @@ namespace mrs_odometry
     }
 
     odom_pixhawk_last_update = ros::Time::now();
+
+    // Negate weird simulation position jump glitches
+    // (smaller jumps in GPS position are handled by safety control mechanisms)
+    if (simulation_) {
+
+      if (std::fabs(odom_pixhawk.pose.pose.position.x-odom_pixhawk_previous.pose.pose.position.x) > 100) { 
+        mavros_glitch.x = odom_pixhawk.pose.pose.position.x-odom_pixhawk_previous.pose.pose.position.x;
+        ROS_WARN("[Odometry]: Mavros position glitch detected. Current x: %f, Previous x: %f", odom_pixhawk.pose.pose.position.x, odom_pixhawk_previous.pose.pose.position.x);
+      }
+        if (std::fabs(odom_pixhawk.pose.pose.position.y-odom_pixhawk_previous.pose.pose.position.y) > 100) {
+        mavros_glitch.y = odom_pixhawk.pose.pose.position.y-odom_pixhawk_previous.pose.pose.position.y;
+        ROS_WARN("[Odometry]: Mavros position glitch detected. Current y: %f, Previous y: %f", odom_pixhawk.pose.pose.position.y, odom_pixhawk_previous.pose.pose.position.y);
+      }
+        if (std::fabs(odom_pixhawk.pose.pose.position.z-odom_pixhawk_previous.pose.pose.position.z) > 100) {
+        mavros_glitch.z = odom_pixhawk.pose.pose.position.z-odom_pixhawk_previous.pose.pose.position.z;
+        ROS_WARN("[Odometry]: Mavros position glitch detected. Current x: %f, Previous x: %f", odom_pixhawk.pose.pose.position.z, odom_pixhawk_previous.pose.pose.position.z);
+      }
+
+      odom_pixhawk_shifted.pose.pose.position.x -= mavros_glitch.x; 
+      odom_pixhawk_shifted.pose.pose.position.y -= mavros_glitch.y; 
+      odom_pixhawk_shifted.pose.pose.position.z -= mavros_glitch.z; 
+
+    }
 
     if (!got_init_heading) {
 
@@ -3033,7 +3068,9 @@ namespace mrs_odometry
       }
 
       // Apply correction step to all state estimators
+      if (simulation_ && fabs(vel_mavros_x) < 100 && fabs(vel_mavros_y) < 100) {
       stateEstimatorsCorrection(vel_mavros_x, vel_mavros_y, "vel_mavros");
+      }
 
       ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
     }
@@ -3097,6 +3134,7 @@ namespace mrs_odometry
 
       // Apply correction step to all state estimators
       stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
+      /* ROS_INFO("[Odometry]: Fusing mavros x pos: %f", pos_mavros_x); */
 
       ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
       //}
@@ -5728,11 +5766,11 @@ namespace mrs_odometry
     s_diag += std::to_string(type.type);
     s_diag += " - ";
 
-    if (type.type == mrs_msgs::HeadingType::GYRO) {
+    if (hdg_type.type == mrs_msgs::HeadingType::GYRO) {
       s_diag += "GYRO";
-    } else if (type.type == mrs_msgs::HeadingType::COMPASS) {
+    } else if (hdg_type.type == mrs_msgs::HeadingType::COMPASS) {
       s_diag += "COMPASS";
-    } else if (type.type == mrs_msgs::HeadingType::OPTFLOW) {
+    } else if (hdg_type.type == mrs_msgs::HeadingType::OPTFLOW) {
       s_diag += "OPTFLOW";
     } else {
       s_diag += "UNKNOWN";
