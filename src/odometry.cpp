@@ -2970,7 +2970,9 @@ namespace mrs_odometry
         std::scoped_lock lock(mutex_altitude_estimator);
 
         altitudeEstimatorCorrection(vel_mavros, "vel_mavros");
-        /* ROS_WARN_THROTTLE(1.0, "Mavros z velocity correction: %f", vel_mavros); */
+        if (fabs(vel_mavros > 10)) {
+          ROS_WARN("Mavros z velocity correction: %f", vel_mavros);
+        }
       }
 
       ROS_WARN_ONCE("[Odometry]: fusing mavros z velocity");
@@ -2982,7 +2984,9 @@ namespace mrs_odometry
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         current_alt_estimator->doPrediction(input, interval2.toSec());
-        /* ROS_WARN_STREAM_THROTTLE(1.0, "Altitude estimator prediction with control input: " << std::endl << input); */
+        if (input(0)!=0.0 || interval2.toSec()<0.001) {
+          ROS_WARN_STREAM("Altitude estimator prediction with dt: " << interval2.toSec() << "and control input: " << std::endl << input );
+        }
       }
 
       //}
@@ -4332,7 +4336,9 @@ namespace mrs_odometry
         {
           std::scoped_lock lock(mutex_altitude_estimator);
           altitudeEstimatorCorrection(height_range, "height_range");
-          /* ROS_WARN_THROTTLE("Teraranger altitude correction: %f", height_range); */
+          if (fabs(height_range)>100) {
+            ROS_WARN("Teraranger height correction: %f", height_range);
+          }
         }
 
         ROS_WARN_ONCE("[Odometry]: fusing Teraranger rangefinder");
@@ -4475,6 +4481,9 @@ namespace mrs_odometry
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+          if (fabs(height_range)>100) {
+            ROS_WARN("Garmin height correction: %f", height_range);
+          }
         estimator.second->getStates(current_altitude);
         if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
           /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
@@ -5317,6 +5326,10 @@ namespace mrs_odometry
     if (!std::isfinite(value)) {
       ROS_ERROR("NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
       return;
+    }
+
+    if (fabs(value)>100) {
+      ROS_WARN("Altitude estimator correction: %f", value);
     }
 
     Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
