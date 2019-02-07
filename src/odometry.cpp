@@ -2545,9 +2545,14 @@ namespace mrs_odometry
       interval2 = target_attitude.header.stamp - target_attitude_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
-      ROS_WARN("Attitude messages came within 0.001 s");
+      ROS_WARN("Target attitude messages came within 0.001 s");
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Target attitude msg time jumped back %1.8f s. Skipping prediction of lateral estimators.", interval2.toSec());
+      }
+
       return;
     }
 
@@ -2741,9 +2746,13 @@ namespace mrs_odometry
       interval2 = odom_pixhawk.header.stamp - odom_pixhawk_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Mavros time jumped back %1.8f s. Skipping prediction of lateral and altitude estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3186,9 +3195,13 @@ namespace mrs_odometry
       interval2 = pixhawk_imu.header.stamp - pixhawk_imu_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: Pixhawk IMU messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Pixhawk IMU msg time jumped back %1.8f s. Skipping gyro correction of heading estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3255,9 +3268,13 @@ namespace mrs_odometry
 
     compass_hdg_last_update = ros::Time::now();
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: Pixhawk compass heading messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Pixhawk compass heading msg time jumped back %1.8f s. Skipping compass correction of heading estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3362,9 +3379,13 @@ namespace mrs_odometry
       interval2 = optflow_twist.header.stamp - optflow_twist_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
-      ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
+      ROS_WARN("[Odometry]: Optic flow twist messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Optic flow twist msg time jumped back %1.8f s. Skipping optflow correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3540,9 +3561,13 @@ namespace mrs_odometry
       interval2 = rtk_local.header.stamp - rtk_local_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: RTK messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: RTK msg time jumped back %1.8f s. Skipping RTK correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3758,9 +3783,13 @@ namespace mrs_odometry
       interval2 = odom_vio.header.stamp - odom_vio_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: Vio odometry messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: VIO msg time jumped back %1.8f s. Skipping VIO correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -3938,9 +3967,13 @@ namespace mrs_odometry
       interval2 = odom_object.header.stamp - odom_object_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: Object pose messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: Object msg time jumped back %1.8f s. Skipping object correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -4091,9 +4124,13 @@ namespace mrs_odometry
       interval2 = icp_odom.header.stamp - icp_odom_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: ICP velocity messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: ICP velocity msg time jumped back %1.8f s. Skipping ICP velocity correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
@@ -4161,9 +4198,13 @@ namespace mrs_odometry
       interval2 = icp_global_odom.header.stamp - icp_global_odom_previous.header.stamp;
     }
 
-    if (fabs(interval2.toSec()) < 0.001) {
+    if (interval2.toSec() < 0.001) {
 
       ROS_WARN("[Odometry]: ICP absolute messages came within %1.8f s", interval2.toSec());
+
+      if (interval2.toSec() < 0.0) {
+        ROS_WARN("[Odometry]: ICP absolute msg time jumped back %1.8f s. Skipping ICP position correction of lateral estimators.", interval2.toSec());
+      }
 
       return;
     }
