@@ -83,7 +83,6 @@
 
 //}
 
-#define USE_RANGEFINDER 1
 #define STRING_EQUAL 0
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
@@ -321,6 +320,7 @@ namespace mrs_odometry
     void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
     bool               isValidType(const mrs_msgs::EstimatorType &type);
     bool               isValidType(const mrs_msgs::HeadingType &type);
+    bool               isTimestampOK(const double curr_sec, const double prev_sec);
     std::string        printOdometryDiag();
     bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
@@ -351,7 +351,8 @@ namespace mrs_odometry
 
     // Garmin altitude subscriber and callback
     ros::Subscriber               sub_garmin_;
-    sensor_msgs::Range            range_garmin_;
+    sensor_msgs::Range            range_garmin;
+    sensor_msgs::Range            range_garmin_previous;
     std::mutex                    mutex_range_garmin;
     void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
     std::shared_ptr<MedianFilter> garminFilter;
@@ -633,12 +634,6 @@ namespace mrs_odometry
     got_rtk_counter   = 0;
 
     // got_object_altitude = false;
-
-#if USE_RANGEFINDER == 1
-    got_range = false;
-#else
-    got_range = true;
-#endif
 
     pixhawk_utm_position_x = 0;
     pixhawk_utm_position_y = 0;
@@ -1901,7 +1896,6 @@ namespace mrs_odometry
     geometry_msgs::PoseStamped newPose;
     newPose.header = odom_main.header;
 
-#if USE_RANGEFINDER == 1
     // update the altitude state
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -1914,7 +1908,6 @@ namespace mrs_odometry
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
       }
     }
-#endif
 
     // if odometry has not been published yet, initialize lateralKF
     if (!odometry_published) {
@@ -2518,12 +2511,12 @@ namespace mrs_odometry
 
         target_attitude_previous     = target_attitude;
         target_attitude              = *msg;
-        target_attitude.header.stamp = ros::Time::now();
+        target_attitude.header.stamp = ros::Time::now(); //why?
 
       } else {
 
         target_attitude              = *msg;
-        target_attitude.header.stamp = ros::Time::now();
+        target_attitude.header.stamp = ros::Time::now(); //why?
         target_attitude_previous     = target_attitude;
 
         got_target_attitude = true;
@@ -2537,22 +2530,8 @@ namespace mrs_odometry
 
     target_attitude_last_update = ros::Time::now();
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_target_attitude);
-
-      interval2 = target_attitude.header.stamp - target_attitude_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("Target attitude messages came within 0.001 s");
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Target attitude msg time jumped back %1.8f s. Skipping prediction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(target_attitude.header.stamp.toSec(), target_attitude_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Target attitude timestamp not OK, skipping prediction of lateral estimators."); 
       return;
     }
 
@@ -2560,9 +2539,11 @@ namespace mrs_odometry
 
     // rotations in inertial frame
     double rot_x, rot_y, rot_z;
+    double dt;
     {
       std::scoped_lock lock(mutex_target_attitude);
-
+      
+      dt = (target_attitude.header.stamp - target_attitude_previous.header.stamp).toSec();  
       getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z);
     }
     // For model testing
@@ -2592,8 +2573,6 @@ namespace mrs_odometry
     } else if (rot_y < -1.57) {
       rot_y = -1.57;
     }
-
-    double dt = interval2.toSec();
 
     if (!std::isfinite(dt)) {
       dt = 0;
@@ -2683,7 +2662,19 @@ namespace mrs_odometry
 
     odom_pixhawk_last_update = ros::Time::now();
 
-    // Negate weird simulation position jump glitches
+    if (!isTimestampOK(odom_pixhawk.header.stamp.toSec(), odom_pixhawk_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk odom timestamp not OK, not fusing correction."); 
+      return;
+    }
+
+    double dt;
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk);
+    
+      dt = (odom_pixhawk.header.stamp - odom_pixhawk_previous.header.stamp).toSec();
+    }
+
+    // Negate weird simulation position jump glitches (caused by gazebo timestamp glitches - should be handled by isTimestampOK(), this check is for redundancy)
     // (smaller jumps in GPS position are handled by safety control mechanisms)
     if (simulation_) {
 
@@ -2739,23 +2730,7 @@ namespace mrs_odometry
     Eigen::VectorXd input;
     input = Eigen::VectorXd::Zero(altitude_m);
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_odom_pixhawk);
-      interval2 = odom_pixhawk.header.stamp - odom_pixhawk_previous.header.stamp;
-    }
 
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Odometry messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Mavros time jumped back %1.8f s. Skipping prediction of lateral and altitude estimators.", interval2.toSec());
-      }
-
-      return;
-    }
 
     /* altitude estimator update //{ */
 
@@ -2983,10 +2958,7 @@ namespace mrs_odometry
 
       {
         std::scoped_lock lock(mutex_altitude_estimator);
-        current_alt_estimator->doPrediction(input, interval2.toSec());
-        if (input(0)!=0.0 || interval2.toSec()<0.001) {
-          ROS_WARN_STREAM("Altitude estimator prediction with dt: " << interval2.toSec() << "and control input: " << std::endl << input );
-        }
+        current_alt_estimator->doPrediction(input, dt);
       }
 
       //}
@@ -3074,9 +3046,10 @@ namespace mrs_odometry
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
 
-        vel_mavros_x = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / interval2.toSec();
+        // TODO test which one is better
+        vel_mavros_x = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / dt;
         /*  vel_mavros_x << odom_pixhawk.twist.twist.linear.x;  */
-        vel_mavros_y = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / interval2.toSec();
+        vel_mavros_y = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / dt;
         /*  vel_mavros_y << odom_pixhawk.twist.twist.linear.y;  */
       }
 
@@ -3169,6 +3142,8 @@ namespace mrs_odometry
 
     pixhawk_imu_last_update = ros::Time::now();
 
+    double dt;
+
     {
       std::scoped_lock lock(mutex_pixhawk_imu);
 
@@ -3185,28 +3160,16 @@ namespace mrs_odometry
 
         return;
       }
+
+      dt = (pixhawk_imu.header.stamp - pixhawk_imu_previous.header.stamp).toSec();
     }
 
     // --------------------------------------------------------------
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last messages
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_pixhawk_imu);
-
-      interval2 = pixhawk_imu.header.stamp - pixhawk_imu_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Pixhawk IMU messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Pixhawk IMU msg time jumped back %1.8f s. Skipping gyro correction of heading estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(pixhawk_imu.header.stamp.toSec(), pixhawk_imu_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk IMU timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -3266,20 +3229,9 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last messages
-    ros::Duration interval2;
-    { interval2 = ros::Time::now() - compass_hdg_last_update; }
-
-    compass_hdg_last_update = ros::Time::now();
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Pixhawk compass heading messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Pixhawk compass heading msg time jumped back %1.8f s. Skipping compass correction of heading estimators.", interval2.toSec());
-      }
-
+    // Compass heading msg does not have timestamp - check at least time of msg arrival
+    if (!isTimestampOK(ros::Time::now().toSec(), compass_hdg_last_update.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk compass heading time between msgs not OK, not fusing correction."); 
       return;
     }
 
@@ -3375,22 +3327,8 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_optflow);
-
-      interval2 = optflow_twist.header.stamp - optflow_twist_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Optic flow twist messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Optic flow twist msg time jumped back %1.8f s. Skipping optflow correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(optflow_twist.header.stamp.toSec(), optflow_twist_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -3557,22 +3495,8 @@ namespace mrs_odometry
       return;
     }
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_rtk);
-
-      interval2 = rtk_local.header.stamp - rtk_local_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: RTK messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: RTK msg time jumped back %1.8f s. Skipping RTK correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(rtk_local.header.stamp.toSec(), rtk_local_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: RTK local timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -3745,6 +3669,8 @@ namespace mrs_odometry
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVioOdometry");
 
+    double dt;
+
     if (got_vio) {
 
       {
@@ -3752,6 +3678,7 @@ namespace mrs_odometry
 
         odom_vio_previous = odom_vio;
         odom_vio          = *msg;
+        dt = (odom_vio.header.stamp - odom_vio_previous.header.stamp).toSec();
       }
 
     } else {
@@ -3779,22 +3706,8 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_odom_vio);
-
-      interval2 = odom_vio.header.stamp - odom_vio_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Vio odometry messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: VIO msg time jumped back %1.8f s. Skipping VIO correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(odom_vio.header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -3807,10 +3720,11 @@ namespace mrs_odometry
     {
       std::scoped_lock lock(mutex_odom_vio);
 
+      // TODO find out which one is better
       /* vel_vio_x = odom_vio.twist.twist.linear.x; */
       /* vel_vio_y = odom_vio.twist.twist.linear.y; */
-      vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / interval2.toSec();
-      vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / interval2.toSec();
+      vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / dt;
+      vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / dt;
     }
 
     // Apply correction step to all state estimators
@@ -3913,6 +3827,8 @@ namespace mrs_odometry
 
     odom_object_last_update = ros::Time::now();
 
+    double dt;
+
     if (got_object) {
 
       {
@@ -3920,6 +3836,7 @@ namespace mrs_odometry
 
         odom_object_previous = odom_object;
         odom_object          = *msg;
+        dt = (odom_object.header.stamp - odom_object_previous.header.stamp).toSec();
       }
 
       if (!object_reliable && counter_odom_object > 10) {
@@ -3963,22 +3880,8 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_odom_object);
-
-      interval2 = odom_object.header.stamp - odom_object_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: Object pose messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: Object msg time jumped back %1.8f s. Skipping object correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(odom_object.header.stamp.toSec(), odom_object_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Object timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -3991,10 +3894,11 @@ namespace mrs_odometry
     {
       std::scoped_lock lock(mutex_odom_object);
 
+      // TODO find out which one is better
       /* vel_object_x = odom_object.twist.twist.linear.x; */
       /* vel_object_y = odom_object.twist.twist.linear.y; */
-      vel_object_x = -(odom_object.pose.pose.position.z - odom_object_previous.pose.pose.position.z) / interval2.toSec();
-      vel_object_y = (odom_object.pose.pose.position.x - odom_object_previous.pose.pose.position.x) / interval2.toSec();
+      vel_object_x = -(odom_object.pose.pose.position.z - odom_object_previous.pose.pose.position.z) / dt;
+      vel_object_y = (odom_object.pose.pose.position.x - odom_object_previous.pose.pose.position.x) / dt;
     }
 
     // Apply correction step to all state estimators
@@ -4120,22 +4024,8 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_icp);
-
-      interval2 = icp_odom.header.stamp - icp_odom_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: ICP velocity messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: ICP velocity msg time jumped back %1.8f s. Skipping ICP velocity correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(icp_odom.header.stamp.toSec(), icp_odom_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP velocity timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -4194,22 +4084,8 @@ namespace mrs_odometry
     // |                        callback body                       |
     // --------------------------------------------------------------
 
-    // compute the time between two last odometries
-    ros::Duration interval2;
-    {
-      std::scoped_lock lock(mutex_icp_global);
-
-      interval2 = icp_global_odom.header.stamp - icp_global_odom_previous.header.stamp;
-    }
-
-    if (interval2.toSec() < 0.001) {
-
-      ROS_WARN("[Odometry]: ICP absolute messages came within %1.8f s", interval2.toSec());
-
-      if (interval2.toSec() < 0.0) {
-        ROS_WARN("[Odometry]: ICP absolute msg time jumped back %1.8f s. Skipping ICP position correction of lateral estimators.", interval2.toSec());
-      }
-
+    if (!isTimestampOK(icp_global_odom.header.stamp.toSec(), icp_global_odom_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP global odom timestamp not OK, not fusing correction."); 
       return;
     }
 
@@ -4297,10 +4173,9 @@ namespace mrs_odometry
     // teraranger filtration
     if (isUavFlying()) {
 
-      ros::Duration interval;
-      interval = ros::Time::now() - range_terarangerone_.header.stamp;
       if (!terarangerFilter->isValid(measurement)) {
-        measurement = 0;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Teraranger measurement %f declined by median filter.", measurement);
+        return;
       }
     }
 
@@ -4357,9 +4232,24 @@ namespace mrs_odometry
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
 
+    if (got_range) {
     {
       std::scoped_lock lock(mutex_range_garmin);
-      range_garmin_ = *msg;
+      range_garmin_previous = range_garmin;
+      range_garmin = *msg;
+    }
+    } else {
+      std::scoped_lock lock(mutex_range_garmin);
+      {
+      range_garmin_previous = *msg;
+      range_garmin = *msg;
+      }
+      got_range = true;
+    }
+
+    if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin range timestamp not OK, not fusing correction."); 
+      return;
     }
 
     if (!got_odom_pixhawk) {
@@ -4390,14 +4280,14 @@ namespace mrs_odometry
       try {
         const ros::Duration             timeout(1.0 / 100.0);
         geometry_msgs::TransformStamped tf_fcu2garmin =
-            m_tf_buffer.lookupTransform("fcu_" + uav_name, range_garmin_.header.frame_id, range_garmin_.header.stamp, timeout);
-        range_fcu = range_garmin_.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
+            m_tf_buffer.lookupTransform("fcu_" + uav_name, range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
+        range_fcu = range_garmin.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
                     tf_fcu2garmin.transform.translation.y * tan(roll);
       }
       catch (tf2::TransformException &ex) {
         ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                          range_garmin_.header.frame_id.c_str(), ("fcu_" + uav_name).c_str(), ex.what());
-        range_fcu = range_garmin_.range + garmin_z_offset_;
+                          range_garmin.header.frame_id.c_str(), ("fcu_" + uav_name).c_str(), ex.what());
+        range_fcu = range_garmin.range + garmin_z_offset_;
       }
     }
 
@@ -4419,14 +4309,9 @@ namespace mrs_odometry
     //////////////////// Filter out garmin measurement ////////////////////
     // garmin filtration
     if (isUavFlying()) {
-
-      ros::Duration interval;
-      {
-        std::scoped_lock lock(mutex_range_garmin);
-        interval = ros::Time::now() - range_garmin_.header.stamp;
-      }
       if (!garminFilter->isValid(measurement)) {
-        measurement = 0;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by median filter.", measurement);
+        return;
       }
     }
 
@@ -5770,6 +5655,42 @@ namespace mrs_odometry
     return false;
   }
 
+  //}
+
+  /* isTimestampOK() //{ */
+  bool Odometry::isTimestampOK(const double curr_sec, const double prev_sec) {
+
+    double delta_tol = 100;
+
+    double delta = curr_sec - prev_sec;
+
+    if (curr_sec < 0.0) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: current timestamp negative: %f", curr_sec);
+      return false;
+    }
+
+    if (prev_sec < 0.0) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: current timestamp negative: %f", prev_sec);
+      return false;
+    }
+
+    if (delta < 0.0) {
+      ROS_WARN_THROTTLE(1.0 ,"[Odometry]: time delta negative: %f", delta); 
+      return false;
+    }
+
+    if (fabs(delta) < 0.001) {
+      ROS_WARN_THROTTLE(1.0 ,"[Odometry]: time delta too small: %f", delta); 
+      return false;
+    }
+
+    if (delta > delta_tol) {
+      ROS_WARN_THROTTLE(1.0 ,"[Odometry]: time delta %f > %f", delta, delta_tol); 
+      return false;
+    }
+  
+    return true;
+  }
   //}
 
   /* //{ printOdometryDiag() */
