@@ -178,7 +178,7 @@ lateral:
 heading:
 
   use_heading_estimator: true # otherwise use PixHawk heading estimate
-  gyro_fallback: true
+  gyro_fallback: false
   heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
