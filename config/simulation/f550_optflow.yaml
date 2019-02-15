@@ -142,7 +142,7 @@ lateral:
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
-    pos_rtk: [1000]
+    pos_rtk: [10000]
     pos_icp: [1000]
     vel_icp: [10000]
     pos_vio: [100]

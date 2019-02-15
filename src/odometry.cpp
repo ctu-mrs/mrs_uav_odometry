@@ -445,6 +445,9 @@ namespace mrs_odometry
     int                                                      _optflow_yaw_rate_filter_buffer_size;
     double                                                   _optflow_yaw_rate_filter_max_valid;
     double                                                   _optflow_yaw_rate_filter_max_diff;
+    bool init_hdg_avg_done;
+    int init_hdg_avg_samples;
+    double init_hdg_avg;
 
     int    _compass_yaw_filter_buffer_size;
     double _compass_yaw_filter_max_diff;
@@ -452,6 +455,7 @@ namespace mrs_odometry
     std::shared_ptr<MedianFilter> optflow_yaw_rate_filter;
     std::shared_ptr<MedianFilter> compass_yaw_filter;
     int                           compass_inconsistent_samples;
+    int                           optflow_inconsistent_samples;
     bool                          is_heading_estimator_initialized = false;
     bool                          _use_heading_estimator;
     bool                          _gyro_fallback;
@@ -632,6 +636,11 @@ namespace mrs_odometry
 
     _is_estimator_tmp = false;
     got_rtk_counter   = 0;
+
+    is_heading_estimator_initialized = false;
+    init_hdg_avg_samples = 0;
+    init_hdg_avg = 0.0;
+    init_hdg_avg_done = false;
 
     // got_object_altitude = false;
 
@@ -1120,6 +1129,7 @@ namespace mrs_odometry
 
     compass_yaw_filter = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
     compass_inconsistent_samples = 0;
+    optflow_inconsistent_samples = 0;
 
     size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
 
@@ -1755,6 +1765,58 @@ namespace mrs_odometry
     }
 
     //}
+
+    if (!init_hdg_avg_done) {
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
+      return;
+    }
+
+    if (!is_heading_estimator_initialized) {
+
+      Eigen::VectorXd yaw    = Eigen::VectorXd::Zero(1);
+      Eigen::VectorXd yaw_rate  = Eigen::VectorXd::Zero(1);
+      Eigen::VectorXd gyro_bias        = Eigen::VectorXd::Zero(1);
+      Eigen::MatrixXd init_cov    = Eigen::MatrixXd::Identity(heading_n , heading_n);
+      init_cov *= 1000;
+      yaw_rate << 0.0;
+      gyro_bias << 0.0;
+      yaw << init_hdg_avg;
+
+      // Initialize all altitude estimators
+      for (auto &estimator : m_heading_estimators) {
+        estimator.second->setState(0, yaw);
+        estimator.second->setState(1, yaw_rate);
+        estimator.second->setState(2, gyro_bias);
+        estimator.second->setCovariance(init_cov);
+      }
+      is_heading_estimator_initialized = true;
+    }
+
+    if (!init_hdg_avg_done) {
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
+      return;
+    }
+
+    if (!is_heading_estimator_initialized) {
+
+      Eigen::VectorXd yaw    = Eigen::VectorXd::Zero(1);
+      Eigen::VectorXd yaw_rate  = Eigen::VectorXd::Zero(1);
+      Eigen::VectorXd gyro_bias        = Eigen::VectorXd::Zero(1);
+      Eigen::MatrixXd init_cov    = Eigen::MatrixXd::Identity(heading_n , heading_n);
+      init_cov *= 1000;
+      yaw_rate << 0.0;
+      gyro_bias << 0.0;
+      yaw << init_hdg_avg;
+
+      // Initialize all altitude estimators
+      for (auto &estimator : m_heading_estimators) {
+        estimator.second->setState(0, yaw);
+        estimator.second->setState(1, yaw_rate);
+        estimator.second->setState(2, gyro_bias);
+        estimator.second->setCovariance(init_cov);
+      }
+      is_heading_estimator_initialized = true;
+    }
 
     /* sensor checking //{ */
 
@@ -3204,6 +3266,27 @@ namespace mrs_odometry
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkCompassHdg");
 
+    if (!init_hdg_avg_done) {
+     ROS_INFO_ONCE("[Odometry]: Averaging initial compass heading.");
+    double yaw;
+    {
+      std::scoped_lock lock(mutex_compass_hdg);
+      yaw = compass_hdg.data;
+    }
+
+    yaw          = yaw / 180 * M_PI;
+    yaw          = yaw / 180 * M_PI;
+    yaw          = unwrap(yaw, yaw_previous);
+
+    init_hdg_avg += M_PI/2 - yaw;
+    if (++init_hdg_avg_samples > 100) {
+      init_hdg_avg /= 100;
+      init_hdg_avg_done = true;
+      ROS_INFO("[Odometry]: Initial compass heading averaged to %f", init_hdg_avg);
+    }
+    return;
+    }
+
 
     {
       std::scoped_lock lock(mutex_compass_hdg);
@@ -3248,9 +3331,9 @@ namespace mrs_odometry
     yaw_previous = yaw;
     yaw          = M_PI / 2 - yaw;
 
-    if (!compass_yaw_filter->isValid(yaw)) {
+    if (!compass_yaw_filter->isValid(yaw) && compass_yaw_filter->isFilled()) {
       compass_inconsistent_samples++;
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent. Not fusing.");
+      ROS_WARN("[Odometry]: Compass yaw inconsistent: %f. Not fusing.", yaw);
 
       if (_gyro_fallback && compass_inconsistent_samples > 20) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
@@ -3418,8 +3501,22 @@ namespace mrs_odometry
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Yaw rate from optic flow is inconsistent. Not fusing.");
       return;
     }
-
       
+    if (!optflow_yaw_rate_filter->isValid(yaw_rate) && optflow_yaw_rate_filter->isFilled()) {
+      optflow_inconsistent_samples++;
+      ROS_WARN("[Odometry]: Optflow yaw rate inconsistent: %f. Not fusing.", yaw_rate);
+
+      if (_gyro_fallback && optflow_inconsistent_samples > 20) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow yaw rate inconsistent. Swtiching to GYRO heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        optflow_inconsistent_samples = std::max(0, --optflow_inconsistent_samples);
+      }
+      return;
+    }
+
 
     if (std::isfinite(yaw_rate)) {
 
