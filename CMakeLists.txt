@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   std_msgs
   nav_msgs
+  tersus_gps_msgs
   tf
   mrs_lib
   cmake_modules
