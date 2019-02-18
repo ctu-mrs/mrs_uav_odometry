@@ -12,7 +12,7 @@ takeoff_estimator: "GPS"
 gps_available: true
 optflow_available: false
 vio_available: false
-rtk_available: false
+rtk_available: true
 lidar_available: false
 object_available: false
 
@@ -21,7 +21,7 @@ max_default_altitude: 10.0
 max_optflow_altitude: 3.0
 april_objects: false
 
-use_differential_gps: false
+use_differential_gps: true
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
@@ -133,7 +133,7 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
-  max_rtk_pos_correction: 0.5
+  max_rtk_pos_correction: 0.1
 
   dynamic_optflow_cov: false
 
@@ -178,7 +178,7 @@ lateral:
 
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
+  use_heading_estimator: false # otherwise use PixHawk heading estimate
   gyro_fallback: true
   heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
