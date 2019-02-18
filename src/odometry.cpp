@@ -512,6 +512,7 @@ private:
   double max_mavros_pos_correction;
   double max_vio_pos_correction;
   double max_object_pos_correction;
+  double max_rtk_pos_correction;
 
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A_lat, B_lat, R_lat;
@@ -533,6 +534,7 @@ private:
   bool   optflow_reliable   = false;
   bool   _optflow_available = false;
   bool   _rtk_available     = false;
+  bool   rtk_reliable     = false;
   bool   _lidar_available   = false;
   bool   _object_available  = false;
   bool   object_reliable    = false;
@@ -795,6 +797,7 @@ void Odometry::onInit() {
   param_loader.load_param("lidar_available", _lidar_available);
   param_loader.load_param("object_available", _object_available);
   gps_reliable        = _gps_available;
+  rtk_reliable        = _rtk_available;
   object_reliable     = false;
   counter_odom_object = false;
 
@@ -1265,6 +1268,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
   param_loader.load_param("lateral/max_vio_pos_correction", max_vio_pos_correction);
   param_loader.load_param("lateral/max_object_pos_correction", max_object_pos_correction);
+  param_loader.load_param("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
 
   if (pass_rtk_as_odom && !use_differential_gps) {
     ROS_ERROR("[Odometry]: cant have pass_rtk_as_odom TRUE when use_differential_gps FALSE");
@@ -1825,13 +1829,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  // Fallback from RTK
+ // Fallback from RTK
   if (_estimator_type.type == mrs_msgs::EstimatorType::RTK) {
     if (!gps_reliable && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
-      ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
+      ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
       changeCurrentEstimator(optflow_type);
+    } else if ((!got_rtk || !rtk_reliable) && gps_reliable && got_odom_pixhawk) {
+      ROS_WARN("[Odometry]: RTK not reliable. Switching to GPS type.");
+      mrs_msgs::EstimatorType gps_type;
+      gps_type.type = mrs_msgs::EstimatorType::GPS;
+      changeCurrentEstimator(gps_type);
     }
     if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_rtk) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
@@ -2489,6 +2498,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     ROS_WARN("[Odometry]: Target attitude not received for %f seconds.", interval.toSec());
     got_target_attitude = false;
   }
+
+  // rtk odometry
+     interval = ros::Time::now() - rtk_last_update;
+     if (got_rtk && interval.toSec() > 1.0) {
+       ROS_WARN("[Odometry]: RTK msg not received for %f seconds.", interval.toSec());
+       got_rtk = false;
+     }  
 
   //  vio odometry
   interval = ros::Time::now() - odom_vio_last_update;
@@ -3557,6 +3573,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     // convert it to UTM
     mrs_lib::UTM(msg->gps.latitude, msg->gps.longitude, &rtk_utm.pose.pose.position.x, &rtk_utm.pose.pose.position.y);
+    rtk_utm.header= msg->header;
     rtk_utm.header.frame_id      = "utm";
     rtk_utm.pose.pose.position.z = msg->gps.altitude;
     // | ----------------------- #TODO fixme ---------------------- |
@@ -3632,11 +3649,18 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // check whether we have rtk fix
   got_rtk_fix = (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
 
-  // continue to lateral and altitude fusion only when we got a fix
-  if (!got_rtk_fix) {
+ if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) {
+ 
+   gps_reliable = false;
+   ROS_WARN("[Odometry]: RTK unreliable. Position type NONE.");
+   return;
+ }
 
-    return;
-  }
+  // continue to lateral and altitude fusion only when we got a fix
+  /* if (!got_rtk_fix) { */
+
+  /*   return; */
+  /* } */
 
   if (_rtk_available) {
     if (!std::isfinite(rtk_local.pose.pose.position.x) || !std::isfinite(rtk_local.pose.pose.position.y)) {
@@ -3667,6 +3691,40 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     if (!std::isfinite(y_rtk)) {
       ROS_ERROR("NaN detected in variable \"y_rtk\" (callbackRtk)!!!");
       return;
+    }
+
+   // Saturate correction
+   for (auto &estimator : m_state_estimators) {
+     if (std::strcmp(estimator.first.c_str(), "RTK") == 0) {
+       Eigen::VectorXd pos_vec(2);
+       estimator.second->getState(0, pos_vec);
+  
+       // X position
+       if (!std::isfinite(x_rtk)) {
+         x_rtk = 0;
+         ROS_ERROR("NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
+         return;
+       } else if (x_rtk - pos_vec(0) > max_rtk_pos_correction) {
+         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_rtk - pos_vec(0), max_rtk_pos_correction);
+         x_rtk = pos_vec(0) + max_rtk_pos_correction;
+       } else if (x_rtk - pos_vec(0) < -max_rtk_pos_correction) {
+         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_rtk - pos_vec(0), -max_rtk_pos_correction);
+         x_rtk = pos_vec(0) - max_rtk_pos_correction;
+       }
+  
+       // Y position
+       if (!std::isfinite(y_rtk)) {
+         y_rtk = 0;
+         ROS_ERROR("NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
+         return;
+       } else if (y_rtk - pos_vec(1) > max_rtk_pos_correction) {
+         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_rtk - pos_vec(1), max_rtk_pos_correction);
+         y_rtk = pos_vec(1) + max_rtk_pos_correction;
+       } else if (y_rtk - pos_vec(1) < -max_rtk_pos_correction) {
+         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_rtk - pos_vec(1), -max_rtk_pos_correction);
+         y_rtk = pos_vec(1) - max_rtk_pos_correction;
+       }
+     }
     }
 
     // Apply correction step to all state estimators
