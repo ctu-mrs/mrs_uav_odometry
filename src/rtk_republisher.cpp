@@ -53,7 +53,7 @@ private:
 
   // rtk message from tersus
   tersus_gps_msgs::Bestpos tersus;
-  bool               got_tersus = false;
+  bool                     got_tersus = false;
 
 private:
   void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
@@ -87,7 +87,7 @@ void RtkRepublisher::onInit() {
 
   // SUBSCRIBERS
   global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().tcpNoDelay());
-  tersus_subscriber = nh_.subscribe("tersus_in", 1, &RtkRepublisher::callbackTersus, this, ros::TransportHints().tcpNoDelay());
+  tersus_subscriber      = nh_.subscribe("tersus_in", 1, &RtkRepublisher::callbackTersus, this, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
   rtk_publisher = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
@@ -165,33 +165,32 @@ void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg)
   {
     std::scoped_lock lock(mutex_tersus);
 
-    rtk_msg_out.gps.latitude  = tersus.latitude;
-    rtk_msg_out.gps.longitude  = tersus.longitude;
-    rtk_msg_out.gps.altitude  = tersus.height;
-    rtk_msg_out.gps.covariance[0]  = std::pow(tersus.latitude_std, 2);
-    rtk_msg_out.gps.covariance[4]  = std::pow(tersus.longitude_std, 2);
-    rtk_msg_out.gps.covariance[8]  = std::pow(tersus.height_std, 2);
+    rtk_msg_out.gps.latitude      = tersus.latitude;
+    rtk_msg_out.gps.longitude     = tersus.longitude;
+    rtk_msg_out.gps.altitude      = tersus.height;
+    rtk_msg_out.gps.covariance[0] = std::pow(tersus.latitude_std, 2);
+    rtk_msg_out.gps.covariance[4] = std::pow(tersus.longitude_std, 2);
+    rtk_msg_out.gps.covariance[8] = std::pow(tersus.height_std, 2);
 
-    if (std::strcmp(tersus.position_type.c_str(), "L1_INT") == STRING_EQUAL ||
-       std::strcmp(tersus.position_type.c_str(), "NARROW_INT") == STRING_EQUAL ||
-       std::strcmp(tersus.position_type.c_str(), "WIDE_INT") == STRING_EQUAL) {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
+    if (std::strcmp(tersus.position_type.c_str(), "L1_INT") == STRING_EQUAL || std::strcmp(tersus.position_type.c_str(), "NARROW_INT") == STRING_EQUAL ||
+        std::strcmp(tersus.position_type.c_str(), "WIDE_INT") == STRING_EQUAL) {
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
 
     } else if (std::strcmp(tersus.position_type.c_str(), "L1_FLOAT") == STRING_EQUAL ||
-       std::strcmp(tersus.position_type.c_str(), "NARROW_FLOAT") == STRING_EQUAL ||
-       std::strcmp(tersus.position_type.c_str(), "WIDE_FLOAT") == STRING_EQUAL) {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FLOAT;
+               std::strcmp(tersus.position_type.c_str(), "NARROW_FLOAT") == STRING_EQUAL ||
+               std::strcmp(tersus.position_type.c_str(), "WIDE_FLOAT") == STRING_EQUAL) {
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FLOAT;
 
     } else if (std::strcmp(tersus.position_type.c_str(), "PSRDIFF") == STRING_EQUAL) {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::DGPS;
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::DGPS;
 
     } else if (std::strcmp(tersus.position_type.c_str(), "SINGLE") == STRING_EQUAL) {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::SPS;
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::SPS;
 
     } else if (std::strcmp(tersus.position_type.c_str(), "NONE") == STRING_EQUAL) {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::NO_FIX;
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::NO_FIX;
     } else {
-          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::UNKNOWN;
+      rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::UNKNOWN;
     }
   }
 
