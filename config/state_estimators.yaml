@@ -41,6 +41,7 @@ state_estimators:
     GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros", "tilt_mavros"]
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
+    RTK: ["vel_mavros", "tilt_mavros", "pos_rtk"]
     ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
     VIO: ["tilt_mavros", "pos_vio"]
     OBJECT: ["tilt_mavros", "pos_object"]

@@ -6,10 +6,14 @@
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/RtkFixType.h>
 
+#include <tersus_gps_msgs/Bestpos.h>
+
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 
 #include <mutex>
+
+#define STRING_EQUAL 0
 
 namespace mrs_odometry
 {
@@ -28,6 +32,7 @@ private:
 private:
   // subscribers and publishers
   ros::Subscriber global_odom_subscriber;
+  ros::Subscriber tersus_subscriber;
   ros::Publisher  rtk_publisher;
   ros::Publisher  odom_publisher;
 
@@ -38,6 +43,7 @@ private:
 
   // mutex for locking the position info
   std::mutex mutex_odom;
+  std::mutex mutex_tersus;
 
   ros::Timer main_timer;
 
@@ -45,8 +51,13 @@ private:
   nav_msgs::Odometry odom;
   bool               got_odom = false;
 
+  // rtk message from tersus
+  tersus_gps_msgs::Bestpos tersus;
+  bool               got_tersus = false;
+
 private:
   void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
+  void callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg);
   void mainTimer(const ros::TimerEvent& event);
 
 private:
@@ -76,6 +87,7 @@ void RtkRepublisher::onInit() {
 
   // SUBSCRIBERS
   global_odom_subscriber = nh_.subscribe("odom_in", 1, &RtkRepublisher::callbackOdometry, this, ros::TransportHints().tcpNoDelay());
+  tersus_subscriber = nh_.subscribe("tersus_in", 1, &RtkRepublisher::callbackTersus, this, ros::TransportHints().tcpNoDelay());
 
   // PUBLISHERS
   rtk_publisher = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
@@ -130,6 +142,70 @@ void RtkRepublisher::callbackOdometry(const nav_msgs::OdometryConstPtr& msg) {
 
 //}
 
+//{ callbackTersus()
+
+void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg) {
+
+  if (!is_initialized)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTersus");
+
+  {
+    std::scoped_lock lock(mutex_tersus);
+
+    tersus = *msg;
+  }
+  mrs_msgs::RtkGps rtk_msg_out;
+
+  rtk_msg_out.header.stamp    = ros::Time::now();
+  rtk_msg_out.header.frame_id = "gps";
+
+  // copy the position
+  {
+    std::scoped_lock lock(mutex_tersus);
+
+    rtk_msg_out.gps.latitude  = tersus.latitude;
+    rtk_msg_out.gps.longitude  = tersus.longitude;
+    rtk_msg_out.gps.altitude  = tersus.height;
+    rtk_msg_out.gps.covariance[0]  = std::pow(tersus.latitude_std, 2);
+    rtk_msg_out.gps.covariance[4]  = std::pow(tersus.longitude_std, 2);
+    rtk_msg_out.gps.covariance[8]  = std::pow(tersus.height_std, 2);
+
+    if (std::strcmp(tersus.position_type.c_str(), "L1_INT") == STRING_EQUAL ||
+       std::strcmp(tersus.position_type.c_str(), "NARROW_INT") == STRING_EQUAL ||
+       std::strcmp(tersus.position_type.c_str(), "WIDE_INT") == STRING_EQUAL) {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
+
+    } else if (std::strcmp(tersus.position_type.c_str(), "L1_FLOAT") == STRING_EQUAL ||
+       std::strcmp(tersus.position_type.c_str(), "NARROW_FLOAT") == STRING_EQUAL ||
+       std::strcmp(tersus.position_type.c_str(), "WIDE_FLOAT") == STRING_EQUAL) {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FLOAT;
+
+    } else if (std::strcmp(tersus.position_type.c_str(), "PSRDIFF") == STRING_EQUAL) {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::DGPS;
+
+    } else if (std::strcmp(tersus.position_type.c_str(), "SINGLE") == STRING_EQUAL) {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::SPS;
+
+    } else if (std::strcmp(tersus.position_type.c_str(), "NONE") == STRING_EQUAL) {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::NO_FIX;
+    } else {
+          rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::UNKNOWN;
+    }
+  }
+
+  try {
+    rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));
+    ROS_INFO_ONCE("[RtkRepublisher]: Publishing RTK from Tersus msgs.");
+  }
+  catch (...) {
+    ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", rtk_publisher.getTopic().c_str());
+  }
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -169,6 +245,7 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 
   try {
     rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));
+    ROS_INFO_ONCE("[RtkRepublisher]: Publishing RTK from Gazebo simulator.");
   }
   catch (...) {
     ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", rtk_publisher.getTopic().c_str());
@@ -176,6 +253,7 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 }
 
 //}
+
 }  // namespace mrs_odometry
 
 #include <pluginlib/class_list_macros.h>
