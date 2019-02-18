@@ -133,6 +133,7 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
+  max_rtk_pos_correction: 0.5
 
   dynamic_optflow_cov: false
 
