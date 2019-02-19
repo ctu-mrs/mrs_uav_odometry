@@ -8,6 +8,8 @@
 
 #include <tersus_gps_msgs/Bestpos.h>
 
+#include <std_srvs/Trigger.h>
+
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 
@@ -35,11 +37,14 @@ private:
   ros::Subscriber tersus_subscriber;
   ros::Publisher  rtk_publisher;
   ros::Publisher  odom_publisher;
+  ros::ServiceServer service_server_jump_emulation;
 
   // publisher rate
   int rate_;
 
   double offset_x_, offset_y_;
+
+  double jump_offset;
 
   // mutex for locking the position info
   std::mutex mutex_odom;
@@ -58,6 +63,7 @@ private:
 private:
   void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
   void callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg);
+  bool emulateJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void mainTimer(const ros::TimerEvent& event);
 
 private:
@@ -99,6 +105,12 @@ void RtkRepublisher::onInit() {
   main_timer = nh_.createTimer(ros::Rate(rate_), &RtkRepublisher::mainTimer, this);
 
   // --------------------------------------------------------------
+  // |                          services                          |
+  // --------------------------------------------------------------
+
+  service_server_jump_emulation = nh_.advertiseService("emulate_jump", &RtkRepublisher::emulateJump, this);
+
+  // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
 
@@ -110,6 +122,8 @@ void RtkRepublisher::onInit() {
     ROS_ERROR("[RtkRepublisher]: Could not load all parameters!");
     ros::shutdown();
   }
+
+  jump_offset = 0.0;
 
   is_initialized = true;
 
@@ -205,6 +219,20 @@ void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg)
 
 //}
 
+  /* emulateJump() //{ */
+  bool RtkRepublisher::emulateJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    jump_offset += 2.0;
+
+    ROS_INFO("[MavrosInterface]: Emulated jump: %f", jump_offset);
+
+    res.message = "yep";
+    res.success = true;
+
+    return true;
+  }
+  //}
+  //
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -238,6 +266,9 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
 
   rtk_msg_out.pose.pose.position.x += offset_x_;
   rtk_msg_out.pose.pose.position.y += offset_y_;
+
+  rtk_msg_out.pose.pose.position.x += jump_offset;
+  rtk_msg_out.pose.pose.position.y += jump_offset;
 
   rtk_msg_out.status.status     = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
   rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
