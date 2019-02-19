@@ -385,6 +385,8 @@ private:
   int got_icp_global_counter;
   int got_rtk_counter;
 
+  bool rtk_odom_initialized = false;
+
   geometry_msgs::Vector3Stamped target_attitude_global;
 
   // for setting home position
@@ -636,6 +638,8 @@ void Odometry::onInit() {
   got_lateral_sensors   = false;
   got_pixhawk_imu       = false;
   got_compass_hdg       = false;
+
+  rtk_odom_initialized  = false;
 
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
@@ -3721,6 +3725,22 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       rtk_jump_detected = false;
     }
 
+    if (!rtk_odom_initialized) {
+
+      Eigen::VectorXd state(2);
+      Eigen::VectorXd state_vel(2);
+      state << x_rtk, y_rtk;
+      state_vel << 0, 0;
+      /* current_estimator->setState(0, state); */
+      for (auto &estimator : m_state_estimators) {
+      if (std::strcmp(estimator.second->getName().c_str(), "RTK") == STRING_EQUAL) {
+        estimator.second->setState(0, state);
+        estimator.second->setState(1, state_vel);
+      }
+      }
+      rtk_odom_initialized = true;
+    }
+
   /* //{ fuse rtk velocity */
 
     double vel_rtk_x, vel_rtk_y;
@@ -3747,7 +3767,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   Eigen::VectorXd pos_vec(2);
   Eigen::VectorXd vel_vec(2);
   for (auto &estimator : m_state_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "RTK") == 0) {
+    if  (std::strcmp(estimator.first.c_str(), "RTK") == 0) {
       estimator.second->getState(0, pos_vec);
       estimator.second->getState(1, vel_vec);
   
@@ -3757,12 +3777,15 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         x_rtk = 0;
         ROS_ERROR("NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
         return;
-      } else if (x_correction > max_rtk_pos_correction) {
+      }
+      if (odometry_published) {
+       if (x_correction > max_rtk_pos_correction) {
         x_correction = max_rtk_pos_correction;
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, max_rtk_pos_correction);
       } else if (x_correction < -max_rtk_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, -max_rtk_pos_correction);
         x_correction = -max_rtk_pos_correction;
+      }
       }
   
       // Y position
@@ -3771,15 +3794,19 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         y_rtk = 0;
         ROS_ERROR("NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
         return;
-      } else if (y_correction > max_rtk_pos_correction) {
+      }
+      if (odometry_published) {
+       if (y_correction > max_rtk_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, max_rtk_pos_correction);
         y_correction = max_rtk_pos_correction;
-        }
       } else if (y_correction < -max_rtk_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, -max_rtk_pos_correction);
         y_correction = -max_rtk_pos_correction;
       }
+      }
+    }
    }
+
   
   ROS_INFO_THROTTLE(1.0, "[Odometry]: pos x: %f, corr x: %f, pos y: %f, corr y: %f", pos_vec(0), x_correction, pos_vec(1), y_correction);
    // Apply correction step to all state estimators
