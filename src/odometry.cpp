@@ -240,6 +240,7 @@ private:
   mrs_msgs::RtkGps rtk_odom_previous;
   mrs_msgs::RtkGps rtk_odom;
   ros::Time        rtk_last_update;
+  bool rtk_jump_detected;
 
   std::mutex         mutex_icp;
   nav_msgs::Odometry icp_odom;
@@ -648,6 +649,8 @@ void Odometry::onInit() {
 
   pixhawk_utm_position_x = 0;
   pixhawk_utm_position_y = 0;
+
+  rtk_jump_detected = false;
 
   // ------------------------------------------------------------------------
   // |                        odometry estimator type                       |
@@ -1534,6 +1537,7 @@ void Odometry::onInit() {
   current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
   current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
   current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+  current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
   current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
 
   current_alt_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
@@ -2013,6 +2017,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_main.child_frame_id = current_estimator->getName();
       if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
         odom_main.child_frame_id += odom_object.child_frame_id;
+      }
+      if (std::strcmp(current_estimator->getName().c_str(), "RTK") == STRING_EQUAL && !got_rtk_fix && rtk_jump_detected) {
+        /* odom_main.child_frame_id += "SPS"; */
       }
     }
 
@@ -3658,11 +3665,15 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // check whether we have rtk fix
   got_rtk_fix = (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
 
- if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) {
- /* if (rtk_reliable && !got_rtk_fix) { */
- 
+ /* if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) { */
+ if (rtk_reliable && !got_rtk_fix) {
    rtk_reliable = false;
    ROS_WARN("[Odometry]: RTK unreliable.");
+ } else if (got_rtk_fix) {
+   if (!rtk_reliable) {
+   ROS_WARN("[Odometry]: RTK reliable.");
+   }
+   rtk_reliable = true;
  }
 
   // continue to lateral and altitude fusion only when we got a fix
@@ -3702,6 +3713,14 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       return;
     }
 
+    if (!got_rtk_fix && (fabs(rtk_local.pose.pose.position.x-rtk_local_previous.pose.pose.position.x) > 0.5 || fabs(rtk_local.pose.pose.position.y-rtk_local_previous.pose.pose.position.y) > 0.5)) {
+     rtk_jump_detected = true; 
+    }
+
+    if (got_rtk_fix) {
+      rtk_jump_detected = false;
+    }
+
   /* //{ fuse rtk velocity */
 
     double vel_rtk_x, vel_rtk_y;
@@ -3714,7 +3733,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     // Apply correction step to all state estimators
     if (simulation_ && fabs(vel_rtk_x) < 100 && fabs(vel_rtk_y) < 100) {
-      stateEstimatorsCorrection(vel_rtk_x, vel_rtk_y, "vel_rtk");
+      /* stateEstimatorsCorrection(vel_rtk_x, vel_rtk_y, "vel_rtk"); */
     }
 
     ROS_WARN_ONCE("[Odometry]: Fusing RTK velocity");
@@ -5297,9 +5316,9 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
   ROS_INFO(
       "Reconfigure Request: "
       "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
-      "%f\nQ_tilt:%f\nR_pos: %f, R_vel: "
+      "%f, Q_vel_rtk: %f\nQ_tilt:%f\nR_pos: %f, R_vel: "
       "%f, R_acc: %f, R_acc_i: %f, R_acc_d: %f, R_tilt: %f",
-      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp, config.Q_vel_optflow,
+      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp, config.Q_vel_optflow, config.Q_vel_rtk,
       config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
 
   for (auto &estimator : m_state_estimators) {
@@ -5311,6 +5330,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
     estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
     estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
     estimator.second->setQ(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+    estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
     estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
   }
 

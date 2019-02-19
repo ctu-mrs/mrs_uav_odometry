@@ -45,6 +45,7 @@ private:
   double offset_x_, offset_y_;
 
   double jump_offset;
+  mrs_msgs::RtkFixType fix_type;
 
   // mutex for locking the position info
   std::mutex mutex_odom;
@@ -124,6 +125,7 @@ void RtkRepublisher::onInit() {
   }
 
   jump_offset = 0.0;
+  fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
 
   is_initialized = true;
 
@@ -222,7 +224,14 @@ void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg)
   /* emulateJump() //{ */
   bool RtkRepublisher::emulateJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-    jump_offset += 2.0;
+    if (jump_offset != 2.0) {
+      jump_offset = 2.0;
+      fix_type.fix_type = mrs_msgs::RtkFixType::SPS;
+    } else {
+      jump_offset = 0.0;
+      fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
+    }
+    
 
     ROS_INFO("[MavrosInterface]: Emulated jump: %f", jump_offset);
 
@@ -271,7 +280,7 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.pose.pose.position.y += jump_offset;
 
   rtk_msg_out.status.status     = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
-  rtk_msg_out.fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
+  rtk_msg_out.fix_type = fix_type;
 
   try {
     rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));
