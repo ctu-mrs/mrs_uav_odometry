@@ -133,7 +133,8 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
-  max_rtk_pos_correction: 0.5
+  max_rtk_pos_correction: 0.1
+  rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
 
@@ -177,9 +178,27 @@ lateral:
       0, 0, 0, 0, 10000000, 0,
       0, 0, 0, 0, 0, 1000]
 
+  # RTK estimator must have a different model
+  rtk:
+
+    A: [1, 0,
+        0, 1]
+
+    B: [0.01, 0,
+        0, 0.01]
+
+    R: [0.01, 0,
+        0, 0.01]
+
+    Q: [100, 0,
+        0, 100]
+
+    P: [1, 0,
+        0, 1]
+
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
+  use_heading_estimator: false # otherwise use PixHawk heading estimate
   gyro_fallback: false
   heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
