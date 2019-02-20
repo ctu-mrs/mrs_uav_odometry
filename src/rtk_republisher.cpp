@@ -16,6 +16,7 @@
 #include <mutex>
 
 #define STRING_EQUAL 0
+#define btoa(x) ((x) ? "true" : "false")
 
 namespace mrs_odometry
 {
@@ -38,6 +39,7 @@ private:
   ros::Publisher  rtk_publisher;
   ros::Publisher  odom_publisher;
   ros::ServiceServer service_server_jump_emulation;
+  ros::ServiceServer service_server_random_jumps;
 
   // publisher rate
   int rate_;
@@ -45,6 +47,15 @@ private:
   double offset_x_, offset_y_;
 
   double jump_offset;
+
+  // simulation of RTK signal degradation
+  bool add_random_jumps;
+  bool random_jump_active;
+  double random_jump;
+  int until_next_jump;
+  int until_jump_end;
+  double jump_amplitude;
+
   mrs_msgs::RtkFixType fix_type;
 
   // mutex for locking the position info
@@ -65,6 +76,7 @@ private:
   void callbackOdometry(const nav_msgs::OdometryConstPtr& msg);
   void callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg);
   bool emulateJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool toggleRandomJumps([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void mainTimer(const ros::TimerEvent& event);
 
 private:
@@ -110,6 +122,7 @@ void RtkRepublisher::onInit() {
   // --------------------------------------------------------------
 
   service_server_jump_emulation = nh_.advertiseService("emulate_jump", &RtkRepublisher::emulateJump, this);
+  service_server_random_jumps = nh_.advertiseService("toggle_random_jumps", &RtkRepublisher::toggleRandomJumps, this);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -125,6 +138,13 @@ void RtkRepublisher::onInit() {
   }
 
   jump_offset = 0.0;
+
+  add_random_jumps = false;
+  random_jump_active = false;
+  until_next_jump = 0.0;
+  until_jump_end = 0.0;
+  random_jump = 0.0;
+
   fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
 
   is_initialized = true;
@@ -232,8 +252,7 @@ void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg)
       fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
     }
     
-
-    ROS_INFO("[MavrosInterface]: Emulated jump: %f", jump_offset);
+    ROS_INFO("[RtkRepublisher]: Emulated jump: %f", jump_offset);
 
     res.message = "yep";
     res.success = true;
@@ -241,7 +260,28 @@ void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr& msg)
     return true;
   }
   //}
-  //
+  
+  /* toggleRandomJumps() //{ */
+  bool RtkRepublisher::toggleRandomJumps([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    if (!add_random_jumps) {
+      add_random_jumps = true;
+      until_next_jump = 3 * rate_;
+      until_jump_end = 5 * rate_;
+      jump_amplitude = 1.0;;
+    } else {
+      add_random_jumps = false;
+    }
+
+    ROS_INFO("[Rtk_republisher]: Random jumps: %s", btoa(add_random_jumps));
+
+    res.message = "yep";
+    res.success = true;
+
+    return true;
+  }
+  //}
+  
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -279,8 +319,28 @@ void RtkRepublisher::mainTimer(const ros::TimerEvent& event) {
   rtk_msg_out.pose.pose.position.x += jump_offset;
   rtk_msg_out.pose.pose.position.y += jump_offset;
 
+  rtk_msg_out.pose.pose.position.x += random_jump;
+  rtk_msg_out.pose.pose.position.y += random_jump;
+
   rtk_msg_out.status.status     = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
   rtk_msg_out.fix_type = fix_type;
+
+  if (add_random_jumps) {
+    if (!random_jump_active && --until_next_jump <= 0) {
+      random_jump = jump_amplitude;
+      random_jump_active = true;
+      ROS_INFO("[RtkRepublisher]: Jump %f added to RTK", random_jump);
+    }
+
+    if (random_jump_active && --until_jump_end <= 0) {
+      random_jump = 0.0;
+      random_jump_active = false;
+      until_next_jump = std::floor((double)std::rand()/RAND_MAX * 20.0 * rate_);
+      until_jump_end = std::floor((double)std::rand()/RAND_MAX * 10.0 * rate_);
+      jump_amplitude = std::floor((double)std::rand()/RAND_MAX * 5.0);
+      ROS_INFO("[RtkRepublisher]: RTK jump ended. Next jump after %d samples, %d samples long, %f amplitude", until_next_jump, until_jump_end, jump_amplitude);
+    }
+  }
 
   try {
     rtk_publisher.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_msg_out)));

@@ -240,7 +240,8 @@ private:
   mrs_msgs::RtkGps rtk_odom_previous;
   mrs_msgs::RtkGps rtk_odom;
   ros::Time        rtk_last_update;
-  bool rtk_jump_detected;
+  bool _rtk_fuse_sps;
+
 
   std::mutex         mutex_icp;
   nav_msgs::Odometry icp_odom;
@@ -496,6 +497,7 @@ private:
 
   // State estimation
   int                                                    _n_model_states;
+  int                                                    _n_model_states_rtk;
   std::vector<std::string>                               _state_estimators_names;
   std::vector<std::string>                               _model_state_names;
   std::vector<std::string>                               _measurement_names;
@@ -519,6 +521,9 @@ private:
 
   int             lateral_n, lateral_m, lateral_p;
   Eigen::MatrixXd A_lat, B_lat, R_lat;
+  Eigen::MatrixXd A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk;
+  std::shared_ptr<mrs_lib::Lkf> estimator_rtk;
+  std::mutex mutex_rtk_est;
 
   bool got_home_position_fix = false;
   bool calculatePixhawkOdomOffset(void);
@@ -639,8 +644,6 @@ void Odometry::onInit() {
   got_pixhawk_imu       = false;
   got_compass_hdg       = false;
 
-  rtk_odom_initialized  = false;
-
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
 
@@ -654,7 +657,6 @@ void Odometry::onInit() {
   pixhawk_utm_position_x = 0;
   pixhawk_utm_position_y = 0;
 
-  rtk_jump_detected = false;
 
   // ------------------------------------------------------------------------
   // |                        odometry estimator type                       |
@@ -1005,6 +1007,13 @@ void Odometry::onInit() {
   param_loader.load_matrix_dynamic("lateral/B", B_lat, _n_model_states, 1);
   param_loader.load_matrix_dynamic("lateral/R", R_lat, _n_model_states, _n_model_states);
 
+  param_loader.load_matrix_dynamic("lateral/rtk/A", A_lat_rtk, 2, 2);
+  param_loader.load_matrix_dynamic("lateral/rtk/B", B_lat_rtk, 2, 2);
+  param_loader.load_matrix_dynamic("lateral/rtk/R", R_lat_rtk, 2, 2);
+  param_loader.load_matrix_dynamic("lateral/rtk/Q", Q_lat_rtk, 2, 2);
+  param_loader.load_matrix_dynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
+  param_loader.load_param("lateral/rtk_fuse_sps", _rtk_fuse_sps);
+
   // Load the measurements fused by each state estimator
   for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
 
@@ -1094,6 +1103,10 @@ void Odometry::onInit() {
     // this is how to create shared pointers!!! the correct way
     m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
         *it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr_lat, Q_arr_lat, A_lat, B_lat, R_lat)));
+
+    if (std::strcmp(it->c_str(), "RTK")) {
+        estimator_rtk = std::make_shared<mrs_lib::Lkf>(2, 2, 2, A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk);
+    } 
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -1990,7 +2003,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
     ROS_INFO("[Odometry]: Initializing the states of all estimators");
-    if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW && !gps_reliable) {
+    if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW && use_local_origin_) {
       Eigen::VectorXd state(2);
       state << local_origin_x_, local_origin_y_;
       current_estimator->setState(0, state);
@@ -2002,6 +2015,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       /* current_estimator->setState(0, state); */
       for (auto &estimator : m_state_estimators) {
         estimator.second->setState(0, state);
+      }
+      {
+        std::scoped_lock lock(mutex_rtk_est);
+      
+        estimator_rtk->setStates(state);
       }
     }
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
@@ -2022,9 +2040,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
         odom_main.child_frame_id += odom_object.child_frame_id;
       }
-      if (std::strcmp(current_estimator->getName().c_str(), "RTK") == STRING_EQUAL && !got_rtk_fix && rtk_jump_detected) {
-        /* odom_main.child_frame_id += "SPS"; */
-      }
     }
 
     if (_use_heading_estimator) {
@@ -2044,10 +2059,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_main.child_frame_id += "_" + current_hdg_estimator->getName();
     }
 
-    odom_main.pose.pose.position.x = pos_vec(0);
-    odom_main.twist.twist.linear.x = vel_vec(0);
-    odom_main.pose.pose.position.y = pos_vec(1);
-    odom_main.twist.twist.linear.y = vel_vec(1);
+    if (std::strcmp(current_estimator_name.c_str(), "RTK") == STRING_EQUAL) {
+      {
+        std::scoped_lock lock(mutex_rtk_est);
+      
+        odom_main.pose.pose.position.x = estimator_rtk->getState(0);
+        odom_main.pose.pose.position.y = estimator_rtk->getState(1);
+      }
+    } else {
+      odom_main.pose.pose.position.x = pos_vec(0);
+      odom_main.pose.pose.position.y = pos_vec(1);
+    }
+
+    if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL) {
+      odom_main.twist.twist.linear.x = vel_vec(0);
+      odom_main.twist.twist.linear.y = vel_vec(1);
+    }
 
     if (!odometry_published) {
       odom_stable                         = odom_main;
@@ -2511,11 +2538,11 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   }
 
   // rtk odometry
-     interval = ros::Time::now() - rtk_last_update;
-     if (got_rtk && interval.toSec() > 1.0) {
-       ROS_WARN("[Odometry]: RTK msg not received for %f seconds.", interval.toSec());
-       got_rtk = false;
-     }  
+     /* interval = ros::Time::now() - rtk_last_update; */
+     /* if (got_rtk && interval.toSec() > 1.0) { */
+     /*   ROS_WARN("[Odometry]: RTK msg not received for %f seconds.", interval.toSec()); */
+     /*   got_rtk = false; */
+     /* } */  
 
   //  vio odometry
   interval = ros::Time::now() - odom_vio_last_update;
@@ -3147,6 +3174,19 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
     }
 
+    Eigen::VectorXd rtk_input(2);
+    rtk_input << vel_mavros_x, vel_mavros_y;
+
+      {
+        std::scoped_lock lock(mutex_rtk_est);
+      
+        estimator_rtk->setInput(rtk_input);
+        Eigen::MatrixXd B_new(2,2);
+        B_new << dt, 0, 0, dt;
+        estimator_rtk->setB(B_new);
+        estimator_rtk->iterateWithoutCorrection();
+      }
+
   }
 
   //}
@@ -3669,16 +3709,28 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // check whether we have rtk fix
   got_rtk_fix = (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
 
- /* if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) { */
- if (rtk_reliable && !got_rtk_fix) {
-   rtk_reliable = false;
-   ROS_WARN("[Odometry]: RTK unreliable.");
- } else if (got_rtk_fix) {
-   if (!rtk_reliable) {
-   ROS_WARN("[Odometry]: RTK reliable.");
-   }
-   rtk_reliable = true;
+ if (_rtk_fuse_sps) {
+ if (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN) {
+   ROS_WARN_THROTTLE(1.0, "RTK fix type: NO_FIX. Not fusing RTK.");
+  return;
  }
+ } else {
+ if (!got_rtk_fix) {
+   ROS_WARN_THROTTLE(1.0, "RTK not fusing SPS.");
+  return;
+ }
+ }
+
+ /* if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) { */
+ /* if (rtk_reliable && !got_rtk_fix) { */
+ /*   rtk_reliable = false; */
+ /*   ROS_WARN("[Odometry]: RTK unreliable."); */
+ /* } else if (got_rtk_fix) { */
+ /*   if (!rtk_reliable) { */
+ /*   ROS_WARN("[Odometry]: RTK reliable."); */
+ /*   } */
+ /*   rtk_reliable = true; */
+ /* } */
 
   // continue to lateral and altitude fusion only when we got a fix
   /* if (!got_rtk_fix) { */
@@ -3717,29 +3769,29 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       return;
     }
 
-    if (!got_rtk_fix && (fabs(rtk_local.pose.pose.position.x-rtk_local_previous.pose.pose.position.x) > 0.5 || fabs(rtk_local.pose.pose.position.y-rtk_local_previous.pose.pose.position.y) > 0.5)) {
-     rtk_jump_detected = true; 
-    }
+    /* if (!got_rtk_fix && (fabs(rtk_local.pose.pose.position.x-rtk_local_previous.pose.pose.position.x) > 0.5 || fabs(rtk_local.pose.pose.position.y-rtk_local_previous.pose.pose.position.y) > 0.5)) { */
+    /*  rtk_jump_detected = true; */ 
+    /* } */
 
-    if (got_rtk_fix) {
-      rtk_jump_detected = false;
-    }
+    /* if (got_rtk_fix) { */
+    /*   rtk_jump_detected = false; */
+    /* } */
 
-    if (!rtk_odom_initialized) {
+    /* if (!rtk_odom_initialized) { */
 
-      Eigen::VectorXd state(2);
-      Eigen::VectorXd state_vel(2);
-      state << x_rtk, y_rtk;
-      state_vel << 0, 0;
-      /* current_estimator->setState(0, state); */
-      for (auto &estimator : m_state_estimators) {
-      if (std::strcmp(estimator.second->getName().c_str(), "RTK") == STRING_EQUAL) {
-        estimator.second->setState(0, state);
-        estimator.second->setState(1, state_vel);
-      }
-      }
-      rtk_odom_initialized = true;
-    }
+    /*   Eigen::VectorXd state(2); */
+    /*   Eigen::VectorXd state_vel(2); */
+    /*   state << x_rtk, y_rtk; */
+    /*   state_vel << 0, 0; */
+    /*   /1* current_estimator->setState(0, state); *1/ */
+    /*   for (auto &estimator : m_state_estimators) { */
+    /*   if (std::strcmp(estimator.second->getName().c_str(), "RTK") == STRING_EQUAL) { */
+    /*     estimator.second->setState(0, state); */
+    /*     estimator.second->setState(1, state_vel); */
+    /*   } */
+    /*   } */
+    /*   rtk_odom_initialized = true; */
+    /* } */
 
   /* //{ fuse rtk velocity */
 
@@ -3756,7 +3808,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       /* stateEstimatorsCorrection(vel_rtk_x, vel_rtk_y, "vel_rtk"); */
     }
 
-    ROS_WARN_ONCE("[Odometry]: Fusing RTK velocity");
+    /* ROS_WARN_ONCE("[Odometry]: Fusing RTK velocity"); */
 
   //}
   
@@ -3764,21 +3816,28 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // Saturate correction
   double x_correction;
   double y_correction;
-  Eigen::VectorXd pos_vec(2);
-  Eigen::VectorXd vel_vec(2);
-  for (auto &estimator : m_state_estimators) {
-    if  (std::strcmp(estimator.first.c_str(), "RTK") == 0) {
-      estimator.second->getState(0, pos_vec);
-      estimator.second->getState(1, vel_vec);
+  /* Eigen::VectorXd pos_vec(2); */
+  /* Eigen::VectorXd vel_vec(2); */
+  /* for (auto &estimator : m_state_estimators) { */
+    /* if  (std::strcmp(estimator.first.c_str(), "RTK") == 0) { */
+      /* estimator.second->getState(0, pos_vec); */
+      /* estimator.second->getState(1, vel_vec); */
+  double x_est;
+  double y_est;
+  {
+    std::scoped_lock lock(mutex_rtk_est);
+  
+    x_est = estimator_rtk->getState(0);
+    y_est = estimator_rtk->getState(1);
+  }
   
       // X position
-      x_correction = x_rtk - pos_vec(0);
+      x_correction = x_rtk - x_est;
       if (!std::isfinite(x_rtk)) {
         x_rtk = 0;
         ROS_ERROR("NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
         return;
       }
-      if (odometry_published) {
        if (x_correction > max_rtk_pos_correction) {
         x_correction = max_rtk_pos_correction;
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, max_rtk_pos_correction);
@@ -3786,16 +3845,14 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, -max_rtk_pos_correction);
         x_correction = -max_rtk_pos_correction;
       }
-      }
   
       // Y position
-      y_correction = y_rtk - pos_vec(1);
+      y_correction = y_rtk - y_est;
       if (!std::isfinite(y_rtk)) {
         y_rtk = 0;
         ROS_ERROR("NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
         return;
       }
-      if (odometry_published) {
        if (y_correction > max_rtk_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, max_rtk_pos_correction);
         y_correction = max_rtk_pos_correction;
@@ -3803,14 +3860,22 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, -max_rtk_pos_correction);
         y_correction = -max_rtk_pos_correction;
       }
-      }
-    }
-   }
+    /* } */
+   /* } */
 
   
-  ROS_INFO_THROTTLE(1.0, "[Odometry]: pos x: %f, corr x: %f, pos y: %f, corr y: %f", pos_vec(0), x_correction, pos_vec(1), y_correction);
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: pos x: %f, corr x: %f, pos y: %f, corr y: %f", x_est, x_correction, y_est, y_correction);
    // Apply correction step to all state estimators
-   stateEstimatorsCorrection(pos_vec(0)+x_correction, pos_vec(1)+y_correction, "pos_rtk");
+   /* stateEstimatorsCorrection(pos_vec(0)+x_correction, pos_vec(1)+y_correction, "pos_rtk"); */
+
+    Eigen::VectorXd rtk_meas(2);
+    rtk_meas << x_est + x_correction, y_est + y_correction;
+    {
+      std::scoped_lock lock(mutex_rtk_est);
+    
+      estimator_rtk->setMeasurement(rtk_meas, Q_lat_rtk);
+      estimator_rtk->doCorrection();
+    }
   //}
 
     ROS_WARN_ONCE("[Odometry]: Fusing RTK position");

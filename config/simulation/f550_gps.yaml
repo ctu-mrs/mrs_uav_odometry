@@ -6,15 +6,15 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "RTK"
 
 # available localization methods
 gps_available: true
 optflow_available: false
 vio_available: false
 rtk_available: true
-lidar_available: true
-object_available: true
+lidar_available: false
+object_available: false
 
 min_satellites: 6
 max_default_altitude: 100.0
@@ -132,7 +132,8 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
-  max_rtk_pos_correction: 0.5
+  max_rtk_pos_correction: 0.1
+  rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
 
@@ -175,6 +176,24 @@ lateral:
       0, 0, 0, 1, 0, 0,
       0, 0, 0, 0, 10000000, 0,
       0, 0, 0, 0, 0, 1000]
+
+  # RTK estimator must have a different model
+  rtk:
+
+    A: [1, 0,
+        0, 1]
+
+    B: [0.01, 0,
+        0, 0.01]
+
+    R: [0.01, 0,
+        0, 0.01]
+
+    Q: [100, 0,
+        0, 100]
+
+    P: [1, 0,
+        0, 1]
 
 heading:
 
