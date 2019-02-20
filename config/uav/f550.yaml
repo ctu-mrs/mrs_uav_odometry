@@ -6,7 +6,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "RTK"
 
 # available localization methods
 gps_available: true
@@ -133,7 +133,7 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
-  max_rtk_pos_correction: 0.1
+  max_rtk_pos_correction: 0.2
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
@@ -190,8 +190,8 @@ lateral:
     R: [0.01, 0,
         0, 0.01]
 
-    Q: [100, 0,
-        0, 100]
+    Q: [10, 0,
+        0, 10]
 
     P: [1, 0,
         0, 1]

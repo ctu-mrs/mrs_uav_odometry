@@ -3666,6 +3666,22 @@ namespace mrs_odometry
       return;
     }
 
+    // check whether we have rtk fix
+    got_rtk_fix =
+        (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
+
+    if (_rtk_fuse_sps) {
+      if (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN) {
+        ROS_WARN_THROTTLE(1.0, "RTK fix type: NO_FIX. Not fusing RTK.");
+        return;
+      }
+    } else {
+      if (!got_rtk_fix) {
+        ROS_WARN_THROTTLE(1.0, "RTK not fusing SPS.");
+        return;
+      }
+    }
+
     double dt;
 
     {
@@ -3707,21 +3723,6 @@ namespace mrs_odometry
 
     // | ----------------------------- --------------------------- |
 
-    // check whether we have rtk fix
-    got_rtk_fix =
-        (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
-
-    if (_rtk_fuse_sps) {
-      if (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN) {
-        ROS_WARN_THROTTLE(1.0, "RTK fix type: NO_FIX. Not fusing RTK.");
-        return;
-      }
-    } else {
-      if (!got_rtk_fix) {
-        ROS_WARN_THROTTLE(1.0, "RTK not fusing SPS.");
-        return;
-      }
-    }
 
     /* if (rtk_reliable && (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN)) { */
     /* if (rtk_reliable && !got_rtk_fix) { */
