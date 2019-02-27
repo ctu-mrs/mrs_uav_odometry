@@ -1791,33 +1791,7 @@ namespace mrs_odometry
 
     //}
 
-    if (!init_hdg_avg_done) {
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
-      return;
-    }
-
-    if (!is_heading_estimator_initialized) {
-
-      Eigen::VectorXd yaw       = Eigen::VectorXd::Zero(1);
-      Eigen::VectorXd yaw_rate  = Eigen::VectorXd::Zero(1);
-      Eigen::VectorXd gyro_bias = Eigen::VectorXd::Zero(1);
-      Eigen::MatrixXd init_cov  = Eigen::MatrixXd::Identity(heading_n, heading_n);
-      init_cov *= 1000;
-      yaw_rate << 0.0;
-      gyro_bias << 0.0;
-      yaw << init_hdg_avg;
-
-      // Initialize all altitude estimators
-      for (auto &estimator : m_heading_estimators) {
-        estimator.second->setState(0, yaw);
-        estimator.second->setState(1, yaw_rate);
-        estimator.second->setState(2, gyro_bias);
-        estimator.second->setCovariance(init_cov);
-      }
-      is_heading_estimator_initialized = true;
-    }
-
-    if (!init_hdg_avg_done) {
+    if (!init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS")==STRING_EQUAL) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
       return;
     }
@@ -5520,7 +5494,7 @@ namespace mrs_odometry
     }
 
     if (fabs(value) > 100) {
-      ROS_WARN("Altitude estimator correction: %f", value);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator correction: %f", value);
     }
 
     Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
