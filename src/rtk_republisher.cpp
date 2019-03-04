@@ -6,7 +6,7 @@
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/RtkFixType.h>
 
-#include <tersus_gps_msgs/Bestpos.h>
+#include <mrs_msgs/Bestpos.h>
 
 #include <std_srvs/Trigger.h>
 
@@ -69,12 +69,12 @@ namespace mrs_odometry
     bool               got_odom = false;
 
     // rtk message from tersus
-    tersus_gps_msgs::Bestpos tersus;
-    bool                     got_tersus = false;
+    mrs_msgs::Bestpos tersus;
+    bool              got_tersus = false;
 
   private:
     void callbackOdometry(const nav_msgs::OdometryConstPtr &msg);
-    void callbackTersus(const tersus_gps_msgs::BestposConstPtr &msg);
+    void callbackTersus(const mrs_msgs::BestposConstPtr &msg);
     bool emulateJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool toggleRandomJumps([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     void mainTimer(const ros::TimerEvent &event);
@@ -180,7 +180,7 @@ namespace mrs_odometry
 
   //{ callbackTersus()
 
-  void RtkRepublisher::callbackTersus(const tersus_gps_msgs::BestposConstPtr &msg) {
+  void RtkRepublisher::callbackTersus(const mrs_msgs::BestposConstPtr &msg) {
 
     if (!is_initialized)
       return;

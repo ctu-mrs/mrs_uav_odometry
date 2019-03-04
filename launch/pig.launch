@@ -20,7 +20,7 @@
     <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/uav/f550.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/uav/pig.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
@@ -46,7 +46,7 @@
       <remap from="~object_in" to="~odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
-      <remap from="~garmin_in" to="garmin/range" />
+      <remap from="~garmin_in" to="teraranger/range" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
