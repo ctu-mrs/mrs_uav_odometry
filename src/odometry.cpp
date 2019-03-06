@@ -2046,7 +2046,7 @@ namespace mrs_odometry
         odom_main.pose.pose.position.y = pos_vec(1);
       }
 
-      if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL) {
+      if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL && std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL) {
         odom_main.twist.twist.linear.x = vel_vec(0);
         odom_main.twist.twist.linear.y = vel_vec(1);
       }
