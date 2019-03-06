@@ -3489,6 +3489,7 @@ namespace mrs_odometry
     }
 
     // TODO decouple x and y covariance components
+    if (_dynamic_optflow_cov) {
     double twist_q = optflow_twist.twist.covariance[0];
 
     if (std::isfinite(twist_q)) {
@@ -3517,6 +3518,7 @@ namespace mrs_odometry
           ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
         }
       }
+    }
     }
 
     double optflow_vel_x, optflow_vel_y;
