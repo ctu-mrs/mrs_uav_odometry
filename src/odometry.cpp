@@ -135,6 +135,7 @@ namespace mrs_odometry
     ros::Publisher pub_compass_yaw_;
     ros::Publisher pub_odometry_diag_;
     ros::Publisher pub_altitude_;
+    ros::Publisher pub_orientation_;
     ros::Publisher pub_max_altitude_;
     ros::Publisher pub_lkf_states_x_;
     ros::Publisher pub_lkf_states_y_;
@@ -1344,6 +1345,7 @@ namespace mrs_odometry
     pub_odometry_diag_         = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
     pub_altitude_              = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
     pub_max_altitude_          = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+    pub_orientation_           = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
     pub_lkf_states_x_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
     pub_lkf_states_y_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
     pub_altitude_state_        = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
@@ -1821,6 +1823,41 @@ namespace mrs_odometry
       is_heading_estimator_initialized = true;
     }
 
+    /* publish heading  //{ */
+
+      nav_msgs::Odometry orientation;
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk);
+      orientation.header = odom_pixhawk.header;
+      orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
+    }
+      if (_use_heading_estimator) {
+
+        Eigen::VectorXd yaw(1);
+        Eigen::VectorXd yaw_rate(1);
+
+        {
+          std::scoped_lock lock(mutex_current_hdg_estimator);
+
+          current_hdg_estimator->getState(0, yaw);
+          current_hdg_estimator->getState(1, yaw_rate);
+        }
+        yaw(0) = wrap(yaw(0));
+        setYaw(orientation.pose.pose.orientation, yaw(0));
+        /* odom_main.twist.twist.angular.z = yaw_rate(0); */
+        orientation.header.frame_id = "local_origin";
+        orientation.child_frame_id = current_hdg_estimator->getName();
+      } 
+
+    try {
+      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
+    }
+
+    //}
+    
     /* sensor checking //{ */
 
     if (!is_ready_to_takeoff) {

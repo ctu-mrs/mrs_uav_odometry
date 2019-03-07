@@ -136,8 +136,8 @@ lateral:
   max_rtk_pos_correction: 0.2
   rtk_fuse_sps: true
 
-  dynamic_optflow_cov: false
-  dynamic_optflow_cov_scale: 1000000000
+  dynamic_optflow_cov: true
+  dynamic_optflow_cov_scale: 100000000
 
   # Covariances of measurements
   Q:

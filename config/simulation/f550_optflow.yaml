@@ -141,7 +141,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [750000] # scale of covariance calculated by optic_flow node
+    vel_optflow: [10000] # scale of covariance calculated by optic_flow node
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
