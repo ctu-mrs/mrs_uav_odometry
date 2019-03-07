@@ -3513,7 +3513,7 @@ namespace mrs_odometry
 
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0) {
-          estimator.second->setQ(twist_q, twist_q, it_measurement_id->second);
+          estimator.second->setQ(twist_q, it_measurement_id->second);
           ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
         }
       }
