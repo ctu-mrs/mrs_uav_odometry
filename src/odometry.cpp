@@ -111,6 +111,9 @@ namespace mrs_odometry
 
     bool _publish_fused_odom;
     bool _dynamic_optflow_cov = false;
+    double _dynamic_optflow_cov_scale = 0;
+    double twist_q_x_prev = 0;
+    double twist_q_y_prev = 0;
 
     double _max_optflow_altitude;
     double _max_default_altitude;
@@ -793,6 +796,7 @@ namespace mrs_odometry
     param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
     param_loader.load_param("max_default_altitude", _max_default_altitude);
     param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
+    param_loader.load_param("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
     optflow_stddev.x = 1.0;
     optflow_stddev.y = 1.0;
     optflow_stddev.z = 1.0;
@@ -3488,22 +3492,17 @@ namespace mrs_odometry
       }
     }
 
-    // TODO decouple x and y covariance components
     if (_dynamic_optflow_cov) {
-    double twist_q = optflow_twist.twist.covariance[0];
+    double twist_q_x = optflow_twist.twist.covariance[0];
+    double twist_q_y = optflow_twist.twist.covariance[7];
 
-    if (std::isfinite(twist_q)) {
+    if (std::isfinite(twist_q_x)) {
 
-      // TODO parametrize scale and saturation
       // Scale covariance
-      twist_q *= init_Q;
+      twist_q_x *= _dynamic_optflow_cov_scale;
+      twist_q_y *= _dynamic_optflow_cov_scale;
 
-      // Saturate covariance
-      /* if (twist_q > 1000000) { */
-      /*   twist_q = 1000000; */
-      /* } else if (twist_q <= 0.0001) { */
-      /*   twist_q = 0.0001; */
-      /* } */
+      double twist_q = std::max(twist_q_x, twist_q_y);
 
       std::string                          measurement_name  = "vel_optflow";
       std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
@@ -3514,11 +3513,16 @@ namespace mrs_odometry
 
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0) {
-          estimator.second->setQ(twist_q, it_measurement_id->second);
+          estimator.second->setQ(twist_q, twist_q, it_measurement_id->second);
           ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
         }
       }
+    } else {
+      twist_q_x = twist_q_x_prev;
+      twist_q_y = twist_q_y_prev;
     }
+      twist_q_x_prev = twist_q_x;
+      twist_q_y_prev = twist_q_y;
     }
 
     double optflow_vel_x, optflow_vel_y;

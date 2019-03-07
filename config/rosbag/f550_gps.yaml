@@ -135,6 +135,7 @@ lateral:
   max_object_pos_correction: 0.5
 
   dynamic_optflow_cov: false
+  dynamic_optflow_cov_scale: 1000000000
 
   # Covariances of measurements
   Q:
