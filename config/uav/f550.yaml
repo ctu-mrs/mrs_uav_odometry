@@ -18,7 +18,7 @@ object_available: false
 
 min_satellites: 0
 max_default_altitude: 10.0
-max_optflow_altitude: 3.0
+max_optflow_altitude: 10.0
 april_objects: false
 
 use_differential_gps: false
@@ -198,7 +198,7 @@ lateral:
 
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
+  use_heading_estimator: false # otherwise use PixHawk heading estimate
   gyro_fallback: true
   heading_estimator: "GYRO" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
