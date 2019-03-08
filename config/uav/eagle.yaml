@@ -96,7 +96,7 @@ altitude:
   # Covariances of measurements
   Q:
     alt_baro: [100]
-    height_range: [10000] # 0.04 stddev in simulation
+    height_range: [10] # 0.04 stddev in simulation
     vel_mavros: [0.001]
     bias_baro: [0.1] 
     elevation: [0.01] 
@@ -137,6 +137,7 @@ lateral:
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
+  dynamic_optflow_cov_scale: 1000000000
 
   # Covariances of measurements
   Q:

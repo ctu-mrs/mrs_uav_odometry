@@ -111,6 +111,9 @@ namespace mrs_odometry
 
     bool _publish_fused_odom;
     bool _dynamic_optflow_cov = false;
+    double _dynamic_optflow_cov_scale = 0;
+    double twist_q_x_prev = 0;
+    double twist_q_y_prev = 0;
 
     double _max_optflow_altitude;
     double _max_default_altitude;
@@ -132,6 +135,7 @@ namespace mrs_odometry
     ros::Publisher pub_compass_yaw_;
     ros::Publisher pub_odometry_diag_;
     ros::Publisher pub_altitude_;
+    ros::Publisher pub_orientation_;
     ros::Publisher pub_max_altitude_;
     ros::Publisher pub_lkf_states_x_;
     ros::Publisher pub_lkf_states_y_;
@@ -793,6 +797,7 @@ namespace mrs_odometry
     param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
     param_loader.load_param("max_default_altitude", _max_default_altitude);
     param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
+    param_loader.load_param("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
     optflow_stddev.x = 1.0;
     optflow_stddev.y = 1.0;
     optflow_stddev.z = 1.0;
@@ -1340,6 +1345,7 @@ namespace mrs_odometry
     pub_odometry_diag_         = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
     pub_altitude_              = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
     pub_max_altitude_          = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+    pub_orientation_           = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
     pub_lkf_states_x_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
     pub_lkf_states_y_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
     pub_altitude_state_        = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
@@ -1817,6 +1823,41 @@ namespace mrs_odometry
       is_heading_estimator_initialized = true;
     }
 
+    /* publish heading  //{ */
+
+      nav_msgs::Odometry orientation;
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk);
+      orientation.header = odom_pixhawk.header;
+      orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
+    }
+      if (_use_heading_estimator) {
+
+        Eigen::VectorXd yaw(1);
+        Eigen::VectorXd yaw_rate(1);
+
+        {
+          std::scoped_lock lock(mutex_current_hdg_estimator);
+
+          current_hdg_estimator->getState(0, yaw);
+          current_hdg_estimator->getState(1, yaw_rate);
+        }
+        yaw(0) = wrap(yaw(0));
+        setYaw(orientation.pose.pose.orientation, yaw(0));
+        /* odom_main.twist.twist.angular.z = yaw_rate(0); */
+        orientation.header.frame_id = "local_origin";
+        orientation.child_frame_id = current_hdg_estimator->getName();
+      } 
+
+    try {
+      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
+    }
+
+    //}
+    
     /* sensor checking //{ */
 
     if (!is_ready_to_takeoff) {
@@ -3488,22 +3529,17 @@ namespace mrs_odometry
       }
     }
 
-    // TODO decouple x and y covariance components
     if (_dynamic_optflow_cov) {
-    double twist_q = optflow_twist.twist.covariance[0];
+    double twist_q_x = optflow_twist.twist.covariance[0];
+    double twist_q_y = optflow_twist.twist.covariance[7];
 
-    if (std::isfinite(twist_q)) {
+    if (std::isfinite(twist_q_x)) {
 
-      // TODO parametrize scale and saturation
       // Scale covariance
-      twist_q *= init_Q;
+      twist_q_x *= _dynamic_optflow_cov_scale;
+      twist_q_y *= _dynamic_optflow_cov_scale;
 
-      // Saturate covariance
-      /* if (twist_q > 1000000) { */
-      /*   twist_q = 1000000; */
-      /* } else if (twist_q <= 0.0001) { */
-      /*   twist_q = 0.0001; */
-      /* } */
+      double twist_q = std::max(twist_q_x, twist_q_y);
 
       std::string                          measurement_name  = "vel_optflow";
       std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
@@ -3518,7 +3554,12 @@ namespace mrs_odometry
           ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
         }
       }
+    } else {
+      twist_q_x = twist_q_x_prev;
+      twist_q_y = twist_q_y_prev;
     }
+      twist_q_x_prev = twist_q_x;
+      twist_q_y_prev = twist_q_y;
     }
 
     double optflow_vel_x, optflow_vel_y;

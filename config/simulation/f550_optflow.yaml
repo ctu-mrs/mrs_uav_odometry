@@ -6,7 +6,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "OPTFLOW"
 
 # available localization methods
 gps_available: true
@@ -137,10 +137,11 @@ lateral:
   rtk_fuse_sps: false
 
   dynamic_optflow_cov: false
+  dynamic_optflow_cov_scale: 1000000000
 
   # Covariances of measurements
   Q:
-    vel_optflow: [750000] # scale of covariance calculated by optic_flow node
+    vel_optflow: [10000] # scale of covariance calculated by optic_flow node
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
