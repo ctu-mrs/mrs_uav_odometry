@@ -10,7 +10,7 @@ takeoff_estimator: "ICP"
 
 # available localization methods
 gps_available: true
-optflow_available: false
+optflow_available: true
 vio_available: false
 rtk_available: false
 lidar_available: true
@@ -202,7 +202,7 @@ heading:
 
   use_heading_estimator: false # otherwise use PixHawk heading estimate
   gyro_fallback: false
-  heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
+  heading_estimator: "GYRO" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2

@@ -1649,6 +1649,7 @@ namespace mrs_odometry
                 _estimator_type_takeoff.name.c_str());
       ros::shutdown();
     }
+    return false;
   }
 
   //}
@@ -1797,7 +1798,7 @@ namespace mrs_odometry
 
     //}
 
-    if (!init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS")==STRING_EQUAL) {
+    if (_use_heading_estimator && !init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS")==STRING_EQUAL) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
       return;
     }
@@ -2993,7 +2994,7 @@ namespace mrs_odometry
 
             double bias_baro =
                 correction - (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + current_altitude(mrs_msgs::AltitudeStateNames::ELEVATION));
-            double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET);
+            /* double innov_bias_baro = bias_baro - current_altitude(mrs_msgs::AltitudeStateNames::BARO_OFFSET); */
 
             // We want to estimate barometer offset only when the altitude is constant
             /* if (estimate_baro_offset && !bias_baro_estimation_enabled && current_altitude(mrs_msgs::AltitudeStateNames::VEL_ALT) <
@@ -3286,7 +3287,7 @@ namespace mrs_odometry
 
     pixhawk_imu_last_update = ros::Time::now();
 
-    double dt;
+    /* double dt; */
 
     {
       std::scoped_lock lock(mutex_pixhawk_imu);
@@ -3305,7 +3306,7 @@ namespace mrs_odometry
         return;
       }
 
-      dt = (pixhawk_imu.header.stamp - pixhawk_imu_previous.header.stamp).toSec();
+      /* dt = (pixhawk_imu.header.stamp - pixhawk_imu_previous.header.stamp).toSec(); */
     }
 
     // --------------------------------------------------------------
@@ -3597,7 +3598,8 @@ namespace mrs_odometry
         desired_estimator.type = mrs_msgs::HeadingType::GYRO;
         desired_estimator.name = _heading_estimators_names[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
-        optflow_inconsistent_samples = std::max(0, --optflow_inconsistent_samples);
+        --optflow_inconsistent_samples;
+        optflow_inconsistent_samples = std::max(0, optflow_inconsistent_samples);
       }
       return;
     }
