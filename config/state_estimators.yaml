@@ -11,7 +11,8 @@ state_estimators:
     "RTK",
     "ICP",
     "VIO",
-    "OBJECT"
+    "OBJECT",
+    "T265"
   ] 
 
   # The measured states of the model
@@ -47,6 +48,7 @@ state_estimators:
     ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
     VIO: ["tilt_mavros", "pos_vio"]
     OBJECT: ["tilt_mavros", "pos_object"]
+    OBJECT: []
 
   # Mapping of measurements to states
   measurement_states:

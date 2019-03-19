@@ -158,6 +158,7 @@ namespace mrs_odometry
     ros::Subscriber sub_optflow_;
     ros::Subscriber sub_optflow_stddev_;
     ros::Subscriber sub_vio_;
+    ros::Subscriber sub_t265_odom_;
     ros::Subscriber sub_object_;
     ros::Subscriber rtk_gps_sub_;
     ros::Subscriber sub_icp_relative_;
@@ -206,10 +207,17 @@ namespace mrs_odometry
     geometry_msgs::Vector3                    optflow_stddev;
     std::mutex                                mutex_optflow_stddev;
 
+    // VIO
     nav_msgs::Odometry odom_vio;
     std::mutex         mutex_odom_vio;
     nav_msgs::Odometry odom_vio_previous;
     ros::Time          odom_vio_last_update;
+
+    // Realsense t265
+    nav_msgs::Odometry odom_t265;
+    std::mutex         mutex_odom_t265;
+    nav_msgs::Odometry odom_t265_previous;
+    ros::Time          odom_t265_last_update;
 
     // Object msgs
     nav_msgs::Odometry odom_object;
@@ -284,6 +292,7 @@ namespace mrs_odometry
     // | -------------------- message callbacks ------------------- |
     void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
     void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
+    void callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg);
     void callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
     void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
     void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
@@ -371,6 +380,7 @@ namespace mrs_odometry
     std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
 
     bool got_odom_pixhawk     = false;
+    bool got_odom_t265        = false;
     bool got_optflow          = false;
     bool got_range            = false;
     bool got_pixhawk_utm      = false;
@@ -547,6 +557,8 @@ namespace mrs_odometry
     bool   _optflow_available = false;
     bool   _rtk_available     = false;
     bool   rtk_reliable       = false;
+    bool   _t265_available     = false;
+    bool   t265_reliable       = false;
     bool   _lidar_available   = false;
     bool   _object_available  = false;
     bool   object_reliable    = false;
@@ -639,6 +651,7 @@ namespace mrs_odometry
     got_vio               = false;
     got_object            = false;
     got_rtk               = false;
+    got_odom_t265         = false;
     got_rtk_fix           = false;
     got_pixhawk_utm       = false;
     got_tracker_status    = false;
@@ -808,10 +821,12 @@ namespace mrs_odometry
     param_loader.load_param("vio_available", _vio_available);
     param_loader.load_param("optflow_available", _optflow_available);
     param_loader.load_param("rtk_available", _rtk_available);
+    param_loader.load_param("t265_available", _t265_available);
     param_loader.load_param("lidar_available", _lidar_available);
     param_loader.load_param("object_available", _object_available);
     gps_reliable        = _gps_available;
     rtk_reliable        = _rtk_available;
+    t265_reliable        = _t265_available;
     object_reliable     = false;
     counter_odom_object = false;
 
@@ -1393,6 +1408,9 @@ namespace mrs_odometry
     // subscriber to mavros odometry
     sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
+    // subscriber to t265 odometry
+    sub_t265_odom_ = nh_.subscribe("t265_odom_in", 1, &Odometry::callbackT265Odometry, this, ros::TransportHints().tcpNoDelay());
+
     // subscriber to optflow velocity
     if (_optflow_available) {
       sub_optflow_        = nh_.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
@@ -1506,6 +1524,11 @@ namespace mrs_odometry
     }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && !_rtk_available) {
       ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK localization not available. Shutting down.",
+                _estimator_type_takeoff.name.c_str());
+      ros::shutdown();
+    }
+    if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265 && !_t265_available) {
+      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. T265 localization not available. Shutting down.",
                 _estimator_type_takeoff.name.c_str());
       ros::shutdown();
     }
@@ -1628,6 +1651,14 @@ namespace mrs_odometry
         return false;
       }
     }
+    if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265) {
+      if (got_t265) {
+        return true;
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for T265 msg to initialize takeoff estimator");
+        return false;
+      }
+    }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP) {
       if (got_icp) {
         return true;
@@ -1714,6 +1745,163 @@ namespace mrs_odometry
       return;
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
+
+    /* republish t265 odometry //{ */
+
+    // Just return without publishing - the t265 odometry is republished in callback at faster rate
+    if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
+    
+      /* publish t265 altitude //{ */
+      mrs_msgs::Float64Stamped new_altitude;
+      {
+        std::scoped_lock lock(mutex_odom_pixhawk);
+    
+        new_altitude.header = odom_t265.header;
+        new_altitude.value  = odom_t265.pose.pose.position.z;
+      }
+    
+      new_altitude.header.frame_id = "local_origin";
+      new_altitude.header.stamp    = ros::Time::now();
+    
+      try {
+        pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
+      }
+      //}
+    
+    /* publish t265 orientation  //{ */
+    
+      nav_msgs::Odometry orientation;
+    {
+      std::scoped_lock lock(mutex_odom_t265);
+      orientation.header = odom_t265.header;
+      orientation.pose.pose.orientation = odom_t265.pose.pose.orientation;
+    }
+        orientation.header.frame_id = "local_origin";
+    
+    try {
+      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
+    }
+    
+    //}
+    
+    /* publish t265 odometry //{ */
+    nav_msgs::Odometry odom_main;
+    {
+      std::scoped_lock lock(mutex_odom_t265);
+      odom_main = odom_t265;
+    }
+    
+    odom_main.header.frame_id = "local_origin";
+    odom_main.header.stamp    = ros::Time::now();
+    
+      if (!odometry_published) {
+        odom_stable                         = odom_main;
+        odom_stable.pose.pose.orientation.x = 0.0;
+        odom_stable.pose.pose.orientation.y = 0.0;
+        odom_stable.pose.pose.orientation.z = 0.0;
+        odom_stable.pose.pose.orientation.w = 1.0;
+        m_pos_odom_offset.setZero();
+        m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+        m_rot_odom_offset.normalize();
+      }
+    
+      if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
+    
+        tf2::Vector3 v1, v2;
+        tf2::fromMsg(odom_main.pose.pose.position, v1);
+        tf2::fromMsg(odom_stable.pose.pose.position, v2);
+        tf2::Vector3 pos_diff = v1 - v2;
+        m_pos_odom_offset     = pos_diff;
+    
+        // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
+        if (odom_stable.pose.pose.orientation.w == 0.0) {
+          /* odom_stable.pose.pose.orientation.w = 1.0; */
+          odom_stable.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
+        }
+        tf2::Quaternion q1, q2;
+        tf2::fromMsg(odom_main.pose.pose.orientation, q1);
+        tf2::fromMsg(odom_stable.pose.pose.orientation, q2);
+        tf2::Quaternion rot_diff = q2 * q1.inverse();
+        m_rot_odom_offset        = rot_diff;
+        m_rot_odom_offset.normalize();
+        /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+         * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+        /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
+        ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
+      }
+    
+      /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+       * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      odom_stable = applyOdomOffset(odom_main);
+      /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+       * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      odom_stable.header.frame_id = "local_origin_stable";
+    
+      try {
+        pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+      }
+    
+      // publish TF
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = ros::Time::now();
+      tf.header.frame_id       = "local_origin_stable";
+      tf.child_frame_id        = "local_origin";
+      tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
+      tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
+      try {
+        broadcaster_->sendTransform(tf);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
+    }
+    
+    {
+      std::scoped_lock lock(mutex_shared_odometry);
+    
+      shared_odom = odom_main;
+    }
+    
+    try {
+      pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
+    }
+    ROS_INFO_ONCE("[Odometry]: Publishing odometry");
+    
+    // publish TF
+    geometry_msgs::Vector3 position;
+    position.x = odom_main.pose.pose.position.x;
+    position.y = odom_main.pose.pose.position.y;
+    position.z = odom_main.pose.pose.position.z;
+    geometry_msgs::TransformStamped tf;
+    tf.header.stamp          = ros::Time::now();
+    tf.header.frame_id       = "local_origin";
+    tf.child_frame_id        = std::string("fcu_") + uav_name;
+    tf.transform.translation = position;
+    tf.transform.rotation    = odom_main.pose.pose.orientation;
+    try {
+      broadcaster_->sendTransform(tf);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
+    //}
+
+    return;
+    }
+    
+    //}
 
     // --------------------------------------------------------------
     // |              publish the new altitude message              |
@@ -1911,6 +2099,25 @@ namespace mrs_odometry
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
                           got_optflow ? "TRUE" : "FALSE");
+        return;
+      }
+
+    // Fallback from T265
+    if (_estimator_type.type == mrs_msgs::EstimatorType::T265) {
+      if ((!got_t265 || !t265_reliable) && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
+        ROS_WARN("[Odometry]: T265 not reliable. Switching to OPTFLOW type.");
+        mrs_msgs::EstimatorType optflow_type;
+        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+        changeCurrentEstimator(optflow_type);
+      } else if ((!got_t265 || !t265_reliable) && gps_reliable && got_odom_pixhawk) {
+        ROS_WARN("[Odometry]: T265 not reliable. Switching to GPS type.");
+        mrs_msgs::EstimatorType gps_type;
+        gps_type.type = mrs_msgs::EstimatorType::GPS;
+        changeCurrentEstimator(gps_type);
+      }
+      if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_t265) {
+        ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
+                          got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE", got_t265 ? "TRUE" : "FALSE");
         return;
       }
 
@@ -2744,7 +2951,6 @@ namespace mrs_odometry
   //}
 
   /* //{ callbackMavrosOdometry() */
-
   void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (!is_initialized)
@@ -5030,6 +5236,262 @@ namespace mrs_odometry
   }
   //}
 
+  /* //{ callbackT265Odometry() */
+  void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
+
+    if (!is_initialized)
+      return;
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackT265Odometry");
+
+    if (got_odom_t265) {
+
+      {
+        std::scoped_lock lock(mutex_odom_t265);
+
+        odom_t265_previous         = odom_t265;
+        odom_t265                  = *msg;
+      }
+
+    } else {
+
+      {
+        std::scoped_lock lock(mutex_odom_t265);
+
+        odom_t265_previous = *msg;
+        odom_t265          = *msg;
+      }
+
+      got_odom_t265         = true;
+      odom_t265_last_update = ros::Time::now();
+      return;
+    }
+
+    odom_t265_last_update = ros::Time::now();
+
+    if (!isTimestampOK(odom_t265.header.stamp.toSec(), odom_t265.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 odom timestamp not OK.");
+    }
+
+    double dt;
+    {
+      std::scoped_lock lock(mutex_odom_t265);
+
+      dt = (odom_t265.header.stamp - odom_pixhawk_previous.header.stamp).toSec();
+    }
+
+    if (!got_init_heading) {
+
+      // Pixhawk (compass) orientation
+      tf2::Quaternion q;
+      {
+        std::scoped_lock lock(mutex_odom_t265);
+
+        q.setX(odom_t265.pose.pose.orientation.x);
+        q.setY(odom_t265.pose.pose.orientation.y);
+        q.setZ(odom_t265.pose.pose.orientation.z);
+        q.setW(odom_t265.pose.pose.orientation.w);
+      }
+      q.normalize();
+
+      double roll, pitch;
+      tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
+      got_init_heading = true;
+    }
+
+    if (!got_range) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for rangefinder.");
+      return;
+    }
+
+
+    // --------------------------------------------------------------
+    // |                        callback body                       |
+    // --------------------------------------------------------------
+    
+    /* check NaNs //{ */
+    if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.x)) {
+      odom_t265.pose.pose.position.x = 0;
+      ROS_ERROR("NaN detected in variable \"odom_t265.pose.pose.position.x\", T265 odom is now unreliable!!!");
+      t265_reliable = false;
+      return;
+    }
+    
+    if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.y)) {
+      odom_t265.pose.pose.position.y = 0;
+      ROS_ERROR("NaN detected in variable \"odom_t265.pose.pose.position.y\", T265 odom is now unreliable!!!");
+      t265_reliable = false;
+      return;
+    }
+    
+    if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.z)) {
+      odom_t265.pose.pose.position.z = 0;
+      ROS_ERROR("NaN detected in variable \"odom_t265.pose.pose.position.z\", T265 odom is now unreliable!!!");
+      t265_reliable = false;
+      return;
+    }
+    //}
+
+    /* republish t265 odometry //{ */
+
+    if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
+    
+      /* publish t265 altitude //{ */
+      mrs_msgs::Float64Stamped new_altitude;
+      {
+        std::scoped_lock lock(mutex_odom_pixhawk);
+    
+        new_altitude.header = odom_t265.header;
+        new_altitude.value  = odom_t265.pose.pose.position.z;
+      }
+    
+      new_altitude.header.frame_id = "local_origin";
+      new_altitude.header.stamp    = ros::Time::now();
+    
+      try {
+        pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
+      }
+      //}
+    
+    /* publish t265 orientation  //{ */
+    
+      nav_msgs::Odometry orientation;
+    {
+      std::scoped_lock lock(mutex_odom_t265);
+      orientation.header = odom_t265.header;
+      orientation.pose.pose.orientation = odom_t265.pose.pose.orientation;
+    }
+        orientation.header.frame_id = "local_origin";
+    
+    try {
+      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
+    }
+    
+    //}
+    
+    /* publish t265 odometry //{ */
+    nav_msgs::Odometry odom_main;
+    {
+      std::scoped_lock lock(mutex_odom_t265);
+      odom_main = odom_t265;
+    }
+    
+    odom_main.header.frame_id = "local_origin";
+    odom_main.header.stamp    = ros::Time::now();
+    
+      if (!odometry_published) {
+        odom_stable                         = odom_main;
+        odom_stable.pose.pose.orientation.x = 0.0;
+        odom_stable.pose.pose.orientation.y = 0.0;
+        odom_stable.pose.pose.orientation.z = 0.0;
+        odom_stable.pose.pose.orientation.w = 1.0;
+        m_pos_odom_offset.setZero();
+        m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+        m_rot_odom_offset.normalize();
+      }
+    
+      if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
+    
+        tf2::Vector3 v1, v2;
+        tf2::fromMsg(odom_main.pose.pose.position, v1);
+        tf2::fromMsg(odom_stable.pose.pose.position, v2);
+        tf2::Vector3 pos_diff = v1 - v2;
+        m_pos_odom_offset     = pos_diff;
+    
+        // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
+        if (odom_stable.pose.pose.orientation.w == 0.0) {
+          /* odom_stable.pose.pose.orientation.w = 1.0; */
+          odom_stable.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
+        }
+        tf2::Quaternion q1, q2;
+        tf2::fromMsg(odom_main.pose.pose.orientation, q1);
+        tf2::fromMsg(odom_stable.pose.pose.orientation, q2);
+        tf2::Quaternion rot_diff = q2 * q1.inverse();
+        m_rot_odom_offset        = rot_diff;
+        m_rot_odom_offset.normalize();
+        /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+         * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+        /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
+        ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
+      }
+    
+      /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+       * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      odom_stable = applyOdomOffset(odom_main);
+      /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
+       * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+      odom_stable.header.frame_id = "local_origin_stable";
+    
+      try {
+        pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+      }
+    
+      // publish TF
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = ros::Time::now();
+      tf.header.frame_id       = "local_origin_stable";
+      tf.child_frame_id        = "local_origin";
+      tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
+      tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
+      try {
+        broadcaster_->sendTransform(tf);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
+    }
+    
+    {
+      std::scoped_lock lock(mutex_shared_odometry);
+    
+      shared_odom = odom_main;
+    }
+    
+    try {
+      pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
+    }
+    ROS_INFO_ONCE("[Odometry]: Publishing odometry");
+    
+    // publish TF
+    geometry_msgs::Vector3 position;
+    position.x = odom_main.pose.pose.position.x;
+    position.y = odom_main.pose.pose.position.y;
+    position.z = odom_main.pose.pose.position.z;
+    geometry_msgs::TransformStamped tf;
+    tf.header.stamp          = ros::Time::now();
+    tf.header.frame_id       = "local_origin";
+    tf.child_frame_id        = std::string("fcu_") + uav_name;
+    tf.transform.translation = position;
+    tf.transform.rotation    = odom_main.pose.pose.orientation;
+    try {
+      broadcaster_->sendTransform(tf);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
+    //}
+
+    }
+    
+    //}
+
+    }
+  }
+
+  //}
+  
   // | -------------------- service callbacks ------------------- |
 
   /* //{ TODO callbackToggleRtkHeight() - not supported now */
@@ -5794,6 +6256,27 @@ namespace mrs_odometry
       max_altitude = _max_default_altitude;
       ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
 
+      // T265 type
+    } else if (target_estimator.type == mrs_msgs::EstimatorType::T265) {
+
+      if (!_t265_available) {
+        ROS_ERROR("[Odometry]: Cannot transition to T265 type. T265 not available in this world.");
+        return false;
+      }
+
+      if (!got_odom_t265 && is_ready_to_takeoff) {
+        ROS_ERROR("[Odometry]: Cannot transition to T265 type. No new T265 odom msgs received.");
+        return false;
+      }
+
+      if (!t265_reliable) {
+        ROS_ERROR("[Odometry]: Cannot transition to T265 type. T265 odometry is not reliable.");
+        return false;
+      }
+
+      max_altitude = _max_default_altitude;
+      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+
       // LIDAR localization type
     } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -6050,6 +6533,8 @@ namespace mrs_odometry
       s_diag += "VIO";
     } else if (type.type == mrs_msgs::EstimatorType::OBJECT) {
       s_diag += "OBJECT";
+    } else if (type.type == mrs_msgs::EstimatorType::T265) {
+      s_diag += "T265";
     } else {
       s_diag += "UNKNOWN";
     }
