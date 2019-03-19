@@ -15,6 +15,7 @@ vio_available: false
 rtk_available: false
 lidar_available: false
 object_available: false
+t265_available: false
 
 min_satellites: 0
 max_default_altitude: 10.0
@@ -134,6 +135,7 @@ lateral:
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
   max_rtk_pos_correction: 0.2
+  max_t265_vel: 10.0
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: true

@@ -48,7 +48,7 @@ state_estimators:
     ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
     VIO: ["tilt_mavros", "pos_vio"]
     OBJECT: ["tilt_mavros", "pos_object"]
-    OBJECT: []
+    T265: []
 
   # Mapping of measurements to states
   measurement_states:

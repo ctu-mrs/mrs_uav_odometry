@@ -6,15 +6,16 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "RTK"
+takeoff_estimator: "GPS"
 
 # available localization methods
 gps_available: true
-optflow_available: false
+optflow_available: true
 vio_available: false
 rtk_available: true
 lidar_available: false
 object_available: false
+t265_available: true
 
 min_satellites: 6
 max_default_altitude: 100.0
@@ -133,6 +134,7 @@ lateral:
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
   max_rtk_pos_correction: 0.1
+  max_t265_vel: 10.0
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
@@ -198,7 +200,7 @@ lateral:
 
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
+  use_heading_estimator: false # otherwise use PixHawk heading estimate
   gyro_fallback: false
   heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
@@ -213,7 +215,6 @@ heading:
   compass_yaw_filter_buffer_size: 100
   compass_yaw_filter_max_diff: deg(45)
 
-  # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
   A: [1, 0.02, 0,  # yaw
       0, 0.9914, 0,     # yaw rate
