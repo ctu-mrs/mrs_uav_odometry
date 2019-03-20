@@ -15,7 +15,7 @@ vio_available: false
 rtk_available: false
 lidar_available: false
 object_available: false
-t265_available: false
+t265_available: true
 
 min_satellites: 0
 max_default_altitude: 10.0
