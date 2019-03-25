@@ -357,6 +357,8 @@ namespace mrs_odometry
     // Teraranger altitude subscriber and callback
     ros::Subscriber               sub_terarangerone_;
     sensor_msgs::Range            range_terarangerone_;
+    sensor_msgs::Range            range_terarangerone_previous;
+    std::mutex                    mutex_range_terarangerone;
     void                          callbackTeraranger(const sensor_msgs::RangeConstPtr &msg);
     std::shared_ptr<MedianFilter> terarangerFilter;
     int                           trg_filter_buffer_size;
@@ -4519,7 +4521,20 @@ namespace mrs_odometry
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTeraranger");
 
-    range_terarangerone_ = *msg;
+    if (got_range) {
+      {
+        std::scoped_lock lock(mutex_range_terarangerone);
+        range_terarangerone_previous = range_terarangerone_;
+        range_terarangerone_          = *msg;
+      }
+    } else {
+      std::scoped_lock lock(mutex_range_terarangerone);
+      {
+        range_terarangerone_previous = *msg;
+        range_terarangerone_          = *msg;
+      }
+      got_range = true;
+    }
 
     if (!got_odom_pixhawk) {
 
