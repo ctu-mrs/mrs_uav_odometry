@@ -19,7 +19,7 @@ t265_available: true
 
 min_satellites: 0
 max_default_altitude: 10.0
-max_optflow_altitude: 10.0
+max_optflow_altitude: 2.0
 april_objects: false
 
 use_differential_gps: false
