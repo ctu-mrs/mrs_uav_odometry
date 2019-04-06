@@ -29,7 +29,7 @@ altitude_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    HEIGHT: ["height_range", "vel_mavros"]
+    HEIGHT: ["height_range"]
 
   # Mapping of measurements to states
   measurement_states:

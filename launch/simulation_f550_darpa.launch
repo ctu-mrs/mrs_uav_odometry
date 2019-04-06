@@ -3,7 +3,7 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
-  <arg name="world_file" default="$(find mrs_general)/config/world_darpa.yaml"/>
+  <arg name="world_file" default="$(find mrs_general)/config/world_simulation.yaml"/>
   <arg name="debug" default="false" />
 
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
@@ -14,7 +14,7 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
-  <!-- <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" /> -->
+  <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
@@ -26,17 +26,18 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/uav/f550_darpa.yaml" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/state_estimators_darpa.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/simulation/f550_darpa.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator_darpa.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
+
       <rosparam file="$(arg world_file)" />
 
       <param name="enable_profiler" value="$(arg profiler)" />
 
       <!-- parameter -->
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
-      <param name="simulation" type="bool" value="false"/>
+      <param name="simulation" type="bool" value="true"/>
       <param name="rosbag" type="bool" value="false"/>
       <param name="use_gt_orientation" type="bool" value="false"/>
 
@@ -48,9 +49,9 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
-      <remap from="~t265_odom_in" to="rs_t265/odom/sample" />
+      <remap from="~t265_odom_in" to="ground_truth" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
-      <remap from="~object_in" to="~odom_april" />
+      <remap from="~object_in" to="odometry/odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
@@ -60,6 +61,7 @@
       <remap from="~object_altitude_in" to="landing_object_controller/current_target" />
       <remap from="~icp_relative_in" to="forest_slam/odom_corr" />
       <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
+      <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
 
       <!-- Publishers -->

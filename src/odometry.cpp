@@ -2968,6 +2968,14 @@ namespace mrs_odometry
 
         double correction = msg->pose.pose.position.z;
 
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        Eigen::VectorXd input;
+        input = Eigen::VectorXd::Zero(altitude_m);
+        input(0) = (correction - odom_pixhawk_previous.pose.pose.position.z) / dt;
+        current_alt_estimator->doPrediction(input, dt);
+      }
+
         // For HEIGHT estimator do now use baro offset
         if (std::strcmp(estimator.first.c_str(), "HEIGHT") == 0) {
 
@@ -3155,10 +3163,10 @@ namespace mrs_odometry
 
       /*  Prediction with no control input//{ */
 
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        current_alt_estimator->doPrediction(input, dt);
-      }
+      /* { */
+      /*   std::scoped_lock lock(mutex_altitude_estimator); */
+      /*   current_alt_estimator->doPrediction(input, dt); */
+      /* } */
 
       //}
 
