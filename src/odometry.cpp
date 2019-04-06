@@ -1137,7 +1137,7 @@ namespace mrs_odometry
         // Find measurement covariance
         std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
         if (std::strcmp(it2->c_str(), "vel_optflow")) {
-        Q_arr_lat.push_back(pair_measurement_covariance->second*100);
+        Q_arr_lat.push_back(pair_measurement_covariance->second*1000);
         } else {
         Q_arr_lat.push_back(pair_measurement_covariance->second);
         }
@@ -3668,7 +3668,7 @@ namespace mrs_odometry
 
 if (!optflow_filter_y->isValid(optflow_vel_y)) {
         double median = optflow_filter_y->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
       optflow_vel_y = median;
     }
     }
@@ -5841,7 +5841,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
       estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
       estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-      estimator.second->setQ(config.Q_vel_optflow*100, map_measurement_name_id.find("vel_optflow")->second);
+      estimator.second->setQ(config.Q_vel_optflow*1000, map_measurement_name_id.find("vel_optflow")->second);
       estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
       estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
     }

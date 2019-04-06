@@ -148,7 +148,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000000]
+    vel_optflow: [100000000]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
