@@ -98,7 +98,7 @@ altitude:
   Q:
     alt_baro: [0.01]
     height_range: [100] # 0.04 stddev in simulation
-    vel_mavros: [0.001]
+    vel_mavros: [0.1]
     bias_baro: [0.01] 
     elevation: [0.01] 
 
@@ -140,6 +140,11 @@ lateral:
 
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 100000000
+
+  optflow_median_filter: true
+  optflow_filter_buffer_size: 100
+  optflow_filter_max_valid: 5.0
+  optflow_filter_max_diff: 1.0
 
   # Covariances of measurements
   Q:
