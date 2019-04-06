@@ -141,8 +141,8 @@ lateral:
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 100000000
 
-  optflow_median_filter: false
-  optflow_filter_buffer_size: 100
+  optflow_median_filter: true
+  optflow_filter_buffer_size: 50
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
