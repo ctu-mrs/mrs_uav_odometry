@@ -2893,6 +2893,11 @@ namespace mrs_odometry
 
     if (!got_init_heading) {
 
+      if (_use_heading_estimator) {
+        Eigen::VectorXd hdg(1);
+        current_hdg_estimator->getState(0, hdg);
+        m_init_heading = hdg(0);
+      } else {
       // Pixhawk (compass) orientation
       tf2::Quaternion q;
       {
@@ -2907,6 +2912,7 @@ namespace mrs_odometry
 
       double roll, pitch;
       tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
+      }
       got_init_heading = true;
     }
 
