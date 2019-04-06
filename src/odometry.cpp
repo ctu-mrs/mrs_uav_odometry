@@ -147,6 +147,8 @@ namespace mrs_odometry
     ros::Publisher pub_inno_cov_bias_;
     ros::Publisher pub_alt_cov_;
 
+    ros::Publisher pub_debug_optflow_filter;
+
   private:
     ros::Subscriber sub_global_position_;
     ros::Subscriber sub_tracker_status_;
@@ -206,6 +208,12 @@ namespace mrs_odometry
     ros::Time                                 optflow_twist_last_update;
     geometry_msgs::Vector3                    optflow_stddev;
     std::mutex                                mutex_optflow_stddev;
+    std::shared_ptr<MedianFilter> optflow_filter_x;
+    std::shared_ptr<MedianFilter> optflow_filter_y;
+    bool                                                      _optflow_median_filter;
+    int                                                      _optflow_filter_buffer_size;
+    double                                                   _optflow_filter_max_valid;
+    double                                                   _optflow_filter_max_diff;
 
     // VIO
     nav_msgs::Odometry odom_vio;
@@ -1038,6 +1046,14 @@ namespace mrs_odometry
     param_loader.load_matrix_dynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
     param_loader.load_param("lateral/rtk_fuse_sps", _rtk_fuse_sps);
 
+    param_loader.load_param("lateral/optflow_median_filter", _optflow_median_filter);
+    param_loader.load_param("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size);
+    param_loader.load_param("lateral/optflow_filter_max_valid", _optflow_filter_max_valid);
+    param_loader.load_param("lateral/optflow_filter_max_diff", _optflow_filter_max_diff);
+
+    optflow_filter_x = std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+    optflow_filter_y = std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+
     // Load the measurements fused by each state estimator
     for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
 
@@ -1120,7 +1136,11 @@ namespace mrs_odometry
 
         // Find measurement covariance
         std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
+        if (std::strcmp(it2->c_str(), "vel_optflow")) {
+        Q_arr_lat.push_back(pair_measurement_covariance->second*1000);
+        } else {
         Q_arr_lat.push_back(pair_measurement_covariance->second);
+        }
       }
 
       // Add pointer to state estimator to array
@@ -1375,6 +1395,7 @@ namespace mrs_odometry
     pub_inno_cov_elevation_    = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_elevation_out", 1);
     pub_inno_cov_bias_         = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_bias_out", 1);
     pub_alt_cov_               = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
+    pub_debug_optflow_filter             = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
 
     // republisher for rtk local
     pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -3645,6 +3666,30 @@ namespace mrs_odometry
       optflow_vel_y = optflow_twist.twist.twist.linear.y;
     }
 
+    if (_optflow_median_filter) {
+        if (!optflow_filter_x->isValid(optflow_vel_x)) {
+
+        double median = optflow_filter_x->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
+      optflow_vel_x = median;
+      }
+
+if (!optflow_filter_y->isValid(optflow_vel_y)) {
+        double median = optflow_filter_y->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
+      optflow_vel_y = median;
+    }
+    }
+ geometry_msgs::TwistWithCovarianceStamped optflow_filtered = optflow_twist;
+ optflow_filtered.twist.twist.linear.x = optflow_vel_x;
+ optflow_filtered.twist.twist.linear.y = optflow_vel_y;
+
+    try {
+        pub_debug_optflow_filter.publish(geometry_msgs::TwistWithCovarianceStampedConstPtr(new geometry_msgs::TwistWithCovarianceStamped(optflow_filtered)));
+    } catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
+    }
+
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
@@ -5804,7 +5849,7 @@ namespace mrs_odometry
       estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
       estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
       estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-      estimator.second->setQ(config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+      estimator.second->setQ(config.Q_vel_optflow*1000, map_measurement_name_id.find("vel_optflow")->second);
       estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
       estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
     }

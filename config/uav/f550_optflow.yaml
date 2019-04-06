@@ -28,7 +28,7 @@ pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
-garmin_z_offset: -0.15 # [m]
+garmin_z_offset: -0.03 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
@@ -61,7 +61,7 @@ altitude:
   elevation_tolerance: 0.5 # [m]
 
   # do not fuse rangefinder measurements when the UAV is tilted more than this angle
-  excessive_tilt: 0.5 # ~pi/6 [rad]
+  excessive_tilt: 0.8 # ~pi/6 [rad]
 
   # Altitude Kalman filter parameters
   numberOfVariables: 6
@@ -98,7 +98,7 @@ altitude:
   Q:
     alt_baro: [100]
     height_range: [500] # 0.04 stddev in simulation
-    vel_mavros: [0.001]
+    vel_mavros: [0.1]
     bias_baro: [0.1] 
     elevation: [0.01] 
 
@@ -139,7 +139,12 @@ lateral:
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
-  dynamic_optflow_cov_scale: 100000000
+  dynamic_optflow_cov_scale: 10000000
+
+  optflow_median_filter: true
+  optflow_filter_buffer_size: 100
+  optflow_filter_max_valid: 5.0
+  optflow_filter_max_diff: 1.0
 
   # Covariances of measurements
   Q:
