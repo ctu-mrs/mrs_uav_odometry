@@ -28,7 +28,7 @@ pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
-garmin_z_offset: -0.03 # [m]
+garmin_z_offset: -0.15 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
