@@ -2770,7 +2770,7 @@ namespace mrs_odometry
 
     if (!std::isfinite(rot_x)) {
       rot_x = 0;
-      ROS_ERROR("NaN detected in Mavros variable \"rot_x\", setting it to 0 and returning!!!");
+      ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_x\", setting it to 0!!!");
       return;
     } else if (rot_x > 1.57) {
       rot_x = 1.57;
@@ -2780,7 +2780,7 @@ namespace mrs_odometry
 
     if (!std::isfinite(rot_y)) {
       rot_y = 0;
-      ROS_ERROR("NaN detected in Mavros variable \"rot_y\", setting it to 0 and returning!!!");
+      ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_y\", setting it to 0!!!");
       return;
     } else if (rot_y > 1.57) {
       rot_y = 1.57;
