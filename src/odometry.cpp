@@ -1670,12 +1670,8 @@ namespace mrs_odometry
       }
     }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK) {
-      if (got_rtk) {
+        // return true, since RTK can work even with normal GPS
         return true;
-      } else {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for rtk msg to initialize takeoff estimator");
-        return false;
-      }
     }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265) {
       if (got_odom_t265) {
@@ -1854,13 +1850,14 @@ namespace mrs_odometry
 
     try {
       pub_altitude_state_.publish(mrs_msgs::AltitudeConstPtr(new mrs_msgs::Altitude(altitude_state)));
+      ROS_INFO_ONCE("[Odometry]: Publishing altitude");
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_state_.getTopic().c_str());
     }
 
     //}
-
+    
     if (_use_heading_estimator && !init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS")==STRING_EQUAL) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
       return;
@@ -1936,13 +1933,8 @@ namespace mrs_odometry
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
         changeCurrentEstimator(optflow_type);
-      } else if ((!got_rtk || !rtk_reliable) && gps_reliable && got_odom_pixhawk) {
-        ROS_WARN("[Odometry]: RTK not reliable. Switching to GPS type.");
-        mrs_msgs::EstimatorType gps_type;
-        gps_type.type = mrs_msgs::EstimatorType::GPS;
-        changeCurrentEstimator(gps_type);
-      }
-      if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_rtk) {
+      } 
+      if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
         return;
@@ -1976,6 +1968,7 @@ namespace mrs_odometry
                           got_optflow ? "TRUE" : "FALSE");
         return;
       }
+
 
     // Fallback from T265
     } else if (_estimator_type.type == mrs_msgs::EstimatorType::T265) {
