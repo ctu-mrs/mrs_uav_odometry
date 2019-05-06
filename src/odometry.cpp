@@ -6086,7 +6086,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
   bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
 
     mrs_msgs::EstimatorType target_estimator = desired_estimator;
-    target_estimator.name                    = _state_estimators_names[target_estimator.type];
+    target_estimator.name                    = _estimator_type_names[target_estimator.type];
 
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
     {
@@ -6309,7 +6309,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
   bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator) {
 
     mrs_msgs::AltitudeType target_estimator = desired_estimator;
-    target_estimator.name                   = _altitude_estimators_names[target_estimator.type];
+    target_estimator.name                   = _altitude_type_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::ALTITUDE &&
         target_estimator.type != mrs_msgs::AltitudeType::ELEVATION) {
@@ -6344,7 +6344,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
   bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator) {
 
     mrs_msgs::HeadingType target_estimator = desired_estimator;
-    target_estimator.name                  = _heading_estimators_names[target_estimator.type];
+    target_estimator.name                  = _heading_type_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
         target_estimator.type != mrs_msgs::HeadingType::OPTFLOW) {
