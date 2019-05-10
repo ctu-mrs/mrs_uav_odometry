@@ -79,9 +79,9 @@ altitude:
       0, 0, 0, 0, 0, 1]
 
   # The input matrix
-  B: [0,
+  B: [1,
       0,
-      0,
+      1,
       0,
       0,
       0]
