@@ -4785,7 +4785,10 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
     // garmin filtration
     if (isUavFlying()) {
       if (!garminFilter->isValid(measurement)) {
+        double filtered = garminFilter->getMedian();
+        /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f -> %f filtered by median filter.", measurement, filtered); */
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by median filter.", measurement);
+        /* measurement = filtered; */
         return;
       }
     }
