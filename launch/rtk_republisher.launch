@@ -18,6 +18,7 @@
 
       <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
+      <remap from="~tersus_in" to="tersus/bestpos" />
       <remap from="~rtk_out" to="rtk_gps/global" />
 
       <!-- Publishers -->

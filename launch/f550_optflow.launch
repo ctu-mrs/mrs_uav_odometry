@@ -14,6 +14,8 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
+  <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
+
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" />
@@ -25,7 +27,7 @@
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
       <rosparam file="$(find mrs_odometry)/config/uav/uav_default.yaml" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/uav/naki.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/uav/f550_optflow.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
@@ -47,9 +49,9 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
-      <remap from="~object_in" to="~odom_april" />
       <remap from="~t265_odom_in" to="rs_t265/odom/sample" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
+      <remap from="~object_in" to="~odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />

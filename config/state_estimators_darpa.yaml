@@ -5,14 +5,7 @@ state_estimators:
 
   # The available state estimators
   state_estimators: [
-    "OPTFLOW", 
-    "GPS", 
-    "OPTFLOWGPS",
-    "RTK",
-    "ICP",
-    "VIO",
-    "OBJECT",
-    "T265"
+    "OPTFLOW" 
   ] 
 
   # The measured states of the model
@@ -40,15 +33,6 @@ state_estimators:
   # The fused measurements for each state estimator
   fused_measurements:
     OPTFLOW: ["vel_optflow", "tilt_mavros"]
-    GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
-    OPTFLOWGPS: ["vel_optflow", "pos_mavros", "tilt_mavros"]
-    RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
-    # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
-    # RTK: ["pos_rtk", "tilt_mavros"]
-    ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
-    VIO: ["tilt_mavros", "pos_vio"]
-    OBJECT: ["tilt_mavros", "pos_object"]
-    T265: []
 
   # Mapping of measurements to states
   measurement_states:

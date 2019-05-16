@@ -5,21 +5,21 @@ diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
-# State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "OPTFLOW"
+# State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, T265
+takeoff_estimator: "GPS"
 
 # available localization methods
 gps_available: true
-optflow_available: true
+optflow_available: false
 vio_available: false
 rtk_available: true
-lidar_available: true
-object_available: true
+lidar_available: false
+object_available: false
 t265_available: true
 
 min_satellites: 6
 max_default_altitude: 100.0
-max_optflow_altitude: 100.0
+max_optflow_altitude: 3.0
 april_objects: true
 
 use_differential_gps: true
@@ -78,7 +78,6 @@ altitude:
       0, 0, 0, 0, 0, 1]
 
   # The input matrix
-  # Identify model, so that input can be used!!
   B: [0,
       0,
       0,
@@ -136,14 +135,14 @@ lateral:
   max_object_pos_correction: 0.5
   max_rtk_pos_correction: 0.1
   max_t265_vel: 10.0
-  rtk_fuse_sps: false
+  rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 1000000000
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000] # scale of covariance calculated by optic_flow node
+    vel_optflow: [1000]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]

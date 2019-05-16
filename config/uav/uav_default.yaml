@@ -3,32 +3,32 @@ aux_rate: 10 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
-lkf_states_rate: 100 # [Hz]
+lkf_states_rate: 10 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
 takeoff_estimator: "OPTFLOW"
 
 # available localization methods
-gps_available: true
+gps_available: false
 optflow_available: true
 vio_available: false
-rtk_available: true
-lidar_available: true
-object_available: true
-t265_available: true
+rtk_available: false
+lidar_available: false
+object_available: false
+t265_available: false
 
-min_satellites: 6
-max_default_altitude: 100.0
-max_optflow_altitude: 100.0
-april_objects: true
+min_satellites: 0
+max_default_altitude: 10.0
+max_optflow_altitude: 2.0
+april_objects: false
 
-use_differential_gps: true
+use_differential_gps: false
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 pass_rtk_as_odom: false # dangerous outside simulation!
-max_altitude_correction: 0.1 # [m]
+max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
-garmin_z_offset: 0.02 # [m]
+garmin_z_offset: -0.15 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
@@ -51,7 +51,7 @@ altitude:
   # ALTITUDE - barometric, HEIGHT - rangefinder
   altitude_estimator: "HEIGHT"
   estimate_elevation: false
-  estimate_baro_offset: true 
+  estimate_baro_offset: true
 
   # z-axis (altitude, height) velocity limit for barometer offset estimation
   # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
@@ -61,8 +61,9 @@ altitude:
   elevation_tolerance: 0.5 # [m]
 
   # do not fuse rangefinder measurements when the UAV is tilted more than this angle
-  excessive_tilt: 0.2 # ~pi/6 [rad]
+  excessive_tilt: 0.5 # ~pi/6 [rad]
 
+  # Altitude Kalman filter parameters
   numberOfVariables: 6
   numberOfInputs: 1
   numberOfMeasurements: 1
@@ -70,35 +71,34 @@ altitude:
   # The system matrix
   # altitude, velocity, acceleration, height, elevation, offset
   # altitude = height + elevation
-  A: [1, 0.02, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
-      0, 0, 1, 0.02, 0, 0, 
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 1]
+  A: [0, 0.00, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 1.0, 0.00, 0, 0, 
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0]
 
   # The input matrix
-  # Identify model, so that input can be used!!
   B: [0,
       0,
-      0,
+      0.01,
       0,
       0,
       0]
 
   # Process covariance
-  R: [0.0001, 0, 0, 0, 0, 0,
-      0, 0.0001, 0, 0, 0, 0,
-      0, 0, 0.0001, 0, 0, 0,
-      0, 0, 0, 0.0001, 0, 0,
-      0, 0, 0, 0, 0.0001, 0,
-      0, 0, 0, 0, 0, 0.0001]
+  R: [1, 0, 0, 0, 0, 0,
+      0, 1, 0, 0, 0, 0,
+      0, 0, 0.01, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 1]
 
   # Covariances of measurements
   Q:
     alt_baro: [0.01]
-    height_range: [0.1] # 0.04 stddev in simulation
-    vel_mavros: [0.001]
+    height_range: [10] # 0.04 stddev in simulation
+    vel_mavros: [0.1]
     bias_baro: [0.01] 
     elevation: [0.01] 
 
@@ -123,7 +123,7 @@ altitude:
   # failsafe for object altitude fusion
   # object_altitude_max_down_difference: 0.5
   # object_altitude_max_abs_difference: 1.0
-  
+
 lateral:
 
   numberOfVariables: 6
@@ -134,24 +134,29 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
-  max_rtk_pos_correction: 0.1
+  max_rtk_pos_correction: 0.2
   max_t265_vel: 10.0
-  rtk_fuse_sps: false
+  rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
-  dynamic_optflow_cov_scale: 1000000000
+  dynamic_optflow_cov_scale: 100000000
+
+  optflow_median_filter: true
+  optflow_filter_buffer_size: 50
+  optflow_filter_max_valid: 5.0
+  optflow_filter_max_diff: 1.0
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000] # scale of covariance calculated by optic_flow node
+    vel_optflow: [100000000]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
-    pos_rtk: [10]
-    vel_rtk: [1000]
+    pos_rtk: [100000]
+    vel_rtk: [10000]
     pos_icp: [1000]
     vel_icp: [10000]
-    pos_vio: [100]
+    pos_vio: [100000]
     vel_vio: [10000]
     pos_object: [1000]
     vel_object: [10000]
@@ -160,7 +165,7 @@ lateral:
   # pos, vel, acc, acc_in, acc_dist, tilt
   A: [1, 0.02, 0, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]
@@ -193,8 +198,8 @@ lateral:
     R: [0.01, 0,
         0, 0.01]
 
-    Q: [100, 0,
-        0, 100]
+    Q: [10, 0,
+        0, 10]
 
     P: [1, 0,
         0, 1]
@@ -202,8 +207,8 @@ lateral:
 heading:
 
   use_heading_estimator: true # otherwise use PixHawk heading estimate
-  gyro_fallback: false
-  heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
+  gyro_fallback: true
+  heading_estimator: "OPTFLOW" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2
@@ -219,12 +224,12 @@ heading:
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
   A: [1, 0.02, 0,  # yaw
-      0, 0.9914, 0,     # yaw rate
+      0, 0.9, 0,     # yaw rate
       0, 0, 0]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
-      0, 0.0086,
+      0, 0.1,
       0, 0]
 
   # Process covariance
@@ -236,4 +241,4 @@ heading:
   Q:
     yaw_compass: [0.1]
     rate_gyro: [0.1]
-    rate_optflow: [0.1]
+    rate_optflow: [10]

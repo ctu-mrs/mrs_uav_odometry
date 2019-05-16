@@ -4,16 +4,15 @@
   <arg name="standalone" default="$(optenv STANDALONE false)"/>
   <arg name="profiler" default="$(optenv PROFILER false)" />
   <arg name="world_file" default="$(find mrs_general)/config/world_simulation.yaml"/>
-
   <arg name="debug" default="false" />
-
-  <arg unless="$(arg debug)" name="launch_prefix" value=""/>
-  <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+  <arg unless="$(arg debug)" name="launch_prefix" value=""/>
+  <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
@@ -21,7 +20,7 @@
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch" />
 
-  <include file="$(find mrs_odometry)/launch/simulation_sensors_tf.launch" />
+  <!-- <include file="$(find mrs_odometry)/launch/simulation_sensors_tf.launch" /> -->
 
   <group ns="$(arg uav_name)">
 
@@ -29,6 +28,7 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
+      <rosparam file="$(find mrs_odometry)/config/simulation/simulation_default.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/simulation/f550_gps.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
@@ -49,6 +49,7 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
+      <remap from="~t265_odom_in" to="ground_truth" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
       <remap from="~object_in" to="apriltags2_ros/tag_odometry" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
@@ -79,6 +80,7 @@
       <remap from="~altitude_out" to="~altitude" />
       <remap from="~altitude_state_out" to="~altitude_state" />
       <remap from="~max_altitude_out" to="~max_altitude" />
+      <remap from="~orientation_out" to="~orientation" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />
       <remap from="~orientation_gt_out" to="~orientation_gt" />

@@ -6,6 +6,11 @@
   <arg name="world_file" default="$(find mrs_general)/config/world_current.yaml"/>
   <arg name="debug" default="false" />
 
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
@@ -15,10 +20,11 @@
 
   <group ns="$(arg uav_name)">
 
-    <node pkg="nodelet" type="nodelet" name="odometry" args="load mrs_odometry/Odometry $(arg uav_name)_nodelet_manager" output="screen" launch-prefix="$(arg launch_prefix)">
+    <node pkg="nodelet" type="nodelet" name="odometry" args="$(arg nodelet) mrs_odometry/Odometry $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
+      <rosparam file="$(find mrs_odometry)/config/uav/uav_default.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/uav/eagle.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
@@ -41,6 +47,7 @@
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="orb_slam/odom" />
+      <remap from="~t265_odom_in" to="rs_t265/odom/sample" />
       <remap from="~object_in" to="~odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
@@ -72,6 +79,7 @@
       <remap from="~altitude_out" to="~altitude" />
       <remap from="~altitude_state_out" to="~altitude_state" />
       <remap from="~max_altitude_out" to="~max_altitude" />
+      <remap from="~orientation_out" to="~orientation" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />
       <remap from="~orientation_gt_out" to="~orientation_gt" />

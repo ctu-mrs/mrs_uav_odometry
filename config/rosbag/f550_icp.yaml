@@ -10,11 +10,12 @@ takeoff_estimator: "ICP"
 
 # available localization methods
 gps_available: true
-optflow_available: false
+optflow_available: true
 vio_available: false
 rtk_available: false
 lidar_available: true
 object_available: false
+t265_available: false
 
 min_satellites: 0
 max_default_altitude: 10.0
@@ -43,7 +44,7 @@ garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
 
-null_tracker: "mrs_mav_manager/NullTracker"
+null_tracker: "mrs_uav_manager/NullTracker"
 
 altitude:
 
@@ -133,8 +134,12 @@ lateral:
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
   max_object_pos_correction: 0.5
+  max_rtk_pos_correction: 0.2
+  max_t265_vel: 10.0
+  rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
+  dynamic_optflow_cov_scale: 1000000000
 
   # Covariances of measurements
   Q:
@@ -142,6 +147,8 @@ lateral:
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [1000000]
+    pos_rtk: [100000]
+    vel_rtk: [10000]
     pos_rtk: [1000]
     pos_icp: [1000]
     vel_icp: [10000]
@@ -175,24 +182,50 @@ lateral:
       0, 0, 0, 0, 10000000, 0,
       0, 0, 0, 0, 0, 1000]
 
+  # RTK estimator must have a different model
+  rtk:
+
+    A: [1, 0,
+        0, 1]
+
+    B: [0.01, 0,
+        0, 0.01]
+
+    R: [0.01, 0,
+        0, 0.01]
+
+    Q: [10, 0,
+        0, 10]
+
+    P: [1, 0,
+        0, 1]
+
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
-  heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
+  use_heading_estimator: false # otherwise use PixHawk heading estimate
+  gyro_fallback: false
+  heading_estimator: "GYRO" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2
   numberOfMeasurements: 1
 
+  optflow_yaw_rate_filter_buffer_size: 100
+  optflow_yaw_rate_filter_max_valid: 3.0
+  optflow_yaw_rate_filter_max_diff: 3.0
+
+  compass_yaw_filter_buffer_size: 100
+  compass_yaw_filter_max_diff: deg(45)
+
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
   A: [1, 0.02, 0,  # yaw
-      0, 0.9, 0,     # yaw rate
+      0, 0.9914, 0,     # yaw rate
       0, 0, 0]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
-      0, 0.1,
+      0, 0.0086,
       0, 0]
 
   # Process covariance
