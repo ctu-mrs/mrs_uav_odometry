@@ -10,9 +10,9 @@ state_estimators:
     "OPTFLOWGPS",
     "RTK",
     "ICP",
-    "VIO",
-    "OBJECT",
-    "T265"
+    "VIO"
+    # "OBJECT",
+    # "T265"
   ] 
 
   # The measured states of the model
