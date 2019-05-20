@@ -24,8 +24,10 @@ namespace mrs_odometry
                       const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
 
     bool        doPrediction(const Eigen::VectorXd &input, double dt);
+    bool        doPrediction(const Eigen::VectorXd &input);
     bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
     bool        getStates(Eigen::MatrixXd &states);
+    bool        getN(int& n);
     bool        getState(int state_id, Eigen::VectorXd &state);
     std::string getName(void);
     bool        setState(int state_id, const Eigen::VectorXd &state);
