@@ -40,9 +40,9 @@ trgFilterMaxDifference: 3.0
 # objectAltitudeValidAltitude: 5.0
 # objectAltitudeMaxDifference: 1.0
 
-garminFilterBufferSize: 100
+garminFilterBufferSize: 200
 garminFilterMaxValidAltitude: 25.0
-garminFilterMaxDifference: 3.0
+garminFilterMaxDifference: 1.0
 
 null_tracker: "mrs_uav_manager/NullTracker"
 
@@ -97,7 +97,7 @@ altitude:
   # Covariances of measurements
   Q:
     alt_baro: [100]
-    height_range: [100] # 0.04 stddev in simulation
+    height_range: [1000] # 0.04 stddev in simulation
     vel_mavros: [0.001]
     bias_baro: [0.1] 
     elevation: [0.01] 
