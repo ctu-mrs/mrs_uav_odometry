@@ -109,11 +109,11 @@ namespace mrs_odometry
     bool        rosbag_     = false;
     bool        use_gt_orientation_;
 
-    bool _publish_fused_odom;
-    bool _dynamic_optflow_cov = false;
+    bool   _publish_fused_odom;
+    bool   _dynamic_optflow_cov       = false;
     double _dynamic_optflow_cov_scale = 0;
-    double twist_q_x_prev = 0;
-    double twist_q_y_prev = 0;
+    double twist_q_x_prev             = 0;
+    double twist_q_y_prev             = 0;
 
     double _max_optflow_altitude;
     double _max_default_altitude;
@@ -208,12 +208,12 @@ namespace mrs_odometry
     ros::Time                                 optflow_twist_last_update;
     geometry_msgs::Vector3                    optflow_stddev;
     std::mutex                                mutex_optflow_stddev;
-    std::shared_ptr<MedianFilter> optflow_filter_x;
-    std::shared_ptr<MedianFilter> optflow_filter_y;
-    bool                                                      _optflow_median_filter;
-    int                                                      _optflow_filter_buffer_size;
-    double                                                   _optflow_filter_max_valid;
-    double                                                   _optflow_filter_max_diff;
+    std::shared_ptr<MedianFilter>             optflow_filter_x;
+    std::shared_ptr<MedianFilter>             optflow_filter_y;
+    bool                                      _optflow_median_filter;
+    int                                       _optflow_filter_buffer_size;
+    double                                    _optflow_filter_max_valid;
+    double                                    _optflow_filter_max_diff;
 
     // VIO
     nav_msgs::Odometry odom_vio;
@@ -263,10 +263,16 @@ namespace mrs_odometry
     bool             _rtk_fuse_sps;
 
 
-    std::mutex         mutex_icp;
-    nav_msgs::Odometry icp_odom;
-    nav_msgs::Odometry icp_odom_previous;
-    ros::Time          icp_odom_last_update;
+    std::mutex                    mutex_icp;
+    nav_msgs::Odometry            icp_odom;
+    nav_msgs::Odometry            icp_odom_previous;
+    ros::Time                     icp_odom_last_update;
+    std::shared_ptr<MedianFilter> icp_vel_filter_x;
+    std::shared_ptr<MedianFilter> icp_vel_filter_y;
+    bool                          _icp_vel_median_filter;
+    int                           _icp_vel_filter_buffer_size;
+    double                        _icp_vel_filter_max_valid;
+    double                        _icp_vel_filter_max_diff;
 
     std::mutex         mutex_icp_global;
     nav_msgs::Odometry icp_global_odom;
@@ -570,8 +576,8 @@ namespace mrs_odometry
     bool   _optflow_available = false;
     bool   _rtk_available     = false;
     bool   rtk_reliable       = false;
-    bool   _t265_available     = false;
-    bool   t265_reliable       = false;
+    bool   _t265_available    = false;
+    bool   t265_reliable      = false;
     bool   _lidar_available   = false;
     bool   _object_available  = false;
     bool   object_reliable    = false;
@@ -840,7 +846,7 @@ namespace mrs_odometry
     param_loader.load_param("object_available", _object_available);
     gps_reliable        = _gps_available;
     rtk_reliable        = _rtk_available;
-    t265_reliable        = _t265_available;
+    t265_reliable       = _t265_available;
     object_reliable     = false;
     counter_odom_object = false;
 
@@ -925,13 +931,13 @@ namespace mrs_odometry
       map_alt_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
 
       // Load the model of each estimator
-        int temp_value;
-        param_loader.load_param("altitude_estimators/n_A/" + *it, temp_value);
-        map_alt_n_states.insert(std::pair<std::string, int>(*it, temp_value));
-        Eigen::MatrixXd A_model;
-        param_loader.load_matrix_dynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
+      int temp_value;
+      param_loader.load_param("altitude_estimators/n_A/" + *it, temp_value);
+      map_alt_n_states.insert(std::pair<std::string, int>(*it, temp_value));
+      Eigen::MatrixXd A_model;
+      param_loader.load_matrix_dynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
 
-        map_alt_model.insert(std::pair<std::string, Eigen::MatrixXd>(*it, A_model));
+      map_alt_model.insert(std::pair<std::string, Eigen::MatrixXd>(*it, A_model));
     }
 
     // Load the model state of each measurement
@@ -1008,11 +1014,11 @@ namespace mrs_odometry
         Q_arr_alt.push_back(pair_measurement_covariance->second);
       }
 
-        // Find model matrix A
-        int n_states = map_alt_n_states.find(*it)->second;
-        Eigen::MatrixXd A_model = Eigen::MatrixXd::Zero(n_states, n_states);
-        std::map<std::string, Eigen::MatrixXd>::iterator pair_estimator_model = map_alt_model.find(*it);
-        A_model = pair_estimator_model->second;
+      // Find model matrix A
+      int                                              n_states             = map_alt_n_states.find(*it)->second;
+      Eigen::MatrixXd                                  A_model              = Eigen::MatrixXd::Zero(n_states, n_states);
+      std::map<std::string, Eigen::MatrixXd>::iterator pair_estimator_model = map_alt_model.find(*it);
+      A_model                                                               = pair_estimator_model->second;
 
       /* main_altitude_kalman       = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
       /* failsafe_teraranger_kalman = new mrs_lib::Lkf(altitude_n, altitude_m, altitude_p, A1, B1, R1, Q1, P1); */
@@ -1063,13 +1069,27 @@ namespace mrs_odometry
     param_loader.load_matrix_dynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
     param_loader.load_param("lateral/rtk_fuse_sps", _rtk_fuse_sps);
 
+    // Optflow median filter
     param_loader.load_param("lateral/optflow_median_filter", _optflow_median_filter);
     param_loader.load_param("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size);
     param_loader.load_param("lateral/optflow_filter_max_valid", _optflow_filter_max_valid);
     param_loader.load_param("lateral/optflow_filter_max_diff", _optflow_filter_max_diff);
 
-    optflow_filter_x = std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
-    optflow_filter_y = std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+    optflow_filter_x =
+        std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+    optflow_filter_y =
+        std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+
+    // ICP median filter
+    param_loader.load_param("lateral/icp_vel_median_filter", _icp_vel_median_filter);
+    param_loader.load_param("lateral/icp_vel_filter_buffer_size", _icp_vel_filter_buffer_size);
+    param_loader.load_param("lateral/icp_vel_filter_max_valid", _icp_vel_filter_max_valid);
+    param_loader.load_param("lateral/icp_vel_filter_max_diff", _icp_vel_filter_max_diff);
+
+    icp_vel_filter_x =
+        std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
+    icp_vel_filter_y =
+        std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
 
     // Load the measurements fused by each state estimator
     for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
@@ -1154,9 +1174,9 @@ namespace mrs_odometry
         // Find measurement covariance
         std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
         if (std::strcmp(it2->c_str(), "vel_optflow")) {
-        Q_arr_lat.push_back(pair_measurement_covariance->second*1000);
+          Q_arr_lat.push_back(pair_measurement_covariance->second * 1000);
         } else {
-        Q_arr_lat.push_back(pair_measurement_covariance->second);
+          Q_arr_lat.push_back(pair_measurement_covariance->second);
         }
       }
 
@@ -1412,7 +1432,7 @@ namespace mrs_odometry
     pub_inno_cov_elevation_    = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_elevation_out", 1);
     pub_inno_cov_bias_         = nh_.advertise<mrs_msgs::Float64Stamped>("inno_cov_bias_out", 1);
     pub_alt_cov_               = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
-    pub_debug_optflow_filter             = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
+    pub_debug_optflow_filter   = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
 
     // republisher for rtk local
     pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -1687,8 +1707,8 @@ namespace mrs_odometry
       }
     }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK) {
-        // return true, since RTK can work even with normal GPS
-        return true;
+      // return true, since RTK can work even with normal GPS
+      return true;
     }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265) {
       if (got_odom_t265) {
@@ -1787,10 +1807,10 @@ namespace mrs_odometry
 
     // Just return without publishing - the t265 odometry is republished in callback at faster rate
     if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
-    
-    return;
+
+      return;
     }
-    
+
     // --------------------------------------------------------------
     // |              publish the new altitude message              |
     // --------------------------------------------------------------
@@ -1874,8 +1894,8 @@ namespace mrs_odometry
     }
 
     //}
-    
-    if (_use_heading_estimator && !init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS")==STRING_EQUAL) {
+
+    if (_use_heading_estimator && !init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == STRING_EQUAL) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
       return;
     }
@@ -1903,29 +1923,29 @@ namespace mrs_odometry
 
     /* publish heading  //{ */
 
-      nav_msgs::Odometry orientation;
+    nav_msgs::Odometry orientation;
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
-      orientation.header = odom_pixhawk.header;
+      orientation.header                = odom_pixhawk.header;
       orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
     }
-      if (_use_heading_estimator) {
+    if (_use_heading_estimator) {
 
-        Eigen::VectorXd yaw(1);
-        Eigen::VectorXd yaw_rate(1);
+      Eigen::VectorXd yaw(1);
+      Eigen::VectorXd yaw_rate(1);
 
-        {
-          std::scoped_lock lock(mutex_current_hdg_estimator);
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
 
-          current_hdg_estimator->getState(0, yaw);
-          current_hdg_estimator->getState(1, yaw_rate);
-        }
-        yaw(0) = wrap(yaw(0));
-        setYaw(orientation.pose.pose.orientation, yaw(0));
-        /* odom_main.twist.twist.angular.z = yaw_rate(0); */
-        orientation.header.frame_id = "local_origin";
-        orientation.child_frame_id = current_hdg_estimator->getName();
-      } 
+        current_hdg_estimator->getState(0, yaw);
+        current_hdg_estimator->getState(1, yaw_rate);
+      }
+      yaw(0) = wrap(yaw(0));
+      setYaw(orientation.pose.pose.orientation, yaw(0));
+      /* odom_main.twist.twist.angular.z = yaw_rate(0); */
+      orientation.header.frame_id = "local_origin";
+      orientation.child_frame_id  = current_hdg_estimator->getName();
+    }
 
     try {
       pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
@@ -1935,7 +1955,7 @@ namespace mrs_odometry
     }
 
     //}
-    
+
     /* sensor checking //{ */
 
     if (!is_ready_to_takeoff) {
@@ -1950,7 +1970,7 @@ namespace mrs_odometry
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
         changeCurrentEstimator(optflow_type);
-      } 
+      }
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
@@ -1987,7 +2007,7 @@ namespace mrs_odometry
       }
 
 
-    // Fallback from T265
+      // Fallback from T265
     } else if (_estimator_type.type == mrs_msgs::EstimatorType::T265) {
       if ((!got_odom_t265 || !t265_reliable) && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
         ROS_WARN("[Odometry]: T265 not reliable. Switching to OPTFLOW type.");
@@ -2002,7 +2022,8 @@ namespace mrs_odometry
       }
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_odom_t265) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
-                          got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE", got_odom_t265 ? "TRUE" : "FALSE");
+                          got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
+                          got_odom_t265 ? "TRUE" : "FALSE");
         return;
       }
 
@@ -2180,7 +2201,8 @@ namespace mrs_odometry
         odom_main.pose.pose.position.y = pos_vec(1);
       }
 
-      if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL && std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL) {
+      if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL &&
+          std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL) {
         odom_main.twist.twist.linear.x = vel_vec(0);
         odom_main.twist.twist.linear.y = vel_vec(1);
       }
@@ -2929,20 +2951,20 @@ namespace mrs_odometry
         current_hdg_estimator->getState(0, hdg);
         m_init_heading = hdg(0);
       } else {
-      // Pixhawk (compass) orientation
-      tf2::Quaternion q;
-      {
-        std::scoped_lock lock(mutex_odom_pixhawk);
+        // Pixhawk (compass) orientation
+        tf2::Quaternion q;
+        {
+          std::scoped_lock lock(mutex_odom_pixhawk);
 
-        q.setX(odom_pixhawk.pose.pose.orientation.x);
-        q.setY(odom_pixhawk.pose.pose.orientation.y);
-        q.setZ(odom_pixhawk.pose.pose.orientation.z);
-        q.setW(odom_pixhawk.pose.pose.orientation.w);
-      }
-      q.normalize();
+          q.setX(odom_pixhawk.pose.pose.orientation.x);
+          q.setY(odom_pixhawk.pose.pose.orientation.y);
+          q.setZ(odom_pixhawk.pose.pose.orientation.z);
+          q.setW(odom_pixhawk.pose.pose.orientation.w);
+        }
+        q.normalize();
 
-      double roll, pitch;
-      tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
+        double roll, pitch;
+        tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
       }
       got_init_heading = true;
     }
@@ -3005,16 +3027,16 @@ namespace mrs_odometry
 
         double correction = msg->pose.pose.position.z;
 
-      {
-        std::scoped_lock lock(mutex_altitude_estimator);
-        Eigen::VectorXd input;
-        input = Eigen::VectorXd::Zero(altitude_m);
-        input(0) = (correction - odom_pixhawk_previous.pose.pose.position.z) / dt;
-        /* Eigen::MatrixXd B_new(6, 1); */
-        /* B_new << dt, 0, dt, 0, 0, 0; */
-        /* estimator.second->setB(B_new); */
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          Eigen::VectorXd  input;
+          input    = Eigen::VectorXd::Zero(altitude_m);
+          input(0) = (correction - odom_pixhawk_previous.pose.pose.position.z) / dt;
+          /* Eigen::MatrixXd B_new(6, 1); */
+          /* B_new << dt, 0, dt, 0, 0, 0; */
+          /* estimator.second->setB(B_new); */
           estimator.second->doPrediction(input, dt);
-      }
+        }
 
         // For HEIGHT estimator do now use baro offset
         if (std::strcmp(estimator.first.c_str(), "HEIGHT") == 0) {
@@ -3645,34 +3667,34 @@ namespace mrs_odometry
     }
 
     if (_dynamic_optflow_cov) {
-    double twist_q_x = optflow_twist.twist.covariance[0];
-    double twist_q_y = optflow_twist.twist.covariance[7];
+      double twist_q_x = optflow_twist.twist.covariance[0];
+      double twist_q_y = optflow_twist.twist.covariance[7];
 
-    if (std::isfinite(twist_q_x)) {
+      if (std::isfinite(twist_q_x)) {
 
-      // Scale covariance
-      twist_q_x *= _dynamic_optflow_cov_scale;
-      twist_q_y *= _dynamic_optflow_cov_scale;
+        // Scale covariance
+        twist_q_x *= _dynamic_optflow_cov_scale;
+        twist_q_y *= _dynamic_optflow_cov_scale;
 
-      double twist_q = std::max(twist_q_x, twist_q_y);
+        double twist_q = std::max(twist_q_x, twist_q_y);
 
-      std::string                          measurement_name  = "vel_optflow";
-      std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
-      if (it_measurement_id == map_measurement_name_id.end()) {
-        ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
-        return;
-      }
-
-      for (auto &estimator : m_state_estimators) {
-        if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0) {
-          estimator.second->setQ(twist_q, it_measurement_id->second);
-          ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
+        std::string                          measurement_name  = "vel_optflow";
+        std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
+        if (it_measurement_id == map_measurement_name_id.end()) {
+          ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
+          return;
         }
+
+        for (auto &estimator : m_state_estimators) {
+          if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0) {
+            estimator.second->setQ(twist_q, it_measurement_id->second);
+            ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
+          }
+        }
+      } else {
+        twist_q_x = twist_q_x_prev;
+        twist_q_y = twist_q_y_prev;
       }
-    } else {
-      twist_q_x = twist_q_x_prev;
-      twist_q_y = twist_q_y_prev;
-    }
       twist_q_x_prev = twist_q_x;
       twist_q_y_prev = twist_q_y;
     }
@@ -3686,26 +3708,27 @@ namespace mrs_odometry
     }
 
     if (_optflow_median_filter) {
-        if (!optflow_filter_x->isValid(optflow_vel_x)) {
+      if (!optflow_filter_x->isValid(optflow_vel_x)) {
 
         double median = optflow_filter_x->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
-      optflow_vel_x = median;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
+        optflow_vel_x = median;
       }
 
-if (!optflow_filter_y->isValid(optflow_vel_y)) {
+      if (!optflow_filter_y->isValid(optflow_vel_y)) {
         double median = optflow_filter_y->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
-      optflow_vel_y = median;
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
+        optflow_vel_y = median;
+      }
     }
-    }
- geometry_msgs::TwistWithCovarianceStamped optflow_filtered = optflow_twist;
- optflow_filtered.twist.twist.linear.x = optflow_vel_x;
- optflow_filtered.twist.twist.linear.y = optflow_vel_y;
+    geometry_msgs::TwistWithCovarianceStamped optflow_filtered = optflow_twist;
+    optflow_filtered.twist.twist.linear.x                      = optflow_vel_x;
+    optflow_filtered.twist.twist.linear.y                      = optflow_vel_y;
 
     try {
-        pub_debug_optflow_filter.publish(geometry_msgs::TwistWithCovarianceStampedConstPtr(new geometry_msgs::TwistWithCovarianceStamped(optflow_filtered)));
-    } catch (...) {
+      pub_debug_optflow_filter.publish(geometry_msgs::TwistWithCovarianceStampedConstPtr(new geometry_msgs::TwistWithCovarianceStamped(optflow_filtered)));
+    }
+    catch (...) {
       ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
     }
 
@@ -4506,6 +4529,23 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       vel_icp_y = icp_odom.twist.twist.linear.y;
     }
 
+    if (_icp_vel_median_filter) {
+
+      if (!icp_vel_filter_x->isValid(vel_icp_x)) {
+
+        double median = icp_vel_filter_x->getMedian();
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP x velocity filtered by median filter. %f -> %f", vel_icp_x, median);
+        vel_icp_x = median;
+      }
+
+      if (!icp_vel_filter_y->isValid(vel_icp_y)) {
+
+        double median = icp_vel_filter_y->getMedian();
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP y velocity filtered by median filter. %f -> %f", vel_icp_y, median);
+        vel_icp_y = median;
+      }
+    }
+
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vel_icp_x, vel_icp_y, "vel_icp");
 
@@ -4603,13 +4643,13 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       {
         std::scoped_lock lock(mutex_range_terarangerone);
         range_terarangerone_previous = range_terarangerone_;
-        range_terarangerone_          = *msg;
+        range_terarangerone_         = *msg;
       }
     } else {
       std::scoped_lock lock(mutex_range_terarangerone);
       {
         range_terarangerone_previous = *msg;
-        range_terarangerone_          = *msg;
+        range_terarangerone_         = *msg;
       }
       got_range = true;
     }
@@ -4944,7 +4984,8 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
         //}
 
         // We want to detect flying above obstacle when the elevation innovation exceeds 3 standard deviations
-        /* if (stddev_veldiff->hasEnoughSamples() && !obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance && */
+        /* if (stddev_veldiff->hasEnoughSamples() && !obstacle_detected && current_altitude(mrs_msgs::AltitudeStateNames::ALTITUDE) > _elevation_tolerance &&
+         */
         /*     std::pow(innovation, 2) > std::pow(3 * innovation_stddev, 2)) { */
         /*   obstacle_detected = true; */
         /* } */
@@ -5070,6 +5111,8 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackMavrosDiag");
 
+    max_altitude = _max_default_altitude;
+
     {
       std::scoped_lock lock(mutex_mavros_diag);
 
@@ -5082,10 +5125,10 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
 
       // If optflow is available, prepare to switching to OPTFLOW estimator by decreasing the max altitude
-      if (_optflow_available) {
-        max_altitude = _max_optflow_altitude;
-        ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-      }
+      /* if (_optflow_available) { */
+      /*   max_altitude = _max_optflow_altitude; */
+      /*   ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude); */
+      /* } */
 
     } else if (_gps_available && !gps_reliable && mavros_diag.gps.satellites_visible >= _min_satellites) {
 
@@ -5194,8 +5237,8 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       {
         std::scoped_lock lock(mutex_odom_t265);
 
-        odom_t265_previous         = odom_t265;
-        odom_t265                  = *msg;
+        odom_t265_previous = odom_t265;
+        odom_t265          = *msg;
       }
 
     } else {
@@ -5253,7 +5296,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
     // --------------------------------------------------------------
     // |                        callback body                       |
     // --------------------------------------------------------------
-    
+
     /* check NaNs //{ */
     if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.x)) {
       odom_t265.pose.pose.position.x = 0;
@@ -5261,14 +5304,14 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       t265_reliable = false;
       return;
     }
-    
+
     if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.y)) {
       odom_t265.pose.pose.position.y = 0;
       ROS_ERROR("NaN detected in variable \"odom_t265.pose.pose.position.y\", T265 odom is now unreliable!!!");
       t265_reliable = false;
       return;
     }
-    
+
     if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.z)) {
       odom_t265.pose.pose.position.z = 0;
       ROS_ERROR("NaN detected in variable \"odom_t265.pose.pose.position.z\", T265 odom is now unreliable!!!");
@@ -5276,9 +5319,9 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       return;
     }
     //}
-    
+
     /* check maximum velocity //{ */
-    
+
     double vel_x, vel_y, vel_z;
     {
       std::scoped_lock lock(mutex_odom_t265);
@@ -5286,31 +5329,31 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       vel_y = (odom_t265.pose.pose.position.y - odom_t265_previous.pose.pose.position.y) / dt;
       vel_z = (odom_t265.pose.pose.position.z - odom_t265_previous.pose.pose.position.z) / dt;
     }
-    
-      if (vel_x > _max_t265_vel || vel_y > _max_t265_vel || vel_z > _max_t265_vel) {
-        t265_reliable = false;
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 velocity: x: %f, y: %f, z: %f, exceeded %f m/s", vel_x, vel_y, vel_z, _max_t265_vel);
-        return;
-      }
-    
+
+    if (vel_x > _max_t265_vel || vel_y > _max_t265_vel || vel_z > _max_t265_vel) {
+      t265_reliable = false;
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 velocity: x: %f, y: %f, z: %f, exceeded %f m/s", vel_x, vel_y, vel_z, _max_t265_vel);
+      return;
+    }
+
     //}
 
     /* republish t265 odometry //{ */
 
     if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
-    
+
       /* publish t265 altitude //{ */
       mrs_msgs::Float64Stamped new_altitude;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
-    
+
         new_altitude.header = odom_t265.header;
         new_altitude.value  = odom_t265.pose.pose.position.z;
       }
-    
+
       new_altitude.header.frame_id = "local_origin";
       new_altitude.header.stamp    = ros::Time::now();
-    
+
       try {
         pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
       }
@@ -5318,36 +5361,36 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
         ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
       }
       //}
-    
-    /* publish t265 orientation  //{ */
-    
+
+      /* publish t265 orientation  //{ */
+
       nav_msgs::Odometry orientation;
-    {
-      std::scoped_lock lock(mutex_odom_t265);
-      orientation.header = odom_t265.header;
-      orientation.pose.pose.orientation = odom_t265.pose.pose.orientation;
-    }
-        orientation.header.frame_id = "local_origin";
-    
-    try {
-      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
-    }
-    
-    //}
-    
-    /* publish t265 odometry //{ */
-    nav_msgs::Odometry odom_main;
-    {
-      std::scoped_lock lock(mutex_odom_t265);
-      odom_main = odom_t265;
-    }
-    
-    odom_main.header.frame_id = "local_origin";
-    odom_main.header.stamp    = ros::Time::now();
-    
+      {
+        std::scoped_lock lock(mutex_odom_t265);
+        orientation.header                = odom_t265.header;
+        orientation.pose.pose.orientation = odom_t265.pose.pose.orientation;
+      }
+      orientation.header.frame_id = "local_origin";
+
+      try {
+        pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
+      }
+
+      //}
+
+      /* publish t265 odometry //{ */
+      nav_msgs::Odometry odom_main;
+      {
+        std::scoped_lock lock(mutex_odom_t265);
+        odom_main = odom_t265;
+      }
+
+      odom_main.header.frame_id = "local_origin";
+      odom_main.header.stamp    = ros::Time::now();
+
       if (!odometry_published) {
         odom_stable                         = odom_main;
         odom_stable.pose.pose.orientation.x = 0.0;
@@ -5358,15 +5401,15 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
         m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
         m_rot_odom_offset.normalize();
       }
-    
+
       if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
-    
+
         tf2::Vector3 v1, v2;
         tf2::fromMsg(odom_main.pose.pose.position, v1);
         tf2::fromMsg(odom_stable.pose.pose.position, v2);
         tf2::Vector3 pos_diff = v1 - v2;
         m_pos_odom_offset     = pos_diff;
-    
+
         // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
         if (odom_stable.pose.pose.orientation.w == 0.0) {
           /* odom_stable.pose.pose.orientation.w = 1.0; */
@@ -5383,21 +5426,21 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
         /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
         ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
       }
-    
+
       /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
       odom_stable = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
       odom_stable.header.frame_id = "local_origin_stable";
-    
+
       try {
         pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
       }
-    
+
       // publish TF
       geometry_msgs::TransformStamped tf_stable;
       tf_stable.header.stamp          = ros::Time::now();
@@ -5411,47 +5454,45 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str());
       }
-    
-    {
-      std::scoped_lock lock(mutex_shared_odometry);
-    
-      shared_odom = odom_main;
-    }
-    
-    try {
-      pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
-    }
-    ROS_INFO_ONCE("[Odometry]: Publishing odometry");
-    
-    // publish TF
-    geometry_msgs::Vector3 position;
-    position.x = odom_main.pose.pose.position.x;
-    position.y = odom_main.pose.pose.position.y;
-    position.z = odom_main.pose.pose.position.z;
-    geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = ros::Time::now();
-    tf.header.frame_id       = "local_origin";
-    tf.child_frame_id        = std::string("fcu_") + uav_name;
-    tf.transform.translation = position;
-    tf.transform.rotation    = odom_main.pose.pose.orientation;
-    try {
-      broadcaster_->sendTransform(tf);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+
+      {
+        std::scoped_lock lock(mutex_shared_odometry);
+
+        shared_odom = odom_main;
+      }
+
+      try {
+        pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
+      }
+      ROS_INFO_ONCE("[Odometry]: Publishing odometry");
+
+      // publish TF
+      geometry_msgs::Vector3 position;
+      position.x = odom_main.pose.pose.position.x;
+      position.y = odom_main.pose.pose.position.y;
+      position.z = odom_main.pose.pose.position.z;
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = ros::Time::now();
+      tf.header.frame_id       = "local_origin";
+      tf.child_frame_id        = std::string("fcu_") + uav_name;
+      tf.transform.translation = position;
+      tf.transform.rotation    = odom_main.pose.pose.orientation;
+      try {
+        broadcaster_->sendTransform(tf);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
+      //}
     }
     //}
-
-    }
-    //}
-
   }
 
   //}
-  
+
   // | -------------------- service callbacks ------------------- |
 
   /* //{ TODO callbackToggleRtkHeight() - not supported now */
@@ -5868,7 +5909,7 @@ if (!optflow_filter_y->isValid(optflow_vel_y)) {
       estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
       estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
       estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-      estimator.second->setQ(config.Q_vel_optflow*1000, map_measurement_name_id.find("vel_optflow")->second);
+      estimator.second->setQ(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
       estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
       estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
     }

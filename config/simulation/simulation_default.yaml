@@ -146,6 +146,11 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
+  icp_vel_median_filter: true
+  icp_vel_filter_buffer_size: 50
+  icp_vel_filter_max_valid: 8.0
+  icp_vel_filter_max_diff: 3.0
+
   # Covariances of measurements
   Q:
     vel_optflow: [10000] # scale of covariance calculated by optic_flow node

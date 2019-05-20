@@ -6,14 +6,14 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 100 # [Hz]
 
 # State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "GPS"
+takeoff_estimator: "ICP"
 
 # available localization methods
 gps_available: true
 optflow_available: true
 vio_available: false
 rtk_available: true
-lidar_available: false
+lidar_available: true
 object_available: false
 t265_available: true
 
@@ -149,7 +149,7 @@ lateral:
     pos_rtk: [10]
     vel_rtk: [1000]
     pos_icp: [1000]
-    vel_icp: [10000]
+    vel_icp: [100]
     pos_vio: [100]
     vel_vio: [10000]
     pos_object: [1000]
@@ -173,10 +173,10 @@ lateral:
       0.0970]
 
   # Process covariance
-  R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
+  R: [1, 1, 0, 0, 0, 0,
+      0, 1, 1, 0, 0, 0,
       0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 1, 0, 1,
       0, 0, 0, 0, 10000000, 0,
       0, 0, 0, 0, 0, 1000]
 
