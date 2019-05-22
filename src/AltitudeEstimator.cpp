@@ -174,8 +174,66 @@ bool AltitudeEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
   input_vec_x << input(0);
 
   Eigen::MatrixXd newA = m_A;
-  newA(0, 1)           = dt;
-  newA(2, 3)           = dt;
+  Eigen::MatrixXd newB = m_B;
+  newB(0, 0)           = dt;
+  newB(2, 0)           = dt;
+
+  /* newA(0, 1)           = dt; */
+  /* newA(2, 3)           = dt; */
+
+  /* newA(0, 2)           = std::pow(dt, 2)/2; */
+  /* newA(1, 2)           = dt; */
+
+  /* newA(3, 1)           = dt; */
+  /* newA(3, 2)           = std::pow(dt, 2)/2; */
+
+  /* std::cout << newA << std::endl; */
+  /* std::cout << newB << std::endl; */
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+    /* mp_lkf_x->setA(newA); */
+    mp_lkf_x->setB(newB);
+    mp_lkf_x->setInput(input_vec_x);
+    mp_lkf_x->iterateWithoutCorrection();
+  }
+
+  return true;
+}
+
+//}
+
+/*  //{ doPrediction() */
+
+bool AltitudeEstimator::doPrediction(const Eigen::VectorXd &input) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check size of input
+  if (input.size() != 1) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input 
+              << "): wrong size of \"input\". Should be: " << 1 << " is:" << input.size() << std::endl;
+    return false;
+  }
+
+  // Check for NaNs
+  if (!std::isfinite(input(0))) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input
+              << "): NaN detected in variable \"input(0)\"." << std::endl;
+    return false;
+  }
+
+  //}
+
+  /* std::cout << "[AltitudeEstimator]: " << m_estimator_name << " fusing input: " << input << " with time step: " << dt << std::endl; */
+
+  Eigen::VectorXd input_vec_x = Eigen::VectorXd::Zero(1);
+
+  input_vec_x << input(0);
 
   /* newA(0, 2)           = std::pow(dt, 2)/2; */
   /* newA(1, 2)           = dt; */
@@ -188,7 +246,6 @@ bool AltitudeEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    mp_lkf_x->setA(newA);
     mp_lkf_x->setInput(input_vec_x);
     mp_lkf_x->iterateWithoutCorrection();
   }
@@ -383,6 +440,24 @@ bool AltitudeEstimator::getStates(Eigen::MatrixXd &states) {
   std::scoped_lock lock(mutex_lkf);
 
   states = mp_lkf_x->getStates();
+
+  return true;
+}
+
+//}
+
+/*  //{ getN() */
+
+bool AltitudeEstimator::getN(int& n) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  //}
+
+  n = m_n_states; 
 
   return true;
 }

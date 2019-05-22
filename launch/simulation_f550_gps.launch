@@ -59,7 +59,7 @@
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~object_altitude_in" to="landing_object_controller/current_target" />
-      <remap from="~icp_relative_in" to="forest_slam/odom_corr" />
+      <remap from="~icp_relative_in" to="lidar_stabilization/odom" />
       <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />

@@ -10,9 +10,9 @@ state_estimators:
     "OPTFLOWGPS",
     "RTK",
     "ICP",
-    "VIO",
-    "OBJECT",
-    "T265"
+    "VIO"
+    # "OBJECT",
+    # "T265"
   ] 
 
   # The measured states of the model
@@ -45,7 +45,8 @@ state_estimators:
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
     # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
     # RTK: ["pos_rtk", "tilt_mavros"]
-    ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
+    # ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
+    ICP: ["tilt_mavros", "vel_icp"]
     VIO: ["tilt_mavros", "pos_vio"]
     OBJECT: ["tilt_mavros", "pos_object"]
     T265: []
