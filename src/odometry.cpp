@@ -1173,7 +1173,7 @@ namespace mrs_odometry
 
         // Find measurement covariance
         std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
-        if (std::strcmp(it2->c_str(), "vel_optflow")) {
+        if (std::strcmp(it2->c_str(), "vel_optflow")==0) {
           Q_arr_lat.push_back(pair_measurement_covariance->second * 1000);
         } else {
           Q_arr_lat.push_back(pair_measurement_covariance->second);
