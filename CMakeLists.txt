@@ -15,10 +15,11 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_lib
   cmake_modules
   mrs_msgs
-  mavros_msgs
   nodelet
   dynamic_reconfigure
   )
+
+find_package(mavros_msgs 0.30.0 EXACT REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
@@ -38,8 +39,8 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES Odometry
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs mavros_msgs
-  DEPENDS Eigen
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
+  DEPENDS mavros_msgs Eigen
   )
 
 ###########
@@ -52,6 +53,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${mavros_msgs_INCLUDE_DIRS}
   ${Eigen_INCLUDE_DIRS}
   )
 
@@ -63,6 +65,7 @@ add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/Headin
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
+  ${mavros_msgs_LIBRARIES}
   ${Eigen_LIBRARIES}
   stddev_buffer
   )
@@ -76,4 +79,5 @@ add_library(RtkRepublisher src/rtk_republisher.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(RtkRepublisher
   ${catkin_LIBRARIES}
+  ${mavros_msgs_LIBRARIES}
   )
