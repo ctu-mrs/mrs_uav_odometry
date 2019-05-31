@@ -7,7 +7,9 @@
   <arg name="debug" default="false" />
 
   <arg name="world_frame" default="local_origin"/>
+  <arg name="uav_frame" default="fcu_$(arg uav_name)"/>
   <arg name="hector_frame" default="hector_map_$(arg uav_name)"/>
+  <arg name="hector_uav_frame" default="hector_$(arg uav_name)"/>
 
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
@@ -27,6 +29,7 @@
 
     <!-- Static transform publisher -->
     <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg hector_frame)_to_$(arg world_frame)" args="0.0 0.0 0.0 0 0.0 0.0 $(arg world_frame) $(arg hector_frame)" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg hector_uav_frame)_to_$(arg uav_frame)" args="0.0 0.0 0.0 0 0.0 0.0 $(arg uav_frame) $(arg hector_uav_frame)" />
 
   <group ns="$(arg uav_name)">
 
