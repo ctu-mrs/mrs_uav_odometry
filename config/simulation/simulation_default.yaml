@@ -151,6 +151,11 @@ lateral:
   icp_vel_filter_max_valid: 8.0
   icp_vel_filter_max_diff: 3.0
 
+  hector_pos_median_filter: true
+  hector_pos_filter_buffer_size: 50
+  hector_pos_filter_max_valid: 8.0
+  hector_pos_filter_max_diff: 3.0
+
   # Covariances of measurements
   Q:
     vel_optflow: [10000] # scale of covariance calculated by optic_flow node
@@ -165,6 +170,7 @@ lateral:
     vel_vio: [10000]
     pos_object: [1000]
     vel_object: [10000]
+    hector_pos: [1000]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt

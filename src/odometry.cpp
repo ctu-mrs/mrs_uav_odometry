@@ -165,6 +165,7 @@ namespace mrs_odometry
     ros::Subscriber rtk_gps_sub_;
     ros::Subscriber sub_icp_relative_;
     ros::Subscriber sub_icp_global_;
+    ros::Subscriber sub_hector_pose_;
     ros::Subscriber sub_target_attitude_;
     ros::Subscriber sub_ground_truth_;
     ros::Subscriber sub_mavros_diagnostic_;
@@ -263,6 +264,7 @@ namespace mrs_odometry
     bool             _rtk_fuse_sps;
 
 
+    // ICP messages
     std::mutex                    mutex_icp;
     nav_msgs::Odometry            icp_odom;
     nav_msgs::Odometry            icp_odom_previous;
@@ -278,6 +280,18 @@ namespace mrs_odometry
     nav_msgs::Odometry icp_global_odom;
     nav_msgs::Odometry icp_global_odom_previous;
     ros::Time          icp_global_odom_last_update;
+
+    // Hector messages
+    std::mutex                    mutex_hector;
+    geometry_msgs::PoseStamped            hector_pose;
+    geometry_msgs::PoseStamped            hector_pose_previous;
+    ros::Time                     hector_pose_last_update;
+    std::shared_ptr<MedianFilter> hector_pos_filter_x;
+    std::shared_ptr<MedianFilter> hector_pos_filter_y;
+    bool                          _hector_pos_median_filter;
+    int                           _hector_pos_filter_buffer_size;
+    double                        _hector_pos_filter_max_valid;
+    double                        _hector_pos_filter_max_diff;
 
     std::mutex         mutex_ground_truth;
     nav_msgs::Odometry ground_truth;
@@ -314,6 +328,7 @@ namespace mrs_odometry
     void callbackObjectOdometry(const nav_msgs::OdometryConstPtr &msg);
     void callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg);
     void callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg);
+    void callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg);
     void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
     void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
     void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
@@ -403,6 +418,7 @@ namespace mrs_odometry
     bool got_rtk              = false;
     bool got_icp              = false;
     bool got_icp_global       = false;
+    bool got_hector_pose       = false;
     bool got_target_attitude  = false;
     bool got_vio              = false;
     bool got_object           = false;
@@ -710,6 +726,7 @@ namespace mrs_odometry
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::VIO));
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::OBJECT));
     _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::T265));
+    _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::HECTOR));
 
     ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
     for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
@@ -1090,6 +1107,17 @@ namespace mrs_odometry
         std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
     icp_vel_filter_y =
         std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
+
+    // Hector median filter
+    param_loader.load_param("lateral/hector_pos_median_filter", _hector_pos_median_filter);
+    param_loader.load_param("lateral/hector_pos_filter_buffer_size", _hector_pos_filter_buffer_size);
+    param_loader.load_param("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid);
+    param_loader.load_param("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff);
+
+    hector_pos_filter_x =
+        std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
+    hector_pos_filter_y =
+        std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
 
     // Load the measurements fused by each state estimator
     for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
@@ -1500,6 +1528,7 @@ namespace mrs_odometry
     if (_lidar_available) {
       sub_icp_relative_ = nh_.subscribe("icp_relative_in", 1, &Odometry::callbackIcpRelative, this, ros::TransportHints().tcpNoDelay());
       sub_icp_global_   = nh_.subscribe("icp_absolute_in", 1, &Odometry::callbackIcpAbsolute, this, ros::TransportHints().tcpNoDelay());
+      sub_hector_pose_   = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
     }
 
     // subscriber for terarangers range
@@ -1600,6 +1629,11 @@ namespace mrs_odometry
                 _estimator_type_takeoff.name.c_str());
       ros::shutdown();
     }
+    if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::HECTOR && !_lidar_available) {
+      ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
+                _estimator_type_takeoff.name.c_str());
+      ros::shutdown();
+    }
     if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && !_vio_available) {
       ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual odometry localization not available. Shutting down.",
                 _estimator_type_takeoff.name.c_str());
@@ -1642,6 +1676,7 @@ namespace mrs_odometry
     current_estimator->getQ(last_drs_config.Q_pos_object, map_measurement_name_id.find("pos_object")->second);
     current_estimator->getQ(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
     current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    current_estimator->getQ(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
     current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
     current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
@@ -1731,6 +1766,14 @@ namespace mrs_odometry
         return true;
       } else {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for vio msg to initialize takeoff estimator");
+        return false;
+      }
+    }
+    if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::HECTOR) {
+      if (got_hector_pose) {
+        return true;
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for hector pose msg to initialize takeoff estimator");
         return false;
       }
     }
@@ -1960,6 +2003,7 @@ namespace mrs_odometry
 
     if (!is_ready_to_takeoff) {
       is_ready_to_takeoff = isReadyToTakeoff();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not ready to takeoff.");
       return;
     }
 
@@ -2069,6 +2113,13 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || !got_vio) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
                           got_range ? "TRUE" : "FALSE", got_vio ? "TRUE" : "FALSE");
+        return;
+      }
+
+    } else if (_estimator_type.type == mrs_msgs::EstimatorType::HECTOR) {
+      if (!got_odom_pixhawk || !got_range || !got_hector_pose) {
+        ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, hector: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
+                          got_range ? "TRUE" : "FALSE", got_hector_pose ? "TRUE" : "FALSE");
         return;
       }
     } else {
@@ -4614,6 +4665,67 @@ namespace mrs_odometry
   }
   //}
 
+  /* //{ callbackHectorPose() */
+
+  void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg) {
+
+    if (!is_initialized)
+      return;
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackHectorPose");
+
+    hector_pose_last_update = ros::Time::now();
+
+    {
+      std::scoped_lock lock(mutex_hector);
+
+      if (got_hector_pose) {
+
+        hector_pose_previous = hector_pose;
+        hector_pose          = *msg;
+
+      } else {
+
+        hector_pose_previous = *msg;
+        hector_pose = *msg;
+
+        got_hector_pose = true;
+        return;
+      }
+    }
+
+    // --------------------------------------------------------------
+    // |                        callback body                       |
+    // --------------------------------------------------------------
+
+    if (!isTimestampOK(hector_pose.header.stamp.toSec(), hector_pose_previous.header.stamp.toSec())) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector pose timestamp not OK, not fusing correction.");
+      return;
+    }
+
+    //////////////////// Fuse Lateral Kalman ////////////////////
+
+    if (!got_lateral_sensors) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing Hector pose. Waiting for other sensors.");
+      return;
+    }
+
+    double pos_icp_x, pos_icp_y;
+
+    {
+      std::scoped_lock lock(mutex_hector);
+
+      pos_icp_x = hector_pose.pose.position.x;
+      pos_icp_y = hector_pose.pose.position.y;
+    }
+
+    // Apply correction step to all state estimators
+    stateEstimatorsCorrection(pos_icp_x, pos_icp_y, "pos_hector");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
+  }
+  //}
+  
   /* //{ callbackOptflowStddev() */
   void Odometry::callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg) {
 
@@ -5606,6 +5718,8 @@ namespace mrs_odometry
       desired_estimator.type = mrs_msgs::EstimatorType::OBJECT;
     } else if (std::strcmp(type.c_str(), "T265") == 0) {
       desired_estimator.type = mrs_msgs::EstimatorType::T265;
+    } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
+      desired_estimator.type = mrs_msgs::EstimatorType::HECTOR;
     } else {
       ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
       res.success = false;
@@ -5909,6 +6023,7 @@ namespace mrs_odometry
       estimator.second->setQ(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
       estimator.second->setQ(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
       estimator.second->setQ(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+      estimator.second->setQ(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
       estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
       estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
       estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
@@ -6296,6 +6411,19 @@ namespace mrs_odometry
         return false;
       }
 
+      // Hector SLAM localization type
+    } else if (target_estimator.type == mrs_msgs::EstimatorType::HECTOR) {
+
+      if (!_lidar_available) {
+        ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. Lidar localization not available in this world.");
+        return false;
+      }
+
+      if (!got_hector_pose && is_ready_to_takeoff) {
+        ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new icp msgs received.");
+        return false;
+      }
+
       // Vio localization type
     } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
 
@@ -6450,7 +6578,7 @@ namespace mrs_odometry
 
     if (type.type == mrs_msgs::EstimatorType::OPTFLOW || type.type == mrs_msgs::EstimatorType::GPS || type.type == mrs_msgs::EstimatorType::OPTFLOWGPS ||
         type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::VIO ||
-        type.type == mrs_msgs::EstimatorType::OBJECT || type.type == mrs_msgs::EstimatorType::T265) {
+        type.type == mrs_msgs::EstimatorType::OBJECT || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR) {
       return true;
     }
 
@@ -6541,6 +6669,8 @@ namespace mrs_odometry
       s_diag += "OBJECT";
     } else if (type.type == mrs_msgs::EstimatorType::T265) {
       s_diag += "T265";
+    } else if (type.type == mrs_msgs::EstimatorType::HECTOR) {
+      s_diag += "HECTOR";
     } else {
       s_diag += "UNKNOWN";
     }
