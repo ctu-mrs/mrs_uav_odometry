@@ -4726,8 +4726,6 @@ namespace mrs_odometry
 
     double yaw_hector;
 
-    {
-      std::scoped_lock lock(mutex_hector);
 
       double r,p;
     geometry_msgs::Quaternion quat;
@@ -4737,7 +4735,6 @@ namespace mrs_odometry
     }
     tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
     tf2::Matrix3x3(qt).getRPY(r, p, yaw_hector);
-    }
 
     yaw_hector          = unwrap(yaw_hector, hector_yaw_previous_deg);
     hector_yaw_previous_deg = yaw_hector;
@@ -4752,7 +4749,7 @@ namespace mrs_odometry
       hector_yaw_out.header.stamp    = ros::Time::now();
       hector_yaw_out.header.frame_id = "local_origin";
       hector_yaw_out.value           = yaw_hector;
-      pub_compass_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(hector_yaw_out)));
+      pub_hector_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(hector_yaw_out)));
 
       ROS_WARN_ONCE("[Odometry]: Fusing yaw from Hector SLAM");
 
@@ -4763,17 +4760,17 @@ namespace mrs_odometry
       return;
     }
 
-    double pos_icp_x, pos_icp_y;
+    double pos_hector_x, pos_hector_y;
 
     {
       std::scoped_lock lock(mutex_hector);
 
-      pos_icp_x = hector_pose.pose.position.x;
-      pos_icp_y = hector_pose.pose.position.y;
+      pos_hector_x = hector_pose.pose.position.x;
+      pos_hector_y = hector_pose.pose.position.y;
     }
 
     // Apply correction step to all state estimators
-    stateEstimatorsCorrection(pos_icp_x, pos_icp_y, "pos_hector");
+    stateEstimatorsCorrection(pos_hector_x, pos_hector_y, "pos_hector");
 
     ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
   }
@@ -5869,6 +5866,8 @@ namespace mrs_odometry
       desired_estimator.type = mrs_msgs::HeadingType::COMPASS;
     } else if (std::strcmp(type.c_str(), "OPTFLOW") == 0) {
       desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
     } else {
       ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
       res.success = false;
@@ -6598,7 +6597,7 @@ namespace mrs_odometry
     target_estimator.name                  = _heading_type_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
-        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW) {
+        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW && target_estimator.type != mrs_msgs::HeadingType::HECTOR) {
       ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
       return false;
     }
@@ -6643,7 +6642,7 @@ namespace mrs_odometry
   /* //{ isValidType() */
   bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
-    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW) {
+    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR) {
       return true;
     }
 
@@ -6746,6 +6745,8 @@ namespace mrs_odometry
       s_diag += "COMPASS";
     } else if (hdg_type.type == mrs_msgs::HeadingType::OPTFLOW) {
       s_diag += "OPTFLOW";
+    } else if (hdg_type.type == mrs_msgs::HeadingType::HECTOR) {
+      s_diag += "HECTOR";
     } else {
       s_diag += "UNKNOWN";
     }
