@@ -201,9 +201,9 @@ lateral:
 
 heading:
 
-  use_heading_estimator: false # otherwise use PixHawk heading estimate
+  use_heading_estimator: true # otherwise use PixHawk heading estimate
   gyro_fallback: false
-  heading_estimator: "COMPASS" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
+  heading_estimator: "HECTOR" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2
@@ -236,3 +236,4 @@ heading:
     yaw_compass: [0.1]
     rate_gyro: [0.1]
     rate_optflow: [0.1]
+    yaw_hector: [0.1]

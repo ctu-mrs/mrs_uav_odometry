@@ -133,6 +133,7 @@ namespace mrs_odometry
     ros::Publisher pub_orientation_mavros_;
     ros::Publisher pub_target_attitude_global_;
     ros::Publisher pub_compass_yaw_;
+    ros::Publisher pub_hector_yaw_;
     ros::Publisher pub_odometry_diag_;
     ros::Publisher pub_altitude_;
     ros::Publisher pub_orientation_;
@@ -247,6 +248,18 @@ namespace mrs_odometry
     double            yaw_previous;
     std::mutex        mutex_compass_hdg;
     ros::Time         compass_hdg_last_update;
+
+    // Hector heading msgs
+    std_msgs::Float64 hector_yaw;
+    std_msgs::Float64 hector_yaw_previous;
+    double            hector_yaw_previous_deg;
+    std::mutex        mutex_hector_hdg;
+    ros::Time         hector_yaw_last_update;
+    std::shared_ptr<MedianFilter> hector_yaw_filter;
+    bool                          _hector_yaw_median_filter;
+    int                           _hector_yaw_filter_buffer_size;
+    double                        _hector_yaw_filter_max_valid;
+    double                        _hector_yaw_filter_max_diff;
 
     geometry_msgs::Vector3Stamped orientation_mavros;
     geometry_msgs::Vector3Stamped orientation_gt;
@@ -753,6 +766,7 @@ namespace mrs_odometry
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::GYRO));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::COMPASS));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::OPTFLOW));
+    _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::HECTOR));
 
     ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
     for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
@@ -1252,12 +1266,18 @@ namespace mrs_odometry
     /* param_loader.load_param("heading/compass_yaw_filter_max_valid", _compass_yaw_filter_max_valid); */
     param_loader.load_param("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff);
 
+    param_loader.load_param("heading/hector_yaw_filter_buffer_size", _hector_yaw_filter_buffer_size);
+    /* param_loader.load_param("heading/hector_yaw_filter_max_valid", _hector_yaw_filter_max_valid); */
+    param_loader.load_param("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff);
+    
     param_loader.load_param("heading/heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
     param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
 
     optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
                                                              -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
+    hector_yaw_filter = std::make_shared<MedianFilter>(_hector_yaw_filter_buffer_size, 1000000,
+                                                             -1000000, _hector_yaw_filter_max_diff);
 
     compass_yaw_filter           = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
     compass_inconsistent_samples = 0;
@@ -1475,6 +1495,7 @@ namespace mrs_odometry
     broadcaster_ = new tf2_ros::TransformBroadcaster();
 
     pub_compass_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
+    pub_hector_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("hector_yaw_out", 1);
 
     // publishers for roll pitch yaw orientations in local_origin frame
     pub_target_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("target_attitude_global_out", 1);
@@ -4703,6 +4724,35 @@ namespace mrs_odometry
       return;
     }
 
+    double yaw_hector;
+
+
+      double r,p;
+    geometry_msgs::Quaternion quat;
+    {
+      std::scoped_lock lock(mutex_hector);
+      quat = hector_pose.pose.orientation;
+    }
+    tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
+    tf2::Matrix3x3(qt).getRPY(r, p, yaw_hector);
+
+    yaw_hector          = unwrap(yaw_hector, hector_yaw_previous_deg);
+    hector_yaw_previous_deg = yaw_hector;
+    /* yaw          = M_PI / 2 - yaw; */
+
+      // Apply correction step to all heading estimators
+      headingEstimatorsCorrection(yaw_hector, "yaw_hector");
+
+      yaw_hector = wrap(yaw_hector);
+
+      mrs_msgs::Float64Stamped hector_yaw_out;
+      hector_yaw_out.header.stamp    = ros::Time::now();
+      hector_yaw_out.header.frame_id = "local_origin";
+      hector_yaw_out.value           = yaw_hector;
+      pub_hector_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(hector_yaw_out)));
+
+      ROS_WARN_ONCE("[Odometry]: Fusing yaw from Hector SLAM");
+
     //////////////////// Fuse Lateral Kalman ////////////////////
 
     if (!got_lateral_sensors) {
@@ -4710,17 +4760,17 @@ namespace mrs_odometry
       return;
     }
 
-    double pos_icp_x, pos_icp_y;
+    double pos_hector_x, pos_hector_y;
 
     {
       std::scoped_lock lock(mutex_hector);
 
-      pos_icp_x = hector_pose.pose.position.x;
-      pos_icp_y = hector_pose.pose.position.y;
+      pos_hector_x = hector_pose.pose.position.x;
+      pos_hector_y = hector_pose.pose.position.y;
     }
 
     // Apply correction step to all state estimators
-    stateEstimatorsCorrection(pos_icp_x, pos_icp_y, "pos_hector");
+    stateEstimatorsCorrection(pos_hector_x, pos_hector_y, "pos_hector");
 
     ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
   }
@@ -5816,6 +5866,8 @@ namespace mrs_odometry
       desired_estimator.type = mrs_msgs::HeadingType::COMPASS;
     } else if (std::strcmp(type.c_str(), "OPTFLOW") == 0) {
       desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
     } else {
       ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
       res.success = false;
@@ -6545,7 +6597,7 @@ namespace mrs_odometry
     target_estimator.name                  = _heading_type_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
-        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW) {
+        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW && target_estimator.type != mrs_msgs::HeadingType::HECTOR) {
       ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
       return false;
     }
@@ -6590,7 +6642,7 @@ namespace mrs_odometry
   /* //{ isValidType() */
   bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
-    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW) {
+    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR) {
       return true;
     }
 
@@ -6693,6 +6745,8 @@ namespace mrs_odometry
       s_diag += "COMPASS";
     } else if (hdg_type.type == mrs_msgs::HeadingType::OPTFLOW) {
       s_diag += "OPTFLOW";
+    } else if (hdg_type.type == mrs_msgs::HeadingType::HECTOR) {
+      s_diag += "HECTOR";
     } else {
       s_diag += "UNKNOWN";
     }
