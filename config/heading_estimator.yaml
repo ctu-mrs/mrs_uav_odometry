@@ -7,7 +7,8 @@ heading_estimators:
   heading_estimators: [
     "GYRO",
     "COMPASS",
-    "OPTFLOW" 
+    "OPTFLOW", 
+    "HECTOR"
   ] 
 
   # The measured states of the model
@@ -21,7 +22,8 @@ heading_estimators:
   measurements: [
     "yaw_compass",
     "rate_gyro",
-    "rate_optflow"
+    "rate_optflow",
+    "yaw_hector"
   ]
 
   # The fused measurements for each state estimator
@@ -29,12 +31,14 @@ heading_estimators:
     GYRO: ["rate_gyro"]
     COMPASS: ["rate_gyro", "yaw_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
+    HECTOR: ["rate_gyro", "yaw_hector"]
 
   # Mapping of measurements to states
   measurement_states:
     yaw_compass: YAW
     rate_gyro: YAW_RATE
     rate_optflow: YAW_RATE
+    yaw_hector: YAW
 
   # Mapping states to model
   state_mapping:
