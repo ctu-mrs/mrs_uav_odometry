@@ -32,6 +32,10 @@ namespace mrs_odometry
     bool        setState(int state_id, const Eigen::VectorXd &state);
     bool        setQ(double cov, int measurement_type);
     bool        getQ(double &cov, int measurement_type);
+    bool setR(double cov, const Eigen::Vector2i& idx); 
+    bool getR(double &cov, const Eigen::Vector2i& idx); 
+    bool        getR(double &cov, int diag);
+    bool        setR(double cov, int diag, const std::vector<int>& except);
     bool        reset(const Eigen::MatrixXd &states);
 
   private:

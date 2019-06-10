@@ -180,6 +180,7 @@ bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
   Eigen::MatrixXd newA = m_A;
   newA(0, 1)           = dt;
   newA(1, 2)           = dt;
+  newA(1, 3)           = std::pow(dt,2);
 
   {
     std::scoped_lock lock(mutex_lkf);
@@ -473,6 +474,85 @@ bool StateEstimator::getQ(double &cov, int measurement_type) {
 
     cov = m_Q_arr[measurement_type](0, 0);
   }
+
+  return true;
+}
+
+//}
+
+/*  //{ getR() */
+
+bool StateEstimator::getR(double& cov, const Eigen::Vector2i& idx) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for index validity
+  if (idx(0) > m_n_states || idx(1) > m_n_states || idx(0) < 0 || idx(1) < 0) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"idx\" should be < " << m_n_states << "." << std::endl;
+    return false;
+  }
+
+  //}
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+    cov = m_R(idx(0), idx(1));
+  }
+
+  return true;
+}
+
+//}
+
+/*  //{ setR() */
+
+bool StateEstimator::setR(double cov, const Eigen::Vector2i& idx) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for NaNs
+  if (!std::isfinite(cov)) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): NaN detected in variable \"cov\"." << std::endl;
+    return false;
+  }
+
+  // Check for non-positive covariance
+  if (cov <= 0) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"cov\" should be > 0." << std::endl;
+    return false;
+  }
+
+  // Check for index validity
+  if (idx(0) > m_n_states || idx(1) > m_n_states || idx(0) < 0 || idx(1) < 0) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"idx\" should be < " << m_n_states << "." << std::endl;
+    return false;
+  }
+
+  //}
+
+  double old_cov = m_R(0, 0);
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+      m_R(idx(0), idx(1)) = cov;
+      mp_lkf_x->setR(m_R);
+      mp_lkf_y->setR(m_R);
+  }
+
+  /* std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")" */
+  /* << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl; */
 
   return true;
 }

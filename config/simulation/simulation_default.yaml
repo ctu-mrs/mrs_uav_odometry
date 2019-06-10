@@ -24,6 +24,7 @@ april_objects: false
 
 use_differential_gps: true
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
+publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
@@ -158,10 +159,10 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000] # scale of covariance calculated by optic_flow node
-    pos_mavros: [10000]
-    vel_mavros: [100000]
-    tilt_mavros: [1000000]
+    vel_optflow: [10000]
+    pos_mavros: [1000]
+    vel_mavros: [10000]
+    tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
     pos_icp: [1000]
@@ -190,11 +191,11 @@ lateral:
       0.0970]
 
   # Process covariance
-  R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 10000000, 0,
+  R: [1, 1, 1, 0, 0, 0,
+      0, 1, 1, 0, 0, 0,
+      0, 0, 0, 0.0001, 0.0001, 0,
+      0, 0, 0, 0, 0, 0.0001,
+      0, 0, 0, 0, 0.0001, 0,
       0, 0, 0, 0, 0, 1000]
 
   # RTK estimator must have a different model
@@ -257,4 +258,4 @@ heading:
     yaw_compass: [0.1]
     rate_gyro: [0.1]
     rate_optflow: [10]
-    yaw_hector: [0.1]
+    yaw_hector: [100]

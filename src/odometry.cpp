@@ -110,6 +110,7 @@ namespace mrs_odometry
     bool        use_gt_orientation_;
 
     bool   _publish_fused_odom;
+    bool   _publish_pixhawk_velocity;
     bool   _dynamic_optflow_cov       = false;
     double _dynamic_optflow_cov_scale = 0;
     double twist_q_x_prev             = 0;
@@ -375,6 +376,7 @@ namespace mrs_odometry
     bool changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator);
 
     void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
+    void               getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const double &yaw, double &rx, double &ry);
     bool               isValidType(const mrs_msgs::EstimatorType &type);
     bool               isValidType(const mrs_msgs::HeadingType &type);
     bool               isTimestampOK(const double curr_sec, const double prev_sec);
@@ -384,6 +386,7 @@ namespace mrs_odometry
     double             unwrap(const double yaw, const double yaw_previous);
     double             wrap(const double angle_in);
     void               setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in);
+    void setYaw(tf2::Quaternion &q_msg, const double yaw_in);
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -1410,6 +1413,7 @@ namespace mrs_odometry
     // use differential gps
     param_loader.load_param("use_differential_gps", use_differential_gps);
     param_loader.load_param("publish_fused_odom", _publish_fused_odom);
+    param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
     param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
     param_loader.load_param("max_altitude_correction", max_altitude_correction_);
 
@@ -1704,6 +1708,12 @@ namespace mrs_odometry
     current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
     current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+    current_estimator->getR(last_drs_config.R_pos, Eigen::Vector2i(0,0));
+    current_estimator->getR(last_drs_config.R_vel, Eigen::Vector2i(1,1));
+    current_estimator->getR(last_drs_config.R_acc, Eigen::Vector2i(2,3));
+    current_estimator->getR(last_drs_config.R_acc_d, Eigen::Vector2i(4,4));
+    current_estimator->getR(last_drs_config.R_acc_i, Eigen::Vector2i(3,5));
+    current_estimator->getR(last_drs_config.R_tilt, Eigen::Vector2i(5,5));
 
     current_alt_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
     current_alt_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
@@ -1714,6 +1724,7 @@ namespace mrs_odometry
     current_hdg_estimator->getQ(last_drs_config.Q_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
+    current_hdg_estimator->getQ(last_drs_config.Q_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
 
     reconfigure_server_->updateConfig(last_drs_config);
 
@@ -2273,8 +2284,8 @@ namespace mrs_odometry
         odom_main.pose.pose.position.y = pos_vec(1);
       }
 
-      if (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL &&
-          std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL) {
+      if ( !_publish_pixhawk_velocity || (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL &&
+          std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL)) {
         odom_main.twist.twist.linear.x = vel_vec(0);
         odom_main.twist.twist.linear.y = vel_vec(1);
       }
@@ -2855,21 +2866,34 @@ namespace mrs_odometry
 
     //////////////////// Fuse Lateral Kalman ////////////////////
 
-    // rotations in inertial frame
     double rot_x, rot_y, rot_z;
     double dt;
+    geometry_msgs::Quaternion attitude;
+
     {
       std::scoped_lock lock(mutex_target_attitude);
 
+      attitude = target_attitude.orientation;
+
       dt = (target_attitude.header.stamp - target_attitude_previous.header.stamp).toSec();
-      getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z);
     }
+      /* getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); */
+
+      // Rotate the tilt into the current estimation frame
+        Eigen::VectorXd hdg(1);
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, hdg);
+      }
+      getRotatedTilt(attitude, hdg(0), rot_x, rot_y);
+
     // For model testing
     /* { getGlobalRot(ground_truth.pose.pose.orientation, rot_x, rot_y, rot_z); } */
     target_attitude_global.header   = target_attitude.header;
     target_attitude_global.vector.x = rot_x;
     target_attitude_global.vector.y = rot_y;
-    target_attitude_global.vector.z = rot_z;
+    target_attitude_global.vector.z = hdg(0);
     pub_target_attitude_global_.publish(target_attitude_global);
 
     if (!std::isfinite(rot_x)) {
@@ -2900,9 +2924,9 @@ namespace mrs_odometry
       ROS_ERROR("Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
       dt = 1;
       return;
-    } else if (dt < -1) {
-      ROS_ERROR("Mavros variable \"dt\" < -1, setting it to -1 and returning!!!");
-      dt = -1;
+    } else if (dt < 0) {
+      ROS_ERROR("Mavros variable \"dt\" < 0, setting it to 0 and returning!!!");
+      dt = 0;
       return;
     }
 
@@ -2922,7 +2946,7 @@ namespace mrs_odometry
     }
 
     // Apply prediction step to all state estimators
-    stateEstimatorsPrediction(rot_y, -rot_x, dt);
+    stateEstimatorsPrediction(rot_y, rot_x, dt);
 
     ROS_INFO_ONCE("[Odometry]: Prediction step of all state estimators running.");
   }
@@ -3344,18 +3368,35 @@ namespace mrs_odometry
 
     /* mavros tilts in inertial frame //{ */
 
-    double rot_x, rot_y, rot_z;
-    {
-      std::scoped_lock lock(mutex_odom_pixhawk_shifted);
+    geometry_msgs::Quaternion orient;
 
-      getGlobalRot(odom_pixhawk_shifted.pose.pose.orientation, rot_x, rot_y, rot_z);
+      {
+        std::scoped_lock lock(mutex_odom_pixhawk_shifted);
 
-      // publish orientation for debugging
-      orientation_mavros.header = odom_pixhawk_shifted.header;
-    }
+        orient = odom_pixhawk_shifted.pose.pose.orientation;
+        orientation_mavros.header = odom_pixhawk_shifted.header;
+      }
+
+        Eigen::VectorXd hdg(1);
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, hdg);
+      }
+      // Rotate the tilt into the current estimation frame
+      double rot_x, rot_y, rot_z;
+      getRotatedTilt(orient, hdg(0), rot_x, rot_y);
+
+    /* { */
+    /*   std::scoped_lock lock(mutex_odom_pixhawk_shifted); */
+
+    /*   getGlobalRot(odom_pixhawk_shifted.pose.pose.orientation, rot_x, rot_y, rot_z); */
+    /* } */
+
+    // publish orientation for debugging
     orientation_mavros.vector.x = rot_x;
     orientation_mavros.vector.y = rot_y;
-    orientation_mavros.vector.z = rot_z;
+    orientation_mavros.vector.z = hdg(0);
     try {
       pub_orientation_mavros_.publish(orientation_mavros);
     }
@@ -3373,7 +3414,7 @@ namespace mrs_odometry
     /* //{ fuse mavros tilts */
 
     // Apply correction step to all state estimators
-    stateEstimatorsCorrection(rot_y, -rot_x, "tilt_mavros");
+    stateEstimatorsCorrection(rot_y, rot_x, "tilt_mavros");
 
     ROS_WARN_ONCE("[Odometry]: Fusing mavros tilts");
 
@@ -5372,8 +5413,17 @@ namespace mrs_odometry
     }
 
     // rotations in inertial frame
-    double rot_x, rot_y, rot_z;
-    getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
+    /* double rot_x, rot_y, rot_z; */
+    /* getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z); */
+        Eigen::VectorXd hdg(1);
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, hdg);
+      }
+      // Rotate the tilt into the current estimation frame
+      double rot_x, rot_y, rot_z;
+      getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
 
     orientation_gt.header   = odom_pixhawk.header;
     orientation_gt.vector.x = rot_x;
@@ -6065,10 +6115,9 @@ namespace mrs_odometry
     ROS_INFO(
         "Reconfigure Request: "
         "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
-        "%f, Q_vel_rtk: %f\nQ_tilt:%f\nR_pos: %f, R_vel: "
-        "%f, R_acc: %f, R_acc_i: %f, R_acc_d: %f, R_tilt: %f",
+        "%f, Q_vel_rtk: %f\nQ_tilt:%f ",
         config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp,
-        config.Q_vel_optflow, config.Q_vel_rtk, config.Q_tilt, config.R_pos, config.R_vel, config.R_acc, config.R_acc_i, config.R_acc_d, config.R_tilt);
+        config.Q_vel_optflow, config.Q_vel_rtk, config.Q_tilt);
 
     for (auto &estimator : m_state_estimators) {
       estimator.second->setQ(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
@@ -6082,6 +6131,14 @@ namespace mrs_odometry
       estimator.second->setQ(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
       estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
       estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+
+      estimator.second->setR(config.R_pos, Eigen::Vector2i(0,0));
+      estimator.second->setR(config.R_vel, Eigen::Vector2i(1,1));
+      estimator.second->setR(config.R_acc, Eigen::Vector2i(2,3));
+      estimator.second->setR(config.R_acc, Eigen::Vector2i(2,4));
+      estimator.second->setR(config.R_acc_d, Eigen::Vector2i(4,4));
+      estimator.second->setR(config.R_acc_i, Eigen::Vector2i(3,5));
+      estimator.second->setR(config.R_tilt, Eigen::Vector2i(5,5));
     }
 
     for (auto &estimator : m_altitude_estimators) {
@@ -6090,6 +6147,13 @@ namespace mrs_odometry
       estimator.second->setQ(config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
       estimator.second->setQ(config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
       estimator.second->setQ(config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
+    }
+
+    for (auto &estimator : m_heading_estimators) {
+      estimator.second->setQ(config.Q_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
+      estimator.second->setQ(config.Q_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
+      estimator.second->setQ(config.Q_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
+      estimator.second->setQ(config.Q_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
     }
   }
   //}
@@ -6319,6 +6383,31 @@ namespace mrs_odometry
   }
   //}
 
+  /* //{ getRotatedTilt() */
+  void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const double &yaw, double &rx, double &ry) {
+
+    tf2::Quaternion q_body;
+    tf2::fromMsg(q_msg, q_body);
+    setYaw(q_body, 0);
+
+    tf2::Quaternion q_yaw;
+    q_yaw.setRPY(0, 0, yaw);
+
+    // Get axis pointing upward from the body frame
+    tf2::Vector3 body_axis;
+    tf2::Vector3 z_axis(0, 0, 1);
+    body_axis = quatRotate(q_body, z_axis);
+
+    // Transform upward axis to the world frame
+    body_axis = quatRotate(q_yaw, body_axis);
+
+    // Get roll and pitch angles in world frame
+    ry = std::atan2(body_axis.getX(), body_axis.getZ());
+    rx = std::atan2(body_axis.getY(), body_axis.getZ());
+    
+  }
+  //}
+  
   /* //{ changeCurrentEstimator() */
   bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
 
@@ -6878,13 +6967,20 @@ namespace mrs_odometry
   void Odometry::setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in) {
     tf2::Quaternion q_tf;
     tf2::fromMsg(q_msg, q_tf);
-    double roll, pitch, yaw;
-    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
-    yaw = yaw_in;
-    q_tf.setRPY(roll, pitch, yaw);
+    setYaw(q_tf, yaw_in);
     q_msg = tf2::toMsg(q_tf);
-
     q_tf.normalize();
+  }
+  //}
+  
+  
+  /* setYaw() //{ */
+  void Odometry::setYaw(tf2::Quaternion &q_msg, const double yaw_in) {
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q_msg).getRPY(roll, pitch, yaw);
+    yaw = yaw_in;
+    q_msg.setRPY(roll, pitch, yaw);
+    q_msg.normalize();
   }
   //}
 

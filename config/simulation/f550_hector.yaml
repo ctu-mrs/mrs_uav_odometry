@@ -143,9 +143,9 @@ lateral:
   # Covariances of measurements
   Q:
     vel_optflow: [1000]
-    pos_mavros: [10000]
-    vel_mavros: [100000]
-    tilt_mavros: [1000000]
+    pos_mavros: [1000]
+    vel_mavros: [10000]
+    tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
     pos_icp: [1000]
@@ -158,9 +158,9 @@ lateral:
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
-  A: [1, 0.02, 0, 0, 0, 0,
+  A: [1, 0.02, 0.0004, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
       0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 0.9030]
@@ -174,11 +174,11 @@ lateral:
       0.0970]
 
   # Process covariance
-  R: [1, 0.01, 0, 0, 0, 0,
-      0, 1, 0.01, 0, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0.01,
-      0, 0, 0, 0, 10000000, 0,
+  R: [1, 1, 1, 0, 0, 0,
+      0, 1, 1, 0, 0, 0,
+      0, 0, 0, 0.0001, 0.0001, 0,
+      0, 0, 0, 0, 0, 1,
+      0, 0, 0, 0, 0.0001, 0,
       0, 0, 0, 0, 0, 1000]
 
   # RTK estimator must have a different model
@@ -236,4 +236,4 @@ heading:
     yaw_compass: [0.1]
     rate_gyro: [0.1]
     rate_optflow: [0.1]
-    yaw_hector: [0.1]
+    yaw_hector: [100]
