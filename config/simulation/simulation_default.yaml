@@ -1,21 +1,31 @@
+# Lateral state estimator:
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
+lateral_estimator: "RTK"
+
+# Altitude state estimator:
+# HEIGHT - rangefinder
+altitude_estimator: "HEIGHT"
+
+# Heading state estimator:
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
+heading_estimator: "PIXHAWK" 
+
+# Available localization methods
+gps_available: true
+optflow_available: true
+vio_available: false
+rtk_available: true
+lidar_available: true
+object_available: false
+t265_available: false
+
+# Rates of odometry publishers
 rate: 100 # [Hz]
 aux_rate: 10 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
-
-# State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "RTK"
-
-# available localization methods
-gps_available: true
-optflow_available: true
-vio_available: false
-rtk_available: true
-lidar_available: false
-object_available: false
-t265_available: false
 
 min_satellites: 0
 max_default_altitude: 10.0
@@ -49,8 +59,6 @@ null_tracker: "mrs_uav_manager/NullTracker"
 
 altitude:
 
-  # ALTITUDE - barometric, HEIGHT - rangefinder
-  altitude_estimator: "HEIGHT"
   estimate_elevation: false
   estimate_baro_offset: true
 
@@ -72,9 +80,9 @@ altitude:
   # The system matrix
   # altitude, velocity, acceleration, height, elevation, offset
   # altitude = height + elevation
-  A: [0, 0.00, 0, 0, 0, 0,
+  A: [0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
-      0, 0, 1.0, 0.00, 0, 0, 
+      0, 0, 1.0, 0, 0, 0, 
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0]
@@ -218,9 +226,7 @@ lateral:
 
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
   gyro_fallback: true
-  heading_estimator: "GYRO" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2
@@ -256,6 +262,6 @@ heading:
   # Covariances of measurements
   Q:
     yaw_compass: [0.1]
-    rate_gyro: [0.1]
+    yaw_hector: [10]
+    rate_gyro: [0.01]
     rate_optflow: [10]
-    yaw_hector: [100]

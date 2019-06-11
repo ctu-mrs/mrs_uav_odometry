@@ -523,7 +523,6 @@ namespace mrs_odometry
     int                           compass_inconsistent_samples;
     int                           optflow_inconsistent_samples;
     bool                          is_heading_estimator_initialized = false;
-    bool                          _use_heading_estimator;
     bool                          _gyro_fallback;
 
     // altitude estimation
@@ -766,6 +765,7 @@ namespace mrs_odometry
 
     // prepare the array of names
     // IMPORTANT, update this with each update of the HeadingType message
+    _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::PIXHAWK));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::GYRO));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::COMPASS));
     _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::OPTFLOW));
@@ -886,7 +886,7 @@ namespace mrs_odometry
 
     // Takeoff type
     std::string takeoff_estimator;
-    param_loader.load_param("takeoff_estimator", takeoff_estimator);
+    param_loader.load_param("lateral_estimator", takeoff_estimator);
 
     std::transform(takeoff_estimator.begin(), takeoff_estimator.end(), takeoff_estimator.begin(), ::toupper);
     size_t pos = std::distance(_estimator_type_names.begin(), find(_estimator_type_names.begin(), _estimator_type_names.end(), takeoff_estimator));
@@ -922,7 +922,7 @@ namespace mrs_odometry
     param_loader.load_param("altitude/elevation_tolerance", _elevation_tolerance);
     param_loader.load_param("altitude/excessive_tilt", _excessive_tilt);
 
-    param_loader.load_param("altitude/altitude_estimator", altitude_estimator_name);
+    param_loader.load_param("altitude_estimator", altitude_estimator_name);
     size_t pos_alt = std::distance(_altitude_type_names.begin(), find(_altitude_type_names.begin(), _altitude_type_names.end(), altitude_estimator_name));
 
     _alt_estimator_type_takeoff.name = altitude_estimator_name;
@@ -1273,8 +1273,7 @@ namespace mrs_odometry
     /* param_loader.load_param("heading/hector_yaw_filter_max_valid", _hector_yaw_filter_max_valid); */
     param_loader.load_param("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff);
     
-    param_loader.load_param("heading/heading_estimator", heading_estimator_name);
-    param_loader.load_param("heading/use_heading_estimator", _use_heading_estimator);
+    param_loader.load_param("heading_estimator", heading_estimator_name);
     param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
 
     optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
@@ -1970,7 +1969,7 @@ namespace mrs_odometry
 
     //}
 
-    if (_use_heading_estimator && !init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == STRING_EQUAL) {
+    if (!init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == STRING_EQUAL) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
       return;
     }
@@ -2004,7 +2003,8 @@ namespace mrs_odometry
       orientation.header                = odom_pixhawk.header;
       orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
     }
-    if (_use_heading_estimator) {
+
+    if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) {
 
       Eigen::VectorXd yaw(1);
       Eigen::VectorXd yaw_rate(1);
@@ -2255,7 +2255,7 @@ namespace mrs_odometry
         }
       }
 
-      if (_use_heading_estimator) {
+      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) {
 
         Eigen::VectorXd yaw(1);
         Eigen::VectorXd yaw_rate(1);
@@ -3042,7 +3042,7 @@ namespace mrs_odometry
 
     if (!got_init_heading) {
 
-      if (_use_heading_estimator) {
+      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) {
         Eigen::VectorXd hdg(1);
         current_hdg_estimator->getState(0, hdg);
         m_init_heading = hdg(0);
@@ -5910,7 +5910,9 @@ namespace mrs_odometry
 
     std::string type = req.value;
     std::transform(type.begin(), type.end(), type.begin(), ::toupper);
-    if (std::strcmp(type.c_str(), "GYRO") == 0) {
+    if (std::strcmp(type.c_str(), "PIXHAWK") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    } else if (std::strcmp(type.c_str(), "GYRO") == 0) {
       desired_estimator.type = mrs_msgs::HeadingType::GYRO;
     } else if (std::strcmp(type.c_str(), "COMPASS") == 0) {
       desired_estimator.type = mrs_msgs::HeadingType::COMPASS;
@@ -6685,7 +6687,7 @@ namespace mrs_odometry
     mrs_msgs::HeadingType target_estimator = desired_estimator;
     target_estimator.name                  = _heading_type_names[target_estimator.type];
 
-    if (target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
+    if (target_estimator.type != mrs_msgs::HeadingType::PIXHAWK && target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
         target_estimator.type != mrs_msgs::HeadingType::OPTFLOW && target_estimator.type != mrs_msgs::HeadingType::HECTOR) {
       ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
       return false;
@@ -6731,7 +6733,7 @@ namespace mrs_odometry
   /* //{ isValidType() */
   bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
-    if (type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR) {
+    if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR) {
       return true;
     }
 
@@ -6828,7 +6830,9 @@ namespace mrs_odometry
     s_diag += std::to_string(type.type);
     s_diag += " - ";
 
-    if (hdg_type.type == mrs_msgs::HeadingType::GYRO) {
+    if (hdg_type.type == mrs_msgs::HeadingType::PIXHAWK) {
+      s_diag += "PIXHAWK";
+    } else if (hdg_type.type == mrs_msgs::HeadingType::GYRO) {
       s_diag += "GYRO";
     } else if (hdg_type.type == mrs_msgs::HeadingType::COMPASS) {
       s_diag += "COMPASS";
