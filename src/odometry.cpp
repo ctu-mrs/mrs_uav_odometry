@@ -385,6 +385,8 @@ namespace mrs_odometry
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
     double             unwrap(const double yaw, const double yaw_previous);
     double             wrap(const double angle_in);
+    double getYaw(tf2::Quaternion &q_tf);
+    double getYaw(geometry_msgs::Quaternion &q_msg);
     void               setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in);
     void setYaw(tf2::Quaternion &q_msg, const double yaw_in);
 
@@ -2001,6 +2003,7 @@ namespace mrs_odometry
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
       orientation.header                = odom_pixhawk.header;
+      orientation.header.frame_id = "local_origin";
       orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
     }
 
@@ -2018,8 +2021,9 @@ namespace mrs_odometry
       yaw(0) = wrap(yaw(0));
       setYaw(orientation.pose.pose.orientation, yaw(0));
       /* odom_main.twist.twist.angular.z = yaw_rate(0); */
-      orientation.header.frame_id = "local_origin";
       orientation.child_frame_id  = current_hdg_estimator->getName();
+    } else {
+      orientation.child_frame_id  = "PIXHAWK";
     }
 
     try {
@@ -2881,10 +2885,18 @@ namespace mrs_odometry
 
       // Rotate the tilt into the current estimation frame
         Eigen::VectorXd hdg(1);
+      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+      {
+        std::scoped_lock lock(mutex_odom_pixhawk);
+        hdg(0) = orientation_mavros.vector.z;
+
+      }
+      } else {
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
 
         current_hdg_estimator->getState(0, hdg);
+      }
       }
       getRotatedTilt(attitude, hdg(0), rot_x, rot_y);
 
@@ -3378,10 +3390,15 @@ namespace mrs_odometry
       }
 
         Eigen::VectorXd hdg(1);
+
+      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+        hdg(0) = getYaw(orient);
+      } else {
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
 
         current_hdg_estimator->getState(0, hdg);
+      }
       }
       // Rotate the tilt into the current estimation frame
       double rot_x, rot_y, rot_z;
@@ -5412,18 +5429,8 @@ namespace mrs_odometry
       ground_truth = *msg;
     }
 
-    // rotations in inertial frame
-    /* double rot_x, rot_y, rot_z; */
-    /* getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z); */
-        Eigen::VectorXd hdg(1);
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-
-        current_hdg_estimator->getState(0, hdg);
-      }
-      // Rotate the tilt into the current estimation frame
       double rot_x, rot_y, rot_z;
-      getGlobalRot(msg->pose.pose.orientation, rot_x, rot_y, rot_z);
+      getGlobalRot(ground_truth.pose.pose.orientation, rot_x, rot_y, rot_z);
 
     orientation_gt.header   = odom_pixhawk.header;
     orientation_gt.vector.x = rot_x;
@@ -6967,6 +6974,22 @@ namespace mrs_odometry
 
   //}
 
+  /* getYaw() //{ */
+  double Odometry::getYaw(tf2::Quaternion &q_tf) {
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+    return yaw;
+  }
+  //}
+  
+  /* getYaw() //{ */
+  double Odometry::getYaw(geometry_msgs::Quaternion &q_msg) {
+    tf2::Quaternion q_tf;
+    tf2::fromMsg(q_msg, q_tf);
+    return getYaw(q_tf);;
+  }
+  //}
+  
   /* setYaw() //{ */
   void Odometry::setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in) {
     tf2::Quaternion q_tf;

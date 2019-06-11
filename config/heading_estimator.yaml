@@ -5,6 +5,7 @@ heading_estimators:
 
   # The available altitude estimators
   heading_estimators: [
+    "PIXHAWK",
     "GYRO",
     "COMPASS",
     "OPTFLOW", 
@@ -28,6 +29,7 @@ heading_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
+    PIXHAWK: []
     GYRO: ["rate_gyro"]
     COMPASS: ["rate_gyro", "yaw_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
