@@ -6834,7 +6834,7 @@ namespace mrs_odometry
       hdg_type.type = _hdg_estimator_type.type;
     }
     s_diag += ", Current heading estimator type: ";
-    s_diag += std::to_string(type.type);
+    s_diag += std::to_string(hdg_type.type);
     s_diag += " - ";
 
     if (hdg_type.type == mrs_msgs::HeadingType::PIXHAWK) {

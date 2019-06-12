@@ -28,8 +28,8 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 min_satellites: 0
-max_default_altitude: 10.0
-max_optflow_altitude: 2.0
+max_default_altitude: 20.0
+max_optflow_altitude: 10.0
 april_objects: false
 
 use_differential_gps: true
@@ -167,9 +167,9 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10000]
-    pos_mavros: [1000]
-    vel_mavros: [10000]
+    vel_optflow: [10]
+    pos_mavros: [10000]
+    vel_mavros: [100000]
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
@@ -203,7 +203,7 @@ lateral:
       0, 1, 1, 0, 0, 0,
       0, 0, 0, 0.0001, 0.0001, 0,
       0, 0, 0, 0, 0, 0.0001,
-      0, 0, 0, 0, 0.0001, 0,
+      0, 0, 0, 0, 0.1, 0,
       0, 0, 0, 0, 0, 1000]
 
   # RTK estimator must have a different model
