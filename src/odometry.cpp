@@ -172,6 +172,7 @@ namespace mrs_odometry
     ros::Subscriber sub_ground_truth_;
     ros::Subscriber sub_mavros_diagnostic_;
     ros::Subscriber sub_vio_state_;
+    ros::Subscriber sub_uav_mass_estimate_;
 
   private:
     ros::ServiceServer ser_reset_lateral_kalman_;
@@ -265,6 +266,9 @@ namespace mrs_odometry
     geometry_msgs::Vector3Stamped orientation_mavros;
     geometry_msgs::Vector3Stamped orientation_gt;
 
+    double uav_mass_estimate;
+    std::mutex mutex_uav_mass_estimate;
+
     // Target attitude msgs
     mavros_msgs::AttitudeTarget target_attitude;
     mavros_msgs::AttitudeTarget target_attitude_previous;
@@ -350,6 +354,7 @@ namespace mrs_odometry
     void callbackVioState(const std_msgs::Bool &msg);
     void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
     void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
+    void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
 
     // | ------------------- service callbacks ------------------- |
     bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -615,8 +620,6 @@ namespace mrs_odometry
     bool   _object_available  = false;
     bool   object_reliable    = false;
 
-    // use differential gps
-    bool   use_differential_gps = false;
     bool   pass_rtk_as_odom     = false;
     double max_pos_correction_rate;
     double max_altitude_correction_;
@@ -695,6 +698,7 @@ namespace mrs_odometry
     param_loader.load_param("enable_profiler", profiler_enabled_);
 
     param_loader.load_param("uav_name", uav_name);
+    param_loader.load_param("uav_mass", uav_mass_estimate);
     param_loader.load_param("null_tracker", null_tracker_);
 
     odometry_published    = false;
@@ -1412,7 +1416,6 @@ namespace mrs_odometry
     //}
 
     // use differential gps
-    param_loader.load_param("use_differential_gps", use_differential_gps);
     param_loader.load_param("publish_fused_odom", _publish_fused_odom);
     param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
     param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
@@ -1425,12 +1428,10 @@ namespace mrs_odometry
     param_loader.load_param("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
     param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
 
-    if (pass_rtk_as_odom && !use_differential_gps) {
-      ROS_ERROR("[Odometry]: cant have pass_rtk_as_odom TRUE when use_differential_gps FALSE");
+    if (pass_rtk_as_odom && !_rtk_available) {
+      ROS_ERROR("[Odometry]: cant have pass_rtk_as_odom TRUE when rtk_available FALSE");
       ros::shutdown();
     }
-
-    ROS_INFO("[Odometry]: Differential GPS %s", use_differential_gps ? "enabled" : "disabled");
 
     odom_pixhawk_last_update = ros::Time::now();
 
@@ -1526,7 +1527,9 @@ namespace mrs_odometry
     sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
     // subscriber to t265 odometry
+    if (_t265_available) {
     sub_t265_odom_ = nh_.subscribe("t265_odom_in", 1, &Odometry::callbackT265Odometry, this, ros::TransportHints().tcpNoDelay());
+    }
 
     // subscriber to optflow velocity
     if (_optflow_available) {
@@ -1546,7 +1549,7 @@ namespace mrs_odometry
     }
 
     // subscriber for differential gps
-    if (use_differential_gps) {
+    if (_rtk_available) {
       rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
     }
 
@@ -1574,6 +1577,9 @@ namespace mrs_odometry
 
     // subscribe for mavros diagnostic
     sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());
+
+    // subscribe for uav mass estimate
+    sub_uav_mass_estimate_ = nh_.subscribe("uav_mass_estimate_in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
     //}
 
     // --------------------------------------------------------------
@@ -2247,12 +2253,24 @@ namespace mrs_odometry
 
       Eigen::VectorXd pos_vec(2);
       Eigen::VectorXd vel_vec(2);
+      Eigen::VectorXd acc_d_vec(2);
 
       {
         std::scoped_lock lock(mutex_current_estimator);
 
         current_estimator->getState(0, pos_vec);
         current_estimator->getState(1, vel_vec);
+        current_estimator->getState(4, acc_d_vec);
+
+        double fx, fy;
+        {
+          std::scoped_lock lock(mutex_uav_mass_estimate);
+        
+        fx = acc_d_vec(0) * uav_mass_estimate;
+        fy = acc_d_vec(1) * uav_mass_estimate;
+        }
+
+        ROS_INFO_THROTTLE(1.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
         odom_main.child_frame_id = current_estimator->getName();
         if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
           odom_main.child_frame_id += odom_object.child_frame_id;
@@ -4177,11 +4195,6 @@ namespace mrs_odometry
       /* } */
       /* } */
 
-
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: pos x: %f, corr x: %f, pos y: %f, corr y: %f", x_est, x_correction, y_est, y_correction);
-      // Apply correction step to all state estimators
-      /* stateEstimatorsCorrection(pos_vec(0)+x_correction, pos_vec(1)+y_correction, "pos_rtk"); */
-
       Eigen::VectorXd rtk_meas(2);
       rtk_meas << x_est + x_correction, y_est + y_correction;
       {
@@ -5372,6 +5385,24 @@ namespace mrs_odometry
   }
   //}
 
+  /* //{ callbackUavMassEstimate() */
+  void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
+
+    if (!is_initialized)
+      return;
+
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackUavMassEstimate");
+
+    {
+      std::scoped_lock lock(mutex_uav_mass_estimate);
+    
+      uav_mass_estimate = msg->data;
+    }
+
+  }
+  //}
+  
   /* callbackVioState() //{ */
 
   void Odometry::callbackVioState(const std_msgs::Bool &msg) {
