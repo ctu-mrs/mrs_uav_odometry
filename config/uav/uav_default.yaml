@@ -1,30 +1,39 @@
-rate: 100 # [Hz]
-aux_rate: 10 # [Hz]
-slow_odom_rate: 2 # [Hz]
-diag_rate: 10 # [Hz]
-max_altitude_rate: 10 # [Hz]
-lkf_states_rate: 10 # [Hz]
+# Lateral state estimator:
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
+lateral_estimator: "GPS"
 
-# State estimator used for takeoff: OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO
-takeoff_estimator: "OPTFLOW"
+# Altitude state estimator:
+# HEIGHT - rangefinder
+altitude_estimator: "HEIGHT"
 
-# available localization methods
-gps_available: false
+# Heading state estimator:
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
+heading_estimator: "PIXHAWK" 
+
+# Available localization methods
+gps_available: true
 optflow_available: true
 vio_available: false
-rtk_available: false
-lidar_available: false
+rtk_available: true
+lidar_available: true
 object_available: false
 t265_available: false
 
+# Rates of odometry publishers
+rate: 100 # [Hz]
+aux_rate: 1 # [Hz]
+slow_odom_rate: 2 # [Hz]
+diag_rate: 10 # [Hz]
+max_altitude_rate: 1 # [Hz]
+lkf_states_rate: 10 # [Hz]
+
 min_satellites: 0
-max_default_altitude: 10.0
-max_optflow_altitude: 2.0
+max_default_altitude: 20.0
+max_optflow_altitude: 10.0
 april_objects: false
 
-use_differential_gps: false
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
-pass_rtk_as_odom: false # dangerous outside simulation!
+publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
@@ -36,10 +45,6 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-# objectAltitudeBufferSize: 100
-# objectAltitudeValidAltitude: 5.0
-# objectAltitudeMaxDifference: 1.0
-
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
 garminFilterMaxDifference: 3.0
@@ -48,8 +53,6 @@ null_tracker: "mrs_uav_manager/NullTracker"
 
 altitude:
 
-  # ALTITUDE - barometric, HEIGHT - rangefinder
-  altitude_estimator: "HEIGHT"
   estimate_elevation: false
   estimate_baro_offset: true
 
@@ -71,9 +74,9 @@ altitude:
   # The system matrix
   # altitude, velocity, acceleration, height, elevation, offset
   # altitude = height + elevation
-  A: [0, 0.00, 0, 0, 0, 0,
+  A: [0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
-      0, 0, 1.0, 0.00, 0, 0, 
+      0, 0, 1, 0, 0, 0, 
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0]
@@ -102,28 +105,6 @@ altitude:
     bias_baro: [0.01] 
     elevation: [0.01] 
 
-  # bounds for the measurement covariance
-  TrgMaxQ: 100000
-  TrgMinQ: 0.5
-
-  GarminMaxQ: 100000
-  GarminMinQ: 0.5
-
-  # rate for changing the measurement covariance
-  TrgQChangeRate: 1000
-  GarminQChangeRate: 1000
-
-  rtkQ: 0.1
-  # objectQ: 0.1
-
-  # failsafe for rtk fusion
-  rtk_max_down_difference: 1.0
-  rtk_max_abs_difference: 5.0
-
-  # failsafe for object altitude fusion
-  # object_altitude_max_down_difference: 0.5
-  # object_altitude_max_abs_difference: 1.0
-
 lateral:
 
   numberOfVariables: 6
@@ -146,24 +127,50 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
+  icp_vel_median_filter: true
+  icp_vel_filter_buffer_size: 50
+  icp_vel_filter_max_valid: 8.0
+  icp_vel_filter_max_diff: 3.0
+
+  hector_pos_median_filter: true
+  hector_pos_filter_buffer_size: 50
+  hector_pos_filter_max_valid: 8.0
+  hector_pos_filter_max_diff: 3.0
+
+  #  Old Covariances of measurements
+  # Q:
+  #   vel_optflow: [100000000]
+  #   pos_mavros: [10000]
+  #   vel_mavros: [100000]
+  #   tilt_mavros: [1000000]
+  #   pos_rtk: [100000]
+  #   vel_rtk: [10000]
+  #   pos_icp: [1000]
+  #   vel_icp: [10000]
+  #   pos_vio: [100000]
+  #   vel_vio: [10000]
+  #   pos_object: [1000]
+  #   vel_object: [10000]
+
   # Covariances of measurements
   Q:
-    vel_optflow: [100000000]
+    vel_optflow: [10]
     pos_mavros: [10000]
     vel_mavros: [100000]
-    tilt_mavros: [1000000]
-    pos_rtk: [100000]
-    vel_rtk: [10000]
+    tilt_mavros: [100]
+    pos_rtk: [10]
+    vel_rtk: [1000]
     pos_icp: [1000]
     vel_icp: [10000]
-    pos_vio: [100000]
+    pos_vio: [100]
     vel_vio: [10000]
     pos_object: [1000]
     vel_object: [10000]
+    pos_hector: [1000]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
-  A: [1, 0.02, 0, 0, 0, 0,
+  A: [1, 0.02, 0.0004, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
       0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
@@ -178,12 +185,20 @@ lateral:
       0,
       0.0970]
 
+  # Old Process covariance
+  # R: [1, 0, 0, 0, 0, 0,
+  #     0, 1, 0, 0, 0, 0,
+  #     0, 0, 1, 0, 0, 0,
+  #     0, 0, 0, 1, 0, 0,
+  #     0, 0, 0, 0, 10000000, 0,
+  #     0, 0, 0, 0, 0, 1000]
+      
   # Process covariance
-  R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 10000000, 0,
+  R: [1, 1, 1, 0, 0, 0,
+      0, 1, 1, 0, 0, 0,
+      0, 0, 0, 0.0001, 0.0001, 0,
+      0, 0, 0, 0, 0, 0.0001,
+      0, 0, 0, 0, 0.1, 0,
       0, 0, 0, 0, 0, 1000]
 
   # RTK estimator must have a different model
@@ -206,9 +221,7 @@ lateral:
 
 heading:
 
-  use_heading_estimator: true # otherwise use PixHawk heading estimate
   gyro_fallback: true
-  heading_estimator: "OPTFLOW" # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow
 
   numberOfVariables: 3
   numberOfInputs: 2
@@ -220,6 +233,10 @@ heading:
 
   compass_yaw_filter_buffer_size: 100
   compass_yaw_filter_max_diff: deg(45)
+
+  hector_yaw_median_filter: true
+  hector_yaw_filter_buffer_size: 100
+  hector_yaw_filter_max_diff: deg(10)
 
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
@@ -240,5 +257,6 @@ heading:
   # Covariances of measurements
   Q:
     yaw_compass: [0.1]
+    yaw_hector: [10]
     rate_gyro: [0.1]
     rate_optflow: [10]

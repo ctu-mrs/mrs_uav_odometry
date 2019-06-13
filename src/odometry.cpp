@@ -394,6 +394,8 @@ namespace mrs_odometry
     double getYaw(geometry_msgs::Quaternion &q_msg);
     void               setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in);
     void setYaw(tf2::Quaternion &q_msg, const double yaw_in);
+    void initPoseFromFile();
+
 
     // for keeping new odom
     nav_msgs::Odometry shared_odom;
@@ -416,7 +418,6 @@ namespace mrs_odometry
     int                           trg_filter_buffer_size;
     double                        trg_max_valid_altitude;
     double                        trg_filter_max_difference;
-    double                        TrgMaxQ, TrgMinQ, TrgQChangeRate;
 
     // Garmin altitude subscriber and callback
     ros::Subscriber               sub_garmin_;
@@ -429,7 +430,6 @@ namespace mrs_odometry
     double                        garmin_max_valid_altitude;
     double                        garmin_filter_max_difference;
     ros::Time                     garmin_last_update;
-    double                        GarminMaxQ, GarminMinQ, GarminQChangeRate;
     bool                          excessive_tilt = false;
     std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
 
@@ -803,14 +803,6 @@ namespace mrs_odometry
     param_loader.load_param("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
     param_loader.load_param("garminFilterMaxDifference", garmin_filter_max_difference);
 
-    /* param_loader.load_param("objectAltitudeBufferSize", object_filter_buffer_size); */
-    /* param_loader.load_param("objectAltitudeValidAltitude", object_max_valid_altitude); */
-    /* param_loader.load_param("objectAltitudeMaxDifference", object_filter_max_difference); */
-    /* param_loader.load_param("altitude/objectQ", objectQ); */
-    /* param_loader.load_param("staticObjectHeight", static_object_height_); */
-    /* param_loader.load_param("dynamicObjectHeight", dynamic_object_height_); */
-    /* param_loader.load_param("mobius_z_offset_", trg_z_offset_); */
-
     param_loader.load_param("trg_z_offset", trg_z_offset_);
     param_loader.load_param("garmin_z_offset", garmin_z_offset_);
     param_loader.load_param("fcu_height", fcu_height_);
@@ -850,21 +842,7 @@ namespace mrs_odometry
     pixhawk_odom_offset_x = 0;
     pixhawk_odom_offset_y = 0;
 
-    // load init pose from config file
-    std::string path = ros::package::getPath("mrs_odometry");
-    path += "/config/init_pose/init_pose.csv";
-    std::ifstream init_pose_file(path, std::ifstream::in);
-    if (init_pose_file.is_open()) {
-      std::string s0, s1, s2, s3;
-      std::getline(init_pose_file, s0, ',');
-      std::getline(init_pose_file, s1, ',');
-      init_pose_x = std::atof(s1.c_str());
-      std::getline(init_pose_file, s2, ',');
-      init_pose_y = std::atof(s2.c_str());
-      init_pose_file.close();
-    } else {
-      ROS_ERROR("[Odometry]: Error opening file");
-    }
+    initPoseFromFile();
 
     // Optic flow
     param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
@@ -912,14 +890,6 @@ namespace mrs_odometry
     param_loader.load_matrix_dynamic("altitude/B", B_alt, altitude_n, altitude_m);
     param_loader.load_matrix_dynamic("altitude/R", R_alt, altitude_n, altitude_n);
 
-    param_loader.load_param("altitude/TrgMaxQ", TrgMaxQ);
-    param_loader.load_param("altitude/TrgMinQ", TrgMinQ);
-    param_loader.load_param("altitude/TrgQChangeRate", TrgQChangeRate);
-
-    param_loader.load_param("altitude/GarminMaxQ", GarminMaxQ);
-    param_loader.load_param("altitude/GarminMinQ", GarminMinQ);
-    param_loader.load_param("altitude/GarminQChangeRate", GarminQChangeRate);
-
     param_loader.load_param("altitude_estimators/model_states", _alt_model_state_names);
     param_loader.load_param("altitude_estimators/measurements", _alt_measurement_names);
     param_loader.load_param("altitude_estimators/altitude_estimators", _altitude_estimators_names);
@@ -933,15 +903,6 @@ namespace mrs_odometry
 
     _alt_estimator_type_takeoff.name = altitude_estimator_name;
     _alt_estimator_type_takeoff.type = (int)pos_alt;
-
-    /* param_loader.load_param("altitude/rtkQ", rtkQ); */
-
-    // failsafes for altitude fusion
-    /* param_loader.load_param("altitude/rtk_max_down_difference", rtk_max_down_difference_); */
-    /* param_loader.load_param("altitude/rtk_max_abs_difference", rtk_max_abs_difference_); */
-
-    /* param_loader.load_param("altitude/object_altitude_max_down_difference", object_altitude_max_down_difference_); */
-    /* param_loader.load_param("altitude/object_altitude_max_abs_difference", object_altitude_max_abs_difference_); */
 
     terarangerFilter = std::make_shared<MedianFilter>(trg_filter_buffer_size, trg_max_valid_altitude, 0, trg_filter_max_difference);
     garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
@@ -1081,8 +1042,7 @@ namespace mrs_odometry
     }
 
     ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: "
-                    << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_alt << ", B: " << B_alt << ", R: " << R_alt
-                    << ", TrgMaxQ: " << TrgMaxQ << ", TrgMinQ: " << TrgMinQ << ", TrgQChangeRate: " << TrgQChangeRate);
+                    << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_alt << ", B: " << B_alt << ", R: " << R_alt);
 
     ROS_INFO("[Odometry]: Altitude estimator prepared");
 
@@ -7031,7 +6991,6 @@ namespace mrs_odometry
   }
   //}
   
-  
   /* setYaw() //{ */
   void Odometry::setYaw(tf2::Quaternion &q_msg, const double yaw_in) {
     double roll, pitch, yaw;
@@ -7042,6 +7001,28 @@ namespace mrs_odometry
   }
   //}
 
+  /* initPoseFromFile() //{ */
+  
+  void Odometry::initPoseFromFile() {
+    // load init pose from config file
+    std::string path = ros::package::getPath("mrs_odometry");
+    path += "/config/init_pose/init_pose.csv";
+    std::ifstream init_pose_file(path, std::ifstream::in);
+    if (init_pose_file.is_open()) {
+      std::string s0, s1, s2, s3;
+      std::getline(init_pose_file, s0, ',');
+      std::getline(init_pose_file, s1, ',');
+      init_pose_x = std::atof(s1.c_str());
+      std::getline(init_pose_file, s2, ',');
+      init_pose_y = std::atof(s2.c_str());
+      init_pose_file.close();
+    } else {
+      ROS_ERROR("[Odometry]: Error opening file");
+    }
+  }
+  
+  //}
+  
 }  // namespace mrs_odometry
 
 #include <pluginlib/class_list_macros.h>

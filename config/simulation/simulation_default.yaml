@@ -32,7 +32,6 @@ max_default_altitude: 20.0
 max_optflow_altitude: 10.0
 april_objects: false
 
-use_differential_gps: true
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 pass_rtk_as_odom: false # dangerous outside simulation!
@@ -46,10 +45,6 @@ fcu_height: 0.2 # [m]
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
-
-# objectAltitudeBufferSize: 100
-# objectAltitudeValidAltitude: 5.0
-# objectAltitudeMaxDifference: 1.0
 
 garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 25.0
@@ -82,7 +77,7 @@ altitude:
   # altitude = height + elevation
   A: [0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
-      0, 0, 1.0, 0, 0, 0, 
+      0, 0, 1, 0, 0, 0, 
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0]
@@ -110,28 +105,6 @@ altitude:
     vel_mavros: [0.001]
     bias_baro: [0.01] 
     elevation: [0.01] 
-
-  # bounds for the measurement covariance
-  TrgMaxQ: 100000
-  TrgMinQ: 0.5
-
-  GarminMaxQ: 100000
-  GarminMinQ: 0.5
-
-  # rate for changing the measurement covariance
-  TrgQChangeRate: 1000
-  GarminQChangeRate: 1000
-
-  rtkQ: 0.1
-  # objectQ: 0.1
-
-  # failsafe for rtk fusion
-  rtk_max_down_difference: 1.0
-  rtk_max_abs_difference: 5.0
-
-  # failsafe for object altitude fusion
-  # object_altitude_max_down_difference: 0.5
-  # object_altitude_max_abs_difference: 1.0
 
 lateral:
 
@@ -183,7 +156,7 @@ lateral:
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
-  A: [1, 0.02, 0, 0, 0, 0,
+  A: [1, 0.02, 0.0004, 0, 0, 0,
       0, 1, 0.02, 0, 0, 0,
       0, 0, 0, 1, 1, 0,
       0, 0, 0, 0, 0, 6.3512,
