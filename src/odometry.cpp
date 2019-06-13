@@ -49,6 +49,7 @@
 #include <mrs_msgs/Heading.h>
 #include <mrs_msgs/HeadingStateNames.h>
 #include <mrs_msgs/HeadingType.h>
+#include <mrs_msgs/EstimatedState.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -141,6 +142,7 @@ namespace mrs_odometry
     ros::Publisher pub_max_altitude_;
     ros::Publisher pub_lkf_states_x_;
     ros::Publisher pub_lkf_states_y_;
+    ros::Publisher pub_heading_states_;
     ros::Publisher pub_altitude_state_;
     ros::Publisher pub_inno_elevation_;
     ros::Publisher pub_inno_stddev_elevation_;
@@ -1437,6 +1439,7 @@ namespace mrs_odometry
     pub_orientation_           = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
     pub_lkf_states_x_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
     pub_lkf_states_y_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
+    pub_heading_states_          = nh_.advertise<mrs_msgs::EstimatedState>("heading_state_out", 1);
     pub_altitude_state_        = nh_.advertise<mrs_msgs::Altitude>("altitude_state_out", 1);
     pub_inno_elevation_        = nh_.advertise<mrs_msgs::Float64Stamped>("inno_elevation_out", 1);
     pub_inno_stddev_elevation_ = nh_.advertise<mrs_msgs::Float64Stamped>("inno_stddev_elevation_out", 1);
@@ -2646,6 +2649,25 @@ namespace mrs_odometry
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
+    }
+
+    Eigen::MatrixXd hdg_state = Eigen::MatrixXd::Zero(heading_n, 1);
+    Eigen::MatrixXd hdg_covariance = Eigen::MatrixXd::Zero(heading_n, heading_n);
+    current_hdg_estimator->getStates(hdg_state);
+    current_hdg_estimator->getCovariance(hdg_covariance);
+
+    mrs_msgs::EstimatedState hdg_state_msg;
+    hdg_state_msg.header.stamp = ros::Time::now();
+    for (int i = 0; i < heading_n; i++) {
+      hdg_state_msg.state.push_back(hdg_state(i,0));
+      hdg_state_msg.covariance.push_back(hdg_covariance(i,i));
+    }
+
+    try {
+      pub_heading_states_.publish(hdg_state_msg);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_heading_states_.getTopic().c_str());
     }
   }
 
