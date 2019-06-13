@@ -2228,7 +2228,7 @@ namespace mrs_odometry
         fy = acc_d_vec(1) * uav_mass_estimate;
         }
 
-        ROS_INFO_THROTTLE(1.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
+        ROS_INFO_THROTTLE(10.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
         odom_main.child_frame_id = current_estimator->getName();
         if (std::strcmp(current_estimator->getName().c_str(), "OBJECT") == STRING_EQUAL) {
           odom_main.child_frame_id += odom_object.child_frame_id;
