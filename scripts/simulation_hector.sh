@@ -34,9 +34,11 @@ input=(
   'GoToRelative' "rosservice call /$UAV_NAME/control_manager/goto_relative \"goal: [0.0, 0.0, 0.0, 0.0]\""
   'RVIZ' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; nice -n 15 rosrun rviz rviz -d rviz/odometry.rviz
   "
-  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME;  rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
+  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
   "
   'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
+  "
+  'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh simulation
   "
 )
 
