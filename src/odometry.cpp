@@ -252,8 +252,6 @@ namespace mrs_odometry
     ros::Time         compass_hdg_last_update;
 
     // Hector heading msgs
-    std_msgs::Float64 hector_yaw;
-    std_msgs::Float64 hector_yaw_previous;
     double            hector_yaw_previous_deg;
     std::mutex        mutex_hector_hdg;
     ros::Time         hector_yaw_last_update;
@@ -2920,7 +2918,7 @@ namespace mrs_odometry
       return;
     }
 
-    double yaw_rate = -target_attitude.body_rate.z;
+    double yaw_rate = target_attitude.body_rate.z;
 
     if (!std::isfinite(yaw_rate)) {
       ROS_ERROR("NaN detected in Mavros variable \"yaw_rate\", prediction with zero input!!!");
@@ -2928,7 +2926,7 @@ namespace mrs_odometry
     }
 
     // Apply prediction step to all heading estimators
-    headingEstimatorsPrediction(rot_z, yaw_rate, dt);
+    headingEstimatorsPrediction(hdg(0), yaw_rate, dt);
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing target attitude. Waiting for other sensors.");
