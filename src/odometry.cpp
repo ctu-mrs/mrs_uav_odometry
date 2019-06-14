@@ -187,6 +187,8 @@ namespace mrs_odometry
     ros::ServiceServer ser_change_hdg_estimator_type;
     ros::ServiceServer ser_change_hdg_estimator_type_string;
 
+    ros::ServiceClient ser_client_failsafe_;
+
   private:
     tf2_ros::TransformBroadcaster *             broadcaster_;
     tf2_ros::Buffer                             m_tf_buffer;
@@ -451,6 +453,8 @@ namespace mrs_odometry
     bool got_pixhawk_imu      = false;
     bool got_compass_hdg      = false;
 
+    bool failsafe_called  = false;
+
     int got_icp_counter;
     int got_icp_global_counter;
     int got_rtk_counter;
@@ -607,6 +611,7 @@ namespace mrs_odometry
     // reliability of gps
     double max_altitude;
     bool   gps_reliable       = false;
+    bool   hector_reliable       = false;
     bool   _gps_available     = false;
     bool   _vio_available     = false;
     bool   vio_reliable       = false;
@@ -716,6 +721,8 @@ namespace mrs_odometry
     got_lateral_sensors   = false;
     got_pixhawk_imu       = false;
     got_compass_hdg       = false;
+
+    failsafe_called = false;
 
     _is_estimator_tmp = false;
     got_rtk_counter   = 0;
@@ -863,6 +870,7 @@ namespace mrs_odometry
     param_loader.load_param("lidar_available", _lidar_available);
     param_loader.load_param("object_available", _object_available);
     gps_reliable        = _gps_available;
+    hector_reliable        = _lidar_available;
     rtk_reliable        = _rtk_available;
     t265_reliable       = _t265_available;
     object_reliable     = false;
@@ -1568,6 +1576,7 @@ namespace mrs_odometry
 
     ser_change_hdg_estimator_type_string = nh_.advertiseService("change_hdg_estimator_type_string_in", &Odometry::callbackChangeHdgEstimatorString, this);
 
+  ser_client_failsafe_ = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
     //}
 
     // --------------------------------------------------------------
@@ -2021,6 +2030,12 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE", got_rtk ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2035,6 +2050,12 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2050,6 +2071,12 @@ namespace mrs_odometry
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
                           got_optflow ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2071,6 +2098,45 @@ namespace mrs_odometry
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
                           got_odom_t265 ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
+        return;
+      }
+
+      // Fallback from Hector Slam
+    } else if (_estimator_type.type == mrs_msgs::EstimatorType::HECTOR) {
+      if (!hector_reliable && _gyro_fallback) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not realiable. Swtiching to GYRO heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+      }
+      if ((!got_hector_pose || !hector_reliable) && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
+        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
+        mrs_msgs::EstimatorType optflow_type;
+        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+        changeCurrentEstimator(optflow_type);
+      } else if ((!got_hector_pose || !hector_reliable) && gps_reliable && got_odom_pixhawk) {
+        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
+        mrs_msgs::EstimatorType hector_type;
+        hector_type.type = mrs_msgs::EstimatorType::HECTOR;
+        changeCurrentEstimator(hector_type);
+      }
+      if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_hector_pose) {
+        ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
+                          got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
+                          got_hector_pose ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2094,6 +2160,12 @@ namespace mrs_odometry
           ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                             got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
                             got_optflow ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
           return;
         }
 
@@ -2101,6 +2173,12 @@ namespace mrs_odometry
         if (!got_odom_pixhawk || !got_range || !got_optflow) {
           ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s",
                             got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_optflow ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
           return;
         }
       }
@@ -2109,6 +2187,12 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || !got_icp) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, icp: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
                           got_range ? "TRUE" : "FALSE", got_icp ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2116,6 +2200,12 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || !got_vio) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
                           got_range ? "TRUE" : "FALSE", got_vio ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
 
@@ -2123,6 +2213,12 @@ namespace mrs_odometry
       if (!got_odom_pixhawk || !got_range || !got_hector_pose) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, hector: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
                           got_range ? "TRUE" : "FALSE", got_hector_pose ? "TRUE" : "FALSE");
+        if (got_lateral_sensors && !failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
         return;
       }
     } else {
@@ -3683,7 +3779,7 @@ namespace mrs_odometry
       compass_inconsistent_samples++;
       ROS_WARN("[Odometry]: Compass yaw inconsistent: %f. Not fusing.", yaw);
 
-      if (_gyro_fallback && compass_inconsistent_samples > 20) {
+      if (std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == 0 && _gyro_fallback && compass_inconsistent_samples > 20) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::GYRO;
@@ -4763,6 +4859,11 @@ namespace mrs_odometry
 
         got_hector_pose = true;
         return;
+      }
+
+      if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 50 ||  std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 50) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump detected in Hector Slam pose");
+        hector_reliable = false;
       }
     }
 
