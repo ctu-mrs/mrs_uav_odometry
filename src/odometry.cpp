@@ -1819,7 +1819,7 @@ namespace mrs_odometry
 
     if (got_tracker_status) {
 
-      if (std::string(tracker_status.tracker).compare("mrs_mav_manager/LandoffTracker") == STRING_EQUAL) {
+      if (std::string(tracker_status.tracker).compare("LandoffTracker") == STRING_EQUAL) {
 
         return true;
       } else {
