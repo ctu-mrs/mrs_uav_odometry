@@ -219,22 +219,22 @@ heading:
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
   A: [1, 0.02, 0,  # yaw
-      0, 0.9, 0,     # yaw rate
-      0, 0, 0]     # gyro bias
+      0, 0.95, 1,     # yaw rate
+      0, 0, 1]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
-      0, 0.1,
+      0, 0.05,
       0, 0]
 
   # Process covariance
   R: [0.1, 0, 0,
-      0, 0.1, 0,
-      0, 0, 0.000001]
+      0, 0.1, 0.1,
+      0, 0, 0.001]
 
   # Covariances of measurements
   Q:
     yaw_compass: [0.1]
-    yaw_hector: [10]
-    rate_gyro: [0.01]
+    yaw_hector: [0.01]
+    rate_gyro: [0.1]
     rate_optflow: [10]
