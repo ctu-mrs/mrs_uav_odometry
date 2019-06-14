@@ -9,13 +9,13 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
 # define commands
 # 'name' 'command'
 input=(
-  'RVIZ' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; nice -n 15 rosrun rviz rviz -d rviz/odometry.rviz
+  'RVIZ' "waitForRos;roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; nice -n 15 rosrun rviz rviz -d rviz/odometry.rviz
   "
-  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
+  'Juggler' "waitForRos; sleep 1; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
   "
-  'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
+  'reconfigure' " waitForRos; rosrun rqt_reconfigure rqt_reconfigure
   "
-  'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh rviz_rqt_juggler
+  'Layout' "waitForRos; i3 workspace '9'; sleep 8;  ~/.i3/layout_manager.sh rviz_rqt_juggler
   "
 )
 
