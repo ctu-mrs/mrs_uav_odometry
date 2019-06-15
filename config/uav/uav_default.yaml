@@ -34,6 +34,7 @@ april_objects: false
 
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
+pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.25 # [m]
 
 trg_z_offset: 0.035 # [m]
