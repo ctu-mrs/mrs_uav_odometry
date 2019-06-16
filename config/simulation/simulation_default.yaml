@@ -11,7 +11,7 @@ altitude_estimator: "HEIGHT"
 heading_estimator: "PIXHAWK" 
 
 # Available localization methods
-gps_available: false
+gps_available: true
 optflow_available: true
 vio_available: false
 rtk_available: true
