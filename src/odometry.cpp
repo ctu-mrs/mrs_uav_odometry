@@ -2123,9 +2123,9 @@ namespace mrs_odometry
         changeCurrentEstimator(optflow_type);
       } else if ((!got_hector_pose || !hector_reliable) && gps_reliable && got_odom_pixhawk) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
-        mrs_msgs::EstimatorType hector_type;
-        hector_type.type = mrs_msgs::EstimatorType::HECTOR;
-        changeCurrentEstimator(hector_type);
+        mrs_msgs::EstimatorType gps_type;
+        gps_type.type = mrs_msgs::EstimatorType::GPS;
+        changeCurrentEstimator(gps_type);
       }
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_hector_pose) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
@@ -2196,7 +2196,19 @@ namespace mrs_odometry
         return;
       }
 
+      // Fallback from VIO
     } else if (_estimator_type.type == mrs_msgs::EstimatorType::VIO) {
+      if (!vio_reliable && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
+        ROS_WARN("[Odometry]: VIO not reliable. Switching to OPTFLOW type.");
+        mrs_msgs::EstimatorType optflow_type;
+        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+        changeCurrentEstimator(optflow_type);
+      } else if (!vio_reliable && gps_reliable && got_odom_pixhawk) {
+        ROS_WARN("[Odometry]: VIO not reliable. Switching to GPS type.");
+        mrs_msgs::EstimatorType gps_type;
+        gps_type.type = mrs_msgs::EstimatorType::GPS;
+        changeCurrentEstimator(gps_type);
+      }
       if (!got_odom_pixhawk || !got_range || !got_vio) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
                           got_range ? "TRUE" : "FALSE", got_vio ? "TRUE" : "FALSE");
@@ -2209,18 +2221,6 @@ namespace mrs_odometry
         return;
       }
 
-    } else if (_estimator_type.type == mrs_msgs::EstimatorType::HECTOR) {
-      if (!got_odom_pixhawk || !got_range || !got_hector_pose) {
-        ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, hector: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
-                          got_range ? "TRUE" : "FALSE", got_hector_pose ? "TRUE" : "FALSE");
-        if (got_lateral_sensors && !failsafe_called) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called = true;
-        }
-        return;
-      }
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Unknown odometry type. Not checking sensors.");
     }
@@ -4417,6 +4417,30 @@ namespace mrs_odometry
 
     //////////////////// Fuse Lateral Kalman ////////////////////
 
+    // Current orientation
+    Eigen::VectorXd hdg_state(1);
+
+    {
+    std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, hdg_state);
+    }
+
+    double yaw = hdg_state(0);
+
+      // Vio orientation
+      double roll_vio, pitch_vio, yaw_vio;
+    {
+      std::scoped_lock lock(mutex_odom_vio);
+      tf2::Quaternion q_vio;
+      q_vio.setX(odom_vio.pose.pose.orientation.x);
+      q_vio.setY(odom_vio.pose.pose.orientation.y);
+      q_vio.setZ(odom_vio.pose.pose.orientation.z);
+      q_vio.setW(odom_vio.pose.pose.orientation.w);
+      q_vio.normalize();
+
+      tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
+    }
     /* //{ fuse vio velocity */
 
     double vel_vio_x, vel_vio_y;
@@ -4427,8 +4451,17 @@ namespace mrs_odometry
       // TODO find out which one is better
       /* vel_vio_x = odom_vio.twist.twist.linear.x; */
       /* vel_vio_y = odom_vio.twist.twist.linear.y; */
-      vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / dt;
-      vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / dt;
+      /* vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / dt; */
+      /* vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / dt; */
+      // Correct the position by the compass heading
+      vel_vio_x = odom_vio.twist.twist.linear.x * cos(yaw - yaw_vio) - odom_vio.twist.twist.linear.y * sin(yaw - yaw_vio);
+      vel_vio_y = odom_vio.twist.twist.linear.x * sin(yaw - yaw_vio) + odom_vio.twist.twist.linear.y * cos(yaw - yaw_vio);
+    }
+
+    if (vio_reliable && (vel_vio_x > 10 || vel_vio_y > 10)) {
+      ROS_WARN("[Odometry]: Estimated VIO velocity > 10. VIO is not reliable.");
+      vio_reliable = false; 
+      return;
     }
 
     // Apply correction step to all state estimators
@@ -4439,35 +4472,10 @@ namespace mrs_odometry
 
     /* //{ fuse vio position */
 
-    // Pixhawk (compass) orientation
-    tf2::Quaternion q;
-    {
-      std::scoped_lock lock(mutex_odom_pixhawk);
-
-      q.setX(odom_pixhawk.pose.pose.orientation.x);
-      q.setY(odom_pixhawk.pose.pose.orientation.y);
-      q.setZ(odom_pixhawk.pose.pose.orientation.z);
-      q.setW(odom_pixhawk.pose.pose.orientation.w);
-    }
-    q.normalize();
-
-    double roll, pitch, yaw;
-    tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
-
     double vio_pos_x, vio_pos_y;
+
     {
       std::scoped_lock lock(mutex_odom_vio);
-
-      // Vio orientation
-      tf2::Quaternion q_vio;
-      q_vio.setX(odom_vio.pose.pose.orientation.x);
-      q_vio.setY(odom_vio.pose.pose.orientation.y);
-      q_vio.setZ(odom_vio.pose.pose.orientation.z);
-      q_vio.setW(odom_vio.pose.pose.orientation.w);
-      q_vio.normalize();
-
-      double roll_vio, pitch_vio, yaw_vio;
-      tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
 
       // Correct the position by the compass heading
       vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio);
@@ -4508,6 +4516,10 @@ namespace mrs_odometry
       }
     }
 
+    if (vio_reliable && (std::fabs(odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) > 10 || std::fabs(odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) > 10 )) {
+      ROS_WARN("[Odometry]: Estimated difference between VIO positions > 10. VIO is not reliable.");
+      vio_reliable = false; 
+    }
 
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
@@ -5486,6 +5498,7 @@ namespace mrs_odometry
   
   /* callbackVioState() //{ */
 
+  // State of the ORB_SLAM
   void Odometry::callbackVioState(const std_msgs::Bool &msg) {
 
     if (!is_initialized)
