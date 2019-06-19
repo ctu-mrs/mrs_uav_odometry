@@ -11,7 +11,7 @@ state_estimators:
     "RTK",
     "ICP",
     "VIO",
-    "OBJECT",
+    "BRICK",
     "T265",
     "HECTOR"
   ] 
@@ -34,8 +34,8 @@ state_estimators:
     "vel_icp",
     "pos_vio",
     "vel_vio",
-    "pos_object",
-    "vel_object",
+    "pos_brick",
+    "vel_brick",
     "pos_hector",
   ]
 
@@ -52,7 +52,7 @@ state_estimators:
     ICP: ["tilt_mavros", "vel_icp"]
     HECTOR: ["tilt_mavros", "pos_hector"]
     VIO: ["tilt_mavros", "pos_vio"]
-    OBJECT: ["tilt_mavros", "pos_object"]
+    BRICK: ["tilt_mavros", "pos_brick"]
     T265: []
 
   # Mapping of measurements to states
@@ -67,8 +67,8 @@ state_estimators:
     vel_icp: VELOCITY
     pos_vio: POSITION
     vel_vio: VELOCITY
-    pos_object: POSITION
-    vel_object: VELOCITY
+    pos_brick: POSITION
+    vel_brick: VELOCITY
     pos_hector: POSITION
 
   # Mapping states to model
