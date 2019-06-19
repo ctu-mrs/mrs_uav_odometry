@@ -167,7 +167,7 @@ lateral:
     vel_vio: [10000]
     pos_object: [1000]
     vel_object: [10000]
-    pos_hector: [1000]
+    pos_hector: [10]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
