@@ -53,7 +53,7 @@
       <remap from="~vio_in" to="orb_slam/odom" />
       <remap from="~t265_odom_in" to="rs_t265/odom/sample" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
-      <remap from="~object_in" to="~odom_april" />
+      <remap from="~brick_in" to="~brick_in" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
@@ -91,6 +91,7 @@
       <remap from="~orientation_mavros_out" to="~orientation_mavros" />
       <remap from="~orientation_target_out" to="~orientation_target" />
       <remap from="~compass_yaw_out" to="~compass_yaw" />
+      <remap from="~brick_yaw_out" to="~brick_yaw" />
       <remap from="~profiler" to="profiler" />
 
       <!-- Services -->
