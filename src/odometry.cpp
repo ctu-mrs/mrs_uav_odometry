@@ -5440,7 +5440,7 @@ namespace mrs_odometry
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackMavrosDiag");
 
-    max_altitude = _max_default_altitude;
+    /* max_altitude = _max_default_altitude; */
 
     {
       std::scoped_lock lock(mutex_mavros_diag);
