@@ -2109,23 +2109,30 @@ namespace mrs_odometry
 
       // Fallback from Hector Slam
     } else if (_estimator_type.type == mrs_msgs::EstimatorType::HECTOR) {
-      if (!hector_reliable && _gyro_fallback) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not realiable. Swtiching to GYRO heading estimator.");
+      if (_hdg_estimator_type.type == mrs_msgs::HeadingType::HECTOR && !hector_reliable && _gyro_fallback) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to GYRO heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::GYRO;
         desired_estimator.name = _heading_estimators_names[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
       }
-      if ((!got_hector_pose || !hector_reliable) && _optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
+      if (!got_hector_pose || !hector_reliable) {
+      if (_optflow_available && got_optflow && current_altitude(0) < _max_optflow_altitude) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
         changeCurrentEstimator(optflow_type);
-      } else if ((!got_hector_pose || !hector_reliable) && gps_reliable && got_odom_pixhawk) {
+      } else if (gps_reliable && got_odom_pixhawk) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
         changeCurrentEstimator(gps_type);
+      } else if (!failsafe_called) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called = true;
+        }
       }
       if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_hector_pose) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
