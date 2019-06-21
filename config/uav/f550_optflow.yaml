@@ -19,7 +19,6 @@ lidar_available: false
 object_available: false
 t265_available: false
 
-
 lateral:
 
   # Process covariance
