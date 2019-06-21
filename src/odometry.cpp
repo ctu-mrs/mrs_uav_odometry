@@ -2843,17 +2843,21 @@ namespace mrs_odometry
 
     // optflow velocities
     interval = ros::Time::now() - optflow_twist_last_update;
-    if (got_optflow && interval.toSec() > 1.0) {
+    if (got_optflow && interval.toSec() > 0.1) {
       ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
+    if (got_optflow && interval.toSec() > 1.0) {
       got_optflow      = false;
       optflow_reliable = false;
+    }
     }
 
     //  target attitude
     interval = ros::Time::now() - target_attitude_last_update;
-    if (got_target_attitude && interval.toSec() > 1.0) {
+    if (got_target_attitude && interval.toSec() > 0.1) {
       ROS_WARN("[Odometry]: Target attitude not received for %f seconds.", interval.toSec());
-      got_target_attitude = false;
+      if (got_target_attitude && interval.toSec() > 1.0) {
+        got_target_attitude = false;
+    }
     }
 
     // rtk odometry
