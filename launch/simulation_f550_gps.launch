@@ -54,6 +54,7 @@
       <remap from="~t265_odom_in" to="ground_truth" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
       <remap from="~object_in" to="apriltags2_ros/tag_odometry" />
+      <remap from="~brick_pose_in" to="wall_grasping/current_target_uav_odom" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />

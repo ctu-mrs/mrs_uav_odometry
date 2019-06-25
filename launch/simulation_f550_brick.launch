@@ -30,7 +30,7 @@
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
       <rosparam file="$(find mrs_odometry)/config/simulation/simulation_default.yaml" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/simulation/f550_gps.yaml" command="load" />
+      <rosparam file="$(find mrs_odometry)/config/simulation/f550_brick.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
@@ -54,7 +54,7 @@
       <remap from="~t265_odom_in" to="ground_truth" />
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
       <remap from="~object_in" to="apriltags2_ros/tag_odometry" />
-      <remap from="~brick_pose_in" to="wall_grasping/current_target_uav_odom" />
+      <remap from="~brick_pose_in" to="brick_grasping/current_target_uav_odom" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />
