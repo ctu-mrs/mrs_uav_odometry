@@ -15,7 +15,7 @@ gps_available: false
 optflow_available: true
 vio_available: false
 rtk_available: false
-lidar_available: false
+lidar_available: true
 object_available: false
 t265_available: false
 
@@ -28,7 +28,7 @@ lateral:
       0, 0, 0, 0, 0, 0.0001,
       0, 0, 0, 0, 0.01, 0,
       0, 0, 0, 0, 0, 1000]
-
   Q:
     vel_optflow: [1]
     tilt_mavros: [100]
+
