@@ -1,6 +1,6 @@
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
-lateral_estimator: "GPS"
+lateral_estimator: "BRICKFLOW"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder

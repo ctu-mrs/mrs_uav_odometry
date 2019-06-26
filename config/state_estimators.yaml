@@ -13,7 +13,8 @@ state_estimators:
     "VIO",
     "BRICK",
     "T265",
-    "HECTOR"
+    "HECTOR",
+    "BRICKFLOW"
   ] 
 
   # The measured states of the model
@@ -53,6 +54,7 @@ state_estimators:
     HECTOR: ["tilt_mavros", "pos_hector"]
     VIO: ["tilt_mavros", "pos_vio"]
     BRICK: ["tilt_mavros", "pos_brick"]
+    BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
     T265: []
 
   # Mapping of measurements to states
