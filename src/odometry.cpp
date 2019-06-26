@@ -57,6 +57,7 @@
 #include <mrs_lib/GpsConversions.h>
 #include <mrs_lib/ParamLoader.h>
 
+#include <support.h>
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
@@ -416,12 +417,6 @@ namespace mrs_odometry
     std::string        printOdometryDiag();
     bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
     nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg);
-    double             unwrap(const double yaw, const double yaw_previous);
-    double             wrap(const double angle_in);
-    double getYaw(tf2::Quaternion &q_tf);
-    double getYaw(geometry_msgs::Quaternion &q_msg);
-    void               setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in);
-    void setYaw(tf2::Quaternion &q_msg, const double yaw_in);
     void initPoseFromFile();
 
 
@@ -2049,8 +2044,8 @@ namespace mrs_odometry
         current_hdg_estimator->getState(0, yaw);
         current_hdg_estimator->getState(1, yaw_rate);
       }
-      yaw(0) = wrap(yaw(0));
-      setYaw(orientation.pose.pose.orientation, yaw(0));
+      yaw(0) = mrs_odometry::wrapAngle(yaw(0));
+      mrs_odometry::setYaw(orientation.pose.pose.orientation, yaw(0));
       /* odom_main.twist.twist.angular.z = yaw_rate(0); */
         {
         std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -2446,8 +2441,8 @@ namespace mrs_odometry
           current_hdg_estimator->getState(0, yaw);
           current_hdg_estimator->getState(1, yaw_rate);
         }
-        yaw(0) = wrap(yaw(0));
-        setYaw(odom_main.pose.pose.orientation, yaw(0));
+        yaw(0) = mrs_odometry::wrapAngle(yaw(0));
+        mrs_odometry::setYaw(odom_main.pose.pose.orientation, yaw(0));
         odom_main.twist.twist.angular.z = yaw_rate(0);
         {
         std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -2686,7 +2681,7 @@ namespace mrs_odometry
         }
       }
 
-      current_heading(0) = wrap(current_heading(0));
+      current_heading(0) = mrs_odometry::wrapAngle(current_heading(0));
 
       for (int i = 0; i < current_heading.rows(); i++) {
         heading_aux.values.push_back(current_heading(i));
@@ -3282,20 +3277,13 @@ double yaw_rate;
         }
         m_init_heading = hdg(0);
       } else {
+
         // Pixhawk (compass) orientation
-        tf2::Quaternion q;
+        double roll, pitch;
         {
           std::scoped_lock lock(mutex_odom_pixhawk);
-
-          q.setX(odom_pixhawk.pose.pose.orientation.x);
-          q.setY(odom_pixhawk.pose.pose.orientation.y);
-          q.setZ(odom_pixhawk.pose.pose.orientation.z);
-          q.setW(odom_pixhawk.pose.pose.orientation.w);
+          mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, m_init_heading);
         }
-        q.normalize();
-
-        double roll, pitch;
-        tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
       }
       got_init_heading = true;
     }
@@ -3470,7 +3458,7 @@ double yaw_rate;
         std::string current_hdg_estimator_name = current_hdg_estimator->getName();
         }
       if (std::strcmp(current_hdg_estimator_name.c_str(), "PIXHAWK") == STRING_EQUAL) {
-        hdg(0) = getYaw(orient);
+        hdg(0) = mrs_odometry::getYaw(orient);
       } else {
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -3703,7 +3691,7 @@ double yaw_rate;
 
       yaw = yaw / 180 * M_PI;
       yaw = yaw / 180 * M_PI;
-      yaw = unwrap(yaw, yaw_previous);
+      yaw = mrs_odometry::unwrapAngle(yaw, yaw_previous);
 
       init_hdg_avg += M_PI / 2 - yaw;
       if (++init_hdg_avg_samples > 100) {
@@ -3755,7 +3743,7 @@ double yaw_rate;
     }
 
     yaw          = yaw / 180 * M_PI;
-    yaw          = unwrap(yaw, yaw_previous);
+    yaw          = mrs_odometry::unwrapAngle(yaw, yaw_previous);
     yaw_previous = yaw;
     yaw          = M_PI / 2 - yaw;
 
@@ -3781,7 +3769,7 @@ double yaw_rate;
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw, "yaw_compass");
 
-      yaw = wrap(yaw);
+      yaw = mrs_odometry::wrapAngle(yaw);
 
       mrs_msgs::Float64Stamped compass_yaw_out;
       compass_yaw_out.header.stamp    = ros::Time::now();
@@ -4416,14 +4404,7 @@ double yaw_rate;
       double roll_vio, pitch_vio, yaw_vio;
     {
       std::scoped_lock lock(mutex_odom_vio);
-      tf2::Quaternion q_vio;
-      q_vio.setX(odom_vio.pose.pose.orientation.x);
-      q_vio.setY(odom_vio.pose.pose.orientation.y);
-      q_vio.setZ(odom_vio.pose.pose.orientation.z);
-      q_vio.setW(odom_vio.pose.pose.orientation.w);
-      q_vio.normalize();
-
-      tf2::Matrix3x3(q_vio).getRPY(roll_vio, pitch_vio, yaw_vio);
+      mrs_odometry::getRPY(odom_vio.pose.pose.orientation, roll_vio, pitch_vio, yaw_vio);
     }
     /* //{ fuse vio velocity */
 
@@ -4432,11 +4413,6 @@ double yaw_rate;
     {
       std::scoped_lock lock(mutex_odom_vio);
 
-      // TODO find out which one is better
-      /* vel_vio_x = odom_vio.twist.twist.linear.x; */
-      /* vel_vio_y = odom_vio.twist.twist.linear.y; */
-      /* vel_vio_x = (odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) / dt; */
-      /* vel_vio_y = (odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) / dt; */
       // Correct the position by the compass heading
       vel_vio_x = odom_vio.twist.twist.linear.x * cos(yaw - yaw_vio) - odom_vio.twist.twist.linear.y * sin(yaw - yaw_vio);
       vel_vio_y = odom_vio.twist.twist.linear.x * sin(yaw - yaw_vio) + odom_vio.twist.twist.linear.y * cos(yaw - yaw_vio);
@@ -4601,26 +4577,20 @@ double yaw_rate;
       return;
     }
 
-    double yaw_brick;
-
-
-      double r,p;
-    geometry_msgs::Quaternion quat;
+    double r_tmp, p_tmp, yaw_brick;
     {
       std::scoped_lock lock(mutex_brick);
-      quat = brick_pose.pose.orientation;
+      mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, yaw_brick);
     }
-    tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-    tf2::Matrix3x3(qt).getRPY(r, p, yaw_brick);
 
-    yaw_brick          = unwrap(yaw_brick, brick_yaw_previous_deg);
+    yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous_deg);
     brick_yaw_previous_deg = yaw_brick;
     /* yaw          = M_PI / 2 - yaw; */
 
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw_brick, "yaw_brick");
 
-      yaw_brick = wrap(yaw_brick);
+      yaw_brick = mrs_odometry::wrapAngle(yaw_brick);
 
       mrs_msgs::Float64Stamped brick_yaw_out;
       brick_yaw_out.header.stamp    = ros::Time::now();
@@ -4894,25 +4864,18 @@ double yaw_rate;
     }
 
     double yaw_hector;
-
-
-      double r,p;
-    geometry_msgs::Quaternion quat;
     {
       std::scoped_lock lock(mutex_hector);
-      quat = hector_pose.pose.orientation;
+      yaw_hector = mrs_odometry::getYaw(hector_pose.pose.orientation);
     }
-    tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-    tf2::Matrix3x3(qt).getRPY(r, p, yaw_hector);
 
-    yaw_hector          = unwrap(yaw_hector, hector_yaw_previous_deg);
+    yaw_hector          = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous_deg);
     hector_yaw_previous_deg = yaw_hector;
-    /* yaw          = M_PI / 2 - yaw; */
 
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw_hector, "yaw_hector");
 
-      yaw_hector = wrap(yaw_hector);
+      yaw_hector = mrs_odometry::wrapAngle(yaw_hector);
 
       mrs_msgs::Float64Stamped hector_yaw_out;
       hector_yaw_out.header.stamp    = ros::Time::now();
@@ -4992,17 +4955,13 @@ double yaw_rate;
 
     // getting roll, pitch, yaw
     double                    roll, pitch, yaw;
-    geometry_msgs::Quaternion quat;
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
-      quat = odom_pixhawk.pose.pose.orientation;
+      mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
     }
-    tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-    tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
-    double measurement = 0;
     // compensate for tilting of the sensor
-    measurement = range_terarangerone_.range * cos(roll) * cos(pitch) + trg_z_offset_;
+    double measurement = range_terarangerone_.range * cos(roll) * cos(pitch) + trg_z_offset_;
 
     if (!std::isfinite(measurement)) {
 
@@ -5102,15 +5061,11 @@ double yaw_rate;
       return;
     }
 
-
     double                    roll, pitch, yaw;
-    geometry_msgs::Quaternion quat;
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
-      quat = odom_pixhawk.pose.pose.orientation;
+      mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
     }
-    tf2::Quaternion qt(quat.x, quat.y, quat.z, quat.w);
-    tf2::Matrix3x3(qt).getRPY(roll, pitch, yaw);
 
     // Check for excessive tilts
     if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
@@ -5514,20 +5469,11 @@ double yaw_rate;
 
     if (!got_init_heading) {
 
-      // Pixhawk (compass) orientation
-      tf2::Quaternion q;
+      double roll, pitch;
       {
         std::scoped_lock lock(mutex_odom_t265);
-
-        q.setX(odom_t265.pose.pose.orientation.x);
-        q.setY(odom_t265.pose.pose.orientation.y);
-        q.setZ(odom_t265.pose.pose.orientation.z);
-        q.setW(odom_t265.pose.pose.orientation.w);
+        mrs_odometry::getRPY(odom_t265.pose.pose.orientation, roll, pitch, m_init_heading);
       }
-      q.normalize();
-
-      double roll, pitch;
-      tf2::Matrix3x3(q).getRPY(roll, pitch, m_init_heading);
       got_init_heading = true;
     }
 
@@ -6333,7 +6279,7 @@ double yaw_rate;
       Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
       estimator.second->getState(0, current_yaw);
       /* ROS_INFO("[Odometry]: Unwrapping %f with state %f", input(0), current_yaw(0)); */
-      input(0) = unwrap(input(0), current_yaw(0));
+      input(0) = mrs_odometry::unwrapAngle(input(0), current_yaw(0));
       /* ROS_INFO("[Odometry]: After unwrap: %f", input(0)); */
       if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
         /* ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0)); */
@@ -6377,7 +6323,7 @@ double yaw_rate;
         Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
         estimator.second->getState(0, current_yaw);
 
-        mes(0) = unwrap(mes(0), current_yaw(0));
+        mes(0) = mrs_odometry::unwrapAngle(mes(0), current_yaw(0));
         if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
           /* ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0)); */
         }
@@ -6399,13 +6345,9 @@ double yaw_rate;
   /* //{ getGlobalRot() */
   void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
 
-    tf2::Quaternion q_orig;
-    tf2::fromMsg(q_msg, q_orig);
-    q_orig.normalize();
-
     // Get roll, pitch, yaw in body frame
     double r, p, y, r_new, p_new;
-    tf2::Matrix3x3(q_orig).getRPY(r, p, y);
+    mrs_odometry::getRPY(q_msg, r, p, y);
 
     p_new = p * cos(-y) - r * sin(-y);
     r_new = r * cos(-y) + p * sin(-y);
@@ -6421,7 +6363,7 @@ double yaw_rate;
 
     tf2::Quaternion q_body;
     tf2::fromMsg(q_msg, q_body);
-    setYaw(q_body, 0);
+    mrs_odometry::setYaw(q_body, 0);
 
     tf2::Quaternion q_yaw;
     q_yaw.setRPY(0, 0, yaw);
@@ -6990,71 +6932,6 @@ double yaw_rate;
     return ret;
   }
 
-  //}
-
-  /* unwrap() //{ */
-  double Odometry::unwrap(const double yaw, const double yaw_previous) {
-    if (yaw - yaw_previous > M_PI) {
-      return yaw - 2 * M_PI;
-    } else if (yaw - yaw_previous < -M_PI) {
-      return yaw + 2 * M_PI;
-    }
-    return yaw;
-  }
-
-  /* wrap() //{ */
-  double Odometry::wrap(const double angle_in) {
-
-    double angle_wrapped = angle_in;
-
-    while (angle_wrapped > M_PI) {
-      angle_wrapped -= 2 * M_PI;
-    }
-
-    while (angle_wrapped < -M_PI) {
-      angle_wrapped += 2 * M_PI;
-    }
-
-    return angle_wrapped;
-  }
-  //}
-
-  //}
-
-  /* getYaw() //{ */
-  double Odometry::getYaw(tf2::Quaternion &q_tf) {
-    double roll, pitch, yaw;
-    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
-    return yaw;
-  }
-  //}
-  
-  /* getYaw() //{ */
-  double Odometry::getYaw(geometry_msgs::Quaternion &q_msg) {
-    tf2::Quaternion q_tf;
-    tf2::fromMsg(q_msg, q_tf);
-    return getYaw(q_tf);;
-  }
-  //}
-  
-  /* setYaw() //{ */
-  void Odometry::setYaw(geometry_msgs::Quaternion &q_msg, const double yaw_in) {
-    tf2::Quaternion q_tf;
-    tf2::fromMsg(q_msg, q_tf);
-    setYaw(q_tf, yaw_in);
-    q_msg = tf2::toMsg(q_tf);
-    q_tf.normalize();
-  }
-  //}
-  
-  /* setYaw() //{ */
-  void Odometry::setYaw(tf2::Quaternion &q_msg, const double yaw_in) {
-    double roll, pitch, yaw;
-    tf2::Matrix3x3(q_msg).getRPY(roll, pitch, yaw);
-    yaw = yaw_in;
-    q_msg.setRPY(roll, pitch, yaw);
-    q_msg.normalize();
-  }
   //}
 
   /* initPoseFromFile() //{ */
