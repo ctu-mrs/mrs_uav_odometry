@@ -4515,7 +4515,6 @@ double yaw_rate;
         brick_pose = *msg;
 
         got_brick_pose = true;
-        ROS_INFO("[Odometry]: 0");
         return;
       }
 
@@ -4562,7 +4561,6 @@ double yaw_rate;
           }
         }
           brick_reliable = true;
-          ROS_INFO("[Odometry]: 2");
           counter_brick_id++;
 
         }
@@ -4612,8 +4610,8 @@ double yaw_rate;
     {
       std::scoped_lock lock(mutex_brick);
 
-      pos_brick_x = -brick_pose.pose.position.x;
-      pos_brick_y = -brick_pose.pose.position.y;
+      pos_brick_x = brick_pose.pose.position.x;
+      pos_brick_y = brick_pose.pose.position.y;
     }
 
         Eigen::VectorXd hdg(1);
@@ -4635,8 +4633,10 @@ double yaw_rate;
 
       // Correct the position by the compass heading
       double corr_brick_pos_x, corr_brick_pos_y;
-      corr_brick_pos_x = pos_brick_x * cos(yaw_brick - yaw) - pos_brick_y * sin(yaw_brick - yaw);
-      corr_brick_pos_y = pos_brick_x * sin(yaw_brick - yaw) + pos_brick_y * cos(yaw_brick - yaw);
+      /* corr_brick_pos_x = pos_brick_x * cos(yaw_brick - yaw) - pos_brick_y * sin(yaw_brick - yaw); */
+      /* corr_brick_pos_y = pos_brick_x * sin(yaw_brick - yaw) + pos_brick_y * cos(yaw_brick - yaw); */
+      corr_brick_pos_x = pos_brick_x * cos(yaw - yaw_brick) - pos_brick_y * sin(yaw - yaw_brick);
+      corr_brick_pos_y = pos_brick_x * sin(yaw - yaw_brick) + pos_brick_y * cos(yaw - yaw_brick);
 
     // Saturate correction
     /* for (auto &estimator : m_state_estimators) { */
@@ -6104,6 +6104,7 @@ double yaw_rate;
       estimator.second->setQ(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
       estimator.second->setQ(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
       estimator.second->setQ(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
+      estimator.second->setQ(config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
       estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
       estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
       estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);

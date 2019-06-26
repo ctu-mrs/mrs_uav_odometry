@@ -147,7 +147,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [100]
+    vel_optflow: [10]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [100]
@@ -157,9 +157,9 @@ lateral:
     vel_icp: [10000]
     pos_vio: [100]
     vel_vio: [10000]
-    pos_object: [1000]
+    pos_object: [100]
     vel_object: [10000]
-    pos_brick: [1000]
+    pos_brick: [0.1]
     vel_brick: [100]
     pos_hector: [1000]
 
