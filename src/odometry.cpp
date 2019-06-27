@@ -2855,10 +2855,19 @@ namespace mrs_odometry
 
     mrs_msgs::EstimatedState hdg_state_msg;
     hdg_state_msg.header.stamp = ros::Time::now();
+    
+    double hdg;
+        if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  
+          std::scoped_lock lock(mutex_odom_pixhawk);
+          hdg_state_msg.state.push_back(orientation_mavros.vector.z);
+  
+        } else {
     for (int i = 0; i < heading_n; i++) {
       hdg_state_msg.state.push_back(hdg_state(i,0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i,i));
     }
+        }
 
     try {
       pub_heading_states_.publish(hdg_state_msg);
@@ -4565,10 +4574,12 @@ double des_yaw, des_yaw_rate;
 
       // Correct the position by the compass heading
       double corr_brick_pos_x, corr_brick_pos_y;
-      /* corr_brick_pos_x = pos_brick_x * cos(yaw_brick - yaw) - pos_brick_y * sin(yaw_brick - yaw); */
-      /* corr_brick_pos_y = pos_brick_x * sin(yaw_brick - yaw) + pos_brick_y * cos(yaw_brick - yaw); */
       corr_brick_pos_x = pos_brick_x * cos(hdg - yaw_brick) - pos_brick_y * sin(hdg - yaw_brick);
       corr_brick_pos_y = pos_brick_x * sin(hdg - yaw_brick) + pos_brick_y * cos(hdg - yaw_brick);
+      /* corr_brick_pos_x = pos_brick_x * cos(yaw_brick - hdg) - pos_brick_y * sin(yaw_brick - hdg); */
+      /* corr_brick_pos_y = pos_brick_x * sin(yaw_brick - hdg) + pos_brick_y * cos(yaw_brick - hdg); */
+      /* corr_brick_pos_x = pos_brick_x; */
+      /* corr_brick_pos_y = pos_brick_y; */
 
     // Saturate correction
     /* for (auto &estimator : m_state_estimators) { */
@@ -5864,6 +5875,8 @@ double des_yaw, des_yaw_rate;
       desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
     } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
       desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
+    } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
+      desired_estimator.type = mrs_msgs::HeadingType::BRICK;
     } else {
       ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
       res.success = false;
@@ -6359,7 +6372,8 @@ double des_yaw, des_yaw_rate;
         if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
   
           std::scoped_lock lock(mutex_odom_pixhawk);
-          hdg = orientation_mavros.vector.z;
+          // tady je chyba
+          hdg = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
   
         } else {
   
@@ -6673,7 +6687,7 @@ double des_yaw, des_yaw_rate;
     target_estimator.name                  = _heading_type_names[target_estimator.type];
 
     if (target_estimator.type != mrs_msgs::HeadingType::PIXHAWK && target_estimator.type != mrs_msgs::HeadingType::GYRO && target_estimator.type != mrs_msgs::HeadingType::COMPASS &&
-        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW && target_estimator.type != mrs_msgs::HeadingType::HECTOR) {
+        target_estimator.type != mrs_msgs::HeadingType::OPTFLOW && target_estimator.type != mrs_msgs::HeadingType::HECTOR && target_estimator.type != mrs_msgs::HeadingType::BRICK) {
       ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
       return false;
     }
@@ -6718,7 +6732,7 @@ double des_yaw, des_yaw_rate;
   /* //{ isValidType() */
   bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
-    if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR) {
+    if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS || type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK) {
       return true;
     }
 
