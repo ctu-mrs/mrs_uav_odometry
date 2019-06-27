@@ -405,12 +405,13 @@ namespace mrs_odometry
     void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator);
     bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
-    void headingEstimatorsPrediction(const double yaw, const double yaw_rot, const double dt);
+    void headingEstimatorsPrediction(const double yaw, const double yaw_rate, const double dt);
     void headingEstimatorsCorrection(const double value, const std::string &measurement_name);
     bool changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator);
 
     void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
     void               getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const double &yaw, double &rx, double &ry);
+    double             getCurrentHeading();
     bool               isValidType(const mrs_msgs::EstimatorType &type);
     bool               isValidType(const mrs_msgs::HeadingType &type);
     bool               isTimestampOK(const double curr_sec, const double prev_sec);
@@ -3071,7 +3072,7 @@ namespace mrs_odometry
 
     //////////////////// Fuse Lateral Kalman ////////////////////
 
-    double rot_x, rot_y, rot_z;
+    double rot_x, rot_y;
     double dt;
     geometry_msgs::Quaternion attitude;
 
@@ -3084,26 +3085,9 @@ namespace mrs_odometry
     }
       /* getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); */
 
-      // Rotate the tilt into the current estimation frame
-        Eigen::VectorXd hdg(1);
-        {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-        std::string current_hdg_estimator_name = current_hdg_estimator->getName();
-        }
-      if (std::strcmp(current_hdg_estimator_name.c_str(), "PIXHAWK") != STRING_EQUAL) {
-      {
-        std::scoped_lock lock(mutex_odom_pixhawk);
-        hdg(0) = orientation_mavros.vector.z;
+      double hdg = getCurrentHeading();
 
-      }
-      } else {
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-
-        current_hdg_estimator->getState(0, hdg);
-      }
-      }
-      getRotatedTilt(attitude, hdg(0), rot_x, rot_y);
+      getRotatedTilt(attitude, hdg, rot_x, rot_y);
 
     // For model testing
     /* { getGlobalRot(ground_truth.pose.pose.orientation, rot_x, rot_y, rot_z); } */
@@ -3113,7 +3097,7 @@ namespace mrs_odometry
     }
     target_attitude_global.vector.x = rot_x;
     target_attitude_global.vector.y = rot_y;
-    target_attitude_global.vector.z = hdg(0);
+    target_attitude_global.vector.z = hdg;
     pub_target_attitude_global_.publish(target_attitude_global);
 
     if (!std::isfinite(rot_x)) {
@@ -3149,19 +3133,20 @@ namespace mrs_odometry
       dt = 0;
       return;
     }
-double yaw_rate;
+double des_yaw, des_yaw_rate;
     {
       std::scoped_lock lock(mutex_target_attitude);
-     yaw_rate = target_attitude.body_rate.z;
+     des_yaw_rate = target_attitude.body_rate.z;
+     des_yaw = mrs_odometry::getYaw(target_attitude.orientation);
     }
 
-    if (!std::isfinite(yaw_rate)) {
-      ROS_ERROR("NaN detected in Mavros variable \"yaw_rate\", prediction with zero input!!!");
-      yaw_rate = 0.0;
+    if (!std::isfinite(des_yaw_rate)) {
+      ROS_ERROR("NaN detected in Mavros variable \"des_yaw_rate\", prediction with zero input!!!");
+      des_yaw_rate = 0.0;
     }
 
     // Apply prediction step to all heading estimators
-    headingEstimatorsPrediction(hdg(0), yaw_rate, dt);
+    headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt);
 
     if (!got_lateral_sensors) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing target attitude. Waiting for other sensors.");
@@ -3265,27 +3250,9 @@ double yaw_rate;
 
     if (!got_init_heading) {
 
-        {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-        std::string current_hdg_estimator_name = current_hdg_estimator->getName();
-        }
-      if (std::strcmp(current_hdg_estimator_name.c_str(), "PIXHAWK") != STRING_EQUAL) {
-        Eigen::VectorXd hdg(1);
-        {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-        current_hdg_estimator->getState(0, hdg);
-        }
-        m_init_heading = hdg(0);
-      } else {
-
-        // Pixhawk (compass) orientation
-        double roll, pitch;
-        {
-          std::scoped_lock lock(mutex_odom_pixhawk);
-          mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, m_init_heading);
-        }
-      }
-      got_init_heading = true;
+      double hdg = getCurrentHeading();
+        m_init_heading = hdg;
+        got_init_heading = true;
     }
 
     if (!got_range) {
@@ -3451,24 +3418,11 @@ double yaw_rate;
         orientation_mavros.header = odom_pixhawk_shifted.header;
       }
 
-        Eigen::VectorXd hdg(1);
+        double hdg = getCurrentHeading();
 
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-        std::string current_hdg_estimator_name = current_hdg_estimator->getName();
-        }
-      if (std::strcmp(current_hdg_estimator_name.c_str(), "PIXHAWK") == STRING_EQUAL) {
-        hdg(0) = mrs_odometry::getYaw(orient);
-      } else {
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-
-        current_hdg_estimator->getState(0, hdg);
-      }
-      }
       // Rotate the tilt into the current estimation frame
-      double rot_x, rot_y, rot_z;
-      getRotatedTilt(orient, hdg(0), rot_x, rot_y);
+      double rot_x, rot_y;
+      getRotatedTilt(orient, hdg, rot_x, rot_y);
 
     /* { */
     /*   std::scoped_lock lock(mutex_odom_pixhawk_shifted); */
@@ -3479,7 +3433,7 @@ double yaw_rate;
     // publish orientation for debugging
     orientation_mavros.vector.x = rot_x;
     orientation_mavros.vector.y = rot_y;
-    orientation_mavros.vector.z = hdg(0);
+    orientation_mavros.vector.z = hdg;
     try {
       pub_orientation_mavros_.publish(orientation_mavros);
     }
@@ -4390,22 +4344,15 @@ double yaw_rate;
     //////////////////// Fuse Lateral Kalman ////////////////////
 
     // Current orientation
-    Eigen::VectorXd hdg_state(1);
+    double hdg = getCurrentHeading();
 
-    {
-    std::scoped_lock lock(mutex_current_hdg_estimator);
-
-        current_hdg_estimator->getState(0, hdg_state);
-    }
-
-    double yaw = hdg_state(0);
-
-      // Vio orientation
-      double roll_vio, pitch_vio, yaw_vio;
+    // Vio orientation
+    double roll_vio, pitch_vio, yaw_vio;
     {
       std::scoped_lock lock(mutex_odom_vio);
       mrs_odometry::getRPY(odom_vio.pose.pose.orientation, roll_vio, pitch_vio, yaw_vio);
     }
+
     /* //{ fuse vio velocity */
 
     double vel_vio_x, vel_vio_y;
@@ -4414,8 +4361,8 @@ double yaw_rate;
       std::scoped_lock lock(mutex_odom_vio);
 
       // Correct the position by the compass heading
-      vel_vio_x = odom_vio.twist.twist.linear.x * cos(yaw - yaw_vio) - odom_vio.twist.twist.linear.y * sin(yaw - yaw_vio);
-      vel_vio_y = odom_vio.twist.twist.linear.x * sin(yaw - yaw_vio) + odom_vio.twist.twist.linear.y * cos(yaw - yaw_vio);
+      vel_vio_x = odom_vio.twist.twist.linear.x * cos(hdg - yaw_vio) - odom_vio.twist.twist.linear.y * sin(hdg - yaw_vio);
+      vel_vio_y = odom_vio.twist.twist.linear.x * sin(hdg - yaw_vio) + odom_vio.twist.twist.linear.y * cos(hdg - yaw_vio);
     }
 
     if (vio_reliable && (vel_vio_x > 10 || vel_vio_y > 10)) {
@@ -4437,9 +4384,9 @@ double yaw_rate;
     {
       std::scoped_lock lock(mutex_odom_vio);
 
-      // Correct the position by the compass heading
-      vio_pos_x = odom_vio.pose.pose.position.x * cos(yaw - yaw_vio) - odom_vio.pose.pose.position.y * sin(yaw - yaw_vio);
-      vio_pos_y = odom_vio.pose.pose.position.x * sin(yaw - yaw_vio) + odom_vio.pose.pose.position.y * cos(yaw - yaw_vio);
+      // Correct the position by the current heading
+      vio_pos_x = odom_vio.pose.pose.position.x * cos(hdg - yaw_vio) - odom_vio.pose.pose.position.y * sin(hdg - yaw_vio);
+      vio_pos_y = odom_vio.pose.pose.position.x * sin(hdg - yaw_vio) + odom_vio.pose.pose.position.y * cos(hdg - yaw_vio);
     }
 
     // Saturate correction
@@ -4614,29 +4561,14 @@ double yaw_rate;
       pos_brick_y = brick_pose.pose.position.y;
     }
 
-        Eigen::VectorXd hdg(1);
-      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
-      {
-        std::scoped_lock lock(mutex_odom_pixhawk);
-        hdg(0) = orientation_mavros.vector.z;
-
-      }
-      } else {
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
-
-        current_hdg_estimator->getState(0, hdg);
-      }
-      }
-
-      double yaw = hdg(0);
+    double hdg = getCurrentHeading();
 
       // Correct the position by the compass heading
       double corr_brick_pos_x, corr_brick_pos_y;
       /* corr_brick_pos_x = pos_brick_x * cos(yaw_brick - yaw) - pos_brick_y * sin(yaw_brick - yaw); */
       /* corr_brick_pos_y = pos_brick_x * sin(yaw_brick - yaw) + pos_brick_y * cos(yaw_brick - yaw); */
-      corr_brick_pos_x = pos_brick_x * cos(yaw - yaw_brick) - pos_brick_y * sin(yaw - yaw_brick);
-      corr_brick_pos_y = pos_brick_x * sin(yaw - yaw_brick) + pos_brick_y * cos(yaw - yaw_brick);
+      corr_brick_pos_x = pos_brick_x * cos(hdg - yaw_brick) - pos_brick_y * sin(hdg - yaw_brick);
+      corr_brick_pos_y = pos_brick_x * sin(hdg - yaw_brick) + pos_brick_y * cos(hdg - yaw_brick);
 
     // Saturate correction
     /* for (auto &estimator : m_state_estimators) { */
@@ -4901,8 +4833,40 @@ double yaw_rate;
       pos_hector_y = hector_pose.pose.position.y;
     }
 
+    // Current orientation
+    Eigen::VectorXd hdg_state(1);
+
+      if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+      
+        std::scoped_lock lock(mutex_odom_pixhawk);
+        hdg_state(0) = orientation_mavros.vector.z;
+      
+      } else {
+    
+    std::scoped_lock lock(mutex_current_hdg_estimator);
+
+        current_hdg_estimator->getState(0, hdg_state);
+    }
+
+    double yaw = hdg_state(0);
+
+      // Vio orientation
+      double roll_vio, pitch_vio, yaw_vio;
+    {
+      std::scoped_lock lock(mutex_odom_vio);
+      mrs_odometry::getRPY(odom_vio.pose.pose.orientation, roll_vio, pitch_vio, yaw_vio);
+    }
+    double pos_hector_corr_x, pos_hector_corr_y;
+
+    {
+      std::scoped_lock lock(mutex_odom_vio);
+
+      // Correct the position by the current heading
+      pos_hector_corr_x = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
+      pos_hector_corr_y = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    }
     // Apply correction step to all state estimators
-    stateEstimatorsCorrection(pos_hector_x, pos_hector_y, "pos_hector");
+    stateEstimatorsCorrection(pos_hector_corr_x, pos_hector_corr_y, "pos_hector");
 
     ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
   }
@@ -5316,13 +5280,16 @@ double yaw_rate;
       gps_reliable = true;
       ROS_WARN("[Odometry]: GPS reliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
 
+    }
+
       // Change the maximum altitude back to default if the current estimator is not OPTFLOW
       if (_estimator_type.type != mrs_msgs::EstimatorType::OPTFLOW && _estimator_type.type != mrs_msgs::EstimatorType::BRICKFLOW) {
         max_altitude = _max_default_altitude;
         ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+      } else {
+        max_altitude = _max_optflow_altitude;
+        ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
       }
-    }
-
     ROS_INFO_THROTTLE(
         10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d",
         (ros::Time::now() - t_start).toSec(), current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
@@ -6384,6 +6351,29 @@ double yaw_rate;
   }
   //}
   
+  /* getCurrentHeading() //{ */
+  
+  double Odometry::getCurrentHeading() {
+  
+    double hdg;
+        if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  
+          std::scoped_lock lock(mutex_odom_pixhawk);
+          hdg = orientation_mavros.vector.z;
+  
+        } else {
+  
+      std::scoped_lock lock(mutex_current_hdg_estimator);
+          Eigen::VectorXd hdg_state(1);
+          current_hdg_estimator->getState(0, hdg_state);
+          hdg = hdg_state(0);
+      }
+  
+        return hdg;
+  }
+  
+  //}
+
   /* //{ changeCurrentEstimator() */
   bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator) {
 
