@@ -271,7 +271,7 @@ namespace mrs_odometry
     double                        _hector_yaw_filter_max_diff;
 
     // brick heading msgs
-    double            brick_yaw_previous_deg;
+    double            brick_yaw_previous;
     std::mutex        mutex_brick_hdg;
     ros::Time         brick_yaw_last_update;
     std::shared_ptr<MedianFilter> brick_yaw_filter;
@@ -411,6 +411,7 @@ namespace mrs_odometry
 
     void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
     void               getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const double &yaw, double &rx, double &ry);
+    void               rotateLateralStates(const double yaw_new, const double yaw_old);
     double             getCurrentHeading();
     bool               isValidType(const mrs_msgs::EstimatorType &type);
     bool               isValidType(const mrs_msgs::HeadingType &type);
@@ -582,6 +583,7 @@ namespace mrs_odometry
     mrs_msgs::AltitudeType                                    _alt_estimator_type_takeoff;
     std::mutex                                                mutex_current_alt_estimator;
     bool                                                      is_altitude_estimator_initialized = false;
+    bool                                                      is_lateral_estimator_initialized = false;
     int                                                       counter_altitude                  = 0;
     bool                                                      obstacle_detected                 = false;
     bool                                                      bias_baro_estimation_enabled      = false;
@@ -1235,7 +1237,6 @@ namespace mrs_odometry
       }
 
       // Add pointer to state estimator to array
-      // this is how to create shared pointers!!! the correct way
       m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
           *it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr_lat, Q_arr_lat, A_lat, B_lat, R_lat)));
 
@@ -1254,6 +1255,7 @@ namespace mrs_odometry
       ros::Publisher pub = nh_.advertise<nav_msgs::Odometry>("odom_" + estimator_name + "_out", 1);
       map_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
     }
+    is_lateral_estimator_initialized = true;
     //}
 
     /* load parameters of heading estimator //{ */
@@ -1718,40 +1720,47 @@ namespace mrs_odometry
     //}
 
     /* pass current covariances to dynamic reconfigure //{ */
+    {
+      std::scoped_lock lock(mutex_current_estimator);
+    
+      current_estimator->getQ(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+      current_estimator->getQ(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+      current_estimator->getQ(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
+      current_estimator->getQ(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+      current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+      current_estimator->getQ(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
+      current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+      current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+      current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+      current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+      current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+      current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+      current_estimator->getR(last_drs_config.R_pos, Eigen::Vector2i(0,0));
+      current_estimator->getR(last_drs_config.R_vel, Eigen::Vector2i(1,1));
+      current_estimator->getR(last_drs_config.R_acc, Eigen::Vector2i(2,3));
+      current_estimator->getR(last_drs_config.R_acc_d, Eigen::Vector2i(4,4));
+      current_estimator->getR(last_drs_config.R_acc_i, Eigen::Vector2i(3,5));
+      current_estimator->getR(last_drs_config.R_tilt, Eigen::Vector2i(5,5));
+    }
 
-    current_estimator->getQ(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
-    current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-    current_estimator->getR(last_drs_config.R_pos, Eigen::Vector2i(0,0));
-    current_estimator->getR(last_drs_config.R_vel, Eigen::Vector2i(1,1));
-    current_estimator->getR(last_drs_config.R_acc, Eigen::Vector2i(2,3));
-    current_estimator->getR(last_drs_config.R_acc_d, Eigen::Vector2i(4,4));
-    current_estimator->getR(last_drs_config.R_acc_i, Eigen::Vector2i(3,5));
-    current_estimator->getR(last_drs_config.R_tilt, Eigen::Vector2i(5,5));
+    {
+      std::scoped_lock lock(mutex_current_alt_estimator);
+    
+      current_alt_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
+      current_alt_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
+      current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+      current_alt_estimator->getQ(last_drs_config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
+      current_alt_estimator->getQ(last_drs_config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
+    }
 
-    current_alt_estimator->getQ(last_drs_config.Q_alt_baro, map_alt_measurement_name_id.find("alt_baro")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_z_vel_mavros, map_alt_measurement_name_id.find("vel_mavros")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_bias_baro, map_alt_measurement_name_id.find("bias_baro")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_elevation, map_alt_measurement_name_id.find("elevation")->second);
-
-        {
-        std::scoped_lock lock(mutex_current_hdg_estimator);
+    {
+    std::scoped_lock lock(mutex_current_hdg_estimator);
     current_hdg_estimator->getQ(last_drs_config.Q_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
     current_hdg_estimator->getQ(last_drs_config.Q_yaw_brick, map_hdg_measurement_name_id.find("yaw_brick")->second);
-        }
+    }
 
     reconfigure_server_->updateConfig(last_drs_config);
 
@@ -2420,11 +2429,16 @@ namespace mrs_odometry
         }
 
         ROS_INFO_THROTTLE(10.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
-        odom_main.child_frame_id = current_estimator->getName();
-        if (std::strcmp(current_estimator->getName().c_str(), "BRICK") == STRING_EQUAL || std::strcmp(current_estimator->getName().c_str(), "BRICKFLOW") == STRING_EQUAL) {
-          odom_main.child_frame_id += odom_brick.child_frame_id;
-          odom_main.child_frame_id += std::to_string(counter_brick_id);
-          ROS_INFO_THROTTLE(1.0, "[Odometry]: child_frame_id: %s", odom_main.child_frame_id.c_str());
+
+        {
+          std::scoped_lock lock(mutex_child_frame_id);
+        
+          odom_main.child_frame_id = current_estimator->getName();
+          if (std::strcmp(current_estimator->getName().c_str(), "BRICK") == STRING_EQUAL || std::strcmp(current_estimator->getName().c_str(), "BRICKFLOW") == STRING_EQUAL) {
+            odom_main.child_frame_id += odom_brick.child_frame_id;
+            odom_main.child_frame_id += std::to_string(counter_brick_id);
+            ROS_INFO_THROTTLE(1.0, "[Odometry]: child_frame_id: %s", odom_main.child_frame_id.c_str());
+          }
         }
 
         {
@@ -2860,7 +2874,7 @@ namespace mrs_odometry
         if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
   
           std::scoped_lock lock(mutex_odom_pixhawk);
-          hdg_state_msg.state.push_back(orientation_mavros.vector.z);
+          hdg_state_msg.state.push_back(mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation));
   
         } else {
     for (int i = 0; i < heading_n; i++) {
@@ -3470,18 +3484,28 @@ double des_yaw, des_yaw_rate;
 
     if (_gps_available) {
 
-      double vel_mavros_x, vel_mavros_y;
+      double vel_mavros_x, vel_mavros_y, yaw_mavros;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
 
         // TODO test which one is better
-        vel_mavros_x = (odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / dt;
+        vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / dt;
+        vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / dt;
         /* vel_mavros_x = odom_pixhawk.twist.twist.linear.x; */
-        vel_mavros_y = (odom_pixhawk.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / dt;
         /* vel_mavros_y = odom_pixhawk.twist.twist.linear.y; */
+        yaw_mavros = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
       }
+      // Correct the velocity by the current heading
+      double tmp_mavros_vel_x, tmp_mavros_vel_y;
+      /* tmp_mavros_vel_x = vel_mavros_x * cos(yaw_mavros - hdg) - vel_mavros_y * sin(yaw_mavros - hdg); */
+      /* tmp_mavros_vel_y = vel_mavros_x * sin(yaw_mavros - hdg) + vel_mavros_y * cos(yaw_mavros - hdg); */
+      tmp_mavros_vel_x = vel_mavros_x * cos(hdg - yaw_mavros) - vel_mavros_y * sin(hdg - yaw_mavros);
+      tmp_mavros_vel_y = vel_mavros_x * sin(hdg - yaw_mavros) + vel_mavros_y * cos(hdg - yaw_mavros);
+      vel_mavros_x = tmp_mavros_vel_x;
+      vel_mavros_y = tmp_mavros_vel_y;
 
       // Apply correction step to all state estimators
+      // TODO why only in simulation?
       if (simulation_ && fabs(vel_mavros_x) < 100 && fabs(vel_mavros_y) < 100) {
         stateEstimatorsCorrection(vel_mavros_x, vel_mavros_y, "vel_mavros");
         ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
@@ -3512,17 +3536,30 @@ double des_yaw, des_yaw_rate;
         return;
       }
 
-      double pos_mavros_x, pos_mavros_y;
+      double pos_mavros_x, pos_mavros_y, yaw_mavros;
 
       {
         std::scoped_lock lock(mutex_odom_pixhawk_shifted);
 
         pos_mavros_x = odom_pixhawk_shifted.pose.pose.position.x;
         pos_mavros_y = odom_pixhawk_shifted.pose.pose.position.y;
+        yaw_mavros = mrs_odometry::getYaw(odom_pixhawk_shifted.pose.pose.orientation);
       }
 
-      // Saturate correction
 
+      // Correct the position by the current heading
+      double hdg = getCurrentHeading();
+      double tmp_mavros_pos_x, tmp_mavros_pos_y;
+      /* tmp_mavros_pos_x = pos_mavros_x * cos(yaw_mavros - hdg) - pos_mavros_y * sin(yaw_mavros - hdg); */
+      /* tmp_mavros_pos_y = pos_mavros_x * sin(yaw_mavros - hdg) + pos_mavros_y * cos(yaw_mavros - hdg); */
+      tmp_mavros_pos_x = pos_mavros_x * cos(hdg - yaw_mavros) - pos_mavros_y * sin(hdg - yaw_mavros);
+      tmp_mavros_pos_y = pos_mavros_x * sin(hdg - yaw_mavros) + pos_mavros_y * cos(hdg - yaw_mavros);
+      pos_mavros_x = tmp_mavros_pos_x;
+      pos_mavros_y = tmp_mavros_pos_y;
+      
+      // TODO after heading estimator switch, transform lateral state by -(yaw_new-yaw_old)
+
+      // Saturate correction
       if (saturate_mavros_position_) {
         for (auto &estimator : m_state_estimators) {
           if (std::strcmp(estimator.first.c_str(), "GPS") == 0) {
@@ -3712,7 +3749,7 @@ double des_yaw, des_yaw_rate;
 
     if (!compass_yaw_filter->isValid(yaw) && compass_yaw_filter->isFilled()) {
       compass_inconsistent_samples++;
-      ROS_WARN("[Odometry]: Compass yaw inconsistent: %f. Not fusing.", yaw);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent: %f. Not fusing.", yaw);
 
       if (std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == 0 && _gyro_fallback && compass_inconsistent_samples > 20) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
@@ -4469,6 +4506,8 @@ double des_yaw, des_yaw_rate;
 
         brick_pose_previous = *msg;
         brick_pose = *msg;
+        double r_tmp, p_tmp;
+        mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, brick_yaw_previous);
 
         got_brick_pose = true;
         return;
@@ -4537,8 +4576,9 @@ double des_yaw, des_yaw_rate;
       mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, yaw_brick);
     }
 
-    yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous_deg);
-    brick_yaw_previous_deg = yaw_brick;
+    /* yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous); */
+    yaw_brick          = mrs_odometry::disambiguateAngle(yaw_brick, brick_yaw_previous);
+    brick_yaw_previous= yaw_brick;
     /* yaw          = M_PI / 2 - yaw; */
 
       // Apply correction step to all heading estimators
@@ -4572,14 +4612,10 @@ double des_yaw, des_yaw_rate;
 
     double hdg = getCurrentHeading();
 
-      // Correct the position by the compass heading
+      // Correct the position by the current heading
       double corr_brick_pos_x, corr_brick_pos_y;
       corr_brick_pos_x = pos_brick_x * cos(hdg - yaw_brick) - pos_brick_y * sin(hdg - yaw_brick);
       corr_brick_pos_y = pos_brick_x * sin(hdg - yaw_brick) + pos_brick_y * cos(hdg - yaw_brick);
-      /* corr_brick_pos_x = pos_brick_x * cos(yaw_brick - hdg) - pos_brick_y * sin(yaw_brick - hdg); */
-      /* corr_brick_pos_y = pos_brick_x * sin(yaw_brick - hdg) + pos_brick_y * cos(yaw_brick - hdg); */
-      /* corr_brick_pos_x = pos_brick_x; */
-      /* corr_brick_pos_y = pos_brick_y; */
 
     // Saturate correction
     /* for (auto &estimator : m_state_estimators) { */
@@ -6364,6 +6400,37 @@ double des_yaw, des_yaw_rate;
   }
   //}
   
+  /* rotateLateralStates() //{ */
+  
+  void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
+
+    double yaw_diff = yaw_new - yaw_old;
+    double cy = cos(yaw_diff);
+    double sy = sin(yaw_diff);
+
+    {
+      std::scoped_lock lock(mutex_child_frame_id);
+    
+      for (auto &estimator : m_state_estimators) {
+        Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+        if (!estimator.second->getStates(old_state)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator not initialized.");
+          return;
+        }
+      
+        Eigen::MatrixXd new_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+        for (int i =0; i < lateral_n; i++) {
+          new_state(i,0) = old_state(i,0) * cy - old_state(i,1) * sy;
+          new_state(i,1) = old_state(i,0) * sy + old_state(i,1) * cy;
+        }
+        estimator.second->setStates(new_state);
+      }
+    }
+
+    }
+  
+  //}
+
   /* getCurrentHeading() //{ */
   
   double Odometry::getCurrentHeading() {
@@ -6371,15 +6438,19 @@ double des_yaw, des_yaw_rate;
     double hdg;
         if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
   
+          {
           std::scoped_lock lock(mutex_odom_pixhawk);
-          // tady je chyba
+
           hdg = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
+          }
   
         } else {
   
-      std::scoped_lock lock(mutex_current_hdg_estimator);
           Eigen::VectorXd hdg_state(1);
+          {
+          std::scoped_lock lock(mutex_current_hdg_estimator);
           current_hdg_estimator->getState(0, hdg_state);
+          }
           hdg = hdg_state(0);
       }
   
@@ -6693,6 +6764,24 @@ double des_yaw, des_yaw_rate;
     }
 
     if (stringInVector(target_estimator.name, _heading_estimators_names)) {
+    if (is_initialized) {
+      double yaw_old, yaw_new;
+
+        /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
+        yaw_old = getCurrentHeading();
+      {
+        std::scoped_lock lock(mutex_current_hdg_estimator);
+        current_hdg_estimator      = m_heading_estimators.find(target_estimator.name)->second;
+        current_hdg_estimator_name = current_hdg_estimator->getName();
+      }
+        yaw_new = getCurrentHeading();
+
+        ros::Time t0 = ros::Time::now();
+        rotateLateralStates(yaw_new, yaw_old);
+        ROS_INFO("[Odometry]: rotateLateralStates() took %f s", (ros::Time::now()-t0).toSec());
+
+    } else {
+
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
 
@@ -6700,6 +6789,8 @@ double des_yaw, des_yaw_rate;
         current_hdg_estimator      = m_heading_estimators.find(target_estimator.name)->second;
         current_hdg_estimator_name = current_hdg_estimator->getName();
       }
+    }
+      
 
       ROS_WARN("[Odometry]: Transition to %s heading estimator successful", current_hdg_estimator_name.c_str());
 

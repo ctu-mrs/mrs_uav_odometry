@@ -45,6 +45,8 @@ double unwrapAngle(const double yaw, const double yaw_previous);
 
 double wrapAngle(const double angle_in);
 
+double disambiguateAngle(const double yaw, const double yaw_previous);
+
 }
 
 #endif

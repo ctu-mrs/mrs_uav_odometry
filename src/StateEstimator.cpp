@@ -396,6 +396,40 @@ bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 //}
 
+/*  //{ setStates() */
+
+bool StateEstimator::setStates(Eigen::MatrixXd &states) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check size of states
+  if (states.rows() != m_n_states) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setStates()"
+              << ": wrong size of \"states\". Should be: " << m_n_states << " is: " << states.cols() << std::endl;
+    return false;
+
+  }
+
+  if (states.cols() != 2) {
+    std::cerr << "[StateEstimator]: " << m_estimator_name << ".setStates()"
+              << ": wrong size of \"states\". Should be: " << 2 << " is:" << states.rows() << std::endl;
+    return false;
+
+  }
+  //}
+
+  for (int i=0; i<m_n_states; i++) {
+  setState(i, states.row(i));
+  }
+
+  return true;
+}
+
+//}
+
 /*  //{ setQ() */
 
 bool StateEstimator::setQ(double cov, int measurement_type) {

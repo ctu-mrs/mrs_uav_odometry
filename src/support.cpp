@@ -132,3 +132,15 @@ bool mrs_odometry::isEqual(const char* s1, const std::string& s2) {
     return angle_wrapped;
   }
   //}
+
+  /* disambiguateAngle() //{ */
+  double mrs_odometry::disambiguateAngle(const double yaw, const double yaw_previous) {
+    if (yaw - yaw_previous > M_PI/2) {
+      return yaw - M_PI;
+    } else if (yaw - yaw_previous < -M_PI/2) {
+      return yaw + M_PI;
+    }
+    return yaw;
+  }
+
+  //}
