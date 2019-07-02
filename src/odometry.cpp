@@ -2456,7 +2456,7 @@ namespace mrs_odometry
           current_hdg_estimator->getState(0, yaw);
           current_hdg_estimator->getState(1, yaw_rate);
         }
-        yaw(0) = mrs_odometry::wrapAngle(yaw(0));
+        /* yaw(0) = mrs_odometry::wrapAngle(yaw(0)); */
         mrs_odometry::setYaw(odom_main.pose.pose.orientation, yaw(0));
         odom_main.twist.twist.angular.z = yaw_rate(0);
         {
@@ -4549,12 +4549,13 @@ double des_yaw, des_yaw_rate;
           counter_invalid_brick_pose--;
         } else if (!brick_reliable) {
         for (auto &estimator : m_state_estimators) {
-          if (std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
+          if (std::strcmp(estimator.first.c_str(), "BRICK") == 0 || std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
             Eigen::VectorXd pos_vec(2);
             pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
             estimator.second->setState(0, pos_vec);
           }
         }
+          ROS_WARN("[Odometry]: Brick is now reliable");
           brick_reliable = true;
           counter_brick_id++;
 
@@ -4584,7 +4585,7 @@ double des_yaw, des_yaw_rate;
       // Apply correction step to all heading estimators
       headingEstimatorsCorrection(yaw_brick, "yaw_brick");
 
-      yaw_brick = mrs_odometry::wrapAngle(yaw_brick);
+      /* yaw_brick = mrs_odometry::wrapAngle(yaw_brick); */
 
       mrs_msgs::Float64Stamped brick_yaw_out;
       brick_yaw_out.header.stamp    = ros::Time::now();
@@ -6404,7 +6405,8 @@ double des_yaw, des_yaw_rate;
   
   void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
 
-    double yaw_diff = yaw_new - yaw_old;
+    double yaw_diff = (yaw_new - yaw_old);
+    /* double yaw_diff = -(yaw_new - yaw_old); */
     double cy = cos(yaw_diff);
     double sy = sin(yaw_diff);
 
