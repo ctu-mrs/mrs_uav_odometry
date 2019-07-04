@@ -259,5 +259,6 @@ heading:
   Q:
     yaw_compass: [0.1]
     yaw_hector: [10]
+    yaw_brick: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
