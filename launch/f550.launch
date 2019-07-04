@@ -15,6 +15,10 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
   <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args"/>
 
+  <arg name="pixgarm" default="$(optenv PIXGARM false)" />
+  <arg unless="$(arg pixgarm)" name="range_topic" value="garmin/range" />
+  <arg     if="$(arg pixgarm)" name="range_topic" value="mavros/distance_sensor/garmin" />
+
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
@@ -56,7 +60,7 @@
       <remap from="~object_in" to="~odom_april" />
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
-      <remap from="~garmin_in" to="garmin/range" />
+      <remap from="~garmin_in" to="$(arg range_topic)" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
