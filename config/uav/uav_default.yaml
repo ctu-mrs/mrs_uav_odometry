@@ -115,6 +115,7 @@ lateral:
   saturate_mavros_position: false
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
+  max_object_pos_correction: 0.5
   max_brick_pos_correction: 0.5
   max_rtk_pos_correction: 0.2
   max_t265_vel: 10.0
@@ -165,6 +166,8 @@ lateral:
     vel_icp: [10000]
     pos_vio: [100]
     vel_vio: [10000]
+    pos_object: [100]
+    vel_object: [10000]
     pos_brick: [1000]
     vel_brick: [10000]
     pos_hector: [1000]
@@ -238,6 +241,10 @@ heading:
   hector_yaw_median_filter: true
   hector_yaw_filter_buffer_size: 100
   hector_yaw_filter_max_diff: deg(10)
+
+  brick_yaw_median_filter: true
+  brick_yaw_filter_buffer_size: 100
+  brick_yaw_filter_max_diff: deg(10)
 
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
