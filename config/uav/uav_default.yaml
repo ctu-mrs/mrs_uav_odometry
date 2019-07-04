@@ -16,6 +16,7 @@ optflow_available: true
 vio_available: false
 rtk_available: true
 lidar_available: true
+object_available: false
 brick_available: false
 t265_available: false
 
@@ -139,20 +140,10 @@ lateral:
   hector_pos_filter_max_valid: 8.0
   hector_pos_filter_max_diff: 3.0
 
-  #  Old Covariances of measurements
-  # Q:
-  #   vel_optflow: [100000000]
-  #   pos_mavros: [10000]
-  #   vel_mavros: [100000]
-  #   tilt_mavros: [1000000]
-  #   pos_rtk: [100000]
-  #   vel_rtk: [10000]
-  #   pos_icp: [1000]
-  #   vel_icp: [10000]
-  #   pos_vio: [100000]
-  #   vel_vio: [10000]
-  #   pos_brick: [1000]
-  #   vel_brick: [10000]
+  brick_pos_median_filter: false
+  brick_pos_filter_buffer_size: 50
+  brick_pos_filter_max_valid: 8.0
+  brick_pos_filter_max_diff: 3.0
 
   # Covariances of measurements
   Q:
@@ -189,14 +180,6 @@ lateral:
       0,
       0.0970]
 
-  # Old Process covariance
-  # R: [1, 0, 0, 0, 0, 0,
-  #     0, 1, 0, 0, 0, 0,
-  #     0, 0, 1, 0, 0, 0,
-  #     0, 0, 0, 1, 0, 0,
-  #     0, 0, 0, 0, 10000000, 0,
-  #     0, 0, 0, 0, 0, 1000]
-      
   # Process covariance
   R: [1, 1, 1, 0, 0, 0,
       0, 1, 1, 0, 0, 0,
