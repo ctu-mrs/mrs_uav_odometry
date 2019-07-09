@@ -3206,8 +3206,6 @@ double des_yaw, des_yaw_rate;
         if (got_pixhawk_odom_offset) {
           odom_pixhawk_shifted.pose.pose.position.x += pixhawk_odom_offset_x;
           odom_pixhawk_shifted.pose.pose.position.y += pixhawk_odom_offset_y;
-          odom_pixhawk_previous_shifted.pose.pose.position.x += pixhawk_odom_offset_x;
-          odom_pixhawk_previous_shifted.pose.pose.position.y += pixhawk_odom_offset_y;
           got_pixhawk_odom_shifted = true;
         }
       }
@@ -3489,11 +3487,11 @@ double des_yaw, des_yaw_rate;
         std::scoped_lock lock(mutex_odom_pixhawk);
 
         // TODO test which one is better
-        vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) / dt;
-        vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous.pose.pose.position.y) / dt;
+        vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous_shifted.pose.pose.position.x) / dt;
+        vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous_shifted.pose.pose.position.y) / dt;
         /* vel_mavros_x = odom_pixhawk.twist.twist.linear.x; */
         /* vel_mavros_y = odom_pixhawk.twist.twist.linear.y; */
-        yaw_mavros = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
+        yaw_mavros = mrs_odometry::getYaw(odom_pixhawk_shifted.pose.pose.orientation);
       }
       // Correct the velocity by the current heading
       double tmp_mavros_vel_x, tmp_mavros_vel_y;
