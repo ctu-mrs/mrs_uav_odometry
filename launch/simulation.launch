@@ -1,0 +1,5 @@
+<launch>
+
+  <node pkg="mrs_odometry" type="simulation_hector.sh" name="simulation"/>
+
+</launch>

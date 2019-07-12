@@ -621,6 +621,7 @@ bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs
   double max_mavros_pos_correction;
   double max_vio_pos_correction;
   double max_brick_pos_correction;
+  double max_brick_yaw_correction_;
   double max_rtk_pos_correction;
   double _max_t265_vel;
 
@@ -1294,6 +1295,7 @@ void Odometry::onInit() {
   param_loader.load_param("heading/brick_yaw_filter_buffer_size", _brick_yaw_filter_buffer_size);
   /* param_loader.load_param("heading/brick_yaw_filter_max_valid", _brick_yaw_filter_max_valid); */
   param_loader.load_param("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff);
+  param_loader.load_param("heading/max_brick_yaw_correction", max_brick_yaw_correction_);
 
   param_loader.load_param("heading_estimator", heading_estimator_name);
   param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
@@ -2490,8 +2492,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_main.pose.pose.position.y = pos_vec(1);
     }
 
-    if (!_publish_pixhawk_velocity || (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL &&
-                                       std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL)) {
+    // the mavros velocity is correct only in the PIXHAWK heading estimator frame, our velocity estimate should be more accurate anyway
+    /* if (!_publish_pixhawk_velocity || (std::strcmp(current_estimator->getName().c_str(), "RTK") != STRING_EQUAL && */
+    /*                                    std::strcmp(current_estimator->getName().c_str(), "GPS") != STRING_EQUAL)) { */
+    if (!_publish_pixhawk_velocity) {
       odom_main.twist.twist.linear.x = vel_vec(0);
       odom_main.twist.twist.linear.y = vel_vec(1);
     }
@@ -4616,6 +4620,27 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
 
+  // Saturate correction
+  for (auto &estimator : m_heading_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+      Eigen::VectorXd hdg(1);
+      estimator.second->getState(0, hdg);
+
+      // Heading
+      if (!std::isfinite(yaw_brick)) {
+        yaw_brick = 0;
+        ROS_ERROR("NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!");
+        return;
+      } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_);
+        yaw_brick = hdg(0) + max_brick_yaw_correction_;
+      } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_);
+        yaw_brick = hdg(0) - max_brick_yaw_correction_;
+      }
+    }
+  }
+
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick, "yaw_brick");
 
@@ -6475,9 +6500,6 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
   double cy = cos(yaw_diff);
   double sy = sin(yaw_diff);
 
-  {
-    std::scoped_lock lock(mutex_child_frame_id);
-
     for (auto &estimator : m_state_estimators) {
       Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
       if (!estimator.second->getStates(old_state)) {
@@ -6499,7 +6521,6 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
       }
       estimator.second->setStates(new_state);
     }
-  }
 
 }
 
@@ -6879,7 +6900,8 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
   _hdg_estimator_type      = target_estimator;
   _hdg_estimator_type.name = _heading_type_names[_hdg_estimator_type.type];
   is_updating_state_ = false;
-    finished_state_update_ = true;
+  finished_state_update_ = true;
+  ROS_INFO("[Odometry]: finished hdg switch");
   return true;
 }
 
