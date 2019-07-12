@@ -36,7 +36,8 @@ heading_estimators:
     COMPASS: ["rate_gyro", "yaw_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
     HECTOR: ["rate_gyro", "yaw_hector"]
-    BRICK: ["rate_gyro", "yaw_brick"]
+    # BRICK: ["rate_gyro", "yaw_brick"]
+    BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
   measurement_states:

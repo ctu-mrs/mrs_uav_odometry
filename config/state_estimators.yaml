@@ -44,7 +44,8 @@ state_estimators:
   fused_measurements:
     OPTFLOW: ["vel_optflow", "tilt_mavros"]
     # GPS: ["tilt_mavros"]
-    GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
+    # GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
+    GPS: ["pos_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros", "tilt_mavros"]
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
     # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
