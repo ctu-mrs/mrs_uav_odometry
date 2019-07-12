@@ -365,8 +365,8 @@ private:
   int        transform_timer_rate_ = 1;
   void       transformTimer(const ros::TimerEvent &event);
 
-  bool is_updating_state_ = false;
-  bool  finished_state_update_ = false;
+  bool is_updating_state_     = false;
+  bool finished_state_update_ = false;
 
   // | -------------------- message callbacks ------------------- |
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
@@ -398,7 +398,7 @@ private:
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res);
   bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
-bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // | --------------------- helper methods --------------------- |
   bool isReadyToTakeoff();
@@ -763,7 +763,7 @@ void Odometry::onInit() {
   init_hdg_avg                     = 0.0;
   init_hdg_avg_done                = false;
 
-  is_updating_state_ = false;
+  is_updating_state_     = false;
   finished_state_update_ = false;
   // got_brick_altitude = false;
 
@@ -2419,7 +2419,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   if (_publish_fused_odom) {
 
-    if(is_updating_state_)
+    if (is_updating_state_)
       return;
 
     Eigen::VectorXd pos_vec(2);
@@ -3200,7 +3200,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   // Apply prediction step to all state estimators
   if (!is_updating_state_) {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
-  stateEstimatorsPrediction(rot_y, rot_x, dt);
+    stateEstimatorsPrediction(rot_y, rot_x, dt);
   }
 
   ROS_INFO_ONCE("[Odometry]: Prediction step of all state estimators running.");
@@ -3622,15 +3622,15 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (finished_state_update_) {
       ROS_INFO("[Odometry]: finished state update");
-    for (auto &estimator : m_state_estimators) {
-      if (mrs_odometry::isEqual(estimator.first, "GPS")) {
-      Eigen::MatrixXd state = Eigen::MatrixXd::Zero(lateral_n, 2);
-      estimator.second->getStates(state);
-      ROS_INFO_STREAM("[Odometry]: state after rotation:" << state);
-      ROS_INFO("[Odometry]: mavros position correction after state rotation: x: %2.2f y: %2.2f", pos_mavros_x, pos_mavros_y);
-      finished_state_update_ = false;
+      for (auto &estimator : m_state_estimators) {
+        if (mrs_odometry::isEqual(estimator.first, "GPS")) {
+          Eigen::MatrixXd state = Eigen::MatrixXd::Zero(lateral_n, 2);
+          estimator.second->getStates(state);
+          ROS_INFO_STREAM("[Odometry]: state after rotation:" << state);
+          ROS_INFO("[Odometry]: mavros position correction after state rotation: x: %2.2f y: %2.2f", pos_mavros_x, pos_mavros_y);
+          finished_state_update_ = false;
+        }
       }
-    }
     }
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
@@ -5390,14 +5390,14 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
 
   // Change the maximum altitude back to default if the current estimator is not OPTFLOW
   if (_estimator_type.type != mrs_msgs::EstimatorType::OPTFLOW && _estimator_type.type != mrs_msgs::EstimatorType::BRICKFLOW) {
-if (max_altitude != _max_default_altitude) {
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-}
+    if (max_altitude != _max_default_altitude) {
+      max_altitude = _max_default_altitude;
+      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    }
   } else {
     if (max_altitude != _max_optflow_altitude) {
-    max_altitude = _max_optflow_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+      max_altitude = _max_optflow_altitude;
+      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
     }
   }
   ROS_INFO_THROTTLE(
@@ -6174,15 +6174,15 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
   if (!simulation_)
     return false;
 
-  Eigen::VectorXd state  = Eigen::VectorXd::Zero(1);
+  Eigen::VectorXd state   = Eigen::VectorXd::Zero(1);
   bool            success = false;
 
   for (auto &estimator : m_heading_estimators) {
     std::scoped_lock lock(mutex_heading_estimator);
     if (mrs_odometry::isEqual(estimator.first, "GYRO")) {
-    estimator.second->getState(0, state);
-    state(0) += 1.57;
-    success = estimator.second->setState(0, state);
+      estimator.second->getState(0, state);
+      state(0) += 1.57;
+      success = estimator.second->setState(0, state);
     }
   }
 
@@ -6497,31 +6497,30 @@ void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const doub
 void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
 
   double yaw_diff = yaw_new - yaw_old;
-  double cy = cos(yaw_diff);
-  double sy = sin(yaw_diff);
+  double cy       = cos(yaw_diff);
+  double sy       = sin(yaw_diff);
 
-    for (auto &estimator : m_state_estimators) {
-      Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
-      if (!estimator.second->getStates(old_state)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator not initialized.");
-        return;
-      }
-      if (isEqual(estimator.first, "GPS")) {
+  for (auto &estimator : m_state_estimators) {
+    Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+    if (!estimator.second->getStates(old_state)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator not initialized.");
+      return;
+    }
+    if (isEqual(estimator.first, "GPS")) {
       ROS_INFO("[Odometry]: Rotating lateral state after hdg estimator switch.");
       ROS_INFO_STREAM("[Odometry]: old_state:" << old_state);
-      }
-
-      Eigen::MatrixXd new_state = Eigen::MatrixXd::Zero(lateral_n, 2);
-      for (int i = 0; i < lateral_n; i++) {
-        new_state(i, 0) = old_state(i, 0) * cy - old_state(i, 1) * sy;
-        new_state(i, 1) = old_state(i, 0) * sy + old_state(i, 1) * cy;
-      }
-      if (isEqual(estimator.first, "GPS")) {
-      ROS_INFO_STREAM("[Odometry]: new_state:" << new_state);
-      }
-      estimator.second->setStates(new_state);
     }
 
+    Eigen::MatrixXd new_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+    for (int i = 0; i < lateral_n; i++) {
+      new_state(i, 0) = old_state(i, 0) * cy - old_state(i, 1) * sy;
+      new_state(i, 1) = old_state(i, 0) * sy + old_state(i, 1) * cy;
+    }
+    if (isEqual(estimator.first, "GPS")) {
+      ROS_INFO_STREAM("[Odometry]: new_state:" << new_state);
+    }
+    estimator.second->setStates(new_state);
+  }
 }
 
 //}
@@ -6893,14 +6892,14 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to nonexistent heading estimator %s", target_estimator.name.c_str());
-  is_updating_state_ = false;
+    is_updating_state_ = false;
     return false;
   }
 
   _hdg_estimator_type      = target_estimator;
   _hdg_estimator_type.name = _heading_type_names[_hdg_estimator_type.type];
-  is_updating_state_ = false;
-  finished_state_update_ = true;
+  is_updating_state_       = false;
+  finished_state_update_   = true;
   ROS_INFO("[Odometry]: finished hdg switch");
   return true;
 }
