@@ -3199,8 +3199,9 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   // Apply prediction step to all state estimators
   if (!is_updating_state_) {
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
     stateEstimatorsPrediction(rot_y, rot_x, dt);
+  } else {
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
   }
 
   ROS_INFO_ONCE("[Odometry]: Prediction step of all state estimators running.");
