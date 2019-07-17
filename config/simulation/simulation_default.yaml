@@ -159,7 +159,7 @@ lateral:
     vel_vio: [10000]
     pos_object: [100]
     vel_object: [10000]
-    pos_brick: [100]
+    pos_brick: [1]
     vel_brick: [100]
     pos_hector: [1000]
 
@@ -230,6 +230,7 @@ heading:
   brick_yaw_filter_buffer_size: 100
   brick_yaw_filter_max_diff: deg(10)
   max_brick_yaw_correction: deg(1)
+  accum_yaw_brick_alpha: 0.1
 
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)

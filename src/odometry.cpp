@@ -205,6 +205,9 @@ private:
   nav_msgs::Odometry odom_pixhawk_previous;
   nav_msgs::Odometry odom_pixhawk_shifted;
   nav_msgs::Odometry odom_pixhawk_previous_shifted;
+  double             init_magnetic_heading_ = 0.0;
+  double             init_brick_yaw_        = 0.0;
+  double             yaw_diff_              = 0.0;
 
   std::mutex mutex_odom_pixhawk;
   std::mutex mutex_odom_pixhawk_shifted;
@@ -280,6 +283,8 @@ private:
   int                           _brick_yaw_filter_buffer_size;
   double                        _brick_yaw_filter_max_valid;
   double                        _brick_yaw_filter_max_diff;
+  double                        accum_yaw_brick_;
+  double                        _accum_yaw_brick_alpha_;
 
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
@@ -1296,6 +1301,8 @@ void Odometry::onInit() {
   /* param_loader.load_param("heading/brick_yaw_filter_max_valid", _brick_yaw_filter_max_valid); */
   param_loader.load_param("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff);
   param_loader.load_param("heading/max_brick_yaw_correction", max_brick_yaw_correction_);
+  param_loader.load_param("heading/accum_yaw_brick_alpha", _accum_yaw_brick_alpha_);
+  accum_yaw_brick_ = 0.0;
 
   param_loader.load_param("heading_estimator", heading_estimator_name);
   param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
@@ -3246,6 +3253,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       odom_pixhawk_previous = *msg;
       odom_pixhawk          = *msg;
+
+      // store the initial magnetic heading (corresponding to 0 of non-magnetic heading estimators)
+      init_magnetic_heading_ = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
     }
 
     if (simulation_) {
@@ -3523,12 +3533,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
     // Correct the velocity by the current heading
     double tmp_mavros_vel_x, tmp_mavros_vel_y;
-    /* tmp_mavros_vel_x = vel_mavros_x * cos(yaw_mavros - hdg) - vel_mavros_y * sin(yaw_mavros - hdg); */
-    /* tmp_mavros_vel_y = vel_mavros_x * sin(yaw_mavros - hdg) + vel_mavros_y * cos(yaw_mavros - hdg); */
-    tmp_mavros_vel_x = vel_mavros_x * cos(hdg - yaw_mavros) - vel_mavros_y * sin(hdg - yaw_mavros);
-    tmp_mavros_vel_y = vel_mavros_x * sin(hdg - yaw_mavros) + vel_mavros_y * cos(hdg - yaw_mavros);
-    vel_mavros_x     = tmp_mavros_vel_x;
-    vel_mavros_y     = tmp_mavros_vel_y;
+    if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) {
+      tmp_mavros_vel_x = vel_mavros_x * cos(hdg - yaw_mavros) - vel_mavros_y * sin(hdg - yaw_mavros);
+      tmp_mavros_vel_y = vel_mavros_x * sin(hdg - yaw_mavros) + vel_mavros_y * cos(hdg - yaw_mavros);
+      vel_mavros_x     = tmp_mavros_vel_x;
+      vel_mavros_y     = tmp_mavros_vel_y;
+    }
 
     // Apply correction step to all state estimators
     // TODO why only in simulation?
@@ -3572,18 +3582,17 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       yaw_mavros   = mrs_odometry::getYaw(odom_pixhawk_shifted.pose.pose.orientation);
     }
 
+    if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) {
+      double tmp_mavros_pos_x, tmp_mavros_pos_y;
 
+      tmp_mavros_pos_x = pos_mavros_x * cos(hdg - yaw_mavros) - pos_mavros_y * sin(hdg - yaw_mavros);
+      tmp_mavros_pos_y = pos_mavros_x * sin(hdg - yaw_mavros) + pos_mavros_y * cos(hdg - yaw_mavros);
+      pos_mavros_x     = tmp_mavros_pos_x;
+      pos_mavros_y     = tmp_mavros_pos_y;
+    }
     // Correct the position by the current heading
-    double hdg = getCurrentHeading();
-    double tmp_mavros_pos_x, tmp_mavros_pos_y;
-    /* tmp_mavros_pos_x = pos_mavros_x * cos(yaw_mavros - hdg) - pos_mavros_y * sin(yaw_mavros - hdg); */
-    /* tmp_mavros_pos_y = pos_mavros_x * sin(yaw_mavros - hdg) + pos_mavros_y * cos(yaw_mavros - hdg); */
-    tmp_mavros_pos_x = pos_mavros_x * cos(hdg - yaw_mavros) - pos_mavros_y * sin(hdg - yaw_mavros);
-    tmp_mavros_pos_y = pos_mavros_x * sin(hdg - yaw_mavros) + pos_mavros_y * cos(hdg - yaw_mavros);
-    pos_mavros_x     = tmp_mavros_pos_x;
-    pos_mavros_y     = tmp_mavros_pos_y;
+    /* double hdg = getCurrentHeading(); */
 
-    // TODO after heading estimator switch, transform lateral state by -(yaw_new-yaw_old)
 
     // Saturate correction
     if (saturate_mavros_position_) {
@@ -4577,9 +4586,9 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       if (counter_invalid_brick_pose < 10) {
         counter_invalid_brick_pose++;
       } else {
-        ROS_WARN("[Odometry]: Same brick pose detected");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Same brick pose detected. Brick is not reliable.");
         counter_odom_brick = 0;
-        brick_reliable     = false;
+        /* brick_reliable     = false; */
       }
       return;
     }
@@ -4593,6 +4602,14 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
           Eigen::VectorXd pos_vec(2);
           pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
           estimator.second->setState(0, pos_vec);
+        }
+      }
+      for (auto &estimator : m_heading_estimators) {
+        if (std::strcmp(estimator.first.c_str(), "BRICK")) {
+          Eigen::VectorXd hdg(1);
+          init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
+          hdg << init_brick_yaw_;
+          estimator.second->setState(0, hdg);
         }
       }
       ROS_WARN("[Odometry]: Brick is now reliable");
@@ -4610,47 +4627,54 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     return;
   }
 
-  double r_tmp, p_tmp, yaw_brick;
+  double r_tmp, p_tmp, yaw_tmp;
   {
     std::scoped_lock lock(mutex_brick);
-    mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, yaw_brick);
+    mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, yaw_tmp);
   }
 
+  /* yaw_brick = -yaw_brick; */
+
   /* yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous); */
-  yaw_brick          = mrs_odometry::disambiguateAngle(yaw_brick, brick_yaw_previous);
+  double yaw_brick          = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous);
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
 
-  // Saturate correction
-  for (auto &estimator : m_heading_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
-      Eigen::VectorXd hdg(1);
-      estimator.second->getState(0, hdg);
+  // Exponential running average
+  /* accum_yaw_brick_ = (1 - _accum_yaw_brick_alpha_) * accum_yaw_brick_ + _accum_yaw_brick_alpha_ * yaw_brick; */
+  /* yaw_brick        = accum_yaw_brick_; */
 
-      // Heading
-      if (!std::isfinite(yaw_brick)) {
-        yaw_brick = 0;
-        ROS_ERROR("NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!");
-        return;
-      } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_);
-        yaw_brick = hdg(0) + max_brick_yaw_correction_;
-      } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_);
-        yaw_brick = hdg(0) - max_brick_yaw_correction_;
-      }
-    }
-  }
+  // Saturate correction
+  double yaw_brick_sat = yaw_brick;
+  /* for (auto &estimator : m_heading_estimators) { */
+  /*   if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) { */
+  /*     Eigen::VectorXd hdg(1); */
+  /*     estimator.second->getState(0, hdg); */
+
+  /*     // Heading */
+  /*     if (!std::isfinite(yaw_brick)) { */
+  /*       yaw_brick = 0; */
+  /*       ROS_ERROR("NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!"); */
+  /*       return; */
+  /*     } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) { */
+  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_); */
+  /*       yaw_brick_sat = hdg(0) + max_brick_yaw_correction_; */
+  /*     } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) { */
+  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_); */
+  /*       yaw_brick_sat = hdg(0) - max_brick_yaw_correction_; */
+  /*     } */
+  /*   } */
+  /* } */
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(yaw_brick, "yaw_brick");
+  headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
 
   /* yaw_brick = mrs_odometry::wrapAngle(yaw_brick); */
 
   mrs_msgs::Float64Stamped brick_yaw_out;
   brick_yaw_out.header.stamp    = ros::Time::now();
   brick_yaw_out.header.frame_id = "local_origin";
-  brick_yaw_out.value           = yaw_brick;
+  brick_yaw_out.value           = yaw_brick_sat;
   pub_brick_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(brick_yaw_out)));
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
@@ -4667,16 +4691,32 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   {
     std::scoped_lock lock(mutex_brick);
 
-    pos_brick_x = brick_pose.pose.position.x;
-    pos_brick_y = brick_pose.pose.position.y;
+    pos_brick_x = -brick_pose.pose.position.x;
+    pos_brick_y = -brick_pose.pose.position.y;
   }
 
   double hdg = getCurrentHeading();
 
+  double brick_hdg;
+  for (auto &estimator : m_heading_estimators) {
+    if (isEqual(estimator.first, "BRICK")) {
+    Eigen::VectorXd state = Eigen::VectorXd::Zero(1);
+    if (!estimator.second->getState(0, state)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
+      return;
+    }
+    /* brick_hdg = state(0); */
+    break;
+    }
+  }
+  brick_hdg = yaw_brick;
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: brick curr: %2.4f est: %2.4f diff: %2.4f", hdg, brick_hdg, hdg - brick_hdg);
   // Correct the position by the current heading
   double corr_brick_pos_x, corr_brick_pos_y;
-  corr_brick_pos_x = pos_brick_x * cos(hdg - yaw_brick) - pos_brick_y * sin(hdg - yaw_brick);
-  corr_brick_pos_y = pos_brick_x * sin(hdg - yaw_brick) + pos_brick_y * cos(hdg - yaw_brick);
+  corr_brick_pos_x = pos_brick_x * cos(hdg - brick_hdg) - pos_brick_y * sin(hdg - brick_hdg);
+  corr_brick_pos_y = pos_brick_x * sin(hdg - brick_hdg) + pos_brick_y * cos(hdg - brick_hdg);
+  /* corr_brick_pos_x = pos_brick_x * cos(hdg - init_brick_yaw_) - pos_brick_y * sin(hdg - init_brick_yaw_); */
+  /* corr_brick_pos_y = pos_brick_x * sin(hdg - init_brick_yaw_) + pos_brick_y * cos(hdg - init_brick_yaw_); */
 
   // Saturate correction
   /* for (auto &estimator : m_state_estimators) { */
@@ -6497,9 +6537,10 @@ void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const doub
 
 void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
 
-  double yaw_diff = yaw_new - yaw_old;
-  double cy       = cos(yaw_diff);
-  double sy       = sin(yaw_diff);
+  /* yaw_diff_ = yaw_old - yaw_new; */
+  yaw_diff_ = yaw_new - yaw_old;
+  double cy = cos(yaw_diff_);
+  double sy = sin(yaw_diff_);
 
   for (auto &estimator : m_state_estimators) {
     Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
@@ -6866,12 +6907,23 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
       /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
       yaw_old = getCurrentHeading();
+      // TODO generalize for all heading estimators - each can have different origin
+      /* if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) { */
+      /*   yaw_old = init_magnetic_heading_; */
+      /* } else { */
+      /*   yaw_old = 0.0; */
+      /* } */
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
         current_hdg_estimator      = m_heading_estimators.find(target_estimator.name)->second;
         current_hdg_estimator_name = current_hdg_estimator->getName();
       }
       yaw_new = getCurrentHeading();
+      /* if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) { */
+      /*   yaw_new = init_magnetic_heading_; */
+      /* } else { */
+      /*   yaw_new = 0.0; */
+      /* } */
 
       ros::Time t0 = ros::Time::now();
       rotateLateralStates(yaw_new, yaw_old);

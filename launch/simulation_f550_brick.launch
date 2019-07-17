@@ -55,6 +55,7 @@
       <!-- <remap from="~object_in" to="balloon_planner/balloon_odom_out" /> -->
       <remap from="~object_in" to="apriltags2_ros/tag_odometry" />
       <remap from="~brick_pose_in" to="brick_grasping/current_target_uav_odom" />
+      <!-- <remap from="~brick_pose_in" to="simulated_brick_odom/odom_uav_gt" /> -->
       <remap from="~vio_state_in" to="orb_slam/tracking_state" />
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="garmin/range" />

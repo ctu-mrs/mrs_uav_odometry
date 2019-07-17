@@ -52,6 +52,7 @@ state_estimators:
     ICP: ["tilt_mavros", "vel_icp"]
     HECTOR: ["tilt_mavros", "pos_hector"]
     VIO: ["tilt_mavros", "pos_vio"]
+    # BRICK: ["pos_brick"]
     BRICK: ["tilt_mavros", "pos_brick"]
     BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
     T265: []
