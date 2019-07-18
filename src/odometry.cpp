@@ -4636,7 +4636,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   /* yaw_brick = -yaw_brick; */
 
   /* yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous); */
-  double yaw_brick          = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous);
+  double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous);
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
 
@@ -4691,8 +4691,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   {
     std::scoped_lock lock(mutex_brick);
 
-    pos_brick_x = -brick_pose.pose.position.x;
-    pos_brick_y = -brick_pose.pose.position.y;
+    pos_brick_x =  brick_pose.pose.position.x;
+    pos_brick_y =  brick_pose.pose.position.y;
   }
 
   double hdg = getCurrentHeading();
@@ -4700,21 +4700,28 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double brick_hdg;
   for (auto &estimator : m_heading_estimators) {
     if (isEqual(estimator.first, "BRICK")) {
-    Eigen::VectorXd state = Eigen::VectorXd::Zero(1);
-    if (!estimator.second->getState(0, state)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
-      return;
-    }
-    /* brick_hdg = state(0); */
-    break;
+      Eigen::VectorXd state = Eigen::VectorXd::Zero(1);
+      if (!estimator.second->getState(0, state)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
+        return;
+      }
+      /* brick_hdg = state(0); */
+      break;
     }
   }
   brick_hdg = yaw_brick;
-  ROS_INFO_THROTTLE(1.0, "[Odometry]: brick curr: %2.4f est: %2.4f diff: %2.4f", hdg, brick_hdg, hdg - brick_hdg);
+  ROS_INFO("[Odometry]: brick curr: %2.4f est: %2.4f diff: %2.4f", hdg, brick_hdg, hdg - brick_hdg);
   // Correct the position by the current heading
   double corr_brick_pos_x, corr_brick_pos_y;
-  corr_brick_pos_x = pos_brick_x * cos(hdg - brick_hdg) - pos_brick_y * sin(hdg - brick_hdg);
-  corr_brick_pos_y = pos_brick_x * sin(hdg - brick_hdg) + pos_brick_y * cos(hdg - brick_hdg);
+  /* double hdg_diff  = brick_hdg - hdg; */
+  double hdg_diff;
+  if (isEqual(current_hdg_estimator_name, "BRICK")) {
+    hdg_diff = 0;
+  } else {
+    hdg_diff = hdg - brick_hdg;
+  }
+  corr_brick_pos_x = pos_brick_x * cos(hdg_diff) - pos_brick_y * sin(hdg_diff);
+  corr_brick_pos_y = pos_brick_x * sin(hdg_diff) + pos_brick_y * cos(hdg_diff);
   /* corr_brick_pos_x = pos_brick_x * cos(hdg - init_brick_yaw_) - pos_brick_y * sin(hdg - init_brick_yaw_); */
   /* corr_brick_pos_y = pos_brick_x * sin(hdg - init_brick_yaw_) + pos_brick_y * cos(hdg - init_brick_yaw_); */
 

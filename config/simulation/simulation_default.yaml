@@ -159,7 +159,7 @@ lateral:
     vel_vio: [10000]
     pos_object: [100]
     vel_object: [10000]
-    pos_brick: [1]
+    pos_brick: [10]
     vel_brick: [100]
     pos_hector: [1000]
 
