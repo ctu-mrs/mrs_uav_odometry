@@ -108,7 +108,6 @@ public:
 private:
   std::string uav_name;
   bool        simulation_ = false;
-  bool        rosbag_     = false;
   bool        use_gt_orientation_;
 
   bool   _publish_fused_odom;
@@ -839,7 +838,6 @@ void Odometry::onInit() {
   param_loader.load_param("rate", rate_);
 
   param_loader.load_param("simulation", simulation_);
-  param_loader.load_param("rosbag", rosbag_);
   param_loader.load_param("slow_odom_rate", slow_odom_rate_);
   param_loader.load_param("diag_rate", diag_rate_);
   param_loader.load_param("aux_rate", aux_rate_);

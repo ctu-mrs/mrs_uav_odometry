@@ -1,6 +1,6 @@
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
-lateral_estimator: "GPS"
+lateral_estimator: "RTK"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder
@@ -13,11 +13,8 @@ heading_estimator: "PIXHAWK"
 # Available localization methods
 gps_available: true
 optflow_available: false
-vio_available: false
-rtk_available: false
+vio_available: true
+rtk_available: true
 lidar_available: false
 object_available: false
 t265_available: false
-
-
-
