@@ -47,65 +47,37 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-garminFilterBufferSize: 100
-garminFilterMaxValidAltitude: 25.0
-garminFilterMaxDifference: 3.0
+garminFilterBufferSize: 200
+garminFilterMaxValidAltitude: 40.0
+garminFilterMaxDifference: 2.0
 
 null_tracker: "NullTracker"
 
 altitude:
 
-  estimate_elevation: false
-  estimate_baro_offset: true
-
-  # z-axis (altitude, height) velocity limit for barometer offset estimation
-  # we want to estimate the offset only when both the alititude and height is not changing to prevent false measurements
-  max_vel_baro_offset_estimation: 0.2 # [m/s]
-
-  # changes of elevation under this value will be treated as flat terrain
-  elevation_tolerance: 0.5 # [m]
-
   # do not fuse rangefinder measurements when the UAV is tilted more than this angle
   excessive_tilt: 0.5 # ~pi/6 [rad]
 
   # Altitude Kalman filter parameters
-  numberOfVariables: 6
+  numberOfVariables: 3
   numberOfInputs: 1
   numberOfMeasurements: 1
-
-  # The system matrix
-  # altitude, velocity, acceleration, height, elevation, offset
-  # altitude = height + elevation
-  A: [0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0, 
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0]
 
   # The input matrix
   B: [0,
       0,
-      0.01,
-      0,
-      0,
-      0]
+      0.1]
 
   # Process covariance
-  R: [1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0,
-      0, 0, 0.01, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 1]
+  R: [0.001, 0, 0,
+      0, 0.001, 0,
+      0, 0, 0.001]
 
   # Covariances of measurements
   Q:
-    alt_baro: [0.01]
-    height_range: [100] # 0.04 stddev in simulation
-    vel_mavros: [0.001]
-    bias_baro: [0.01] 
-    elevation: [0.01] 
+    height_range: [1] # 0.04 stddev in simulation
+    vel_baro: [0.1]
+    acc_imu: [100] 
 
 lateral:
 

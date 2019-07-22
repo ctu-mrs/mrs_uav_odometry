@@ -583,7 +583,7 @@ private:
 
   // altitude estimation
   int                                                       altitude_n, altitude_m, altitude_p;
-  Eigen::MatrixXd                                           A_alt, B_alt, R_alt;
+  Eigen::MatrixXd                                           B_alt, R_alt;
   std::mutex                                                mutex_altitude_estimator;
   std::vector<std::string>                                  _altitude_estimators_names;
   std::vector<std::string>                                  _alt_model_state_names;
@@ -606,14 +606,8 @@ private:
   bool                                                      is_altitude_estimator_initialized = false;
   bool                                                      is_lateral_estimator_initialized  = false;
   int                                                       counter_altitude                  = 0;
-  bool                                                      obstacle_detected                 = false;
-  bool                                                      bias_baro_estimation_enabled      = false;
-  double                                                    _max_vel_baro_offset_estimation;
-  double                                                    _elevation_tolerance;
   double                                                    _excessive_tilt;
   int                                                       current_altitude_type;
-  bool                                                      estimate_elevation;
-  bool                                                      estimate_baro_offset;
 
   // State estimation
   int                                                    _n_model_states;
@@ -938,14 +932,11 @@ void Odometry::onInit() {
 
   /* load parameters of altitude estimator //{ */
 
-  param_loader.load_param("altitude/estimate_elevation", estimate_elevation);
-  param_loader.load_param("altitude/estimate_baro_offset", estimate_baro_offset);
-
   param_loader.load_param("altitude/numberOfVariables", altitude_n);
   param_loader.load_param("altitude/numberOfInputs", altitude_m);
   param_loader.load_param("altitude/numberOfMeasurements", altitude_p);
 
-  param_loader.load_matrix_dynamic("altitude/A", A_alt, altitude_n, altitude_n);
+  /* param_loader.load_matrix_dynamic("altitude/A", A_alt, altitude_n, altitude_n); */
   param_loader.load_matrix_dynamic("altitude/B", B_alt, altitude_n, altitude_m);
   param_loader.load_matrix_dynamic("altitude/R", R_alt, altitude_n, altitude_n);
 
@@ -953,8 +944,6 @@ void Odometry::onInit() {
   param_loader.load_param("altitude_estimators/measurements", _alt_measurement_names);
   param_loader.load_param("altitude_estimators/altitude_estimators", _altitude_estimators_names);
 
-  param_loader.load_param("altitude/max_vel_baro_offset_estimation", _max_vel_baro_offset_estimation);
-  param_loader.load_param("altitude/elevation_tolerance", _elevation_tolerance);
   param_loader.load_param("altitude/excessive_tilt", _excessive_tilt);
 
   param_loader.load_param("altitude_estimator", altitude_estimator_name);
@@ -1093,10 +1082,11 @@ void Odometry::onInit() {
     // Map publisher to estimator name
     ros::Publisher pub = nh_.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
     map_alt_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
+
+    ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: " << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p
+                                                                                                << ", A: " << A_model << ", B: " << B_alt << ", R: " << R_alt);
   }
 
-  ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: " << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p
-                                                                                                << ", A: " << A_alt << ", B: " << B_alt << ", R: " << R_alt);
 
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
@@ -2998,7 +2988,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     got_odom_pixhawk = false;
   }
 
-  // optflow velocities
+  // optflow velocities (corrections of lateral kf)
   interval = ros::Time::now() - optflow_twist_last_update;
   if (got_optflow && interval.toSec() > 0.1) {
     ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
@@ -3008,13 +2998,27 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     }
   }
 
-  //  target attitude
+  //  target attitude (input to lateral kf)
   interval = ros::Time::now() - target_attitude_last_update;
   if (got_target_attitude && interval.toSec() > 0.1) {
     ROS_WARN("[Odometry]: Target attitude not received for %f seconds.", interval.toSec());
     if (got_target_attitude && interval.toSec() > 1.0) {
       got_target_attitude = false;
     }
+  }
+
+  // control acceleration (input to altitude kf)
+  interval = ros::Time::now() - control_accel_last_update;
+  if (got_control_accel && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Control acceleration not received for %f seconds.", interval.toSec());
+    got_control_accel = false;
+  }
+
+  // IMU data (corrections to altitude, lateral and heading kf)
+  interval = ros::Time::now() - pixhawk_imu_last_update;
+  if (got_pixhawk_imu && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: IMU data not received for %f seconds.", interval.toSec());
+    got_pixhawk_imu = false;
   }
 
   // rtk odometry
@@ -3024,14 +3028,14 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   /*   got_rtk = false; */
   /* } */
 
-  //  vio odometry
+  //  vio odometry (corrections of lateral kf)
   interval = ros::Time::now() - odom_vio_last_update;
   if (got_vio && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: VIO odometry not received for %f seconds.", interval.toSec());
     got_vio = false;
   }
 
-  //  brick odometry
+  //  brick odometry (corrections of lateral kf)
   interval = ros::Time::now() - brick_pose_last_update;
   if (got_brick_pose && interval.toSec() > 0.2) {
     ROS_WARN("[Odometry]: BRICK odometry not received for %f seconds.", interval.toSec());
@@ -3039,14 +3043,14 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     brick_reliable = false;
   }
 
-  //  icp velocities
+  //  icp velocities (corrections of lateral kf)
   interval = ros::Time::now() - icp_odom_last_update;
   if (got_icp && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP velocities not received for %f seconds.", interval.toSec());
     got_icp = false;
   }
 
-  //  icp position
+  //  icp position (corrections of lateral kf)
   interval = ros::Time::now() - icp_global_odom_last_update;
   if (got_icp_global && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP position not received for %f seconds.", interval.toSec());
@@ -3882,9 +3886,6 @@ void Odometry::callbackControlAccel(const sensor_msgs::ImuConstPtr &msg) {
 
   for (auto &estimator : m_altitude_estimators) {
     estimator.second->doPrediction(input, dt);
-    /* Eigen::VectorXd pos_vec(2); */
-    /* m_state_estimators[i]->getState(0, pos_vec); */
-    /* ROS_INFO("[Odometry]: %s after prediction with input: %f, dt: %f", estimator.second->getName().c_str(), input(0), dt); */
   }
 }
 
@@ -5240,7 +5241,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!garmin_enabled) {
     return;
   }
-
 
   double roll, pitch, yaw;
   geometry_msgs::Quaternion quat;

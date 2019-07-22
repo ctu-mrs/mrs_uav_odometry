@@ -46,6 +46,7 @@
       <!-- Subscribers -->
       <remap from="~target_attitude_in" to="mavros/setpoint_raw/target_attitude" />
       <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
+      <remap from="~control_acc_in" to="mavros/imu/data" />
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
