@@ -1,0 +1,15 @@
+<launch>
+
+  <arg name="config_file" default="$(find mrs_odometry)/config/uav/rtk.yaml"/>
+  <arg name="simulation" default="false" />
+  <arg name="debug" default="false" />
+
+  <include file="$(find mrs_odometry)/launch/odometry_nodelet.launch">
+
+    <arg name="config_file" value="$(arg config_file)"/>
+    <arg name="simulation" value="$(arg simulation)" />
+    <arg name="debug" value="$(arg debug)" />
+
+  </include>
+
+</launch>
