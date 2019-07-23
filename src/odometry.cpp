@@ -855,43 +855,6 @@ void Odometry::onInit() {
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
   param_loader.load_param("fcu_height", fcu_height_);
 
-  param_loader.load_param("utm_origin_x", utm_origin_x_);
-  param_loader.load_param("utm_origin_y", utm_origin_y_);
-
-  if (utm_origin_x_ == 0 || utm_origin_y_ == 0) {
-
-    use_utm_origin_ = false;
-
-  } else {
-
-    param_loader.load_param("use_utm_origin", use_utm_origin_);
-
-    if (use_utm_origin_)
-      ROS_INFO("[Odometry]: SetHomeOnStart enabled");
-    else
-      ROS_INFO("[Odometry]: SetHomeOnStart disabled");
-  }
-
-  param_loader.load_param("use_local_origin", use_local_origin_);
-  param_loader.load_param("local_origin_x", local_origin_x_);
-  param_loader.load_param("local_origin_y", local_origin_y_);
-
-  if (use_local_origin_ && use_utm_origin_) {
-    ROS_ERROR("[Odometry]: Cannot use both 'use_local_origin' and 'use_utm_origin'!!");
-    ros::shutdown();
-  } else if (!use_local_origin_ && !use_utm_origin_) {
-    ROS_ERROR("[Odometry]: Non of 'use_local_origin' and 'use_utm_origin' are true!!");
-    ros::shutdown();
-  }
-
-  if (use_utm_origin_)
-    ROS_INFO("[Odometry]: Setting home position on %.5f %.5f", utm_origin_x_, utm_origin_y_);
-
-  pixhawk_odom_offset_x = 0;
-  pixhawk_odom_offset_y = 0;
-
-  initPoseFromFile();
-
   // Optic flow
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
   param_loader.load_param("max_default_altitude", _max_default_altitude);
@@ -927,6 +890,38 @@ void Odometry::onInit() {
   size_t pos = std::distance(_estimator_type_names.begin(), find(_estimator_type_names.begin(), _estimator_type_names.end(), takeoff_estimator));
   _estimator_type_takeoff.name = takeoff_estimator;
   _estimator_type_takeoff.type = (int)pos;
+
+  if (_estimator_type.type == mrs_msgs::EstimatorType::GPS || _estimator_type.type == mrs_msgs::EstimatorType::RTK) {
+    use_local_origin_ = false;
+    use_utm_origin_   = true;
+    ROS_INFO("[Odometry]: Using UTM origin.");
+  } else {
+    use_local_origin_ = true;
+    use_utm_origin_   = false;
+    ROS_INFO("[Odometry]: Using local origin.");
+  }
+
+  if (use_local_origin_ && use_utm_origin_) {
+    ROS_ERROR("[Odometry]: Cannot use both 'use_local_origin' and 'use_utm_origin'!!");
+    ros::shutdown();
+  } else if (!use_local_origin_ && !use_utm_origin_) {
+    ROS_ERROR("[Odometry]: Non of 'use_local_origin' and 'use_utm_origin' are true!!");
+    ros::shutdown();
+  }
+
+  param_loader.load_param("utm_origin_x", utm_origin_x_);
+  param_loader.load_param("utm_origin_y", utm_origin_y_);
+
+  param_loader.load_param("local_origin_x", local_origin_x_);
+  param_loader.load_param("local_origin_y", local_origin_y_);
+
+  if (use_utm_origin_)
+    ROS_INFO("[Odometry]: Setting home position on %.5f %.5f", utm_origin_x_, utm_origin_y_);
+
+  pixhawk_odom_offset_x = 0;
+  pixhawk_odom_offset_y = 0;
+
+  initPoseFromFile();
 
   /* load parameters of altitude estimator //{ */
 
@@ -1081,8 +1076,8 @@ void Odometry::onInit() {
     ros::Publisher pub = nh_.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
     map_alt_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
 
-    ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: " << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p
-                                                                                                << ", A: " << A_model << ", B: " << B_alt << ", R: " << R_alt);
+    ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: "
+                    << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_model << ", B: " << B_alt << ", R: " << R_alt);
   }
 
 
@@ -1760,9 +1755,9 @@ void Odometry::onInit() {
   {
     std::scoped_lock lock(mutex_current_alt_estimator);
 
-  current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-  current_alt_estimator->getQ(last_drs_config.Q_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
-  current_alt_estimator->getQ(last_drs_config.Q_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+    current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
+    current_alt_estimator->getQ(last_drs_config.Q_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
+    current_alt_estimator->getQ(last_drs_config.Q_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
   }
 
   {
@@ -2360,12 +2355,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
 
-  if ((ros::Time::now() - odom_pixhawk_last_update).toSec() > 0.1) {
+    if ((ros::Time::now() - odom_pixhawk_last_update).toSec() > 0.1) {
 
-    ROS_ERROR("[Odometry]: mavros odometry has not come for > 0.1 s, interrupting");
-    got_odom_pixhawk = false;
+      ROS_ERROR("[Odometry]: mavros odometry has not come for > 0.1 s, interrupting");
+      got_odom_pixhawk = false;
 
-    return;
+      return;
     }
   }
 
@@ -4746,8 +4741,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   {
     std::scoped_lock lock(mutex_brick);
 
-    pos_brick_x =  brick_pose.pose.position.x;
-    pos_brick_y =  brick_pose.pose.position.y;
+    pos_brick_x = brick_pose.pose.position.x;
+    pos_brick_y = brick_pose.pose.position.y;
   }
 
   double hdg = getCurrentHeading();
@@ -5240,7 +5235,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  double roll, pitch, yaw;
+  double                    roll, pitch, yaw;
   geometry_msgs::Quaternion quat;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
