@@ -21,9 +21,9 @@
   <arg     if="$(arg pixgarm)" name="range_topic" value="mavros/distance_sensor/garmin" />
 
   <arg unless="$(arg simulation)" name="world_file" value="$(find mrs_general)/config/world_current.yaml" />
-  <arg unless="$(arg simulation)" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
+  <arg if="$(arg simulation)" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
 
-  <include file="$(find mrs_odometry)/launch/rtk_republisher_nodelet.launch" />
+  <include file="$(find mrs_odometry)/launch/include/rtk_republisher_nodelet.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
 

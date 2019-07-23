@@ -4,7 +4,7 @@
   <arg name="simulation" default="false" />
   <arg name="debug" default="false" />
 
-  <include file="$(find mrs_odometry)/launch/odometry_nodelet.launch">
+  <include file="$(find mrs_odometry)/launch/include/odometry_nodelet.launch">
 
     <arg name="config_file" value="$(arg config_file)"/>
     <arg name="simulation" value="$(arg simulation)" />
