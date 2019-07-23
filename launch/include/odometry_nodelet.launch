@@ -63,6 +63,7 @@
       <remap from="~teraranger_in" to="teraranger/range" />
       <remap from="~garmin_in" to="$(arg range_topic)" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
+      <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~icp_relative_in" to="lidar_stabilization/odom" />
