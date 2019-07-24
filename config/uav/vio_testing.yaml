@@ -10,6 +10,13 @@ altitude_estimator: "HEIGHT"
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
 heading_estimator: "PIXHAWK" 
 
+# Active estimators are started at node launch and can be switched to during flight
+state_estimators:
+  active: ["GPS", "RTK", "VIO"]
+
+heading_estimators:
+  active: ["PIXHAWK", "GYRO", "COMPASS"]
+
 # Available localization methods
 gps_available: true
 optflow_available: false

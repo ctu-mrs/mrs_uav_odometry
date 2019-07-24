@@ -546,6 +546,7 @@ private:
   std::mutex                                               mutex_heading_estimator;
   std::mutex                                               mutex_hdg_estimator_type;
   std::vector<std::string>                                 _heading_estimators_names;
+  std::vector<std::string>                                 _active_heading_estimators_names;
   std::vector<std::string>                                 _hdg_model_state_names;
   std::vector<std::string>                                 _hdg_measurement_names;
   std::map<std::string, std::vector<std::string>>          map_hdg_estimator_measurement;
@@ -612,6 +613,7 @@ private:
   int                                                    _n_model_states;
   int                                                    _n_model_states_rtk;
   std::vector<std::string>                               _state_estimators_names;
+  std::vector<std::string>                               _active_state_estimators_names;
   std::vector<std::string>                               _model_state_names;
   std::vector<std::string>                               _measurement_names;
   std::map<std::string, std::vector<std::string>>        map_estimator_measurement;
@@ -1093,6 +1095,7 @@ void Odometry::onInit() {
 
   param_loader.load_param("state_estimators/n_model_states", _n_model_states);
   param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
+  param_loader.load_param("state_estimators/active", _active_state_estimators_names);
   param_loader.load_param("state_estimators/model_states", _model_state_names);
   param_loader.load_param("state_estimators/measurements", _measurement_names);
   param_loader.load_matrix_dynamic("lateral/A", A_lat, _n_model_states, _n_model_states);
@@ -1151,7 +1154,7 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size, _brick_pos_filter_max_valid, -_brick_pos_filter_max_valid, _brick_pos_filter_max_diff);
 
   // Load the measurements fused by each state estimator
-  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
 
     std::vector<std::string> temp_vector;
     param_loader.load_param("state_estimators/fused_measurements/" + *it, temp_vector);
@@ -1205,7 +1208,7 @@ void Odometry::onInit() {
   //}
 
   /*  //{ create state estimators*/
-  for (std::vector<std::string>::iterator it = _state_estimators_names.begin(); it != _state_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
 
     std::vector<bool>            fusing_measurement;
     std::vector<Eigen::MatrixXd> P_arr_lat, Q_arr_lat;
@@ -1274,6 +1277,7 @@ void Odometry::onInit() {
   param_loader.load_param("heading_estimators/model_states", _hdg_model_state_names);
   param_loader.load_param("heading_estimators/measurements", _hdg_measurement_names);
   param_loader.load_param("heading_estimators/heading_estimators", _heading_estimators_names);
+  param_loader.load_param("heading_estimators/active", _active_heading_estimators_names);
 
   param_loader.load_param("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size);
   param_loader.load_param("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid);
@@ -1312,7 +1316,7 @@ void Odometry::onInit() {
   _hdg_estimator_type_takeoff.type = (int)pos_hdg;
 
   // Load the measurements fused by each heading estimator
-  for (std::vector<std::string>::iterator it = _heading_estimators_names.begin(); it != _heading_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_heading_estimators_names.begin(); it != _active_heading_estimators_names.end(); ++it) {
 
     std::vector<std::string> temp_vector;
     param_loader.load_param("heading_estimators/fused_measurements/" + *it, temp_vector);
@@ -1375,7 +1379,7 @@ void Odometry::onInit() {
   /* create heading estimator //{ */
 
   // Loop through all estimators
-  for (std::vector<std::string>::iterator it = _heading_estimators_names.begin(); it != _heading_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_heading_estimators_names.begin(); it != _active_heading_estimators_names.end(); ++it) {
 
     std::vector<bool>            hdg_fusing_measurement;
     std::vector<Eigen::MatrixXd> P_arr_hdg, Q_arr_hdg;
@@ -3407,7 +3411,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     //}
 
 
-    //}
 
   } else {
     Eigen::VectorXd zero_state = Eigen::VectorXd::Zero(1);
@@ -3423,8 +3426,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     is_altitude_estimator_initialized = true;
   }
 
-
-  //}
+    //}
 
   /* state estimators update //{ */
 
@@ -6908,7 +6910,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     return false;
   }
 
-  if (stringInVector(target_estimator.name, _state_estimators_names)) {
+  if (stringInVector(target_estimator.name, _active_state_estimators_names)) {
 
     {
       std::scoped_lock lock(mutex_current_estimator);
@@ -6921,7 +6923,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", current_estimator_name.c_str());
 
   } else {
-    ROS_WARN("[Odometry]: Requested transition to nonexistent state estimator %s", target_estimator.name.c_str());
+    ROS_WARN("[Odometry]: Requested transition to non-active state estimator %s", target_estimator.name.c_str());
     return false;
   }
 
@@ -6980,7 +6982,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
   }
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _heading_estimators_names)) {
+  if (stringInVector(target_estimator.name, _active_heading_estimators_names)) {
     if (is_initialized) {
       double yaw_old, yaw_new;
 

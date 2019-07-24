@@ -1,3 +1,4 @@
+# Estimators used during takeoff
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
 lateral_estimator: "GPS"
@@ -10,14 +11,20 @@ altitude_estimator: "HEIGHT"
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
 heading_estimator: "PIXHAWK" 
 
+# Active estimators are started at node launch and can be switched to during flight
+state_estimators:
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "BRICK", "HECTOR"]
+
+heading_estimators:
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK"]
+
 # Available localization methods
 gps_available: true
 optflow_available: true
-vio_available: false
+vio_available: true
 rtk_available: true
 lidar_available: true
-object_available: false
-brick_available: false
+brick_available: true
 t265_available: false
 
 # Rates of odometry publishers

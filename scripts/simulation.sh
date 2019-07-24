@@ -12,7 +12,6 @@ elif [ "$ESTIMATOR" == "optflow" ]; then
   MRS_UAV_MANAGER_LAUNCH='simulation_f550_optflow.launch'
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow simulation_nodelet_cpu.launch'
-  echo $LAUNCH_NODES
 elif [ "$ESTIMATOR" == "hector" ]; then
   MRS_UAV_MANAGER_LAUNCH='simulation_f550_hector.launch'
   SENSORS="$SENSORS --enable-rplidar"
@@ -57,11 +56,6 @@ input=(
   'Camera_follow' "waitForOdometry; gz camera -c gzclient_camera -f uav1
 "
 )
-
-echo "${input[0]}"
-echo "${input[1]}"
-echo "${input[8]}"
-echo "${input[9]}"
 
 if [ -z ${TMUX} ];
 then
