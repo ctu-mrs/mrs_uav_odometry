@@ -3,6 +3,8 @@
 #define SUPPORT_H
 
 /* includes //{ */
+#include <ros/publisher.h>
+
 #include <geometry_msgs/Quaternion.h>
 
 #include <tf2_eigen/tf2_eigen.h>
@@ -46,6 +48,9 @@ double unwrapAngle(const double yaw, const double yaw_previous);
 double wrapAngle(const double angle_in);
 
 double disambiguateAngle(const double yaw, const double yaw_previous);
+
+template <typename MsgType>
+void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
 }
 
