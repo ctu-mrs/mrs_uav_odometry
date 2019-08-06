@@ -6831,7 +6831,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     if (!got_hector_pose && is_ready_to_takeoff) {
-      ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new icp msgs received.");
+      ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
       return false;
     }
 
