@@ -3880,7 +3880,8 @@ void Odometry::callbackControlAccel(const sensor_msgs::ImuConstPtr &msg) {
   input(0) = mes;
 
   for (auto &estimator : m_altitude_estimators) {
-    estimator.second->doPrediction(input, dt);
+    /* estimator.second->doPrediction(input, dt); */
+    estimator.second->doPrediction(input);
   }
 }
 
@@ -5341,7 +5342,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
 
     // set the measurement vector
-    double height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
+    /* double height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction; */
+    double height_range = measurement;
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -5351,8 +5353,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       }
       estimator.second->getStates(current_altitude);
       if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
-        /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
-        /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
+        ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range);
+        ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT));
       }
     }
   }
