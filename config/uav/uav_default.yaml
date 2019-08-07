@@ -43,7 +43,7 @@ april_objects: false
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 pass_rtk_as_odom: false # dangerous outside simulation!
-max_altitude_correction: 0.25 # [m]
+max_altitude_correction: 0.15 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]
@@ -56,7 +56,7 @@ trgFilterMaxDifference: 3.0
 
 garminFilterBufferSize: 200
 garminFilterMaxValidAltitude: 40.0
-garminFilterMaxDifference: 2.0
+garminFilterMaxDifference: 0.5
 
 null_tracker: "NullTracker"
 
@@ -82,7 +82,7 @@ altitude:
 
   # Covariances of measurements
   Q:
-    height_range: [10] # 0.04 stddev in simulation
+    height_range: [100] # 0.04 stddev in simulation
     vel_baro: [0.1]
     acc_imu: [1]
 
