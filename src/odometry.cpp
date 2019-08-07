@@ -332,6 +332,8 @@ private:
 
   // Hector messages
   std::mutex                    mutex_hector;
+  std::mutex                    mutex_pos_hector_;
+  double pos_hector_corr_x_, pos_hector_corr_y_;
   geometry_msgs::PoseStamped    hector_pose;
   geometry_msgs::PoseStamped    hector_pose_previous;
   ros::Time                     hector_pose_last_update;
@@ -3238,6 +3240,9 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   // Apply prediction step to all state estimators
   if (!is_updating_state_) {
     stateEstimatorsPrediction(rot_y, rot_x, dt);
+
+    // correction step for hector
+    stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector");
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
   }
@@ -5072,23 +5077,15 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
   double yaw = hdg_state(0);
 
-  // Vio orientation
-  double roll_vio, pitch_vio, yaw_vio;
   {
-    std::scoped_lock lock(mutex_odom_vio);
-    mrs_odometry::getRPY(odom_vio.pose.pose.orientation, roll_vio, pitch_vio, yaw_vio);
-  }
-  double pos_hector_corr_x, pos_hector_corr_y;
-
-  {
-    std::scoped_lock lock(mutex_odom_vio);
+    std::scoped_lock lock(mutex_hector, mutex_pos_hector_);
 
     // Correct the position by the current heading
-    pos_hector_corr_x = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
-    pos_hector_corr_y = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    pos_hector_corr_x_ = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
+    pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
   }
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(pos_hector_corr_x, pos_hector_corr_y, "pos_hector");
+  /* stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector"); */
 
   ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
 }
