@@ -1521,6 +1521,7 @@ void Odometry::onInit() {
   broadcaster_ = new tf2_ros::TransformBroadcaster();
 
   pub_compass_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
+  pub_hector_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("hector_yaw_out", 1);
   pub_brick_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("brick_yaw_out", 1);
 
   // publishers for roll pitch yaw orientations in local_origin frame

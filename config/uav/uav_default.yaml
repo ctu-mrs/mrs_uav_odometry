@@ -82,9 +82,9 @@ altitude:
 
   # Covariances of measurements
   Q:
-    height_range: [0.1] # 0.04 stddev in simulation
+    height_range: [10] # 0.04 stddev in simulation
     vel_baro: [0.1]
-    acc_imu: [100] 
+    acc_imu: [1]
 
 lateral:
 
@@ -213,8 +213,8 @@ heading:
   # Model is unidentified!!!
   # The system matrix (add gyro gain? EKF needed)
   A: [1, 0.02, 0,  # yaw
-      0, 0.9, 0,     # yaw rate
-      0, 0, 0]     # gyro bias
+      0, 0.9, 1,     # yaw rate
+      0, 0, 1]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
@@ -223,13 +223,13 @@ heading:
 
   # Process covariance
   R: [0.1, 0, 0,
-      0, 0.1, 0,
-      0, 0, 0.000001]
+      0, 0.1, 0.1,
+      0, 0, 0.00001]
 
   # Covariances of measurements
   Q:
     yaw_compass: [0.1]
-    yaw_hector: [10]
+    yaw_hector: [0.01]
     yaw_brick: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]

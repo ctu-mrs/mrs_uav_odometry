@@ -24,8 +24,7 @@ altitude_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    # HEIGHT: ["height_range", "vel_baro", "acc_imu"]
-    HEIGHT: ["height_range", "vel_baro"]
+    HEIGHT: ["height_range", "vel_baro", "acc_imu"]
 
   # Mapping of measurements to states
   measurement_states:
