@@ -181,6 +181,7 @@ private:
 
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
+  ros::ServiceServer ser_reset_hector_;
   ros::ServiceServer ser_offset_odom_;
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
@@ -370,6 +371,7 @@ private:
 
   std::string child_frame_id;
   std::mutex  mutex_child_frame_id;
+  std::mutex  mutex_odom_stable;
 
   bool       got_init_heading = false;
   double     m_init_heading;
@@ -409,6 +411,7 @@ private:
   bool callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, mrs_msgs::ChangeEstimator::Response &res);
   bool callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res);
   bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -1615,6 +1618,9 @@ void Odometry::onInit() {
   // subscribe for reset kalman service
   ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetEstimator, this);
 
+  // subscribe for reset hector service
+  ser_reset_hector_ = nh_.advertiseService("reset_hector_in", &Odometry::callbackResetHector, this);
+
   // subscribe for garmin toggle service
   ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
 
@@ -2511,11 +2517,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (!odometry_published) {
-      odom_stable                         = odom_main;
-      odom_stable.pose.pose.orientation.x = 0.0;
-      odom_stable.pose.pose.orientation.y = 0.0;
-      odom_stable.pose.pose.orientation.z = 0.0;
-      odom_stable.pose.pose.orientation.w = 1.0;
+      {
+        std::scoped_lock lock(mutex_odom_stable);
+      
+        odom_stable                         = odom_main;
+        odom_stable.pose.pose.orientation.x = 0.0;
+        odom_stable.pose.pose.orientation.y = 0.0;
+        odom_stable.pose.pose.orientation.z = 0.0;
+        odom_stable.pose.pose.orientation.w = 1.0;
+      }
       m_pos_odom_offset.setZero();
       m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
       m_rot_odom_offset.normalize();
@@ -2525,6 +2535,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /*   odom_main.pose.pose.position.x += pixhawk_odom_offset_x; */
     /*   odom_main.pose.pose.position.y += pixhawk_odom_offset_y; */
+    {
+        std::scoped_lock lock(mutex_odom_stable);
     if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
 
       tf2::Vector3 v1, v2;
@@ -2563,6 +2575,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
     }
+  }
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -5765,6 +5778,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     odom_main.header.stamp    = ros::Time::now();
 
     if (!odometry_published) {
+        std::scoped_lock lock(mutex_odom_stable);
       odom_stable                         = odom_main;
       odom_stable.pose.pose.orientation.x = 0.0;
       odom_stable.pose.pose.orientation.y = 0.0;
@@ -5774,7 +5788,8 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
       m_rot_odom_offset.normalize();
     }
-
+    {
+        std::scoped_lock lock(mutex_odom_stable);
     if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
 
       tf2::Vector3 v1, v2;
@@ -5812,6 +5827,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+    }
     }
 
     // publish TF
@@ -6266,6 +6282,46 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
   res.success = true;
   res.message = "Reset of lateral kalman successful";
+
+  return true;
+}
+//}
+
+/* //{ callbackResetHector() */
+
+bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  Eigen::MatrixXd states  = Eigen::MatrixXd::Zero(lateral_n, 2);
+  bool            success = false;
+
+    // obtain the states of the current estimator
+    Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+    if (!current_estimator->getStates(old_state)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Could not read current state. Hector estimator cannot be reset.");
+    res.success = false;
+    res.message = "Reset of lateral kalman failed";
+      return true;
+    }
+
+    // position of odom_stable should contain less drift
+   {
+        std::scoped_lock lock(mutex_odom_stable);
+    old_state(0,0) = odom_stable.pose.pose.position.x;
+    old_state(0,1) = odom_stable.pose.pose.position.y;
+    for (auto &estimator : m_state_estimators) {
+    if (mrs_odometry::isEqual(estimator.first, "HECTOR")) {
+      estimator.second->setStates(old_state);
+    }
+    }
+   }
+
+  ROS_WARN("[Odometry]: Hector estimator states reset.");
+
+  res.success = true;
+  res.message = "Reset of Hector estimator successful";
 
   return true;
 }
