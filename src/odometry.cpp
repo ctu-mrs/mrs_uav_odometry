@@ -893,7 +893,7 @@ void Odometry::onInit() {
   _estimator_type_takeoff.name = takeoff_estimator;
   _estimator_type_takeoff.type = (int)pos;
 
-  if (_estimator_type.type == mrs_msgs::EstimatorType::GPS || _estimator_type.type == mrs_msgs::EstimatorType::RTK) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::GPS || _estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK) {
     use_local_origin_ = false;
     use_utm_origin_   = true;
     ROS_INFO("[Odometry]: Using UTM origin.");
