@@ -1,10 +1,10 @@
 <launch>
 
-  <arg name="config_file" default="$(find mrs_odometry)/config/uav/gps.yaml"/>
+  <arg name="config_file" default="$(find mrs_odometry)/config/uav/darpa.yaml"/>
   <arg name="simulation" default="false" />
   <arg name="debug" default="false" />
 
-  <include file="$(find mrs_odometry)/launch/include/uav_odometry_nodelet.launch">
+  <include file="$(find mrs_odometry)/launch/include/odometry_nodelet.launch">
 
     <arg name="config_file" value="$(arg config_file)"/>
     <arg name="simulation" value="$(arg simulation)" />

@@ -23,6 +23,9 @@
   <arg unless="$(arg simulation)" name="world_file" value="$(find mrs_general)/config/world_current.yaml" />
   <arg if="$(arg simulation)" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
 
+  <arg unless="$(arg simulation)" name="default_config_file" value="$(find mrs_odometry)/config/uav/uav_default.yaml" />
+  <arg if="$(arg simulation)" name="default_config_file" value="$(find mrs_odometry)/config/simulation/simulation_default.yaml" />
+
   <include file="$(find mrs_odometry)/launch/include/rtk_republisher_nodelet.launch" />
 
   <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch" />
@@ -35,7 +38,7 @@
 
       <param name="enable_profiler" type="bool" value="$(arg profiler)" />
 
-      <rosparam file="$(find mrs_odometry)/config/simulation/simulation_default.yaml" command="load" />
+      <rosparam file="$(arg default_config_file)" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
@@ -49,7 +52,7 @@
       <param name="use_gt_orientation" type="bool" value="false"/>
 
       <!-- Subscribers -->
-      <remap from="~target_attitude_in" to="mavros/setpoint_raw/target_attitude" />
+      <remap from="~target_attitude_in" to="mavros/setpoint_raw/attitude" />
       <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
       <remap from="~control_acc_in" to="mavros/imu/data" />
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
