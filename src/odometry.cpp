@@ -661,7 +661,7 @@ private:
   bool   hector_reliable    = false;
   bool   _gps_available     = false;
   bool   _vio_available     = false;
-  bool   vio_reliable       = false;
+  bool   vio_reliable       = true;
   bool   optflow_reliable   = false;
   bool   _optflow_available = false;
   bool   _rtk_available     = false;
@@ -4555,7 +4555,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "VIO") == 0) {
+    if (mrs_odometry::isEqual(estimator.first, "VIO")) {
       Eigen::VectorXd pos_vec(2);
       estimator.second->getState(0, pos_vec);
 
