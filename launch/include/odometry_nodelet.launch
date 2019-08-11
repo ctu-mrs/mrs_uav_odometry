@@ -108,6 +108,7 @@
       <remap from="~change_hdg_estimator_type_in" to="~change_hdg_estimator_type" />
       <remap from="~change_hdg_estimator_type_string_in" to="~change_hdg_estimator_type_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
+      <remap from="~failsafe_out" to="~control_manager/eland" />
 
     </node>
 
