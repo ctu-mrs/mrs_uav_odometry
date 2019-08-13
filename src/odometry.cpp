@@ -111,6 +111,7 @@ private:
   bool        use_gt_orientation_;
 
   bool   _publish_fused_odom;
+  bool   _publish_local_origin_stable_tf_;
   bool   _publish_pixhawk_velocity;
   bool   _dynamic_optflow_cov       = false;
   double _dynamic_optflow_cov_scale = 0;
@@ -1441,6 +1442,7 @@ void Odometry::onInit() {
 
   // use differential gps
   param_loader.load_param("publish_fused_odom", _publish_fused_odom);
+  param_loader.load_param("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
   param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
   param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
   param_loader.load_param("max_altitude_correction", max_altitude_correction_);
@@ -2580,6 +2582,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // publish TF
+    if (_publish_local_origin_stable_tf_) {
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = "local_origin_stable";
@@ -2591,6 +2594,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
     }
   }
 
