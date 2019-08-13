@@ -5363,8 +5363,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       }
       estimator.second->getStates(current_altitude);
       if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
-        ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range);
-        ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT));
+        /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
+        /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
       }
     }
   }
