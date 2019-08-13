@@ -3624,9 +3624,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           estimator.second->getStates(state);
           ROS_INFO_STREAM("[Odometry]: state after rotation:" << state);
           ROS_INFO("[Odometry]: mavros position correction after state rotation: x: %2.2f y: %2.2f", pos_mavros_x, pos_mavros_y);
-          finished_state_update_ = false;
         }
       }
+      finished_state_update_ = false;
     }
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
