@@ -483,6 +483,18 @@ private:
   bool                          excessive_tilt = false;
   std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
 
+  // sonar altitude subscriber and callback
+  ros::Subscriber               sub_sonar_;
+  sensor_msgs::Range            range_sonar;
+  sensor_msgs::Range            range_sonar_previous;
+  std::mutex                    mutex_range_sonar;
+  void                          callbackSonar(const sensor_msgs::RangeConstPtr &msg);
+  std::shared_ptr<MedianFilter> sonarFilter;
+  int                           sonar_filter_buffer_size;
+  double                        sonar_max_valid_altitude;
+  double                        sonar_filter_max_difference;
+  ros::Time                     sonar_last_update;
+
   bool got_odom_pixhawk     = false;
   bool got_odom_t265        = false;
   bool got_optflow          = false;
@@ -680,6 +692,7 @@ private:
   // disabling teraranger on the flight
   bool teraranger_enabled;
   bool garmin_enabled;
+  bool sonar_enabled;
 
   ros::Timer slow_odom_timer;
   ros::Timer diag_timer;
@@ -702,6 +715,7 @@ private:
   // for fusing rtk altitude
   double trg_z_offset_;
   double garmin_z_offset_;
+  double sonar_z_offset_;
   double fcu_height_;
 
 private:
@@ -859,8 +873,13 @@ void Odometry::onInit() {
   param_loader.load_param("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
   param_loader.load_param("garminFilterMaxDifference", garmin_filter_max_difference);
 
+  param_loader.load_param("sonarFilterBufferSize", sonar_filter_buffer_size);
+  param_loader.load_param("sonarFilterMaxValidAltitude", sonar_max_valid_altitude);
+  param_loader.load_param("sonarFilterMaxDifference", sonar_filter_max_difference);
+
   param_loader.load_param("trg_z_offset", trg_z_offset_);
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
+  param_loader.load_param("sonar_z_offset", sonar_z_offset_);
   param_loader.load_param("fcu_height", fcu_height_);
 
   // Optic flow
@@ -955,11 +974,13 @@ void Odometry::onInit() {
 
   terarangerFilter = std::make_shared<MedianFilter>(trg_filter_buffer_size, trg_max_valid_altitude, 0, trg_filter_max_difference);
   garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
+  sonarFilter     = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
 
   stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
   stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
 
   ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
+  ROS_INFO("[Odometry]: Sonar max valid altitude: %2.2f", sonar_max_valid_altitude);
   ROS_INFO("[Odometry]: Teraranger max valid altitude: %2.2f", trg_max_valid_altitude);
 
   /* brickAltitudeFilter = new MedianFilter(brick_filter_buffer_size, 0, false, brick_max_valid_altitude, brick_filter_max_difference); */
@@ -1596,6 +1617,9 @@ void Odometry::onInit() {
 
   // subscriber for garmin range
   sub_garmin_ = nh_.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
+
+  // subscriber for sonar range
+  sub_sonar_ = nh_.subscribe("sonar_in", 1, &Odometry::callbackSonar, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for ground truth
   sub_ground_truth_ = nh_.subscribe("ground_truth_in", 1, &Odometry::callbackGroundTruth, this, ros::TransportHints().tcpNoDelay());
@@ -3628,9 +3652,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           estimator.second->getStates(state);
           ROS_INFO_STREAM("[Odometry]: state after rotation:" << state);
           ROS_INFO("[Odometry]: mavros position correction after state rotation: x: %2.2f y: %2.2f", pos_mavros_x, pos_mavros_y);
-          finished_state_update_ = false;
         }
       }
+      finished_state_update_ = false;
     }
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
@@ -5374,6 +5398,169 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   ROS_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
+}
+
+//}
+
+/* //{ callbackSonar() */
+
+void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackSonar");
+
+  if (got_range) {
+    {
+      std::scoped_lock lock(mutex_range_sonar);
+      range_sonar_previous = range_sonar;
+      range_sonar          = *msg;
+    }
+  } else {
+    std::scoped_lock lock(mutex_range_sonar);
+    {
+      range_sonar_previous = *msg;
+      range_sonar          = *msg;
+    }
+    got_range = true;
+  }
+
+  if (!isTimestampOK(range_sonar.header.stamp.toSec(), range_sonar_previous.header.stamp.toSec())) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar range timestamp not OK, not fusing correction.");
+    return;
+  }
+
+  if (!got_odom_pixhawk) {
+    return;
+  }
+
+  if (!sonar_enabled) {
+    return;
+  }
+
+  double                    roll, pitch, yaw;
+  geometry_msgs::Quaternion quat;
+  {
+    std::scoped_lock lock(mutex_odom_pixhawk);
+    mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
+  }
+
+  // Check for excessive tilts
+  // we do not want to fuse sonar with large tilts as the range will be too unreliable
+  // barometer will do a better job in this situation
+  if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
+    excessive_tilt = true;
+  } else {
+    excessive_tilt = false;
+  }
+
+
+  double range_fcu = 0;
+  {
+    std::scoped_lock lock(mutex_range_sonar);
+    try {
+      const ros::Duration             timeout(1.0 / 100.0);
+      geometry_msgs::TransformStamped tf_fcu2sonar =
+          m_tf_buffer.lookupTransform("fcu_" + uav_name, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
+      range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
+                  tf_fcu2sonar.transform.translation.y * tan(roll);
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
+                        range_sonar.header.frame_id.c_str(), ("fcu_" + uav_name).c_str(), ex.what());
+      range_fcu = range_sonar.range + sonar_z_offset_;
+    }
+  }
+
+  // calculate the vertical component of range measurement
+  double measurement = range_fcu * cos(roll) * cos(pitch);
+
+  if (!std::isfinite(measurement)) {
+
+    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in sonar variable \"measurement\" (sonar)!!!");
+
+    return;
+  }
+
+  got_range = true;
+
+  // deside on measurement's covariance
+  Eigen::MatrixXd mesCov;
+  mesCov = Eigen::MatrixXd::Zero(altitude_p, altitude_p);
+
+  //////////////////// Filter out sonar measurement ////////////////////
+  // do not fuse sonar measurements when a height jump is detected - most likely the UAV is flying above an obstacle
+  if (isUavFlying()) {
+    if (!sonarFilter->isValid(measurement)) {
+      double filtered = sonarFilter->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f declined by median filter.", measurement);
+      return;
+    }
+  }
+
+  //////////////////// Fuse main altitude kalman ////////////////////
+  if (!sonar_enabled) {
+    ROS_WARN_ONCE("[Odometry]: sonar not enabled. Not fusing range corrections.");
+    return;
+  }
+
+  if (measurement < 0.01) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f < %f. Not fusing.", measurement, 0.01);
+    return;
+  }
+
+  if (measurement > sonar_max_valid_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f > %f. Not fusing.", measurement, sonar_max_valid_altitude);
+    return;
+  }
+
+  if (excessive_tilt) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    return;
+  }
+
+  // Fuse sonar measurement for each altitude estimator
+  for (auto &estimator : m_altitude_estimators) {
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    if (!estimator.second->getStates(current_altitude)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
+    /* ROS_WARN_THROTTLE(1.0, "sonar measurement: %f", measurement); */
+    // create a correction value
+    double correction;
+    correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+
+    // saturate the correction
+    if (!std::isfinite(correction)) {
+      correction = 0;
+      ROS_ERROR("[Odometry]: NaN detected in sonar variable \"correction\", setting it to 0!!!");
+    } else if (correction > max_altitude_correction_) {
+      correction = max_altitude_correction_;
+    } else if (correction < -max_altitude_correction_) {
+      correction = -max_altitude_correction_;
+    }
+
+    // set the measurement vector
+    /* double height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction; */
+    double height_range = measurement;
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+      if (fabs(height_range) > 100) {
+        ROS_WARN("sonar height correction: %f", height_range);
+      }
+      estimator.second->getStates(current_altitude);
+      if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
+        /* ROS_WARN_THROTTLE(1.0, "sonar altitude correction: %f", height_range); */
+        /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
+      }
+    }
+  }
+
+  ROS_WARN_ONCE("[Odometry]: fusing sonar rangefinder");
 }
 
 //}
