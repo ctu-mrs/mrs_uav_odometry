@@ -47,7 +47,7 @@ max_altitude_correction: 0.5 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]
-sonar_z_offset: -0.10 # [m]
+sonar_z_offset: 0.0 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
