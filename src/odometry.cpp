@@ -1484,6 +1484,7 @@ void Odometry::onInit() {
 
   teraranger_enabled   = true;
   garmin_enabled       = true;
+  sonar_enabled       = true;
   rtk_altitude_enabled = false;
 
   // --------------------------------------------------------------

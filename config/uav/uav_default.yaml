@@ -48,7 +48,7 @@ max_altitude_correction: 0.5 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]
-sonar_z_offset: 0.0 # [m]
+sonar_z_offset: -0.1 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
@@ -61,8 +61,8 @@ garminFilterMaxValidAltitude: 40.0
 garminFilterMaxDifference: 1.0
 
 sonarFilterBufferSize: 200
-sonarFilterMaxValidAltitude: 40.0
-sonarFilterMaxDifference: 1.0
+sonarFilterMaxValidAltitude: 1.5
+sonarFilterMaxDifference: 0.5
 
 null_tracker: "NullTracker"
 
@@ -89,7 +89,7 @@ altitude:
   # Covariances of measurements
   Q:
     height_range: [10] # 0.04 stddev in simulation
-    height_sonar: [10] # 0.04 stddev in simulation
+    height_sonar: [1000] # 0.04 stddev in simulation
     vel_baro: [0.1]
     acc_imu: [1]
 
