@@ -60,7 +60,7 @@ garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 40.0
 garminFilterMaxDifference: 1.0
 
-sonarFilterBufferSize: 50
+sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 1.0
 
