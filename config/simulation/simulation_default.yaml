@@ -83,6 +83,7 @@ altitude:
   # Covariances of measurements
   Q:
     height_range: [1] # 0.04 stddev in simulation
+    height_sonar: [1] # 0.04 stddev in simulation
     vel_baro: [0.1]
     acc_imu: [100] 
 
