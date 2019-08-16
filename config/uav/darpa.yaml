@@ -33,5 +33,5 @@ lateral:
 
   Q:
     vel_optflow: [1]
-    pos_hector: [0.1]
+    pos_hector: [10]
     tilt_mavros: [100]
