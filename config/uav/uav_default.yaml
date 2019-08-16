@@ -42,6 +42,7 @@ april_objects: false
 
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
+publish_local_origin_stable_tf: false
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.5 # [m]
 
@@ -166,12 +167,27 @@ lateral:
       0.0970]
 
   # Process covariance
+  # old - problems with yawing
+  # R: [1, 1, 1, 0, 0, 0,
+  #     0, 1, 1, 0, 0, 0,
+  #     0, 0, 0, 0.0001, 0.0001, 0,
+  #     0, 0, 0, 0, 0, 0.0001,
+  #     0, 0, 0, 0, 0.1, 0,
+  #     0, 0, 0, 0, 0, 1000]
+  # v1 - faster integration of disturbances should mitigate velocity error caused by integrating body disturbances in world frame !may become unstable!
   R: [1, 1, 1, 0, 0, 0,
       0, 1, 1, 0, 0, 0,
       0, 0, 0, 0.0001, 0.0001, 0,
-      0, 0, 0, 0, 0, 0.0001,
-      0, 0, 0, 0, 0.1, 0,
+      0, 0, 0, 0, 0, 1,
+      0, 0, 0, 0, 10, 0,
       0, 0, 0, 0, 0, 1000]
+  # v2 - high covariance of transition from acceleration to velocity !may be more sensitive to wrong position and velocity corrections! - does not work so well
+  # R: [0.1, 0.01, 1000, 0, 0, 0,
+  #     0, 10, 1000, 0, 0, 0,
+  #     0, 0, 0, 0.001, 0.001, 0,
+  #     0, 0, 0, 0, 0, 0.0001,
+  #     0, 0, 0, 0, 0.1, 0,
+  #     0, 0, 0, 0, 0, 1000]
 
   # RTK estimator must have a different model
   rtk:
