@@ -1,17 +1,27 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 70
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
+      Expanded:
+        - /Global Options1
+        - /Status1
+        - /position_cmd1/Covariance1/Orientation1
+        - /ground_truth1/Shape1
+        - /ground_truth1/Covariance1
+        - /odom_gps1/Shape1
+        - /PointCloud21
       Splitter Ratio: 0.5
-    Tree Height: 70
+    Tree Height: 443
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
-    Expanded: ~
+    Expanded:
+      - /2D Pose Estimate1
+      - /2D Nav Goal1
+      - /Publish Point1
     Name: Tool Properties
-    Splitter Ratio: 0.5
+    Splitter Ratio: 0.5886790156364441
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -21,19 +31,19 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: LaserScan
 Preferences:
   PromptSaveOnExit: true
 Visualization Manager:
   Class: ""
   Displays:
-    - Alpha: 0
-      Cell Size: 9.999999747378752e-5
+    - Alpha: 0.5
+      Cell Size: 1
       Class: rviz/Grid
       Color: 160; 160; 164
       Enabled: true
       Line Style:
-        Line Width: 0.0010000000474974513
+        Line Width: 0.029999999329447746
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
@@ -42,269 +52,269 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 1
+      Plane Cell Count: 100
       Reference Frame: local_origin
       Value: true
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: true
-      Keep: 0
+      Keep: 1
       Name: position_cmd
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 0; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/control_manager/cmd_odom
+      Topic: /uav1/control_manager/cmd_odom
       Unreliable: true
       Value: true
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: true
-      Keep: 0
+      Keep: 1
       Name: odom_main
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 0; 25; 255
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/odometry/odom_main
+      Topic: /uav1/odometry/odom_main
       Unreliable: true
       Value: true
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: true
-      Keep: 0
+      Keep: 1
       Name: ground_truth
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 20; 200; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/odometry/rtk_local_odom
+      Topic: /uav1/odometry/rtk_local_odom
       Unreliable: true
       Value: true
-    - Alpha: 0
-      Arrow Length: 0
-      Axes Length: 0
-      Axes Radius: 0
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
       Class: rviz/PoseArray
-      Color: 255; 25; 0
+      Color: 0; 0; 255
       Enabled: true
-      Head Length: 0
-      Head Radius: 0
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
       Name: predicted_trajectory
-      Shaft Length: 0
-      Shaft Radius: 0
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
       Shape: Arrow (Flat)
-      Topic: /uavuavuav1/control_manager/mpc_tracker/predicted_trajectory_debugging
+      Topic: /uav1/control_manager/mpc_tracker/predicted_trajectory_debugging
       Unreliable: true
       Value: true
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: false
-      Keep: 0
+      Keep: 1
       Name: odom_gps
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 255; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/odometry/odom_gps
+      Topic: /uav1/odometry/odom_gps
       Unreliable: true
       Value: false
     - Class: rviz/Axes
       Enabled: true
-      Length: 9.999999747378752e-5
+      Length: 1
       Name: Axes
-      Radius: 9.999999747378752e-5
+      Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Value: true
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: false
-      Keep: 0
+      Keep: 1
       Name: odom_optflow
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 85; 255
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/odometry/odom_optflow
+      Topic: /uav1/odometry/odom_optflow
       Unreliable: true
       Value: false
-    - Angle Tolerance: 0
+    - Angle Tolerance: 0.009999999776482582
       Class: rviz/Odometry
       Covariance:
         Orientation:
-          Alpha: 0
+          Alpha: 0.5
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
-          Offset: 0
-          Scale: 0
+          Offset: 1
+          Scale: 1
           Value: true
         Position:
-          Alpha: 0
+          Alpha: 0.30000001192092896
           Color: 204; 51; 204
-          Scale: 0
+          Scale: 1
           Value: true
         Value: true
       Enabled: false
-      Keep: 0
+      Keep: 1
       Name: odom_optflowgps
-      Position Tolerance: 0
+      Position Tolerance: 0.009999999776482582
       Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 85; 255; 255
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
         Value: Arrow
-      Topic: /uavuavuav1/odometry/odom_optflowgps
+      Topic: /uav1/odometry/odom_optflowgps
       Unreliable: true
       Value: false
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /uavuavuav1/realsense/camera/color/image_raw
-      Max Value: 0
-      Median window: 0
+      Image Topic: /uav1/realsense/camera/color/image_raw
+      Max Value: 1
+      Median window: 5
       Min Value: 0
       Name: Image
       Normalize Range: true
-      Queue Size: 1
+      Queue Size: 2
       Transport Hint: compressed
       Unreliable: false
       Value: false
-    - Alpha: 0
-      Arrow Length: 0
-      Axes Length: 0
-      Axes Radius: 0
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
       Class: rviz/PoseArray
       Color: 255; 25; 0
       Enabled: true
-      Head Length: 0
-      Head Radius: 0
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
       Name: PoseArray
-      Shaft Length: 0
-      Shaft Radius: 0
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
       Shape: Arrow (Flat)
-      Topic: /uavuavuav1/control_manager/mpc_tracker/debug_set_trajectory
+      Topic: /uav1/control_manager/mpc_tracker/debug_set_trajectory
       Unreliable: false
       Value: true
-    - Alpha: 0
+    - Alpha: 0.10000000149011612
       Class: mrs_rviz_plugins/MRS_Bumper
-      Collision alpha: 0
+      Collision alpha: 0.5
       Collision color: 255; 0; 0
-      Collision threshold: 0
+      Collision threshold: 1
       Color: 204; 51; 204
       Colorize collisions: true
       Display mode: sensor types
@@ -313,26 +323,26 @@ Visualization Manager:
       Name: MRS_Bumper
       Show sectors with no data: false
       Show undetected obstacles: false
-      Topic: /uavuavuav1/bumper/obstacle_sectors
+      Topic: /uav1/bumper/obstacle_sectors
       Unreliable: false
       Value: true
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /uavuavuav1/realsense/camera/color/image_raw
-      Max Value: 0
-      Median window: 0
+      Image Topic: /uav1/realsense/camera/color/image_raw
+      Max Value: 1
+      Median window: 5
       Min Value: 0
       Name: Image
       Normalize Range: true
-      Queue Size: 1
+      Queue Size: 2
       Transport Hint: raw
       Unreliable: false
       Value: false
-    - Alpha: 0
+    - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0
-        Min Value: 0
+        Max Value: 10
+        Min Value: -10
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -340,125 +350,60 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0
+      Max Intensity: -999999
       Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: lidar_scan
+      Min Intensity: 999999
+      Name: LaserScan
       Position Transformer: XYZ
-      Queue Size: 0
+      Queue Size: 10
       Selectable: true
-      Size (Pixels): 1
-      Size (m): 9.999999747378752e-5
+      Size (Pixels): 3
+      Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /uavuavuav1/rplidar/scan
+      Topic: /uav1/rplidar/scan
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
-    - Angle Tolerance: 0
-      Class: rviz/Odometry
-      Covariance:
-        Orientation:
-          Alpha: 0
-          Color: 255; 255; 127
-          Color Style: Unique
-          Frame: Local
-          Offset: 0
-          Scale: 0
-          Value: true
-        Position:
-          Alpha: 0
-          Color: 204; 51; 204
-          Scale: 0
-          Value: true
-        Value: true
-      Enabled: true
-      Keep: 0
-      Name: odom_stabilization
-      Position Tolerance: 0
-      Shape:
-        Alpha: 0
-        Axes Length: 0
-        Axes Radius: 0
-        Color: 255; 25; 0
-        Head Length: 0
-        Head Radius: 0
-        Shaft Length: 0
-        Shaft Radius: 0
-        Value: Arrow
-      Topic: /uavuavuav1/lidar_stabilization/odom
-      Unreliable: false
       Value: true
-    - Class: rviz/PointClouduavuav1
-      Enabled: false
-      Name: aligned_scan
-    - Class: rviz/PointClouduavuav1
-      Enabled: false
-      Name: previous_scan
-    - Alpha: 0
-      Axes Length: 0
-      Axes Radius: 0
-      Class: rviz/Pose
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0
-      Head Radius: 0
-      Name: hector_pose
-      Shaft Length: 0
-      Shaft Radius: 0
-      Shape: Arrow
-      Topic: /uavuavuav1/hector_mapping/slam_out_pose
-      Unreliable: false
-      Value: true
-    - Alpha: 0
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: true
-      Name: hector_map
-      Topic: /uavuavuav1/hector_mapping/map
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
-    - Alpha: 0
+    - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0
-        Min Value: 0
+        Max Value: 10
+        Min Value: -10
         Value: true
       Axis: Z
       Channel Name: intensity
-      Class: rviz/PointCloud
-      Color: 255; 255; 255
-      Color Transformer: Intensity
+      Class: rviz/PointCloud2
+      Color: 0; 0; 0
+      Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0
+      Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: hector_cloud
+      Name: PointCloud2
       Position Transformer: XYZ
-      Queue Size: 0
+      Queue Size: 10
       Selectable: true
-      Size (Pixels): 1
-      Size (m): 9.999999747378752e-5
+      Size (Pixels): 3
+      Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /uavuavuav1/hector_mapping/slam_cloud
+      Topic: /uav1/lidar_mapping/map_cloud_out
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 255; 255; 255
     Default Light: true
     Fixed Frame: local_origin
-    Frame Rate: 0
+    Frame Rate: 60
   Name: root
   Tools:
     - Class: rviz/Interact
@@ -478,43 +423,43 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 0.009999999776482582
+      Distance: 6.121006011962891
       Enable Stereo Rendering:
-        Stereo Eye Separation: 0
-        Stereo Focal Distance: 0
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 0.5925467610359192
+        Y: -0.005538761615753174
+        Z: -1.009775161743164
       Focal Shape Fixed Size: true
-      Focal Shape Size: 0.0010000000474974513
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
-      Near Clip Distance: 0.0010000000474974513
-      Pitch: -0.1849999725818634
-      Target Frame: fcu_uavuavuav1
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.8097963929176331
+      Target Frame: fcu_uav1
       Value: ThirdPersonFollower (rviz)
-      Yaw: 2.184999942779541
+      Yaw: 3.2564358711242676
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: true
-  Height: 432
+  Height: 1030
   Hide Left Dock: true
   Hide Right Dock: true
   Image:
-    collapsed: true
-  QMainWindow State: 000000ff00000000fd0000000100000000000002a80000015afc0200000007fb0000000a0049006d006100670065000000003b000000160000001600fffffffb0000000a0049006d0061006700650000000057000000160000001600fffffffb000000100044006900730070006c006100790073000000007300000035000000c700fffffffb0000001200530065006c0065006300740069006f006e00000000ae000000350000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007300000000e9000000350000005c00fffffffb0000000a00560069006500770073000000012400000036000000a000fffffffb0000000800540069006d00650000000160000000350000003700ffffff000002ce0000015a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+    collapsed: false
+  QMainWindow State: 000000ff00000000fd0000000400000000000001a8000003acfc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000004c6000001a1000001a900000153fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b000003ac000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006502000000000000003b00000156000000870000000100000116000001a3fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003b000001a3000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000000ffffffe7fc0100000002fb0000000a0049006d0061006700650000000000000000000000005a00fffffffb0000000a00560069006500770073030000004e00000080000002e100000197000000030000038f0000003efc0100000002fb0000000800540069006d006500000000000000038f0000023f00fffffffb0000000800540069006d00650100000000000004500000000000000000000003a8000003b000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
-    collapsed: true
+    collapsed: false
   Time:
-    collapsed: true
+    collapsed: false
   Tool Properties:
-    collapsed: true
+    collapsed: false
   Views:
     collapsed: true
-  Width: 718
-  X: 12
+  Width: 936
+  X: 966
   Y: 32
