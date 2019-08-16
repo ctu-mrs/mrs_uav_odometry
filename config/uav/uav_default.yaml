@@ -147,7 +147,7 @@ lateral:
     vel_object: [10000]
     pos_brick: [1000]
     vel_brick: [10000]
-    pos_hector: [1]
+    pos_hector: [0.1]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
@@ -179,7 +179,7 @@ lateral:
       0, 1, 1, 0, 0, 0,
       0, 0, 0, 0.0001, 0.0001, 0,
       0, 0, 0, 0, 0, 1,
-      0, 0, 0, 0, 10, 0,
+      0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 1000]
   # v2 - high covariance of transition from acceleration to velocity !may be more sensitive to wrong position and velocity corrections! - does not work so well
   # R: [0.1, 0.01, 1000, 0, 0, 0,
