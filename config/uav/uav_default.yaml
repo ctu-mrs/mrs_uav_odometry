@@ -125,7 +125,7 @@ lateral:
   hector_pos_median_filter: true
   hector_pos_filter_buffer_size: 50
   hector_pos_filter_max_valid: 8.0
-  hector_pos_filter_max_diff: 3.0
+  hector_pos_filter_max_diff: 1.0
 
   brick_pos_median_filter: false
   brick_pos_filter_buffer_size: 50
@@ -148,7 +148,7 @@ lateral:
     vel_object: [10000]
     pos_brick: [1000]
     vel_brick: [10000]
-    pos_hector: [0.1]
+    pos_hector: [1.0]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
