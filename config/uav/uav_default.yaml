@@ -30,7 +30,7 @@ t265_available: false
 # Rates of odometry publishers
 rate: 100 # [Hz]
 aux_rate: 1 # [Hz]
-slow_odom_rate: 2 # [Hz]
+slow_odom_rate: 1 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 1 # [Hz]
 lkf_states_rate: 10 # [Hz]
