@@ -5109,9 +5109,15 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   {
     std::scoped_lock lock(mutex_hector, mutex_pos_hector_);
 
-    // Correct the position by the current heading
-    pos_hector_corr_x_ = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
-    pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+      // Corrections and heading are in the same frame of reference
+      pos_hector_corr_x_ = pos_hector_x;
+      pos_hector_corr_y_ = pos_hector_y;
+    } else {
+      // Correct the position by the current heading
+      pos_hector_corr_x_ = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
+      pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    }
   }
   // Apply correction step to all state estimators
   /* stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector"); */
