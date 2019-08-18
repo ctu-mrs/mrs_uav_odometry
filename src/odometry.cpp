@@ -5549,7 +5549,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
-      altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+      altitudeEstimatorCorrection(height_range, "height_sonar", estimator.second);
       if (fabs(height_range) > 100) {
         ROS_WARN("sonar height correction: %f", height_range);
       }
