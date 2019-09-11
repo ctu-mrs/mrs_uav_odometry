@@ -263,7 +263,6 @@ private:
   sensor_msgs::Imu control_accel_previous;
   std::mutex       mutex_control_accel;
   ros::Time        control_accel_last_update;
-  bool             got_control_accel;
 
   // Compass msgs
   std_msgs::Float64 compass_hdg;
@@ -512,7 +511,7 @@ private:
   bool got_rtk_fix          = false;
   bool got_pixhawk_imu      = false;
   bool got_compass_hdg      = false;
-  bool got_ontrol_accel     = false;
+  bool got_control_accel     = false;
 
   bool failsafe_called = false;
 
@@ -3765,8 +3764,10 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     }
 
     yaw = yaw / 180 * M_PI;
-    yaw = yaw / 180 * M_PI;
-    yaw = mrs_odometry::unwrapAngle(yaw, yaw_previous);
+
+    if (got_compass_hdg) {
+      yaw = mrs_odometry::unwrapAngle(yaw, yaw_previous);
+    }
 
     init_hdg_avg += M_PI / 2 - yaw;
     if (++init_hdg_avg_samples > 100) {
