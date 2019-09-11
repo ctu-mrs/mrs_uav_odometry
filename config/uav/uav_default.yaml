@@ -30,7 +30,7 @@ t265_available: false
 # Rates of odometry publishers
 rate: 100 # [Hz]
 aux_rate: 1 # [Hz]
-slow_odom_rate: 2 # [Hz]
+slow_odom_rate: 1 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 1 # [Hz]
 lkf_states_rate: 10 # [Hz]
@@ -41,6 +41,7 @@ max_optflow_altitude: 10.0
 april_objects: false
 
 publish_fused_odom: true # otherwise publish pixhawk odometry instead
+publish_local_origin_stable_tf: true 
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 publish_local_origin_stable_tf: false
 pass_rtk_as_odom: false # dangerous outside simulation!
@@ -48,7 +49,7 @@ max_altitude_correction: 0.5 # [m]
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]
-sonar_z_offset: 0.0 # [m]
+sonar_z_offset: -0.1 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
@@ -60,9 +61,9 @@ garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 40.0
 garminFilterMaxDifference: 1.0
 
-sonarFilterBufferSize: 50
-sonarFilterMaxValidAltitude: 40.0
-sonarFilterMaxDifference: 1.0
+sonarFilterBufferSize: 200
+sonarFilterMaxValidAltitude: 1.5
+sonarFilterMaxDifference: 0.5
 
 null_tracker: "NullTracker"
 
@@ -89,7 +90,7 @@ altitude:
   # Covariances of measurements
   Q:
     height_range: [10] # 0.04 stddev in simulation
-    height_sonar: [10] # 0.04 stddev in simulation
+    height_sonar: [1000] # 0.04 stddev in simulation
     vel_baro: [0.1]
     acc_imu: [1]
 
@@ -124,7 +125,7 @@ lateral:
   hector_pos_median_filter: true
   hector_pos_filter_buffer_size: 50
   hector_pos_filter_max_valid: 8.0
-  hector_pos_filter_max_diff: 3.0
+  hector_pos_filter_max_diff: 1.0
 
   brick_pos_median_filter: false
   brick_pos_filter_buffer_size: 50
@@ -147,7 +148,7 @@ lateral:
     vel_object: [10000]
     pos_brick: [1000]
     vel_brick: [10000]
-    pos_hector: [0.1]
+    pos_hector: [1.0]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt

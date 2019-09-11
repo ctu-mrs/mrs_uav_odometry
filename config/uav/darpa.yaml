@@ -27,9 +27,11 @@ lidar_available: true
 brick_available: false
 t265_available: false
 
+publish_local_origin_stable_tf: false 
+
 lateral:
 
   Q:
     vel_optflow: [1]
-    pos_hector: [0.1]
+    pos_hector: [10]
     tilt_mavros: [100]

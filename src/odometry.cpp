@@ -111,6 +111,7 @@ private:
   bool        use_gt_orientation_;
 
   bool   _publish_fused_odom;
+  bool   _publish_local_origin_stable_tf_;
   bool   _publish_pixhawk_velocity;
   bool   _dynamic_optflow_cov       = false;
   double _dynamic_optflow_cov_scale = 0;
@@ -1461,6 +1462,7 @@ void Odometry::onInit() {
 
   // use differential gps
   param_loader.load_param("publish_fused_odom", _publish_fused_odom);
+  param_loader.load_param("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
   param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
   param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
   param_loader.load_param("max_altitude_correction", max_altitude_correction_);
@@ -1481,6 +1483,7 @@ void Odometry::onInit() {
 
   teraranger_enabled   = true;
   garmin_enabled       = true;
+  sonar_enabled       = true;
   rtk_altitude_enabled = false;
 
   // --------------------------------------------------------------
@@ -2603,6 +2606,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // publish TF
+    if (_publish_local_origin_stable_tf_) {
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = "local_origin_stable";
@@ -2614,6 +2618,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
     }
   }
 
@@ -5105,9 +5110,15 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   {
     std::scoped_lock lock(mutex_hector, mutex_pos_hector_);
 
-    // Correct the position by the current heading
-    pos_hector_corr_x_ = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
-    pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+      // Corrections and heading are in the same frame of reference
+      pos_hector_corr_x_ = pos_hector_x;
+      pos_hector_corr_y_ = pos_hector_y;
+    } else {
+      // Correct the position by the current heading
+      pos_hector_corr_x_ = pos_hector_x * cos(yaw - yaw_hector) - pos_hector_y * sin(yaw - yaw_hector);
+      pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
+    }
   }
   // Apply correction step to all state estimators
   /* stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector"); */
@@ -5545,7 +5556,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
-      altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+      altitudeEstimatorCorrection(height_range, "height_sonar", estimator.second);
       if (fabs(height_range) > 100) {
         ROS_WARN("sonar height correction: %f", height_range);
       }
