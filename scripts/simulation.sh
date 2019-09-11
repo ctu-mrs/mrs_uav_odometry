@@ -16,6 +16,8 @@ elif [ "$ESTIMATOR" == "hector" ]; then
   MRS_UAV_MANAGER_LAUNCH='simulation_f550_hector.launch'
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
+else
+  MRS_UAV_MANAGER_LAUNCH='simulation_f550_gps.launch'
 fi
 
 # following commands will be executed first, in each window

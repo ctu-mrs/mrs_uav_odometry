@@ -138,6 +138,7 @@ private:
   ros::Publisher pub_compass_yaw_;
   ros::Publisher pub_brick_yaw_;
   ros::Publisher pub_hector_yaw_;
+  ros::Publisher pub_vio_yaw_;
   ros::Publisher pub_odometry_diag_;
   ros::Publisher pub_altitude_;
   ros::Publisher pub_orientation_;
@@ -293,6 +294,16 @@ private:
   double                        _brick_yaw_filter_max_diff;
   double                        accum_yaw_brick_;
   double                        _accum_yaw_brick_alpha_;
+
+  // VIO heading msgs
+  double                        vio_yaw_previous_deg;
+  std::mutex                    mutex_vio_hdg;
+  ros::Time                     vio_yaw_last_update;
+  std::shared_ptr<MedianFilter> vio_yaw_filter;
+  bool                          _vio_yaw_median_filter;
+  int                           _vio_yaw_filter_buffer_size;
+  double                        _vio_yaw_filter_max_valid;
+  double                        _vio_yaw_filter_max_diff;
 
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
@@ -846,6 +857,7 @@ void Odometry::onInit() {
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::OPTFLOW));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::HECTOR));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::BRICK));
+  _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::VIO));
 
   ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
@@ -1550,6 +1562,7 @@ void Odometry::onInit() {
 
   pub_compass_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
   pub_hector_yaw_  = nh_.advertise<mrs_msgs::Float64Stamped>("hector_yaw_out", 1);
+  pub_vio_yaw_  = nh_.advertise<mrs_msgs::Float64Stamped>("hector_vio_out", 1);
   pub_brick_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("brick_yaw_out", 1);
 
   // publishers for roll pitch yaw orientations in local_origin frame
@@ -4535,17 +4548,32 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  double yaw_vio;
+  {
+    std::scoped_lock lock(mutex_odom_vio);
+    yaw_vio = mrs_odometry::getYaw(odom_vio.pose.pose.orientation);
+  }
+
+  yaw_vio              = mrs_odometry::unwrapAngle(yaw_vio, vio_yaw_previous_deg);
+  vio_yaw_previous_deg = yaw_vio;
+
+  // Apply correction step to all heading estimators
+  headingEstimatorsCorrection(yaw_vio, "yaw_vio");
+
+  yaw_vio = mrs_odometry::wrapAngle(yaw_vio);
+
+  mrs_msgs::Float64Stamped vio_yaw_out;
+  vio_yaw_out.header.stamp    = ros::Time::now();
+  vio_yaw_out.header.frame_id = "local_origin";
+  vio_yaw_out.value           = yaw_vio;
+  pub_vio_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(vio_yaw_out)));
+
+  ROS_WARN_ONCE("[Odometry]: Fusing yaw from VIO");
+
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   // Current orientation
   double hdg = getCurrentHeading();
-
-  // Vio orientation
-  double roll_vio, pitch_vio, yaw_vio;
-  {
-    std::scoped_lock lock(mutex_odom_vio);
-    mrs_odometry::getRPY(odom_vio.pose.pose.orientation, roll_vio, pitch_vio, yaw_vio);
-  }
 
   /* //{ fuse vio velocity */
 
@@ -4554,9 +4582,15 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_odom_vio);
 
-    // Correct the position by the compass heading
+    // Correct the position by current heading
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+      // Corrections and heading are in the same frame of reference
+      vel_vio_x = odom_vio.twist.twist.linear.x;
+      vel_vio_y = odom_vio.twist.twist.linear.y;
+    } else {
     vel_vio_x = odom_vio.twist.twist.linear.x * cos(hdg - yaw_vio) - odom_vio.twist.twist.linear.y * sin(hdg - yaw_vio);
     vel_vio_y = odom_vio.twist.twist.linear.x * sin(hdg - yaw_vio) + odom_vio.twist.twist.linear.y * cos(hdg - yaw_vio);
+  }
   }
 
   if (vio_reliable && (vel_vio_x > 10 || vel_vio_y > 10)) {
@@ -4579,8 +4613,14 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_vio);
 
     // Correct the position by the current heading
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+      // Corrections and heading are in the same frame of reference
+      vio_pos_x = odom_vio.pose.pose.position.x;
+      vio_pos_y = odom_vio.pose.pose.position.y;
+    } else {
     vio_pos_x = odom_vio.pose.pose.position.x * cos(hdg - yaw_vio) - odom_vio.pose.pose.position.y * sin(hdg - yaw_vio);
     vio_pos_y = odom_vio.pose.pose.position.x * sin(hdg - yaw_vio) + odom_vio.pose.pose.position.y * cos(hdg - yaw_vio);
+    }
   }
 
   // Saturate correction
@@ -4629,6 +4669,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   ROS_WARN_ONCE("[Odometry]: Fusing VIO position");
   //}
 }
+
 
 //}
 
@@ -6293,6 +6334,8 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
   } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
     desired_estimator.type = mrs_msgs::HeadingType::BRICK;
+  } else if (std::strcmp(type.c_str(), "VIO") == 0) {
+    desired_estimator.type = mrs_msgs::HeadingType::VIO;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -7230,7 +7273,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
   if (target_estimator.type != mrs_msgs::HeadingType::PIXHAWK && target_estimator.type != mrs_msgs::HeadingType::GYRO &&
       target_estimator.type != mrs_msgs::HeadingType::COMPASS && target_estimator.type != mrs_msgs::HeadingType::OPTFLOW &&
-      target_estimator.type != mrs_msgs::HeadingType::HECTOR && target_estimator.type != mrs_msgs::HeadingType::BRICK) {
+      target_estimator.type != mrs_msgs::HeadingType::HECTOR && target_estimator.type != mrs_msgs::HeadingType::BRICK && target_estimator.type != mrs_msgs::HeadingType::VIO) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
     return false;
   }
@@ -7313,7 +7356,7 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
 bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
-      type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK) {
+      type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK || type.type == mrs_msgs::HeadingType::VIO) {
     return true;
   }
 
@@ -7422,6 +7465,10 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "OPTFLOW";
   } else if (hdg_type.type == mrs_msgs::HeadingType::HECTOR) {
     s_diag += "HECTOR";
+  } else if (hdg_type.type == mrs_msgs::HeadingType::BRICK) {
+    s_diag += "BRICK";
+  } else if (hdg_type.type == mrs_msgs::HeadingType::VIO) {
+    s_diag += "VIO";
   } else {
     s_diag += "UNKNOWN";
   }
