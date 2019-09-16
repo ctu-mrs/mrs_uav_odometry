@@ -74,6 +74,7 @@
       <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
+      <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />
 
       <!-- Publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
