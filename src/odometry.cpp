@@ -2037,7 +2037,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /*                     failsafe_teraranger_kalman->getState(0)); */
   /* } */
   try {
-    pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
+    pub_altitude_.publish(new_altitude);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
@@ -2064,7 +2064,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     altitude_state_msg.covariance.push_back(alt_covariance(i, i));
   }
   try {
-    pub_altitude_state_.publish(mrs_msgs::EstimatedStatePtr(new mrs_msgs::EstimatedState(altitude_state_msg)));
+    pub_altitude_state_.publish(altitude_state_msg);
     ROS_INFO_ONCE("[Odometry]: Publishing altitude");
   }
   catch (...) {
@@ -2132,7 +2132,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   try {
-    pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+    pub_orientation_.publish(orientation);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
@@ -2611,7 +2611,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_stable.header.frame_id = "local_origin_stable";
 
       try {
-        pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
+        pub_odom_stable_.publish(odom_stable);
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
@@ -2651,7 +2651,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   try {
-    pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
+    pub_odom_main_.publish(odom_main);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
@@ -2753,7 +2753,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
     try {
-      pub_odom_aux->second.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_aux->second)));
+      pub_odom_aux->second.publish(odom_aux->second);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
@@ -2789,7 +2789,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     std::map<std::string, ros::Publisher>::iterator pub_hdg_aux = map_hdg_estimator_pub.find(estimator.second->getName());
 
     try {
-      pub_hdg_aux->second.publish(mrs_msgs::Float64ArrayStampedConstPtr(new mrs_msgs::Float64ArrayStamped(heading_aux)));
+      pub_hdg_aux->second.publish(heading_aux);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hdg_aux->second.getTopic().c_str());
@@ -2818,7 +2818,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   }
 
   try {
-    pub_slow_odom_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(slow_odom)));
+    pub_slow_odom_.publish(slow_odom);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
@@ -2834,7 +2834,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   esp_odom.velz   = slow_odom.twist.twist.linear.z;
 
   try {
-    pub_esp_odom_.publish(mrs_msgs::EspOdometryConstPtr(new mrs_msgs::EspOdometry(esp_odom)));
+    pub_esp_odom_.publish(esp_odom);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_esp_odom_.getTopic().c_str());
@@ -3425,7 +3425,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       cov_msg.values.push_back(cov(i, i));
     }
     try {
-      pub_alt_cov_.publish(mrs_msgs::Float64ArrayStampedConstPtr(new mrs_msgs::Float64ArrayStamped(cov_msg)));
+      pub_alt_cov_.publish(cov_msg);
     }
     catch (...) {
       ROS_ERROR("Exception caught during publishing topic %s.", pub_alt_cov_.getTopic().c_str());
@@ -3869,7 +3869,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     compass_yaw_out.header.stamp    = ros::Time::now();
     compass_yaw_out.header.frame_id = "local_origin";
     compass_yaw_out.value           = yaw;
-    pub_compass_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(compass_yaw_out)));
+    pub_compass_yaw_.publish(compass_yaw_out);
 
     ROS_WARN_ONCE("[Odometry]: Fusing yaw from PixHawk compass");
 
@@ -4084,7 +4084,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   optflow_filtered.twist.twist.linear.y                      = optflow_vel_y;
 
   try {
-    pub_debug_optflow_filter.publish(geometry_msgs::TwistWithCovarianceStampedConstPtr(new geometry_msgs::TwistWithCovarianceStamped(optflow_filtered)));
+    pub_debug_optflow_filter.publish(optflow_filtered);
   }
   catch (...) {
     ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
@@ -4237,7 +4237,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   mrs_msgs::RtkGps rtk_local_out = rtk_local;
 
   try {
-    pub_rtk_local.publish(mrs_msgs::RtkGpsConstPtr(new mrs_msgs::RtkGps(rtk_local_out)));
+    pub_rtk_local.publish(rtk_local_out);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local.getTopic().c_str());
@@ -4251,7 +4251,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_local_odom.twist  = rtk_local.twist;
 
     try {
-      pub_rtk_local_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(rtk_local_odom)));
+      pub_rtk_local_odom.publish(rtk_local_odom);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom.getTopic().c_str());
@@ -4566,7 +4566,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   vio_yaw_out.header.stamp    = ros::Time::now();
   vio_yaw_out.header.frame_id = "local_origin";
   vio_yaw_out.value           = yaw_vio;
-  pub_vio_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(vio_yaw_out)));
+  pub_vio_yaw_.publish(vio_yaw_out);
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from VIO");
 
@@ -4817,7 +4817,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   brick_yaw_out.header.stamp    = ros::Time::now();
   brick_yaw_out.header.frame_id = "local_origin";
   brick_yaw_out.value           = yaw_brick_sat;
-  pub_brick_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(brick_yaw_out)));
+  pub_brick_yaw_.publish(brick_yaw_out);
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
 
@@ -5111,7 +5111,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   hector_yaw_out.header.stamp    = ros::Time::now();
   hector_yaw_out.header.frame_id = "local_origin";
   hector_yaw_out.value           = yaw_hector;
-  pub_hector_yaw_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(hector_yaw_out)));
+  pub_hector_yaw_.publish(hector_yaw_out);
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from Hector SLAM");
 
@@ -5977,7 +5977,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     new_altitude.header.stamp    = ros::Time::now();
 
     try {
-      pub_altitude_.publish(mrs_msgs::Float64StampedConstPtr(new mrs_msgs::Float64Stamped(new_altitude)));
+      pub_altitude_.publish(new_altitude);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
@@ -5995,7 +5995,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     orientation.header.frame_id = "local_origin";
 
     try {
-      pub_orientation_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(orientation)));
+      pub_orientation_.publish(orientation);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
@@ -6059,7 +6059,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_stable.header.frame_id = "local_origin_stable";
 
       try {
-        pub_odom_stable_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_stable)));
+        pub_odom_stable_.publish(odom_stable);
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
@@ -6087,7 +6087,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     try {
-      pub_odom_main_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(odom_main)));
+      pub_odom_main_.publish(odom_main);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
