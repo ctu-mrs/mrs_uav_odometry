@@ -254,5 +254,6 @@ heading:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_brick: [1]
+    yaw_vio: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
