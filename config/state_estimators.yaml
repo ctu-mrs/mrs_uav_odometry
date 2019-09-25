@@ -14,7 +14,7 @@ state_estimators:
     "BRICK",
     "T265",
     "HECTOR",
-    "BRICKFLOW"
+    "BRICKFLOW",
     "VSLAM",
   ] 
 
