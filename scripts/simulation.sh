@@ -6,18 +6,15 @@ ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
 
-if [ "$ESTIMATOR" == "gps" ]; then
-  MRS_UAV_MANAGER_LAUNCH='simulation_f550_gps.launch'
-elif [ "$ESTIMATOR" == "optflow" ]; then
-  MRS_UAV_MANAGER_LAUNCH='simulation_f550_optflow.launch'
+if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow simulation_nodelet_cpu.launch'
 elif [ "$ESTIMATOR" == "hector" ]; then
-  MRS_UAV_MANAGER_LAUNCH='simulation_f550_hector.launch'
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
-else
-  MRS_UAV_MANAGER_LAUNCH='simulation_f550_gps.launch'
+elif [ "$ESTIMATOR" == "lidar" ]; then
+  SENSORS="$SENSORS --enable-velodyne"
+  LAUNCH_NODES='waitForOdometry; roslaunch aloam_velodyne velodyne_odometry_simulation.launch'
 fi
 
 # following commands will be executed first, in each window
@@ -28,13 +25,13 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
 input=(
   'Roscore' 'roscore
 '
-  'Gazebo' "waitForRos; roslaunch simulation darpa.launch gui:=true
+  'Gazebo' "waitForRos; roslaunch simulation darpa.launch gui:=true debug:=true
 "
   'Spawn' "waitForSimulation; spawn 1 --run --delete --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "
-  'MRS_control' "waitForOdometry; roslaunch mrs_uav_manager $MRS_UAV_MANAGER_LAUNCH
+  'MRS_control' "waitForOdometry; roslaunch mrs_general core.launch
 "
-  'Localization' "$LAUNCH_NODES
+  'Localization' "waitForOdometry; $LAUNCH_NODES
 "
   # 'Lidar Stab' "waitForOdometry; roslaunch lidar_stabilization simulation.launch
 # "

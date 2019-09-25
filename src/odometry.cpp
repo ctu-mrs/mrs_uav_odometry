@@ -189,6 +189,7 @@ private:
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
   ros::ServiceServer ser_toggle_rtk_altitude;
+  ros::ServiceServer ser_change_odometry_source;
   ros::ServiceServer ser_change_estimator_type;
   ros::ServiceServer ser_change_estimator_type_string;
   ros::ServiceServer ser_change_hdg_estimator_type;
@@ -433,6 +434,7 @@ private:
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   bool callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   /* bool callbackToggleRtkHeight(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res); */
+  bool callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, mrs_msgs::ChangeEstimator::Response &res);
   bool callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -1692,6 +1694,9 @@ void Odometry::onInit() {
 
   // toggling fusing of rtk altitude
   /* ser_toggle_rtk_altitude = nh_.advertiseService("toggle_rtk_altitude_in", &Odometry::callbackToggleRtkHeight, this); */
+
+  // change odometry source
+  ser_change_odometry_source = nh_.advertiseService("change_odometry_source_in", &Odometry::callbackChangeOdometrySource, this);
 
   // change current estimator
   ser_change_estimator_type = nh_.advertiseService("change_estimator_type_in", &Odometry::callbackChangeEstimator, this);
@@ -6319,6 +6324,103 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
 
 //}
 
+/* //{ callbackOdometrySource() */
+
+bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  mrs_msgs::EstimatorType desired_estimator;
+  mrs_msgs::HeadingType desired_hdg_estimator;
+
+
+  std::string type = req.value;
+  std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+  if (std::strcmp(type.c_str(), "OPTFLOW") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::OPTFLOW;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+  } else if (std::strcmp(type.c_str(), "GPS") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::GPS;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+  } else if (std::strcmp(type.c_str(), "OPTFLOWGPS") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::OPTFLOWGPS;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+  } else if (std::strcmp(type.c_str(), "RTK") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::RTK;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+  } else if (std::strcmp(type.c_str(), "LIDAR") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::LIDAR;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::LIDAR;
+  } else if (std::strcmp(type.c_str(), "VIO") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::VIO;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::VIO;
+  } else if (std::strcmp(type.c_str(), "VSLAM") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::VSLAM;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::VSLAM;
+  } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::BRICK;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICK;
+  } else if (std::strcmp(type.c_str(), "T265") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::T265;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+  } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::HECTOR;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::HECTOR;
+  } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::BRICKFLOW;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+  } else {
+    ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
+    res.success = false;
+    res.message = ("Not a valid odometry type");
+    return true;
+  }
+
+  // Check whether a valid hdg type was requested
+  if (!isValidType(desired_hdg_estimator)) {
+    ROS_ERROR("[Odometry]: %d is not a valid heading estimator type", desired_hdg_estimator.type);
+    res.success = false;
+    res.message = ("Not a valid heading estimator type");
+    return true;
+  }
+
+  desired_hdg_estimator.name = _heading_estimators_names[desired_hdg_estimator.type];
+
+  bool success_hdg = false;
+  {
+    std::scoped_lock lock(mutex_hdg_estimator_type);
+
+    success_hdg = changeCurrentHeadingEstimator(desired_hdg_estimator);
+  }
+
+  // Check whether a valid type was requested
+  if (!isValidType(desired_estimator)) {
+    ROS_ERROR("[Odometry]: %d is not a valid odometry type", desired_estimator.type);
+    res.success = false;
+    res.message = ("Not a valid odometry type");
+    return true;
+  }
+
+  desired_estimator.name = _state_estimators_names[desired_estimator.type];
+
+  bool success = false;
+  {
+    std::scoped_lock lock(mutex_estimator_type);
+
+    success = changeCurrentEstimator(desired_estimator);
+  }
+
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+  res.success = success_hdg && success;
+  res.message = (printOdometryDiag().c_str());
+
+  return true;
+}
+
+//}
+
 /* //{ callbackChangeEstimator() */
 
 bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, mrs_msgs::ChangeEstimator::Response &res) {
@@ -6387,6 +6489,8 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     desired_estimator.type = mrs_msgs::EstimatorType::LIDAR;
   } else if (std::strcmp(type.c_str(), "VIO") == 0) {
     desired_estimator.type = mrs_msgs::EstimatorType::VIO;
+  } else if (std::strcmp(type.c_str(), "VSLAM") == 0) {
+    desired_estimator.type = mrs_msgs::EstimatorType::VSLAM;
   } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
     desired_estimator.type = mrs_msgs::EstimatorType::BRICK;
   } else if (std::strcmp(type.c_str(), "T265") == 0) {
@@ -6495,6 +6599,8 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
   } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
     desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
+  } else if (std::strcmp(type.c_str(), "LIDAR") == 0) {
+    desired_estimator.type = mrs_msgs::HeadingType::LIDAR;
   } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
     desired_estimator.type = mrs_msgs::HeadingType::BRICK;
   } else if (std::strcmp(type.c_str(), "VIO") == 0) {
