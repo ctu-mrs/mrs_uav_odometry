@@ -3,6 +3,8 @@
 
 #include <nav_msgs/Odometry.h>
 
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/RtkFixType.h>
 
@@ -64,9 +66,12 @@ namespace mrs_odometry
 
     ros::Timer main_timer;
 
-    // global pose from gazebo
+    // global odometry from gazebo
     nav_msgs::Odometry odom;
     bool               got_odom = false;
+
+    // republished pose message 
+    geometry_msgs::PoseWithCovarianceStamped pose_msg_out;
 
     // rtk message from tersus
     mrs_msgs::Bestpos tersus;
@@ -312,6 +317,10 @@ namespace mrs_odometry
 
       rtk_msg_out.pose  = odom.pose;
       rtk_msg_out.twist = odom.twist;
+
+      pose_msg_out.pose  = odom.pose;
+      pose_msg_out.header.stamp    = ros::Time::now();
+      pose_msg_out.header.frame_id = "local_origin";
     }
 
     rtk_msg_out.pose.pose.position.x += offset_x_;

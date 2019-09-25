@@ -105,8 +105,7 @@
       <!-- <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" /> -->
       <remap from="~tracker_status_in" to="control_manager/tracker_status" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
-      <remap from="~icp_relative_in" to="lidar_stabilization/odom" />
-      <remap from="~icp_absolute_in" to="forest_slam/odom_corr_global" />
+      <remap from="~lidar_odom_in" to="ground_truth" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />

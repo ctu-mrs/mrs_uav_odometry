@@ -173,8 +173,7 @@ private:
   ros::Subscriber sub_t265_odom_;
   ros::Subscriber sub_brick_;
   ros::Subscriber rtk_gps_sub_;
-  ros::Subscriber sub_icp_relative_;
-  ros::Subscriber sub_icp_global_;
+  ros::Subscriber sub_lidar_odom_;
   ros::Subscriber sub_hector_pose_;
   ros::Subscriber sub_brick_pose_;
   ros::Subscriber sub_target_attitude_;
@@ -343,21 +342,16 @@ private:
 
 
   // LIDAR messages
-  std::mutex                    mutex_icp;
-  nav_msgs::Odometry            icp_odom;
-  nav_msgs::Odometry            icp_odom_previous;
-  ros::Time                     icp_odom_last_update;
-  std::shared_ptr<MedianFilter> icp_vel_filter_x;
-  std::shared_ptr<MedianFilter> icp_vel_filter_y;
-  bool                          _icp_vel_median_filter;
-  int                           _icp_vel_filter_buffer_size;
-  double                        _icp_vel_filter_max_valid;
-  double                        _icp_vel_filter_max_diff;
-
-  std::mutex         mutex_icp_global;
-  nav_msgs::Odometry icp_global_odom;
-  nav_msgs::Odometry icp_global_odom_previous;
-  ros::Time          icp_global_odom_last_update;
+  std::mutex                    mutex_lidar_odom;
+  nav_msgs::Odometry            lidar_odom;
+  nav_msgs::Odometry            lidar_odom_previous;
+  ros::Time                     lidar_odom_last_update;
+  std::shared_ptr<MedianFilter> lidar_vel_filter_x;
+  std::shared_ptr<MedianFilter> lidar_vel_filter_y;
+  bool                          _lidar_vel_median_filter;
+  int                           _lidar_vel_filter_buffer_size;
+  double                        _lidar_vel_filter_max_valid;
+  double                        _lidar_vel_filter_max_diff;
 
   // Hector messages
   std::mutex                    mutex_hector;
@@ -422,8 +416,7 @@ private:
   void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
   void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
-  void callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg);
-  void callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg);
+  void callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
@@ -530,8 +523,7 @@ private:
   bool got_range            = false;
   bool got_pixhawk_utm      = false;
   bool got_rtk              = false;
-  bool got_icp              = false;
-  bool got_icp_global       = false;
+  bool got_lidar_odom              = false;
   bool got_hector_pose      = false;
   bool got_brick_pose       = false;
   bool got_target_attitude  = false;
@@ -547,8 +539,7 @@ private:
 
   bool failsafe_called = false;
 
-  int got_icp_counter;
-  int got_icp_global_counter;
+  int got_lidar_odom_counter;
   int got_rtk_counter;
 
   bool rtk_odom_initialized = false;
@@ -1187,15 +1178,15 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
 
   // LIDAR median filter
-  param_loader.load_param("lateral/icp_vel_median_filter", _icp_vel_median_filter);
-  param_loader.load_param("lateral/icp_vel_filter_buffer_size", _icp_vel_filter_buffer_size);
-  param_loader.load_param("lateral/icp_vel_filter_max_valid", _icp_vel_filter_max_valid);
-  param_loader.load_param("lateral/icp_vel_filter_max_diff", _icp_vel_filter_max_diff);
+  param_loader.load_param("lateral/lidar_vel_median_filter", _lidar_vel_median_filter);
+  param_loader.load_param("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size);
+  param_loader.load_param("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid);
+  param_loader.load_param("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff);
 
-  icp_vel_filter_x =
-      std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
-  icp_vel_filter_y =
-      std::make_shared<MedianFilter>(_icp_vel_filter_buffer_size, _icp_vel_filter_max_valid, -_icp_vel_filter_max_valid, _icp_vel_filter_max_diff);
+  lidar_vel_filter_x =
+      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
+  lidar_vel_filter_y =
+      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
 
   // Hector median filter
   param_loader.load_param("lateral/hector_pos_median_filter", _hector_pos_median_filter);
@@ -1653,10 +1644,9 @@ void Odometry::onInit() {
     rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
   }
 
-  // subscriber for icp odometry
+  // subscriber for lidar odometry
   if (_lidar_available) {
-    sub_icp_relative_ = nh_.subscribe("icp_relative_in", 1, &Odometry::callbackIcpRelative, this, ros::TransportHints().tcpNoDelay());
-    sub_icp_global_   = nh_.subscribe("icp_absolute_in", 1, &Odometry::callbackIcpAbsolute, this, ros::TransportHints().tcpNoDelay());
+    sub_lidar_odom_ = nh_.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
     sub_hector_pose_  = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
   }
 
@@ -1827,12 +1817,11 @@ void Odometry::onInit() {
     current_estimator->getQ(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
     current_estimator->getQ(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
     current_estimator->getQ(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+    current_estimator->getQ(last_drs_config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
     current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
     current_estimator->getQ(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
     current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
     current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
     current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
@@ -1921,10 +1910,10 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::LIDAR) {
-    if (got_icp) {
+    if (got_lidar_odom) {
       return true;
     } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for icp msg to initialize takeoff estimator");
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for lidar odom msg to initialize takeoff estimator");
       return false;
     }
   }
@@ -2368,9 +2357,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::LIDAR) {
-    if (!got_odom_pixhawk || !got_range || !got_icp) {
-      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, icp: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
-                        got_range ? "TRUE" : "FALSE", got_icp ? "TRUE" : "FALSE");
+    if (!got_odom_pixhawk || !got_range || !got_lidar_odom) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, lidar: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
+                        got_range ? "TRUE" : "FALSE", got_lidar_odom ? "TRUE" : "FALSE");
       if (got_lateral_sensors && !failsafe_called) {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
@@ -3176,19 +3165,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     brick_reliable = false;
   }
 
-  //  icp velocities (corrections of lateral kf)
-  interval = ros::Time::now() - icp_odom_last_update;
-  if (got_icp && interval.toSec() > 1.0) {
+  //  lidar velocities (corrections of lateral kf)
+  interval = ros::Time::now() - lidar_odom_last_update;
+  if (got_lidar_odom && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: LIDAR velocities not received for %f seconds.", interval.toSec());
-    got_icp = false;
+    got_lidar_odom = false;
   }
 
-  //  icp position (corrections of lateral kf)
-  interval = ros::Time::now() - icp_global_odom_last_update;
-  if (got_icp_global && interval.toSec() > 1.0) {
-    ROS_WARN("[Odometry]: LIDAR position not received for %f seconds.", interval.toSec());
-    got_icp_global = false;
-  }
 }
 
 //}
@@ -5136,31 +5119,31 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 }
 //}
 
-/* //{ callbackIcpRelative() */
+/* //{ callbackLidarOdom() */
 
-void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
+void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpRelative");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackLidarOdom");
 
-  icp_odom_last_update = ros::Time::now();
+  lidar_odom_last_update = ros::Time::now();
 
   {
-    std::scoped_lock lock(mutex_icp);
+    std::scoped_lock lock(mutex_lidar_odom);
 
-    if (got_icp) {
+    if (got_lidar_odom) {
 
-      icp_odom_previous = icp_odom;
-      icp_odom          = *msg;
+      lidar_odom_previous = lidar_odom;
+      lidar_odom          = *msg;
 
     } else {
 
-      icp_odom_previous = *msg;
-      icp_odom          = *msg;
+      lidar_odom_previous = *msg;
+      lidar_odom          = *msg;
 
-      got_icp = true;
+      got_lidar_odom = true;
       return;
     }
   }
@@ -5169,7 +5152,7 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  if (!isTimestampOK(icp_odom.header.stamp.toSec(), icp_odom_previous.header.stamp.toSec())) {
+  if (!isTimestampOK(lidar_odom.header.stamp.toSec(), lidar_odom_previous.header.stamp.toSec())) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR velocity timestamp not OK, not fusing correction.");
     return;
   }
@@ -5181,94 +5164,49 @@ void Odometry::callbackIcpRelative(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  double vel_icp_x, vel_icp_y;
+  // velocity correction
+  double vel_lidar_x, vel_lidar_y;
   {
-    std::scoped_lock lock(mutex_icp);
+    std::scoped_lock lock(mutex_lidar_odom);
 
-    vel_icp_x = icp_odom.twist.twist.linear.x;
-    vel_icp_y = icp_odom.twist.twist.linear.y;
+    vel_lidar_x = lidar_odom.twist.twist.linear.x;
+    vel_lidar_y = lidar_odom.twist.twist.linear.y;
   }
 
-  if (_icp_vel_median_filter) {
+  if (_lidar_vel_median_filter) {
 
-    if (!icp_vel_filter_x->isValid(vel_icp_x)) {
+    if (!lidar_vel_filter_x->isValid(vel_lidar_x)) {
 
-      double median = icp_vel_filter_x->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR x velocity filtered by median filter. %f -> %f", vel_icp_x, median);
-      vel_icp_x = median;
+      double median = lidar_vel_filter_x->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR x velocity filtered by median filter. %f -> %f", vel_lidar_x, median);
+      vel_lidar_x = median;
     }
 
-    if (!icp_vel_filter_y->isValid(vel_icp_y)) {
+    if (!lidar_vel_filter_y->isValid(vel_lidar_y)) {
 
-      double median = icp_vel_filter_y->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR y velocity filtered by median filter. %f -> %f", vel_icp_y, median);
-      vel_icp_y = median;
+      double median = lidar_vel_filter_y->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR y velocity filtered by median filter. %f -> %f", vel_lidar_y, median);
+      vel_lidar_y = median;
     }
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vel_icp_x, vel_icp_y, "vel_lidar");
+  stateEstimatorsCorrection(vel_lidar_x, vel_lidar_y, "vel_lidar");
 
   ROS_WARN_ONCE("[Odometry]: Fusing LIDAR velocity");
-}
-//}
 
-/* //{ callbackIcpAbsolute() */
-
-void Odometry::callbackIcpAbsolute(const nav_msgs::OdometryConstPtr &msg) {
-
-  if (!is_initialized)
-    return;
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackIcpAbsolute");
-
-  icp_global_odom_last_update = ros::Time::now();
+  // position correction
+  double pos_lidar_x, pos_lidar_y;
 
   {
-    std::scoped_lock lock(mutex_icp_global);
+    std::scoped_lock lock(mutex_lidar_odom);
 
-    if (got_icp_global) {
-
-      icp_global_odom_previous = icp_global_odom;
-      icp_global_odom          = *msg;
-
-    } else {
-
-      icp_global_odom_previous = *msg;
-      icp_global_odom          = *msg;
-
-      got_icp_global = true;
-      return;
-    }
-  }
-
-  // --------------------------------------------------------------
-  // |                        callback body                       |
-  // --------------------------------------------------------------
-
-  if (!isTimestampOK(icp_global_odom.header.stamp.toSec(), icp_global_odom_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR global odom timestamp not OK, not fusing correction.");
-    return;
-  }
-
-  //////////////////// Fuse Lateral Kalman ////////////////////
-
-  if (!got_lateral_sensors) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing LIDAR position. Waiting for other sensors.");
-    return;
-  }
-
-  double pos_icp_x, pos_icp_y;
-
-  {
-    std::scoped_lock lock(mutex_icp_global);
-
-    pos_icp_x = icp_global_odom.pose.pose.position.x;
-    pos_icp_y = icp_global_odom.pose.pose.position.y;
+    pos_lidar_x = lidar_odom.pose.pose.position.x;
+    pos_lidar_y = lidar_odom.pose.pose.position.y;
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(pos_icp_x, pos_icp_y, "pos_lidar");
+  stateEstimatorsCorrection(pos_lidar_x, pos_lidar_y, "pos_lidar");
 
   ROS_WARN_ONCE("[Odometry]: Fusing LIDAR position");
 }
@@ -6830,21 +6768,21 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
     return;
   ROS_INFO(
       "Reconfigure Request: "
-      "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_icp: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_icp: %f, Q_vel_optflow: "
+      "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_lidar: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_lidar: %f, Q_vel_optflow: "
       "%f, Q_vel_rtk: %f\nQ_tilt:%f ",
-      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_icp, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_icp, config.Q_vel_optflow,
+      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_lidar, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_lidar, config.Q_vel_optflow,
       config.Q_vel_rtk, config.Q_tilt);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setQ(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
     estimator.second->setQ(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    estimator.second->setQ(config.Q_pos_icp, map_measurement_name_id.find("pos_icp")->second);
+    estimator.second->setQ(config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
     estimator.second->setQ(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
     estimator.second->setQ(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
     estimator.second->setQ(config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
     estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    estimator.second->setQ(config.Q_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+    estimator.second->setQ(config.Q_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
     estimator.second->setQ(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
     estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
     estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
@@ -7339,8 +7277,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!got_icp && is_ready_to_takeoff) {
-      ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. No new icp msgs received.");
+    if (!got_lidar_odom && is_ready_to_takeoff) {
+      ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. No new lidar odom msgs received.");
       return false;
     }
 
