@@ -13,10 +13,10 @@ heading_estimator: "LIDAR"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "LIDAR"]
+  active: ["LIDAR"]
 
 heading_estimators:
-  active: ["GYRO", "OPTFLOW", "LIDAR"]
+  active: ["GYRO", "LIDAR"]
 
 # Available localization methods
 gps_available: false
@@ -33,11 +33,9 @@ lateral:
   R: [1, 1, 1, 0, 0, 0,
       0, 1, 1, 0, 0, 0,
       0, 0, 0, 0.0001, 0.0001, 0,
-      0, 0, 0, 0, 0, 0.0001,
-      0, 0, 0, 0, 0.01, 0,
+      0, 0, 0, 0, 0, 1,
+      0, 0, 0, 0, 1, 0,
       0, 0, 0, 0, 0, 1000]
 
   Q:
-    vel_optflow: [1]
     tilt_mavros: [100]
-

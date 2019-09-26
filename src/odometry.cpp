@@ -138,6 +138,7 @@ private:
   ros::Publisher pub_compass_yaw_;
   ros::Publisher pub_brick_yaw_;
   ros::Publisher pub_hector_yaw_;
+  ros::Publisher pub_lidar_yaw_;
   ros::Publisher pub_vio_yaw_;
   ros::Publisher pub_vslam_yaw_;
   ros::Publisher pub_odometry_diag_;
@@ -291,6 +292,16 @@ private:
   double                        _hector_yaw_filter_max_valid;
   double                        _hector_yaw_filter_max_diff;
 
+  // Lidar heading msgs
+  double                        lidar_yaw_previous_deg;
+  std::mutex                    mutex_lidar_hdg;
+  ros::Time                     lidar_yaw_last_update;
+  std::shared_ptr<MedianFilter> lidar_yaw_filter;
+  bool                          _lidar_yaw_median_filter;
+  int                           _lidar_yaw_filter_buffer_size;
+  double                        _lidar_yaw_filter_max_valid;
+  double                        _lidar_yaw_filter_max_diff;
+
   // brick heading msgs
   double                        brick_yaw_previous;
   std::mutex                    mutex_brick_hdg;
@@ -344,6 +355,7 @@ private:
 
   // LIDAR messages
   std::mutex                    mutex_lidar_odom;
+  double pos_lidar_corr_x_, pos_lidar_corr_y_;
   nav_msgs::Odometry            lidar_odom;
   nav_msgs::Odometry            lidar_odom_previous;
   ros::Time                     lidar_odom_last_update;
@@ -3351,6 +3363,9 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
     // correction step for hector
     stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector");
+
+    // correction step for lidar
+    stateEstimatorsCorrection(pos_lidar_corr_x_, pos_lidar_corr_y_, "pos_lidar");
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
   }
@@ -5162,6 +5177,29 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  // fuse yaw
+  double yaw_lidar;
+  {
+    std::scoped_lock lock(mutex_lidar_odom);
+    yaw_lidar = mrs_odometry::getYaw(lidar_odom.pose.pose.orientation);
+  }
+
+  yaw_lidar              = mrs_odometry::unwrapAngle(yaw_lidar, lidar_yaw_previous_deg);
+  lidar_yaw_previous_deg = yaw_lidar;
+
+  // Apply correction step to all heading estimators
+  headingEstimatorsCorrection(yaw_lidar, "yaw_lidar");
+
+  yaw_lidar = mrs_odometry::wrapAngle(yaw_lidar);
+
+  mrs_msgs::Float64Stamped lidar_yaw_out;
+  lidar_yaw_out.header.stamp    = ros::Time::now();
+  lidar_yaw_out.header.frame_id = "local_origin";
+  lidar_yaw_out.value           = yaw_lidar;
+  pub_lidar_yaw_.publish(lidar_yaw_out);
+
+  ROS_WARN_ONCE("[Odometry]: Fusing yaw from Lidar SLAM");
+
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   if (!got_lateral_sensors) {
@@ -5200,6 +5238,22 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   ROS_WARN_ONCE("[Odometry]: Fusing LIDAR velocity");
 
+  // Current orientation
+  Eigen::VectorXd hdg_state(1);
+
+  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+
+    std::scoped_lock lock(mutex_odom_pixhawk);
+    hdg_state(0) = orientation_mavros.vector.z;
+
+  } else {
+
+    std::scoped_lock lock(mutex_current_hdg_estimator);
+
+    current_hdg_estimator->getState(0, hdg_state);
+  }
+
+  double yaw = hdg_state(0);
   // position correction
   double pos_lidar_x, pos_lidar_y;
 
@@ -5210,8 +5264,22 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     pos_lidar_y = lidar_odom.pose.pose.position.y;
   }
 
+  {
+    std::scoped_lock lock(mutex_lidar_odom);
+
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+      // Corrections and heading are in the same frame of reference
+      pos_lidar_corr_x_ = pos_lidar_x;
+      pos_lidar_corr_y_ = pos_lidar_y;
+    } else {
+      // Correct the position by the current heading
+      pos_lidar_corr_x_ = pos_lidar_x * cos(yaw - yaw_lidar) - pos_lidar_y * sin(yaw - yaw_lidar);
+      pos_lidar_corr_y_ = pos_lidar_x * sin(yaw - yaw_lidar) + pos_lidar_y * cos(yaw - yaw_lidar);
+    }
+  }
+
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(pos_lidar_x, pos_lidar_y, "pos_lidar");
+  /* stateEstimatorsCorrection(pos_lidar_corr_x_, pos_lidar_corr_y_, "pos_lidar"); */
 
   ROS_WARN_ONCE("[Odometry]: Fusing LIDAR position");
 }
