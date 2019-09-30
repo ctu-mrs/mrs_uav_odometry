@@ -243,9 +243,9 @@ private:
   ros::Time          odom_vio_last_update;
 
   // VSLAM
-  geometry_msgs::PoseStamped pose_vslam;
+  geometry_msgs::PoseWithCovarianceStamped pose_vslam;
   std::mutex         mutex_pose_vslam;
-  geometry_msgs::PoseStamped pose_vslam_previous;
+  geometry_msgs::PoseWithCovarianceStamped pose_vslam_previous;
   ros::Time          pose_vslam_last_update;
 
   // Realsense t265
@@ -423,7 +423,7 @@ private:
   // | -------------------- message callbacks ------------------- |
   void callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg);
-  void callbackVslamPose(const geometry_msgs::PoseStampedConstPtr &msg);
+  void callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedConstPtr &msg);
   void callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
@@ -4757,7 +4757,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 /* //{ callbackVslamPose() */
 
-void Odometry::callbackVslamPose(const geometry_msgs::PoseStampedConstPtr &msg) {
+void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedConstPtr &msg) {
 
   if (!is_initialized)
     return;
@@ -4809,7 +4809,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double yaw_vslam;
   {
     std::scoped_lock lock(mutex_pose_vslam);
-    yaw_vslam = mrs_odometry::getYaw(pose_vslam.pose.orientation);
+    yaw_vslam = mrs_odometry::getYaw(pose_vslam.pose.pose.orientation);
   }
 
   yaw_vslam              = mrs_odometry::unwrapAngle(yaw_vslam, vslam_yaw_previous_deg);
@@ -4843,11 +4843,11 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     // Correct the position by the current heading
     if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
       // Corrections and heading are in the same frame of reference
-      vslam_pos_x = pose_vslam.pose.position.x;
-      vslam_pos_y = pose_vslam.pose.position.y;
+      vslam_pos_x = pose_vslam.pose.pose.position.x;
+      vslam_pos_y = pose_vslam.pose.pose.position.y;
     } else {
-    vslam_pos_x = pose_vslam.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.position.y * sin(hdg - yaw_vslam);
-    vslam_pos_y = pose_vslam.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.position.y * cos(hdg - yaw_vslam);
+    vslam_pos_x = pose_vslam.pose.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.pose.position.y * sin(hdg - yaw_vslam);
+    vslam_pos_y = pose_vslam.pose.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.pose.position.y * cos(hdg - yaw_vslam);
     }
   }
 
@@ -4885,8 +4885,8 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     }
   }
 
-  if (vslam_reliable && (std::fabs(pose_vslam.pose.position.x - pose_vslam_previous.pose.position.x) > 10 ||
-                       std::fabs(pose_vslam.pose.position.y - pose_vslam_previous.pose.position.y) > 10)) {
+  if (vslam_reliable && (std::fabs(pose_vslam.pose.pose.position.x - pose_vslam_previous.pose.pose.position.x) > 10 ||
+                       std::fabs(pose_vslam.pose.pose.position.y - pose_vslam_previous.pose.pose.position.y) > 10)) {
     ROS_WARN("[Odometry]: Estimated difference between VSLAM positions > 10. VSLAM is not reliable.");
     vslam_reliable = false;
   }
