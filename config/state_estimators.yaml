@@ -51,7 +51,7 @@ state_estimators:
     # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
     # RTK: ["pos_rtk", "tilt_mavros"]
     # ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
-    LIDAR: ["tilt_mavros", "vel_lidar", "pos_lidar"]
+    LIDAR: ["tilt_mavros", "pos_lidar"]
     HECTOR: ["tilt_mavros", "pos_hector"]
     VIO: ["tilt_mavros", "pos_vio", "vel_vio"]
     VSLAM: ["tilt_mavros", "pos_vslam"]
