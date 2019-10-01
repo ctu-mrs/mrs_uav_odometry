@@ -143,7 +143,7 @@ lateral:
     vel_rtk: [1000]
     pos_lidar: [1000]
     vel_lidar: [10000]
-    pos_vslam: [1000]
+    pos_vslam: [1]
     pos_vio: [100]
     vel_vio: [10000]
     pos_object: [100]

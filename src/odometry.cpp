@@ -4841,14 +4841,14 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
     std::scoped_lock lock(mutex_pose_vslam);
 
     // Correct the position by the current heading
-    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) {
+    /* if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) { */
       // Corrections and heading are in the same frame of reference
       vslam_pos_x = pose_vslam.pose.pose.position.x;
       vslam_pos_y = pose_vslam.pose.pose.position.y;
-    } else {
-    vslam_pos_x = pose_vslam.pose.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.pose.position.y * sin(hdg - yaw_vslam);
-    vslam_pos_y = pose_vslam.pose.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.pose.position.y * cos(hdg - yaw_vslam);
-    }
+    /* } else { */
+    /* vslam_pos_x = pose_vslam.pose.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.pose.position.y * sin(hdg - yaw_vslam); */
+    /* vslam_pos_y = pose_vslam.pose.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.pose.position.y * cos(hdg - yaw_vslam); */
+    /* } */
   }
 
   // Saturate correction
@@ -7575,6 +7575,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
       current_estimator      = m_state_estimators.find(target_estimator.name)->second;
       current_estimator_name = current_estimator->getName();
+
     }
 
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", current_estimator_name.c_str());
