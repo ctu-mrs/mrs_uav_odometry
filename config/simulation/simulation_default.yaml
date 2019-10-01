@@ -26,7 +26,7 @@ rtk_available: true
 lidar_available: true
 brick_available: true
 t265_available: false
-vslam_available: false
+vslam_available: true
 
 # Rates of odometry publishers
 rate: 100 # [Hz]
