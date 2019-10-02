@@ -283,7 +283,7 @@ private:
   ros::Time         compass_hdg_last_update;
 
   // Hector heading msgs
-  double                        hector_yaw_previous_deg;
+  double                        hector_yaw_previous;
   std::mutex                    mutex_hector_hdg;
   ros::Time                     hector_yaw_last_update;
   std::shared_ptr<MedianFilter> hector_yaw_filter;
@@ -293,7 +293,7 @@ private:
   double                        _hector_yaw_filter_max_diff;
 
   // Lidar heading msgs
-  double                        lidar_yaw_previous_deg;
+  double                        lidar_yaw_previous;
   std::mutex                    mutex_lidar_hdg;
   ros::Time                     lidar_yaw_last_update;
   std::shared_ptr<MedianFilter> lidar_yaw_filter;
@@ -315,7 +315,7 @@ private:
   double                        _accum_yaw_brick_alpha_;
 
   // VIO heading msgs
-  double                        vio_yaw_previous_deg;
+  double                        vio_yaw_previous;
   std::mutex                    mutex_vio_hdg;
   ros::Time                     vio_yaw_last_update;
   std::shared_ptr<MedianFilter> vio_yaw_filter;
@@ -325,7 +325,7 @@ private:
   double                        _vio_yaw_filter_max_diff;
 
   // VSLAM heading msgs
-  double                        vslam_yaw_previous_deg;
+  double                        vslam_yaw_previous;
   std::mutex                    mutex_vslam_hdg;
   ros::Time                     vslam_yaw_last_update;
   std::shared_ptr<MedianFilter> vslam_yaw_filter;
@@ -4607,6 +4607,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       odom_vio_previous = *msg;
       odom_vio          = *msg;
+      vio_yaw_previous = mrs_odometry::getYaw(odom_vio.pose.pose.orientation);
     }
 
     got_vio              = true;
@@ -4636,8 +4637,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     yaw_vio = mrs_odometry::getYaw(odom_vio.pose.pose.orientation);
   }
 
-  yaw_vio              = mrs_odometry::unwrapAngle(yaw_vio, vio_yaw_previous_deg);
-  vio_yaw_previous_deg = yaw_vio;
+  yaw_vio              = mrs_odometry::unwrapAngle(yaw_vio, vio_yaw_previous);
+  vio_yaw_previous = yaw_vio;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_vio, "yaw_vio");
@@ -4783,6 +4784,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
 
       pose_vslam_previous = *msg;
       pose_vslam          = *msg;
+      vslam_yaw_previous = mrs_odometry::getYaw(pose_vslam.pose.pose.orientation);
     }
 
     got_vslam              = true;
@@ -4812,8 +4814,8 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
     yaw_vslam = mrs_odometry::getYaw(pose_vslam.pose.pose.orientation);
   }
 
-  yaw_vslam              = mrs_odometry::unwrapAngle(yaw_vslam, vslam_yaw_previous_deg);
-  vslam_yaw_previous_deg = yaw_vslam;
+  yaw_vslam              = mrs_odometry::unwrapAngle(yaw_vslam, vslam_yaw_previous);
+  vslam_yaw_previous = yaw_vslam;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_vslam, "yaw_vslam");
@@ -4841,14 +4843,14 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
     std::scoped_lock lock(mutex_pose_vslam);
 
     // Correct the position by the current heading
-    /* if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) { */
+    if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), "VSLAM")) {
       // Corrections and heading are in the same frame of reference
       vslam_pos_x = pose_vslam.pose.pose.position.x;
       vslam_pos_y = pose_vslam.pose.pose.position.y;
-    /* } else { */
-    /* vslam_pos_x = pose_vslam.pose.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.pose.position.y * sin(hdg - yaw_vslam); */
-    /* vslam_pos_y = pose_vslam.pose.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.pose.position.y * cos(hdg - yaw_vslam); */
-    /* } */
+    } else {
+    vslam_pos_x = pose_vslam.pose.pose.position.x * cos(hdg - yaw_vslam) - pose_vslam.pose.pose.position.y * sin(hdg - yaw_vslam);
+    vslam_pos_y = pose_vslam.pose.pose.position.x * sin(hdg - yaw_vslam) + pose_vslam.pose.pose.position.y * cos(hdg - yaw_vslam);
+    }
   }
 
   // Saturate correction
@@ -4924,8 +4926,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
       brick_pose_previous = *msg;
       brick_pose          = *msg;
-      double r_tmp, p_tmp;
-      mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, brick_yaw_previous);
+      brick_yaw_previous = mrs_odometry::getYaw(brick_pose.pose.orientation);
 
       got_brick_pose = true;
       return;
@@ -5162,6 +5163,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
       lidar_odom_previous = *msg;
       lidar_odom          = *msg;
+      lidar_yaw_previous = mrs_odometry::getYaw(lidar_odom.pose.pose.orientation);
 
       got_lidar_odom = true;
       return;
@@ -5184,8 +5186,8 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     yaw_lidar = mrs_odometry::getYaw(lidar_odom.pose.pose.orientation);
   }
 
-  yaw_lidar              = mrs_odometry::unwrapAngle(yaw_lidar, lidar_yaw_previous_deg);
-  lidar_yaw_previous_deg = yaw_lidar;
+  yaw_lidar              = mrs_odometry::unwrapAngle(yaw_lidar, lidar_yaw_previous);
+  lidar_yaw_previous = yaw_lidar;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_lidar, "yaw_lidar");
@@ -5308,6 +5310,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
       hector_pose_previous = *msg;
       hector_pose          = *msg;
+      hector_yaw_previous  = mrs_odometry::getYaw(hector_pose.pose.orientation);
 
       got_hector_pose = true;
       return;
@@ -5335,8 +5338,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     yaw_hector = mrs_odometry::getYaw(hector_pose.pose.orientation);
   }
 
-  yaw_hector              = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous_deg);
-  hector_yaw_previous_deg = yaw_hector;
+  yaw_hector              = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous);
+  hector_yaw_previous = yaw_hector;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_hector, "yaw_hector");
@@ -7575,7 +7578,6 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
       current_estimator      = m_state_estimators.find(target_estimator.name)->second;
       current_estimator_name = current_estimator->getName();
-
     }
 
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", current_estimator_name.c_str());

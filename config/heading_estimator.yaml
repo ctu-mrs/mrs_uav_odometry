@@ -45,7 +45,7 @@ heading_estimators:
     LIDAR: ["rate_gyro", "yaw_lidar"]
     BRICK: ["rate_gyro", "yaw_brick"]
     VIO: ["rate_gyro", "yaw_vio"]
-    VSLAM: ["rate_gyro", "yaw_vio"]
+    VSLAM: ["rate_gyro", "yaw_vslam"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
