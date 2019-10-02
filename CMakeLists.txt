@@ -73,7 +73,7 @@ target_link_libraries(Odometry
 add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
 
 ## Declare a C++ executable
-add_library(RtkRepublisher src/rtk_republisher.cpp)
+add_library(RtkRepublisher src/rtk_republisher.cpp src/support.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(RtkRepublisher
