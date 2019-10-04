@@ -8,7 +8,7 @@ LAUNCH_NODES=
 
 if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
-  LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow simulation_nodelet_cpu.launch'
+  LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow optic_flow.launch'
 elif [ "$ESTIMATOR" == "hector" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
@@ -25,7 +25,7 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
 input=(
   'Roscore' 'roscore
 '
-  'Gazebo' "waitForRos; roslaunch simulation darpa.launch gui:=true debug:=true
+  'Gazebo' "waitForRos; roslaunch simulation simulation.launch gui:=true debug:=false
 "
   'Spawn' "waitForSimulation; spawn 1 --run --delete --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "
