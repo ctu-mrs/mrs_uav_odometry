@@ -57,6 +57,7 @@
 #include <mrs_lib/GpsConversions.h>
 #include <mrs_lib/ParamLoader.h>
 
+#include <types.h>
 #include <support.h>
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
@@ -670,10 +671,10 @@ private:
   std::vector<std::string>                               _model_state_names;
   std::vector<std::string>                               _measurement_names;
   std::map<std::string, std::vector<std::string>>        map_estimator_measurement;
-  std::map<std::string, Eigen::MatrixXd>                 map_measurement_covariance;
+  std::map<std::string, Mat1>                 map_measurement_covariance;
   std::map<std::string, std::string>                     map_measurement_state;
   std::map<std::string, int>                             map_measurement_name_id;
-  std::map<std::string, Eigen::MatrixXd>                 map_states;
+  std::map<std::string, LatStateCol1D>                 map_states;
   std::map<std::string, nav_msgs::Odometry>              map_estimator_odom;
   std::map<std::string, ros::Publisher>                  map_estimator_pub;
   std::map<std::string, std::shared_ptr<StateEstimator>> m_state_estimators;
@@ -691,7 +692,8 @@ private:
   double _max_t265_vel;
 
   int                           lateral_n, lateral_m, lateral_p;
-  Eigen::MatrixXd               A_lat, B_lat, R_lat;
+  LatMat               A_lat, R_lat;
+  LatStateCol1D B_lat;
   Eigen::MatrixXd               A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk;
   std::shared_ptr<mrs_lib::Lkf> estimator_rtk;
   std::mutex                    mutex_rtk_est;
@@ -1048,7 +1050,7 @@ void Odometry::onInit() {
     int temp_value;
     param_loader.load_param("altitude_estimators/n_A/" + *it, temp_value);
     map_alt_n_states.insert(std::pair<std::string, int>(*it, temp_value));
-    Eigen::MatrixXd A_model;
+    Eigen::MatrixXd A_model = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
     param_loader.load_matrix_dynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
 
     map_alt_model.insert(std::pair<std::string, Eigen::MatrixXd>(*it, A_model));
@@ -1169,9 +1171,9 @@ void Odometry::onInit() {
   param_loader.load_param("state_estimators/active", _active_state_estimators_names);
   param_loader.load_param("state_estimators/model_states", _model_state_names);
   param_loader.load_param("state_estimators/measurements", _measurement_names);
-  param_loader.load_matrix_dynamic("lateral/A", A_lat, _n_model_states, _n_model_states);
-  param_loader.load_matrix_dynamic("lateral/B", B_lat, _n_model_states, 1);
-  param_loader.load_matrix_dynamic("lateral/R", R_lat, _n_model_states, _n_model_states);
+  param_loader.load_matrix_static("lateral/A", A_lat);
+  param_loader.load_matrix_static("lateral/B", B_lat);
+  param_loader.load_matrix_static("lateral/R", R_lat);
 
   param_loader.load_matrix_dynamic("lateral/rtk/A", A_lat_rtk, 2, 2);
   param_loader.load_matrix_dynamic("lateral/rtk/B", B_lat_rtk, 2, 2);
@@ -1257,19 +1259,19 @@ void Odometry::onInit() {
   // Load the model state mapping
   for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
 
-    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _n_model_states);
-    param_loader.load_matrix_static("state_estimators/state_mapping/" + *it, temp_P, 1, _n_model_states);
+    LatStateCol1D temp_P;
+    param_loader.load_matrix_static("state_estimators/state_mapping/" + *it, temp_P);
 
-    map_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
+    map_states.insert(std::pair<std::string, LatStateCol1D>(*it, temp_P));
   }
 
   // Load the covariances of each measurement
   for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
 
-    Eigen::MatrixXd temp_matrix;
-    param_loader.load_matrix_static("lateral/Q/" + *it, temp_matrix, 1, 1);
+    Mat1 temp_matrix;
+    param_loader.load_matrix_static("lateral/Q/" + *it, temp_matrix);
 
-    map_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
+    map_measurement_covariance.insert(std::pair<std::string, Mat1>(*it, temp_matrix));
   }
 
   for (std::vector<std::string>::iterator it = _measurement_names.begin(); it < _measurement_names.end(); it++) {
@@ -1301,11 +1303,11 @@ void Odometry::onInit() {
       std::map<std::string, std::string>::iterator pair_measurement_state = map_measurement_state.find(*it2);
 
       // Find state mapping
-      std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_states.find(pair_measurement_state->second);
+      std::map<std::string, LatStateCol1D>::iterator pair_state_matrix = map_states.find(pair_measurement_state->second);
       P_arr_lat.push_back(pair_state_matrix->second);
 
       // Find measurement covariance
-      std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
+      std::map<std::string, Mat1>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
       if (std::strcmp(it2->c_str(), "vel_optflow") == 0) {
         Q_arr_lat.push_back(pair_measurement_covariance->second * 1000);
       } else {
@@ -1831,23 +1833,23 @@ void Odometry::onInit() {
   {
     std::scoped_lock lock(mutex_current_estimator);
 
-    current_estimator->getQ(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    current_estimator->getQ(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-    current_estimator->getQ(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
-    current_estimator->getQ(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-    current_estimator->getR(last_drs_config.R_pos, Eigen::Vector2i(0, 0));
-    current_estimator->getR(last_drs_config.R_vel, Eigen::Vector2i(1, 1));
-    current_estimator->getR(last_drs_config.R_acc, Eigen::Vector2i(2, 3));
-    current_estimator->getR(last_drs_config.R_acc_d, Eigen::Vector2i(4, 4));
-    current_estimator->getR(last_drs_config.R_acc_i, Eigen::Vector2i(3, 5));
-    current_estimator->getR(last_drs_config.R_tilt, Eigen::Vector2i(5, 5));
+    current_estimator->getR(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+    current_estimator->getR(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+    current_estimator->getR(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
+    current_estimator->getR(last_drs_config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
+    current_estimator->getR(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    current_estimator->getR(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
+    current_estimator->getR(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+    current_estimator->getR(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    current_estimator->getR(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+    current_estimator->getR(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+    current_estimator->getR(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+    current_estimator->getQ(last_drs_config.R_pos, Eigen::Vector2i(0, 0));
+    current_estimator->getQ(last_drs_config.R_vel, Eigen::Vector2i(1, 1));
+    current_estimator->getQ(last_drs_config.R_acc, Eigen::Vector2i(2, 3));
+    current_estimator->getQ(last_drs_config.R_acc_d, Eigen::Vector2i(4, 4));
+    current_estimator->getQ(last_drs_config.R_acc_i, Eigen::Vector2i(3, 5));
+    current_estimator->getQ(last_drs_config.R_tilt, Eigen::Vector2i(5, 5));
   }
 
   {
@@ -2557,9 +2559,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (is_updating_state_)
       return;
 
-    Eigen::VectorXd pos_vec(2);
-    Eigen::VectorXd vel_vec(2);
-    Eigen::VectorXd acc_d_vec(2);
+    Vec2 pos_vec(2);
+    Vec2 vel_vec(2);
+    Vec2 acc_d_vec(2);
 
     {
       std::scoped_lock lock(mutex_current_estimator);
@@ -2813,8 +2815,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
                         current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION));
     }
 
-    Eigen::VectorXd pos_vec(2);
-    Eigen::VectorXd vel_vec(2);
+    Vec2 pos_vec(2);
+    Vec2 vel_vec(2);
 
     estimator.second->getState(0, pos_vec);
     estimator.second->getState(1, vel_vec);
@@ -2964,7 +2966,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", lkf_states_rate_, 0.01, event);
 
-  Eigen::MatrixXd states_mat = Eigen::MatrixXd::Zero(lateral_n, 2);
+  LatState2D states_mat;
   /* Eigen::MatrixXd cov_mat; */
 
   // get states and covariances from lateral kalman
@@ -3707,7 +3709,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     if (saturate_mavros_position_) {
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "GPS") == 0) {
-          Eigen::VectorXd pos_vec(2);
+          Vec2 pos_vec;
           estimator.second->getState(0, pos_vec);
 
           // X position
@@ -3743,7 +3745,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       ROS_INFO("[Odometry]: finished state update");
       for (auto &estimator : m_state_estimators) {
         if (mrs_odometry::isEqual(estimator.first, "GPS")) {
-          Eigen::MatrixXd state = Eigen::MatrixXd::Zero(lateral_n, 2);
+          LatState2D state;
           estimator.second->getStates(state);
           ROS_INFO_STREAM("[Odometry]: state after rotation:" << state);
           ROS_INFO("[Odometry]: mavros position correction after state rotation: x: %2.2f y: %2.2f", pos_mavros_x, pos_mavros_y);
@@ -4127,7 +4129,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0 ||
             std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
-          estimator.second->setQ(twist_q, it_measurement_id->second);
+          estimator.second->setR(twist_q, it_measurement_id->second);
           ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
         }
       }
@@ -4486,7 +4488,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     /* } */
     /* } */
 
-    Eigen::VectorXd rtk_meas(2);
+    Vec2 rtk_meas(2);
     rtk_meas << x_est + x_correction, y_est + y_correction;
     {
       std::scoped_lock lock(mutex_rtk_est);
@@ -4709,7 +4711,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VIO")) {
-      Eigen::VectorXd pos_vec(2);
+      Vec2 pos_vec(2);
       estimator.second->getState(0, pos_vec);
 
       // X position
@@ -4856,7 +4858,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VSLAM")) {
-      Eigen::VectorXd pos_vec(2);
+      Vec2 pos_vec(2);
       estimator.second->getState(0, pos_vec);
 
       // X position
@@ -4970,7 +4972,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     } else if (!brick_reliable) {
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "BRICK") == 0 || std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
-          Eigen::VectorXd pos_vec(2);
+          Vec2 pos_vec(2);
           pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
           estimator.second->setState(0, pos_vec);
         }
@@ -5935,7 +5937,7 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
 
     // save the current position
     // TODO this might be too simple solution
-    Eigen::VectorXd pose = Eigen::VectorXd::Zero(2);
+    Vec2 pose = Eigen::VectorXd::Zero(2);
     current_estimator->getState(0, pose);
     land_position_x   = pose[0];
     land_position_y   = pose[1];
@@ -6773,7 +6775,7 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
   if (!is_initialized)
     return false;
 
-  Eigen::MatrixXd states  = Eigen::MatrixXd::Zero(lateral_n, 2);
+  LatState2D states;
   bool            success = false;
 
   // reset lateral kalman x
@@ -6874,11 +6876,11 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
   if (!is_initialized)
     return false;
 
-  Eigen::MatrixXd states  = Eigen::MatrixXd::Zero(lateral_n, 2);
+  LatState2D states;
   bool            success = false;
 
   // obtain the states of the current estimator
-  Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+  LatState2D old_state;
   if (!current_estimator->getStates(old_state)) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Could not read current state. Hector estimator cannot be reset.");
     res.success = false;
@@ -6951,26 +6953,26 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
       config.Q_vel_rtk, config.Q_tilt);
 
   for (auto &estimator : m_state_estimators) {
-    estimator.second->setQ(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    estimator.second->setQ(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    estimator.second->setQ(config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
-    estimator.second->setQ(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    estimator.second->setQ(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    estimator.second->setQ(config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    estimator.second->setQ(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    estimator.second->setQ(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    estimator.second->setQ(config.Q_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
-    estimator.second->setQ(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
-    estimator.second->setQ(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
-    estimator.second->setQ(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+    estimator.second->setR(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+    estimator.second->setR(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+    estimator.second->setR(config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
+    estimator.second->setR(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    estimator.second->setR(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
+    estimator.second->setR(config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
+    estimator.second->setR(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+    estimator.second->setR(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    estimator.second->setR(config.Q_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
+    estimator.second->setR(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
+    estimator.second->setR(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+    estimator.second->setR(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
 
-    estimator.second->setR(config.R_pos, Eigen::Vector2i(0, 0));
-    estimator.second->setR(config.R_vel, Eigen::Vector2i(1, 1));
-    estimator.second->setR(config.R_acc, Eigen::Vector2i(2, 3));
-    estimator.second->setR(config.R_acc, Eigen::Vector2i(2, 4));
-    estimator.second->setR(config.R_acc_d, Eigen::Vector2i(4, 4));
-    estimator.second->setR(config.R_acc_i, Eigen::Vector2i(3, 5));
-    estimator.second->setR(config.R_tilt, Eigen::Vector2i(5, 5));
+    estimator.second->setQ(config.R_pos, Eigen::Vector2i(0, 0));
+    estimator.second->setQ(config.R_vel, Eigen::Vector2i(1, 1));
+    estimator.second->setQ(config.R_acc, Eigen::Vector2i(2, 3));
+    estimator.second->setQ(config.R_acc, Eigen::Vector2i(2, 4));
+    estimator.second->setQ(config.R_acc_d, Eigen::Vector2i(4, 4));
+    estimator.second->setQ(config.R_acc_i, Eigen::Vector2i(3, 5));
+    estimator.second->setQ(config.R_tilt, Eigen::Vector2i(5, 5));
   }
 
   for (auto &estimator : m_altitude_estimators) {
@@ -7006,7 +7008,7 @@ void Odometry::stateEstimatorsPrediction(double x, double y, double dt) {
     return;
   }
 
-  Eigen::VectorXd input = Eigen::VectorXd::Zero(2);
+  Vec2 input;
   input << x, y;
 
   for (auto &estimator : m_state_estimators) {
@@ -7039,7 +7041,7 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     return;
   }
 
-  Eigen::VectorXd mes = Eigen::VectorXd::Zero(2);
+  Vec2 mes;
   mes << x, y;
 
   for (auto &estimator : m_state_estimators) {
@@ -7243,7 +7245,7 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
   double sy = sin(yaw_diff_);
 
   for (auto &estimator : m_state_estimators) {
-    Eigen::MatrixXd old_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+    LatState2D old_state;
     if (!estimator.second->getStates(old_state)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator not initialized.");
       return;
@@ -7253,7 +7255,7 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
       ROS_INFO_STREAM("[Odometry]: old_state:" << old_state);
     }
 
-    Eigen::MatrixXd new_state = Eigen::MatrixXd::Zero(lateral_n, 2);
+    LatState2D new_state;
     for (int i = 0; i < lateral_n; i++) {
       new_state(i, 0) = old_state(i, 0) * cy - old_state(i, 1) * sy;
       new_state(i, 1) = old_state(i, 0) * sy + old_state(i, 1) * cy;

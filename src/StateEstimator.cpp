@@ -10,18 +10,18 @@ StateEstimator::StateEstimator(
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
     const std::vector<Eigen::MatrixXd> &P_arr,
-    const std::vector<Eigen::MatrixXd> &Q_arr,
-    const Eigen::MatrixXd &A,
-    const Eigen::MatrixXd &B,
-    const Eigen::MatrixXd &R)
+    const std::vector<Eigen::MatrixXd> &R_arr,
+    const LatMat &A,
+    const LatStateCol1D &B,
+    const LatMat &Q)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
     m_P_arr(P_arr),
-    m_Q_arr(Q_arr),
+    m_R_arr(R_arr),
     m_A(A),
     m_B(B),
-    m_R(R)
+    m_Q(Q)
   {
 
   // clang-format on
@@ -49,16 +49,16 @@ StateEstimator::StateEstimator(
     return;
   }
 
-  // Check size of m_R
-  if (m_R.rows() != m_n_states) {
+  // Check size of m_Q
+  if (m_Q.rows() != m_n_states) {
     std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-              << "): wrong size of \"R.rows()\". Should be: " << m_n_states << " is:" << m_R.rows() << std::endl;
+              << "): wrong size of \"R.rows()\". Should be: " << m_n_states << " is:" << m_Q.rows() << std::endl;
     return;
   }
 
-  if (m_R.cols() != m_n_states) {
+  if (m_Q.cols() != m_n_states) {
     std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-              << "): wrong size of \"R.cols()\". Should be: " << m_n_states << " is:" << m_R.cols() << std::endl;
+              << "): wrong size of \"R.cols()\". Should be: " << m_n_states << " is:" << m_Q.cols() << std::endl;
     return;
   }
 
@@ -79,18 +79,18 @@ StateEstimator::StateEstimator(
     }
   }
 
-  // Check size of m_Q_arr
-  if (m_Q_arr.size() != m_n_measurement_types) {
+  // Check size of m_R_arr
+  if (m_R_arr.size() != m_n_measurement_types) {
     std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-              << "): wrong size of \"m_Q_arr\". Should be: " << m_n_measurement_types << " is:" << m_Q_arr.size() << std::endl;
+              << "): wrong size of \"m_R_arr\". Should be: " << m_n_measurement_types << " is:" << m_R_arr.size() << std::endl;
     return;
   }
 
-  // Check size of m_Q_arr elements
-  for (size_t i = 0; i < m_Q_arr.size(); i++) {
-    if (m_Q_arr[i].rows() != 1 || m_Q_arr[i].cols() != 1) {
+  // Check size of m_R_arr elements
+  for (size_t i = 0; i < m_R_arr.size(); i++) {
+    if (m_R_arr[i].rows() != 1 || m_R_arr[i].cols() != 1) {
       std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-                << "): wrong size of \"m_Q_arr[" << i << "]\". Should be: (1, 1) is: (" << m_Q_arr[i].rows() << ", " << m_Q_arr[i].cols() << ")" << std::endl;
+                << "): wrong size of \"m_R_arr[" << i << "]\". Should be: (1, 1) is: (" << m_R_arr[i].rows() << ", " << m_R_arr[i].cols() << ")" << std::endl;
       return;
     }
   }
@@ -98,11 +98,11 @@ StateEstimator::StateEstimator(
 
   //}
 
-  Eigen::MatrixXd Q_zero = Eigen::MatrixXd::Zero(1, 1);
-  Eigen::MatrixXd P_zero = Eigen::MatrixXd::Zero(1, m_n_states);
+  Mat1 R_zero;
+  LatStateCol1D P_zero;
 
-  mp_lkf_x = new mrs_lib::Lkf(m_n_states, 1, 1, m_A, m_B, m_R, Q_zero, P_zero);
-  mp_lkf_y = new mrs_lib::Lkf(m_n_states, 1, 1, m_A, m_B, m_R, Q_zero, P_zero);
+  mp_lkf_x = std::make_unique<mrs_lib::Lkf>(m_n_states, 1, 1, m_A, m_B, m_Q, R_zero, P_zero);
+  mp_lkf_y = std::make_unique<mrs_lib::Lkf>(m_n_states, 1, 1, m_A, m_B, m_Q, R_zero, P_zero);
 
   std::cout << "[StateEstimator]: New StateEstimator initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -114,11 +114,11 @@ StateEstimator::StateEstimator(
   for (size_t i = 0; i < m_P_arr.size(); i++) {
     std::cout << m_P_arr[i] << std::endl;
   }
-  std::cout << std::endl << " Q_arr: " << std::endl;
-  for (size_t i = 0; i < m_Q_arr.size(); i++) {
-    std::cout << m_Q_arr[i] << std::endl;
+  std::cout << std::endl << " R_arr: " << std::endl;
+  for (size_t i = 0; i < m_R_arr.size(); i++) {
+    std::cout << m_R_arr[i] << std::endl;
   }
-  std::cout << std::endl << " A: " << std::endl << m_A << std::endl << " B: " << std::endl << m_B << std::endl << " R: " << std::endl << m_R << std::endl;
+  std::cout << std::endl << " A: " << std::endl << m_A << std::endl << " B: " << std::endl << m_B << std::endl << " Q: " << std::endl << m_Q << std::endl;
 
   m_is_initialized = true;
 }
@@ -127,7 +127,7 @@ StateEstimator::StateEstimator(
 
 /*  //{ doPrediction() */
 
-bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
+bool StateEstimator::doPrediction(const Vec2 &input, double dt) {
 
   /*  //{ sanity checks */
 
@@ -171,13 +171,13 @@ bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
   /* std::cout << "[StateEstimator]: " << m_estimator_name << " fusing input: " << input << " with time step: " << dt << std::endl; */
 
-  Eigen::VectorXd input_vec_x = Eigen::VectorXd::Zero(1);
-  Eigen::VectorXd input_vec_y = Eigen::VectorXd::Zero(1);
+  Mat1 input_vec_x;
+  Mat1 input_vec_y;
 
   input_vec_x << input(0);
   input_vec_y << input(1);
 
-  Eigen::MatrixXd newA = m_A;
+  LatMat newA = m_A;
   newA(0, 1)           = dt;
   newA(1, 2)           = dt;
   newA(1, 3)           = std::pow(dt,2);
@@ -200,7 +200,7 @@ bool StateEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
 /*  //{ doCorrection() */
 
-bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measurement_type) {
+bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -247,8 +247,8 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
 
   //}
 
-  Eigen::VectorXd mes_vec_x = Eigen::VectorXd::Zero(1);
-  Eigen::VectorXd mes_vec_y = Eigen::VectorXd::Zero(1);
+  Mat1 mes_vec_x;
+  Mat1 mes_vec_y;
 
   mes_vec_x << measurement(0);
   mes_vec_y << measurement(1);
@@ -260,10 +260,10 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
     std::scoped_lock lock(mutex_lkf);
 
     mp_lkf_x->setP(m_P_arr[measurement_type]);
-    mp_lkf_x->setMeasurement(mes_vec_x, m_Q_arr[measurement_type]);
+    mp_lkf_x->setMeasurement(mes_vec_x, m_R_arr[measurement_type]);
     mp_lkf_x->doCorrection();
     mp_lkf_y->setP(m_P_arr[measurement_type]);
-    mp_lkf_y->setMeasurement(mes_vec_y, m_Q_arr[measurement_type]);
+    mp_lkf_y->setMeasurement(mes_vec_y, m_R_arr[measurement_type]);
     mp_lkf_y->doCorrection();
   }
 
@@ -274,7 +274,7 @@ bool StateEstimator::doCorrection(const Eigen::VectorXd &measurement, int measur
 
 /*  //{ getStates() */
 
-bool StateEstimator::getStates(Eigen::MatrixXd &states) {
+bool StateEstimator::getStates(LatState2D &states) {
 
   /*  //{ sanity checks */
 
@@ -295,7 +295,7 @@ bool StateEstimator::getStates(Eigen::MatrixXd &states) {
 
 /*  //{ getState() */
 
-bool StateEstimator::getState(int state_id, Eigen::VectorXd &state) {
+bool StateEstimator::getState(int state_id, Vec2 &state) {
 
   /*  //{ sanity checks */
 
@@ -342,7 +342,7 @@ std::string StateEstimator::getName(void) {
 
 /*  //{ setState() */
 
-bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
+bool StateEstimator::setState(int state_id, const Vec2 &state) {
 
   /*  //{ sanity checks */
 
@@ -398,7 +398,7 @@ bool StateEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 /*  //{ setStates() */
 
-bool StateEstimator::setStates(Eigen::MatrixXd &states) {
+bool StateEstimator::setStates(LatState2D &states) {
 
   /*  //{ sanity checks */
 
@@ -430,9 +430,9 @@ bool StateEstimator::setStates(Eigen::MatrixXd &states) {
 
 //}
 
-/*  //{ setQ() */
+/*  //{ setR() */
 
-bool StateEstimator::setQ(double cov, int measurement_type) {
+bool StateEstimator::setR(double cov, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -462,25 +462,25 @@ bool StateEstimator::setQ(double cov, int measurement_type) {
 
   //}
 
-  double old_cov = m_Q_arr[measurement_type](0, 0);
+  double old_cov = m_R_arr[measurement_type](0, 0);
 
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_Q_arr[measurement_type](0, 0) = cov;
+    m_R_arr[measurement_type](0, 0) = cov;
   }
 
   /* std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")" */
-  /* << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl; */
+  /* << " Changed covariance from: " << old_cov << " to: " << m_R_arr[measurement_type](0, 0) << std::endl; */
 
   return true;
 }
 
 //}
 
-/*  //{ getQ() */
+/*  //{ getR() */
 
-bool StateEstimator::getQ(double &cov, int measurement_type) {
+bool StateEstimator::getR(double &cov, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -506,7 +506,7 @@ bool StateEstimator::getQ(double &cov, int measurement_type) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = m_Q_arr[measurement_type](0, 0);
+    cov = m_R_arr[measurement_type](0, 0);
   }
 
   return true;
@@ -514,9 +514,9 @@ bool StateEstimator::getQ(double &cov, int measurement_type) {
 
 //}
 
-/*  //{ getR() */
+/*  //{ getQ() */
 
-bool StateEstimator::getR(double& cov, const Eigen::Vector2i& idx) {
+bool StateEstimator::getQ(double& cov, const Eigen::Vector2i& idx) {
 
   /*  //{ sanity checks */
 
@@ -535,7 +535,7 @@ bool StateEstimator::getR(double& cov, const Eigen::Vector2i& idx) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = m_R(idx(0), idx(1));
+    cov = m_Q(idx(0), idx(1));
   }
 
   return true;
@@ -543,9 +543,9 @@ bool StateEstimator::getR(double& cov, const Eigen::Vector2i& idx) {
 
 //}
 
-/*  //{ setR() */
+/*  //{ setQ() */
 
-bool StateEstimator::setR(double cov, const Eigen::Vector2i& idx) {
+bool StateEstimator::setQ(double cov, const Eigen::Vector2i& idx) {
 
   /*  //{ sanity checks */
 
@@ -575,14 +575,14 @@ bool StateEstimator::setR(double cov, const Eigen::Vector2i& idx) {
 
   //}
 
-  double old_cov = m_R(0, 0);
+  double old_cov = m_Q(0, 0);
 
   {
     std::scoped_lock lock(mutex_lkf);
 
-      m_R(idx(0), idx(1)) = cov;
-      mp_lkf_x->setR(m_R);
-      mp_lkf_y->setR(m_R);
+      m_Q(idx(0), idx(1)) = cov;
+      mp_lkf_x->setR(m_Q);
+      mp_lkf_y->setR(m_Q);
   }
 
   /* std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")" */
@@ -595,7 +595,7 @@ bool StateEstimator::setR(double cov, const Eigen::Vector2i& idx) {
 
 /*  //{ reset() */
 
-bool StateEstimator::reset(const Eigen::MatrixXd &states) {
+bool StateEstimator::reset(const LatState2D &states) {
 
   /*  //{ sanity checks */
 
@@ -638,4 +638,5 @@ bool StateEstimator::reset(const Eigen::MatrixXd &states) {
 }
 
 //}
+
 }  // namespace mrs_odometry
