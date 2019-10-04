@@ -16,6 +16,7 @@ typedef Eigen::Matrix<double, 1, N_STATES> LatStateCol1D;
 typedef Eigen::Matrix<double, N_STATES, 2> LatState2D;
 typedef Eigen::Matrix<double, 2, 1> Vec2;
 typedef Eigen::Matrix<double, N_MEASUREMENTS, 1> LatVecMes;
+/* typedef Eigen::Matrix<double, N_STATES, N_MEASUREMENTS> LatMesMap; */
 
 //}
 

@@ -674,7 +674,7 @@ private:
   std::map<std::string, Mat1>                 map_measurement_covariance;
   std::map<std::string, std::string>                     map_measurement_state;
   std::map<std::string, int>                             map_measurement_name_id;
-  std::map<std::string, LatStateCol1D>                 map_states;
+  std::map<std::string, LatStateCol1D>                   map_states;
   std::map<std::string, nav_msgs::Odometry>              map_estimator_odom;
   std::map<std::string, ros::Publisher>                  map_estimator_pub;
   std::map<std::string, std::shared_ptr<StateEstimator>> m_state_estimators;
@@ -1284,7 +1284,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
 
     std::vector<bool>            fusing_measurement;
-    std::vector<Eigen::MatrixXd> P_arr_lat, Q_arr_lat;
+    std::vector<LatStateCol1D> P_arr_lat, Q_arr_lat;
 
     // Find measurements fused by the estimator
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
@@ -1309,15 +1309,15 @@ void Odometry::onInit() {
       // Find measurement covariance
       std::map<std::string, Mat1>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
       if (std::strcmp(it2->c_str(), "vel_optflow") == 0) {
-        Q_arr_lat.push_back(pair_measurement_covariance->second * 1000);
+        Q_arr_lat.push_back(LatStateCol1D::Ones()*pair_measurement_covariance->second(0) * 1000);
       } else {
-        Q_arr_lat.push_back(pair_measurement_covariance->second);
+        Q_arr_lat.push_back(LatStateCol1D::Ones()*pair_measurement_covariance->second(0));
       }
     }
 
     // Add pointer to state estimator to array
     m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, P_arr_lat, Q_arr_lat, A_lat, B_lat, R_lat)));
+        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, A_lat, B_lat, R_lat, P_arr_lat, Q_arr_lat)));
 
     if (std::strcmp(it->c_str(), "RTK")) {
       estimator_rtk = std::make_shared<mrs_lib::Lkf>(2, 2, 2, A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk);
@@ -2559,9 +2559,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (is_updating_state_)
       return;
 
-    Vec2 pos_vec(2);
-    Vec2 vel_vec(2);
-    Vec2 acc_d_vec(2);
+    Vec2 pos_vec;
+    Vec2 vel_vec;
+    Vec2 acc_d_vec;
 
     {
       std::scoped_lock lock(mutex_current_estimator);
@@ -2815,8 +2815,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
                         current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION));
     }
 
-    Vec2 pos_vec(2);
-    Vec2 vel_vec(2);
+    Vec2 pos_vec;
+    Vec2 vel_vec;
 
     estimator.second->getState(0, pos_vec);
     estimator.second->getState(1, vel_vec);
@@ -4488,7 +4488,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     /* } */
     /* } */
 
-    Vec2 rtk_meas(2);
+    Vec2 rtk_meas;
     rtk_meas << x_est + x_correction, y_est + y_correction;
     {
       std::scoped_lock lock(mutex_rtk_est);
@@ -4711,7 +4711,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VIO")) {
-      Vec2 pos_vec(2);
+      Vec2 pos_vec;
       estimator.second->getState(0, pos_vec);
 
       // X position
@@ -4858,7 +4858,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VSLAM")) {
-      Vec2 pos_vec(2);
+      Vec2 pos_vec;
       estimator.second->getState(0, pos_vec);
 
       // X position
@@ -4972,7 +4972,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     } else if (!brick_reliable) {
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "BRICK") == 0 || std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
-          Vec2 pos_vec(2);
+          Vec2 pos_vec;
           pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
           estimator.second->setState(0, pos_vec);
         }
@@ -5937,7 +5937,7 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
 
     // save the current position
     // TODO this might be too simple solution
-    Vec2 pose = Eigen::VectorXd::Zero(2);
+    Vec2 pose;
     current_estimator->getState(0, pose);
     land_position_x   = pose[0];
     land_position_y   = pose[1];
@@ -7013,9 +7013,9 @@ void Odometry::stateEstimatorsPrediction(double x, double y, double dt) {
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->doPrediction(input, dt);
-    /* Eigen::VectorXd pos_vec(2); */
-    /* m_state_estimators[i]->getState(0, pos_vec); */
-    /* ROS_INFO("[Odometry]: %s after prediction with input: %f, dt: %f x: %f", m_state_estimators[i]->getName().c_str(), input(0), dt, pos_vec(0)); */
+    /* Vec2 pos_vec; */
+    /* estimator.second->getState(0, pos_vec); */
+    /* ROS_INFO_THROTTLE(1.0, "[Odometry]: %s after prediction with input: %f, dt: %f x: %f", estimator.second->getName().c_str(), input(0), dt, pos_vec(0)); */
   }
 }
 

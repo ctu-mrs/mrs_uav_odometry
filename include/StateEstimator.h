@@ -7,7 +7,12 @@
 #include <string>
 #include <vector>
 
+// Legacy LKF implementation
 #include <mrs_lib/Lkf.h>
+
+// New optimized LKF implementation
+#include <mrs_lib/lkf.h>
+
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 
@@ -19,11 +24,16 @@
 namespace mrs_odometry
 {
 
+using statecov_t = mrs_lib::LKF_MRS_odom::statecov_t;
+using u_t = mrs_lib::LKF_MRS_odom::u_t;
+using z_t = mrs_lib::LKF_MRS_odom::z_t;
+using R_t = mrs_lib::LKF_MRS_odom::R_t;
+using H_t = mrs_lib::LKF_MRS_odom::H_t;
+
   class StateEstimator {
 
   public:
-    StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
-                   const std::vector<Eigen::MatrixXd> &R_arr, const LatMat &A, const LatStateCol1D &B, const LatMat &Q);
+    StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const LatMat &A, const LatStateCol1D &B, const LatMat &Q, const std::vector<LatStateCol1D> &H, const std::vector<LatStateCol1D> &R_arr);
 
     bool        doPrediction(const Vec2 &input, double dt);
     bool        doCorrection(const Vec2 &measurement, int measurement_type);
@@ -43,17 +53,23 @@ namespace mrs_odometry
   private:
     std::string                  m_estimator_name;
     std::vector<bool>            m_fusing_measurement;
-    std::vector<Eigen::MatrixXd> m_P_arr;
-    std::vector<Eigen::MatrixXd> m_R_arr;
     LatMat              m_A;
     LatState1D              m_B;
     LatMat              m_Q;
+    std::vector<LatStateCol1D>              m_H;
+    std::vector<LatStateCol1D> m_R_arr;
 
     int    m_n_states;
     size_t m_n_measurement_types;
 
-    std::unique_ptr<mrs_lib::Lkf> mp_lkf_x;
-    std::unique_ptr<mrs_lib::Lkf> mp_lkf_y;
+    /* std::unique_ptr<mrs_lib::Lkf> mp_lkf_x; */
+    /* std::unique_ptr<mrs_lib::Lkf> mp_lkf_y; */
+    std::unique_ptr<mrs_lib::LKF_MRS_odom> mp_lkf_x;
+    std::unique_ptr<mrs_lib::LKF_MRS_odom> mp_lkf_y;
+
+    mrs_lib::LKF_MRS_odom::statecov_t sc_x;
+    mrs_lib::LKF_MRS_odom::statecov_t sc_y;
+
 
     std::mutex mutex_lkf;
 
