@@ -4102,7 +4102,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
         measurement_id = it_measurement_id->second;
 
-        estimator.second->getQ(init_Q, measurement_id);
+        estimator.second->getR(init_Q, measurement_id);
         got_init_optflow_Q = true;
       }
     }
