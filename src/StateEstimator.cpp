@@ -193,11 +193,11 @@ try
 
 }
 
-  ROS_INFO_THROTTLE(1.0, "ee");
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: input  x:" << u_x << std::endl << "y: " << u_y << std::endl << std::endl);
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: m_Q:" << m_Q << std::endl << std::endl);
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: dt:" << dt << std::endl << std::endl);
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: state  x:" << sc_x.x << std::endl << "y: " << sc_y.x << std::endl << std::endl);
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: prediction step" << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: input  x:" << u_x << std::endl << "y: " << u_y << std::endl << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: m_Q:" << m_Q << std::endl << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: dt:" << dt << std::endl << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: state  x:" << sc_x.x << std::endl << "y: " << sc_y.x << std::endl << std::endl); */
 
   return true;
 }
@@ -272,8 +272,8 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
     /* mp_lkf_y->doCorrection(); */
 
     try {
-    mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
-    mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
+    sc_x = mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
+    sc_y = mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
   } catch (const std::exception& e)
     {
       // In case of error, alert the user
@@ -281,9 +281,12 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
     }
   }
 
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: corr  x:" << z_x << std::endl << "y: " << z_y << std::endl << std::endl);
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: R: " << R << std::endl << std::endl);
-  ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: state  x:" << sc_x.x << std::endl << "y: " << sc_y.x << std::endl << std::endl);
+  /* if (measurement_type==1) { */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: correction type: " << measurement_type << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: corr  x:" << z_x << std::endl << "y: " << z_y << std::endl << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: R: " << R << std::endl << std::endl); */
+  /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: state  x:" << sc_x.x << std::endl << "y: " << sc_y.x << std::endl << std::endl); */
+  /* } */
 
   return true;
 }
