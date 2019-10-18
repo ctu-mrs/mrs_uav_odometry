@@ -707,14 +707,14 @@ private:
   std::mutex                  mutex_mavros_diag;
 
   // reliability of gps
-  double max_altitude;
+  double max_altitude       = 10;
   bool   gps_reliable       = false;
   bool   hector_reliable    = false;
   bool   _gps_available     = false;
   bool   _vio_available     = false;
   bool   vio_reliable       = true;
-  bool   _vslam_available     = false;
-  bool   vslam_reliable       = true;
+  bool   _vslam_available   = false;
+  bool   vslam_reliable     = true;
   bool   optflow_reliable   = false;
   bool   _optflow_available = false;
   bool   _rtk_available     = false;
@@ -930,6 +930,7 @@ void Odometry::onInit() {
   // Optic flow
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
   param_loader.load_param("max_default_altitude", _max_default_altitude);
+  max_altitude = _max_default_altitude;
   param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
   param_loader.load_param("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
   optflow_stddev.x = 1.0;
@@ -7461,6 +7462,9 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    max_altitude = _max_default_altitude;
+    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+
     // Hector SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::HECTOR) {
 
@@ -7473,6 +7477,9 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
       return false;
     }
+
+    max_altitude = _max_default_altitude;
+    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
 
     // Vio localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
