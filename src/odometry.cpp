@@ -2211,7 +2211,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
@@ -2231,7 +2236,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s",
@@ -2251,7 +2261,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_optflow) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
@@ -2273,12 +2288,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: T265 not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     } else if ((!got_odom_t265 || !t265_reliable) && gps_reliable && got_odom_pixhawk) {
       ROS_WARN("[Odometry]: T265 not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
-      changeCurrentEstimator(gps_type);
+      if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_odom_t265) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
@@ -2307,12 +2332,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-        changeCurrentEstimator(optflow_type);
+        if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
       } else if (gps_reliable && got_odom_pixhawk) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
-        changeCurrentEstimator(gps_type);
+        if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
       } else if (!failsafe_called) {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
@@ -2337,7 +2372,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::BRICK) {
     if (!got_brick_pose || !brick_reliable) {
       ROS_WARN("[Odometry]: BRICK not reliable. Switching to %s type.", _estimator_type_names[fallback_brick_estimator_type.type].c_str());
-      changeCurrentEstimator(fallback_brick_estimator_type);
+      if (!changeCurrentEstimator(fallback_brick_estimator_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
 
     // Fallback from OPTFLOW
@@ -2348,7 +2388,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN("[Odometry]: OPTFLOW not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
-        changeCurrentEstimator(gps_type);
+        if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
       } else if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_optflow) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
@@ -2397,7 +2442,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN("[Odometry]: BRICKFLOW not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
-        changeCurrentEstimator(gps_type);
+        if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
       } else if (!got_odom_pixhawk || !got_range || (use_utm_origin_ && !got_pixhawk_utm) || !got_optflow) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
@@ -2430,12 +2480,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     } else if (!vio_reliable && gps_reliable && got_odom_pixhawk) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
-      changeCurrentEstimator(gps_type);
+      if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || !got_vio) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
@@ -2454,12 +2514,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-      changeCurrentEstimator(optflow_type);
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     } else if (!vslam_reliable && gps_reliable && got_odom_pixhawk) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
-      changeCurrentEstimator(gps_type);
+      if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+      }
     }
     if (!got_odom_pixhawk || !got_range || !got_vslam) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vslam: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
@@ -2472,6 +2542,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
       return;
     }
+
 
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Unknown odometry type. Not checking sensors.");
