@@ -127,6 +127,7 @@ private:
 
 private:
   ros::Publisher pub_odom_main_;    // the main fused odometry
+  ros::Publisher pub_odom_main_inno_;    // the main fused odometry
   ros::Publisher pub_odom_stable_;  // the main fused odometry
   ros::Publisher pub_slow_odom_;    // the main fused odometry, just slow
   ros::Publisher pub_esp_odom_;
@@ -215,6 +216,9 @@ private:
   double             init_magnetic_heading_ = 0.0;
   double             init_brick_yaw_        = 0.0;
   double             yaw_diff_              = 0.0;
+
+  nav_msgs::Odometry odom_main_inno;
+  std::mutex mutex_odom_main_inno;
 
   std::mutex mutex_odom_pixhawk;
   std::mutex mutex_odom_pixhawk_shifted;
@@ -1566,6 +1570,7 @@ void Odometry::onInit() {
   /* //{ publishers */
   // publisher for new odometry
   pub_odom_main_             = nh_.advertise<nav_msgs::Odometry>("odom_main_out", 1);
+  pub_odom_main_inno_             = nh_.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
   pub_odom_stable_           = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
   pub_slow_odom_             = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
   pub_esp_odom_              = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
@@ -2810,6 +2815,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
   ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
+  try {
+    pub_odom_main_inno_.publish(odom_main_inno);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_inno_.getTopic().c_str());
+  }
+
   // publish TF
   geometry_msgs::Vector3 position;
   position.x = odom_main.pose.pose.position.x;
@@ -3730,6 +3742,20 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
     }
 
+    // Set innoation variable if ccurnet estimator is GPS
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "GPS")) {
+          Vec2 vel_vec, innovation;
+          current_estimator->getState(1, vel_vec);
+
+          innovation(0) = vel_mavros_x - vel_vec(0);
+          innovation(1) = vel_mavros_y - vel_vec(1);
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.twist.twist.linear.x = innovation(0);
+            odom_main_inno.twist.twist.linear.y = innovation(1);
+          }
+      }
+
     Eigen::VectorXd rtk_input(2);
     rtk_input << vel_mavros_x, vel_mavros_y;
 
@@ -3778,22 +3804,25 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 
     // Saturate correction
-    if (saturate_mavros_position_) {
       for (auto &estimator : m_state_estimators) {
         if (std::strcmp(estimator.first.c_str(), "GPS") == 0) {
-          Vec2 pos_vec;
+          Vec2 pos_vec, innovation;
           estimator.second->getState(0, pos_vec);
 
+          innovation(0) = pos_mavros_x - pos_vec(0);
+          innovation(1) = pos_mavros_y - pos_vec(1);
+
+    if (saturate_mavros_position_) {
           // X position
           if (!std::isfinite(pos_mavros_x)) {
             pos_mavros_x = 0;
             ROS_ERROR("NaN detected in variable \"pos_mavros_x\", setting it to 0 and returning!!!");
             return;
-          } else if (pos_mavros_x - pos_vec(0) > max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", pos_mavros_x - pos_vec(0), max_mavros_pos_correction);
+          } else if (innovation(0) > max_mavros_pos_correction) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), max_mavros_pos_correction);
             pos_mavros_x = pos_vec(0) + max_mavros_pos_correction;
-          } else if (pos_mavros_x - pos_vec(0) < -max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", pos_mavros_x - pos_vec(0), -max_mavros_pos_correction);
+          } else if (innovation(0) < -max_mavros_pos_correction) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), -max_mavros_pos_correction);
             pos_mavros_x = pos_vec(0) - max_mavros_pos_correction;
           }
 
@@ -3802,16 +3831,22 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
             pos_mavros_y = 0;
             ROS_ERROR("NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
             return;
-          } else if (pos_mavros_y - pos_vec(1) > max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), max_mavros_pos_correction);
+          } else if (innovation(1) > max_mavros_pos_correction) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), max_mavros_pos_correction);
             pos_mavros_y = pos_vec(1) + max_mavros_pos_correction;
-          } else if (pos_mavros_y - pos_vec(1) < -max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", pos_mavros_y - pos_vec(1), -max_mavros_pos_correction);
+          } else if (innovation(1) < -max_mavros_pos_correction) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), -max_mavros_pos_correction);
             pos_mavros_y = pos_vec(1) - max_mavros_pos_correction;
+          }
+    }
+
+          // Set innoation variable if ccurnet estimator is GPS
+          if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "GPS")) {
+            odom_main_inno.pose.pose.position.x = innovation(0);
+            odom_main_inno.pose.pose.position.y = innovation(1);
           }
         }
       }
-    }
 
     if (finished_state_update_) {
       ROS_INFO("[Odometry]: finished state update");
@@ -4245,6 +4280,21 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   catch (...) {
     ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
   }
+    // Set innoation variable if ccurnet estimator is OPTFLOW
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "OPTFLOW")) {
+          Vec2 vel_vec, innovation;
+          current_estimator->getState(1, vel_vec);
+
+          innovation(0) = optflow_vel_x - vel_vec(0);
+          innovation(1) = optflow_vel_y - vel_vec(1);
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.pose.pose.position.x = 0;
+            odom_main_inno.pose.pose.position.y = 0;
+            odom_main_inno.twist.twist.linear.x = innovation(0);
+            odom_main_inno.twist.twist.linear.y = innovation(1);
+          }
+      }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
@@ -4750,6 +4800,20 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   }
 
+    // Set innoation variable if ccurnet estimator is VIO
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "VIO")) {
+          Vec2 vel_vec, innovation;
+          current_estimator->getState(1, vel_vec);
+
+          innovation(0) = vel_vio_x - vel_vec(0);
+          innovation(1) = vel_vio_y - vel_vec(1);
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.twist.twist.linear.x = innovation(0);
+            odom_main_inno.twist.twist.linear.y = innovation(1);
+          }
+      }
+
   if (vio_reliable && (vel_vio_x > 10 || vel_vio_y > 10)) {
     ROS_WARN("[Odometry]: Estimated VIO velocity > 10. VIO is not reliable.");
     vio_reliable = false;
@@ -4783,19 +4847,22 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VIO")) {
-      Vec2 pos_vec;
+      Vec2 pos_vec, innovation;
       estimator.second->getState(0, pos_vec);
+
+      innovation(0) = vio_pos_x - pos_vec(0);
+      innovation(1) = vio_pos_y - pos_vec(1);
 
       // X position
       if (!std::isfinite(vio_pos_x)) {
         vio_pos_x = 0;
         ROS_ERROR("NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
         return;
-      } else if (vio_pos_x - pos_vec(0) > max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), max_vio_pos_correction);
+      } else if (innovation(0) > max_vio_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), max_vio_pos_correction);
         vio_pos_x = pos_vec(0) + max_vio_pos_correction;
-      } else if (vio_pos_x - pos_vec(0) < -max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", vio_pos_x - pos_vec(0), -max_vio_pos_correction);
+      } else if (innovation(0) < -max_vio_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), -max_vio_pos_correction);
         vio_pos_x = pos_vec(0) - max_vio_pos_correction;
       }
 
@@ -4804,13 +4871,23 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         vio_pos_y = 0;
         ROS_ERROR("NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
         return;
-      } else if (vio_pos_y - pos_vec(1) > max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), max_vio_pos_correction);
+      } else if (innovation(1) > max_vio_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), max_vio_pos_correction);
         vio_pos_y = pos_vec(1) + max_vio_pos_correction;
-      } else if (vio_pos_y - pos_vec(1) < -max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", vio_pos_y - pos_vec(1), -max_vio_pos_correction);
+      } else if (innovation(1) < -max_vio_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), -max_vio_pos_correction);
         vio_pos_y = pos_vec(1) - max_vio_pos_correction;
       }
+
+    // Set innoation variable if ccurnet estimator is VIO
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "VIO")) {
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.pose.pose.position.x = innovation(0);
+            odom_main_inno.pose.pose.position.y = innovation(1);
+          }
+      }
+
     }
   }
 
@@ -4930,19 +5007,22 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (mrs_odometry::isEqual(estimator.first, "VSLAM")) {
-      Vec2 pos_vec;
-      estimator.second->getState(0, pos_vec);
+        Vec2 pos_vec, innovation;
+        current_estimator->getState(0, pos_vec);
+
+        innovation(0) = vslam_pos_x - pos_vec(0);
+        innovation(1) = vslam_pos_y - pos_vec(1);
 
       // X position
       if (!std::isfinite(vslam_pos_x)) {
         vslam_pos_x = 0;
         ROS_ERROR("NaN detected in variable \"vslam_pos_x\", setting it to 0 and returning!!!");
         return;
-      } else if (vslam_pos_x - pos_vec(0) > max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", vslam_pos_x - pos_vec(0), max_vslam_pos_correction);
+      } else if (innovation(0)> max_vslam_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), max_vslam_pos_correction);
         vslam_pos_x = pos_vec(0) + max_vslam_pos_correction;
-      } else if (vslam_pos_x - pos_vec(0) < -max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", vslam_pos_x - pos_vec(0), -max_vslam_pos_correction);
+      } else if (innovation(0) < -max_vslam_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), -max_vslam_pos_correction);
         vslam_pos_x = pos_vec(0) - max_vslam_pos_correction;
       }
 
@@ -4951,12 +5031,23 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
         vslam_pos_y = 0;
         ROS_ERROR("NaN detected in variable \"vslam_pos_y\", setting it to 0 and returning!!!");
         return;
-      } else if (vslam_pos_y - pos_vec(1) > max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", vslam_pos_y - pos_vec(1), max_vslam_pos_correction);
+      } else if (innovation(1) > max_vslam_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), max_vslam_pos_correction);
         vslam_pos_y = pos_vec(1) + max_vslam_pos_correction;
-      } else if (vslam_pos_y - pos_vec(1) < -max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", vslam_pos_y - pos_vec(1), -max_vslam_pos_correction);
+      } else if (innovation(1) < -max_vslam_pos_correction) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), -max_vslam_pos_correction);
         vslam_pos_y = pos_vec(1) - max_vslam_pos_correction;
+      }
+
+    // Set innoation variable if ccurnet estimator is VSLAM
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "VSLAM")) {
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.pose.pose.position.x = innovation(0);
+            odom_main_inno.pose.pose.position.y = innovation(1);
+            odom_main_inno.twist.twist.linear.x = 0;
+            odom_main_inno.twist.twist.linear.y = 0;
+          }
       }
     }
   }
@@ -5204,6 +5295,22 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   /*   } */
   /* } */
 
+    // Set innoation variable if ccurnet estimator is VIO
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "BRICK")) {
+          Vec2 pos_vec, innovation;
+          current_estimator->getState(0, pos_vec);
+
+          innovation(0) = corr_brick_pos_x - pos_vec(0);
+          innovation(1) = corr_brick_pos_y - pos_vec(1);
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.pose.pose.position.x = innovation(0);
+            odom_main_inno.pose.pose.position.y = innovation(1);
+            odom_main_inno.twist.twist.linear.x = 0;
+            odom_main_inno.twist.twist.linear.y = 0;
+          }
+      }
+
   // Apply correction step to all state estimators
   if (brick_reliable) {
     stateEstimatorsCorrection(corr_brick_pos_x, corr_brick_pos_y, "pos_brick");
@@ -5309,6 +5416,21 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     }
   }
 
+    // Set innoation variable if ccurnet estimator is LIDAR
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "LIDAR")) {
+          Vec2 vel_vec, innovation;
+          current_estimator->getState(1, vel_vec);
+
+          innovation(0) = vel_lidar_x - vel_vec(0);
+          innovation(1) = vel_lidar_y - vel_vec(1);
+
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.twist.twist.linear.x = innovation(0);
+            odom_main_inno.twist.twist.linear.y = innovation(1);
+          }
+      }
+
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vel_lidar_x, vel_lidar_y, "vel_lidar");
 
@@ -5353,6 +5475,21 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
       pos_lidar_corr_y_ = pos_lidar_x * sin(yaw - yaw_lidar) + pos_lidar_y * cos(yaw - yaw_lidar);
     }
   }
+
+    // Set innoation variable if ccurnet estimator is LIDAR
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "LIDAR")) {
+          Vec2 pos_vec, innovation;
+          current_estimator->getState(0, pos_vec);
+
+          innovation(0) = pos_lidar_corr_x_ - pos_vec(0);
+          innovation(1) = pos_lidar_corr_y_ - pos_vec(1);
+
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.twist.twist.linear.x = innovation(0);
+            odom_main_inno.twist.twist.linear.y = innovation(1);
+          }
+      }
 
   // Apply correction step to all state estimators
   /* stateEstimatorsCorrection(pos_lidar_corr_x_, pos_lidar_corr_y_, "pos_lidar"); */
@@ -5474,6 +5611,23 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       pos_hector_corr_y_ = pos_hector_x * sin(yaw - yaw_hector) + pos_hector_y * cos(yaw - yaw_hector);
     }
   }
+
+    // Set innoation variable if ccurnet estimator is HECTOR
+    if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "HECTOR")) {
+          Vec2 pos_vec, innovation;
+          current_estimator->getState(0, pos_vec);
+
+          innovation(0) = pos_hector_corr_x_ - pos_vec(0);
+          innovation(1) = pos_hector_corr_y_ - pos_vec(1);
+
+          {
+            std::scoped_lock lock(mutex_odom_main_inno);
+            odom_main_inno.pose.pose.position.x = innovation(0);
+            odom_main_inno.pose.pose.position.y = innovation(1);
+            odom_main_inno.twist.twist.linear.x = 0;
+            odom_main_inno.twist.twist.linear.y = 0;
+          }
+      }
   // Apply correction step to all state estimators
   /* stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector"); */
 
