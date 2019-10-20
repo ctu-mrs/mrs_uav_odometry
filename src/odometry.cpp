@@ -145,6 +145,7 @@ private:
   ros::Publisher pub_vslam_yaw_;
   ros::Publisher pub_odometry_diag_;
   ros::Publisher pub_altitude_;
+  ros::Publisher pub_height_;
   ros::Publisher pub_orientation_;
   ros::Publisher pub_max_altitude_;
   ros::Publisher pub_lkf_states_x_;
@@ -756,6 +757,15 @@ private:
   void       maxAltitudeTimer(const ros::TimerEvent &event);
   void       topicWatcherTimer(const ros::TimerEvent &event);
 
+
+  using lkf_height_t = mrs_lib::LKF<1,1,1>;
+  std::unique_ptr<lkf_height_t> estimator_height_;
+  lkf_height_t::R_t R_height_;
+  lkf_height_t::Q_t Q_height_;
+  lkf_height_t::statecov_t sc_height_;
+  std::mutex mutex_estimator_height_;
+  ros::Time time_main_timer_prev_;
+
   // for fusing rtk altitude
   double trg_z_offset_;
   double garmin_z_offset_;
@@ -1160,6 +1170,17 @@ void Odometry::onInit() {
                     << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_model << ", B: " << B_alt << ", R: " << R_alt);
   }
 
+  // Height Garmin filter
+  lkf_height_t::A_t A_height;
+  A_height << 1;
+  lkf_height_t::B_t B_height;
+  B_height << 0;
+  lkf_height_t::H_t H_height;
+  H_height << 1;
+  estimator_height_ = std::make_unique<lkf_height_t>(A_height,B_height,H_height);
+
+  param_loader.load_matrix_static("height/R", R_height_);
+  param_loader.load_matrix_static("height/Q", Q_height_);
 
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
@@ -1576,6 +1597,7 @@ void Odometry::onInit() {
   pub_esp_odom_              = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
   pub_odometry_diag_         = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_              = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
+  pub_height_                = nh_.advertise<mrs_msgs::Float64Stamped>("height_out", 1);
   pub_max_altitude_          = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
   pub_orientation_           = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
   pub_lkf_states_x_          = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
@@ -2045,11 +2067,32 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
 
-  // Just return without publishing - the t265 odometry is republished in callback at faster rate
-  if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
+  double dt;
+  ros::Time time_now = ros::Time::now();
+  dt = (time_now - time_main_timer_prev_).toSec();
+  time_main_timer_prev_ = time_now;
 
-    return;
+  // prediction step of height estimator
+  mrs_msgs::Float64Stamped height_msg;
+  height_msg.header.frame_id = "local_origin";
+  height_msg.header.stamp = ros::Time::now();
+  {
+    std::scoped_lock lock(mutex_estimator_height_);
+  
+    lkf_height_t::u_t u;
+    u << 0;
+    sc_height_ = estimator_height_->predict(sc_height_, u, Q_height_, dt);
+    height_msg.value = sc_height_.x(0);
   }
+
+
+  try {
+    pub_height_.publish(height_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_height_.getTopic().c_str());
+  }
+
 
   // --------------------------------------------------------------
   // |              publish the new altitude message              |
@@ -2558,6 +2601,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
 
   //}
+
+  // Just return without publishing - the t265 odometry is republished in callback at faster rate
+  if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
+
+    return;
+  }
 
   /* publish fused odometry //{ */
 
@@ -5835,6 +5884,15 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   got_range = true;
+
+  // fuse height estimate
+  lkf_height_t::z_t z;
+  z << measurement;
+  {
+    std::scoped_lock lock(mutex_estimator_height_);
+  
+    sc_height_ = estimator_height_->correct(sc_height_, z, R_height_);
+  }
 
   // deside on measurement's covariance
   Eigen::MatrixXd mesCov;
