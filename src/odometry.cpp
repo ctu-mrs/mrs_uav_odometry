@@ -729,6 +729,7 @@ private:
   bool   _lidar_available   = false;
   bool   _brick_available   = false;
   bool   brick_reliable     = false;
+  bool   height_available_  = false;
 
   bool   pass_rtk_as_odom = false;
   double max_pos_correction_rate;
@@ -3078,6 +3079,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   odometry_diag.optflow_available = _optflow_available;
   odometry_diag.rtk_available     = _rtk_available;
   odometry_diag.lidar_available   = _lidar_available;
+  odometry_diag.height_available  = height_available_;
 
 
   try {
@@ -3247,6 +3249,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
 
   ros::Duration interval;
+
+  // garmin range
+  interval = ros::Time::now() - garmin_last_update;
+  if (height_available_ && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Garmin range not received for %f seconds.", interval.toSec());
+    height_available_ = false;
+  }
 
   // pixhawk odometry
   interval = ros::Time::now() - odom_pixhawk_last_update;
@@ -5825,6 +5834,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
     got_range = true;
   }
+
+  height_available_ = true;
+  garmin_last_update = ros::Time::now();
 
   if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin range timestamp not OK, not fusing correction.");
