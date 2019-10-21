@@ -7804,6 +7804,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
+    hector_reliable = true;
+
     max_altitude = _max_default_altitude;
     ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
 
