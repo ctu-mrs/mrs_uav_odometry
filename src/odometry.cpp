@@ -190,6 +190,7 @@ private:
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
   ros::ServiceServer ser_reset_hector_;
+  ros::ServiceServer ser_reliable_hector_;
   ros::ServiceServer ser_offset_odom_;
   ros::ServiceServer ser_teraranger_;
   ros::ServiceServer ser_garmin_;
@@ -458,6 +459,7 @@ private:
   bool callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackResetEstimator(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res);
   bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -1732,6 +1734,9 @@ void Odometry::onInit() {
 
   // subscribe for reset hector service
   ser_reset_hector_ = nh_.advertiseService("reset_hector_in", &Odometry::callbackResetHector, this);
+
+  // subscribe for reliable hector service
+  ser_reliable_hector_ = nh_.advertiseService("reliable_hector_in", &Odometry::callbackReliableHector, this);
 
   // subscribe for garmin toggle service
   ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
@@ -5593,8 +5598,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       return;
     }
 
-    if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 50 ||
-        std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 50) {
+    if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 9 ||
+        std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 9) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump detected in Hector Slam pose");
       hector_reliable = false;
     }
@@ -7208,6 +7213,24 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
 
   res.success = true;
   res.message = "Reset of Hector estimator successful";
+
+  return true;
+}
+//}
+
+/* //{ callbackReliableHector() */
+
+bool Odometry::callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  hector_reliable = true;
+
+  ROS_WARN("[Odometry]: Hector manually set to reliable.");
+
+  res.success = true;
+  res.message = "Hector manually set to reliable";
 
   return true;
 }
