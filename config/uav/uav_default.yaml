@@ -1,6 +1,6 @@
 # Estimators used during takeoff
 # Lateral state estimator:
-# OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, LIDAR, VIO, VSLAM, HECTOR
 lateral_estimator: "GPS"
 
 # Altitude state estimator:
@@ -13,10 +13,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "BRICK", "HECTOR"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "HECTOR", "LIDAR"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM"]
 
 # Available localization methods
 gps_available: true
@@ -26,6 +26,7 @@ rtk_available: true
 lidar_available: true
 brick_available: true
 t265_available: false
+vslam_available: false
 
 # Rates of odometry publishers
 rate: 100 # [Hz]
@@ -106,6 +107,7 @@ lateral:
   max_object_pos_correction: 0.5
   max_brick_pos_correction: 1.0
   max_rtk_pos_correction: 0.2
+  max_vslam_pos_correction: 0.2
   max_t265_vel: 10.0
   rtk_fuse_sps: true
 
@@ -117,10 +119,10 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
-  icp_vel_median_filter: true
-  icp_vel_filter_buffer_size: 50
-  icp_vel_filter_max_valid: 8.0
-  icp_vel_filter_max_diff: 3.0
+  lidar_vel_median_filter: true
+  lidar_vel_filter_buffer_size: 50
+  lidar_vel_filter_max_valid: 8.0
+  lidar_vel_filter_max_diff: 3.0
 
   hector_pos_median_filter: true
   hector_pos_filter_buffer_size: 50
@@ -140,8 +142,9 @@ lateral:
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
-    pos_icp: [1000]
-    vel_icp: [10000]
+    pos_lidar: [1]
+    vel_lidar: [10]
+    pos_vslam: [1000]
     pos_vio: [100]
     vel_vio: [10000]
     pos_object: [100]
@@ -255,5 +258,7 @@ heading:
     yaw_hector: [0.01]
     yaw_brick: [1]
     yaw_vio: [1]
+    yaw_vslam: [1]
+    yaw_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]

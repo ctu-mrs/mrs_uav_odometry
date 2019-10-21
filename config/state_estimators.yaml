@@ -9,12 +9,13 @@ state_estimators:
     "GPS", 
     "OPTFLOWGPS",
     "RTK",
-    "ICP",
+    "LIDAR",
     "VIO",
     "BRICK",
     "T265",
     "HECTOR",
-    "BRICKFLOW"
+    "BRICKFLOW",
+    "VSLAM",
   ] 
 
   # The measured states of the model
@@ -31,27 +32,30 @@ state_estimators:
     "tilt_mavros",
     "pos_rtk",
     "vel_rtk",
-    "pos_icp",
-    "vel_icp",
+    "pos_lidar",
+    "vel_lidar",
     "pos_vio",
     "vel_vio",
     "pos_brick",
     "vel_brick",
     "pos_hector",
+    "pos_vslam",
   ]
 
   # The fused measurements for each state estimator
   fused_measurements:
     OPTFLOW: ["vel_optflow", "tilt_mavros"]
     GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
+    # GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros", "tilt_mavros"]
     RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
     # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
     # RTK: ["pos_rtk", "tilt_mavros"]
     # ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
-    ICP: ["tilt_mavros", "vel_icp"]
+    LIDAR: ["tilt_mavros", "pos_lidar"]
     HECTOR: ["tilt_mavros", "pos_hector"]
     VIO: ["tilt_mavros", "pos_vio", "vel_vio"]
+    VSLAM: ["tilt_mavros", "pos_vslam"]
     # BRICK: ["pos_brick"]
     BRICK: ["tilt_mavros", "pos_brick"]
     BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
@@ -65,13 +69,14 @@ state_estimators:
     tilt_mavros: TILT
     pos_rtk: POSITION
     vel_rtk: VELOCITY
-    pos_icp: POSITION
-    vel_icp: VELOCITY
+    pos_lidar: POSITION
+    vel_lidar: VELOCITY
     pos_vio: POSITION
     vel_vio: VELOCITY
     pos_brick: POSITION
     vel_brick: VELOCITY
     pos_hector: POSITION
+    pos_vslam: POSITION
 
   # Mapping states to model
   state_mapping:

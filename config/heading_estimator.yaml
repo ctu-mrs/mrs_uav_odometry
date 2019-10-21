@@ -10,8 +10,10 @@ heading_estimators:
     "COMPASS",
     "OPTFLOW", 
     "HECTOR",
+    "LIDAR",
     "BRICK",
-    "VIO"
+    "VIO",
+    "VSLAM"
   ] 
 
   # The measured states of the model
@@ -28,7 +30,9 @@ heading_estimators:
     "rate_optflow",
     "yaw_hector",
     "yaw_brick",
-    "yaw_vio"
+    "yaw_vio",
+    "yaw_vslam",
+    "yaw_lidar",
   ]
 
   # The fused measurements for each state estimator
@@ -38,8 +42,10 @@ heading_estimators:
     COMPASS: ["rate_gyro", "yaw_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
     HECTOR: ["rate_gyro", "yaw_hector"]
+    LIDAR: ["rate_gyro", "yaw_lidar"]
     BRICK: ["rate_gyro", "yaw_brick"]
-    VIO: ["yaw_vio"]
+    VIO: ["rate_gyro", "yaw_vio"]
+    VSLAM: ["rate_gyro", "yaw_vslam"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
@@ -50,6 +56,8 @@ heading_estimators:
     yaw_hector: YAW
     yaw_brick: YAW
     yaw_vio: YAW
+    yaw_vslam: YAW
+    yaw_lidar: YAW
 
   # Mapping states to model
   state_mapping:

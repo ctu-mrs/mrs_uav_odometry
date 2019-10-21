@@ -26,10 +26,11 @@
       <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
       <remap from="~tersus_in" to="tersus/bestpos" />
-      <remap from="~rtk_out" to="rtk_gps/global" />
 
       <!-- Publishers -->
       <remap from="~profiler" to="profiler" />
+      <remap from="~rtk_out" to="rtk_gps/global" />
+      <remap from="~pose_out" to="ground_truth_pose" />
 
     </node>
 

@@ -3,6 +3,8 @@
 
 #include <nav_msgs/Odometry.h>
 
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/RtkFixType.h>
 
@@ -12,6 +14,8 @@
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
+
+#include <support.h>
 
 #include <mutex>
 
@@ -38,6 +42,7 @@ namespace mrs_odometry
     ros::Subscriber    tersus_subscriber;
     ros::Publisher     rtk_publisher;
     ros::Publisher     odom_publisher;
+    ros::Publisher     pose_publisher;
     ros::ServiceServer service_server_jump_emulation;
     ros::ServiceServer service_server_random_jumps;
 
@@ -46,7 +51,7 @@ namespace mrs_odometry
 
     double offset_x_, offset_y_;
 
-    double jump_offset;
+    double jump_offset, jump_yaw_offset;
 
     // simulation of RTK signal degradation
     bool   add_random_jumps;
@@ -64,9 +69,12 @@ namespace mrs_odometry
 
     ros::Timer main_timer;
 
-    // global pose from gazebo
+    // global odometry from gazebo
     nav_msgs::Odometry odom;
     bool               got_odom = false;
+
+    // republished pose message 
+    geometry_msgs::PoseWithCovarianceStamped pose_msg_out;
 
     // rtk message from tersus
     mrs_msgs::Bestpos tersus;
@@ -110,6 +118,7 @@ namespace mrs_odometry
 
     // PUBLISHERS
     rtk_publisher = nh_.advertise<mrs_msgs::RtkGps>("rtk_out", 1);
+    pose_publisher = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_out", 1);
 
     // --------------------------------------------------------------
     // |                           timers                           |
@@ -138,6 +147,7 @@ namespace mrs_odometry
     }
 
     jump_offset = 0.0;
+    jump_yaw_offset = 0.0;
 
     add_random_jumps   = false;
     random_jump_active = false;
@@ -246,9 +256,11 @@ namespace mrs_odometry
 
     if (jump_offset != 2.0) {
       jump_offset       = 2.0;
+      jump_yaw_offset   = 1.0;
       fix_type.fix_type = mrs_msgs::RtkFixType::SPS;
     } else {
       jump_offset       = 0.0;
+      jump_yaw_offset   = 0.0;
       fix_type.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
     }
 
@@ -269,7 +281,6 @@ namespace mrs_odometry
       until_next_jump  = 3 * rate_;
       until_jump_end   = 5 * rate_;
       jump_amplitude   = 1.0;
-      ;
     } else {
       add_random_jumps = false;
     }
@@ -312,6 +323,13 @@ namespace mrs_odometry
 
       rtk_msg_out.pose  = odom.pose;
       rtk_msg_out.twist = odom.twist;
+
+      pose_msg_out.pose  = odom.pose;
+      pose_msg_out.pose.pose.position.x += jump_offset;
+      pose_msg_out.pose.pose.position.y += jump_offset;
+      mrs_odometry::addYaw(pose_msg_out.pose.pose.orientation, jump_yaw_offset);
+      pose_msg_out.header.stamp    = ros::Time::now();
+      pose_msg_out.header.frame_id = "local_origin";
     }
 
     rtk_msg_out.pose.pose.position.x += offset_x_;
@@ -350,6 +368,14 @@ namespace mrs_odometry
     }
     catch (...) {
       ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", rtk_publisher.getTopic().c_str());
+    }
+
+    try {
+      pose_publisher.publish(geometry_msgs::PoseWithCovarianceStampedConstPtr(new geometry_msgs::PoseWithCovarianceStamped(pose_msg_out)));
+      ROS_INFO_ONCE("[RtkRepublisher]: Publishing RTK from Gazebo simulator.");
+    }
+    catch (...) {
+      ROS_ERROR("[RtkRepublisher]: Exception caught during publishing topic %s.", pose_publisher.getTopic().c_str());
     }
   }
 
