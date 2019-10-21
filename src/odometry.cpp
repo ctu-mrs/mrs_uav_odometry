@@ -32,6 +32,7 @@
 
 #include <mrs_msgs/RtkGps.h>
 #include <mrs_msgs/TrackerStatus.h>
+#include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/RtkFixType.h>
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/EstimatorType.h>
@@ -580,7 +581,7 @@ private:
   // subscribing to tracker status
   mrs_msgs::TrackerStatus tracker_status;
   std::mutex              mutex_tracker_status;
-  void                    callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg);
+  void                    callbackTrackerStatus(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg);
   bool                    got_tracker_status = false;
   bool                    isUavFlying();
   bool                    isUavLandoff();
@@ -2024,7 +2025,7 @@ bool Odometry::isUavFlying() {
     }
 
   } else {
-
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Tracker status not available");
     return false;
   }
 }
@@ -2049,6 +2050,7 @@ bool Odometry::isUavLandoff() {
 
   } else {
 
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Tracker status not available");
     return false;
   }
 }
@@ -3769,6 +3771,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // Apply correction step to all state estimators
   if (isUavFlying()) {
     stateEstimatorsCorrection(rot_y, rot_x, "tilt_mavros");
+  } else {
   }
 
   ROS_WARN_ONCE("[Odometry]: Fusing mavros tilts");
@@ -6222,7 +6225,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
 /* //{ callbackTrackerStatus() */
 
-void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg) {
+void Odometry::callbackTrackerStatus(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg) {
 
   if (!is_initialized)
     return;
@@ -6231,7 +6234,7 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::TrackerStatusConstPtr &msg)
 
   std::scoped_lock lock(mutex_tracker_status);
 
-  tracker_status     = *msg;
+  tracker_status     = msg->tracker_status;
   got_tracker_status = true;
 
   if (uav_in_the_air && tracker_status.tracker.compare(null_tracker_) == STRING_EQUAL) {
