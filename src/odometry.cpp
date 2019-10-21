@@ -3502,7 +3502,12 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   // Apply prediction step to all state estimators
   if (!is_updating_state_) {
-    stateEstimatorsPrediction(rot_y, rot_x, dt);
+
+    if (isUavFlying()) {
+      stateEstimatorsPrediction(rot_y, rot_x, dt);
+    } else {
+      stateEstimatorsPrediction(0, 0, dt);
+    }
 
     // correction step for hector
     stateEstimatorsCorrection(pos_hector_corr_x_, pos_hector_corr_y_, "pos_hector");
@@ -3762,7 +3767,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse mavros tilts */
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(rot_y, rot_x, "tilt_mavros");
+  if (isUavFlying()) {
+    stateEstimatorsCorrection(rot_y, rot_x, "tilt_mavros");
+  }
 
   ROS_WARN_ONCE("[Odometry]: Fusing mavros tilts");
 
