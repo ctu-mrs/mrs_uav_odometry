@@ -760,13 +760,13 @@ private:
   void       topicWatcherTimer(const ros::TimerEvent &event);
 
 
-  using lkf_height_t = mrs_lib::LKF<1,1,1>;
+  using lkf_height_t = mrs_lib::LKF<1, 1, 1>;
   std::unique_ptr<lkf_height_t> estimator_height_;
-  lkf_height_t::R_t R_height_;
-  lkf_height_t::Q_t Q_height_;
-  lkf_height_t::statecov_t sc_height_;
-  std::mutex mutex_estimator_height_;
-  ros::Time time_main_timer_prev_;
+  lkf_height_t::R_t             R_height_;
+  lkf_height_t::Q_t             Q_height_;
+  lkf_height_t::statecov_t      sc_height_;
+  std::mutex                    mutex_estimator_height_;
+  ros::Time                     time_main_timer_prev_;
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -1179,7 +1179,7 @@ void Odometry::onInit() {
   B_height << 0;
   lkf_height_t::H_t H_height;
   H_height << 1;
-  estimator_height_ = std::make_unique<lkf_height_t>(A_height,B_height,H_height);
+  estimator_height_ = std::make_unique<lkf_height_t>(A_height, B_height, H_height);
 
   param_loader.load_matrix_static("height/R", R_height_);
   param_loader.load_matrix_static("height/Q", Q_height_);
@@ -2070,21 +2070,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
 
-  double dt;
-  ros::Time time_now = ros::Time::now();
-  dt = (time_now - time_main_timer_prev_).toSec();
+  double    dt;
+  ros::Time time_now    = ros::Time::now();
+  dt                    = (time_now - time_main_timer_prev_).toSec();
   time_main_timer_prev_ = time_now;
 
   // prediction step of height estimator
   mrs_msgs::Float64Stamped height_msg;
   height_msg.header.frame_id = "local_origin";
-  height_msg.header.stamp = ros::Time::now();
+  height_msg.header.stamp    = ros::Time::now();
   {
     std::scoped_lock lock(mutex_estimator_height_);
-  
+
     lkf_height_t::u_t u;
     u << 0;
-    sc_height_ = estimator_height_->predict(sc_height_, u, Q_height_, dt);
+    sc_height_       = estimator_height_->predict(sc_height_, u, Q_height_, dt);
     height_msg.value = sc_height_.x(0);
   }
 
@@ -5845,7 +5845,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     got_range = true;
   }
 
-  height_available_ = true;
+  height_available_  = true;
   garmin_last_update = ros::Time::now();
 
   if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
@@ -5912,7 +5912,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   z << measurement;
   {
     std::scoped_lock lock(mutex_estimator_height_);
-  
+
     sc_height_ = estimator_height_->correct(sc_height_, z, R_height_);
   }
 
