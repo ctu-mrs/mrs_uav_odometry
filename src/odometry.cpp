@@ -5598,10 +5598,20 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       return;
     }
 
+    // Detect jump since previous pose
     if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 9 ||
         std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 9) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump detected in Hector Slam pose");
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump detected in Hector Slam pose. Not reliable");
       hector_reliable = false;
+    }
+
+    if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
+      Vec2 vel_vec;
+      current_estimator->getState(1, vel_vec);
+      if (vel_vec(0) > 5 || vel_vec(1) > 5) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector Slam velocity too large. Not reliable.");
+        hector_reliable = false;
+      }
     }
   }
 
