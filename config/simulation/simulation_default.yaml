@@ -65,6 +65,8 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 2.0
 
+reset_hector_after_takeoff: true
+
 null_tracker: "NullTracker"
 
 altitude:

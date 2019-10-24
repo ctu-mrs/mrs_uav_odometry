@@ -18,6 +18,7 @@
 
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/String.h>
 
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/EspOdometry.h>
@@ -159,6 +160,7 @@ private:
   ros::Publisher pub_inno_cov_elevation_;
   ros::Publisher pub_inno_cov_bias_;
   ros::Publisher pub_alt_cov_;
+  ros::Publisher pub_hector_reset_;
 
   ros::Publisher pub_debug_optflow_filter;
 
@@ -387,6 +389,10 @@ private:
   int                           _hector_pos_filter_buffer_size;
   double                        _hector_pos_filter_max_valid;
   double                        _hector_pos_filter_max_diff;
+  bool hector_reset_called_ = false;
+  bool _reset_hector_after_takeoff_ = false;
+  Vec2 hector_offset_;
+  double hector_offset_hdg_;
 
   // brick messages
   std::mutex                    mutex_brick;
@@ -844,6 +850,10 @@ void Odometry::onInit() {
   got_compass_hdg       = false;
 
   failsafe_called = false;
+  hector_reset_called_ = false;
+  _reset_hector_after_takeoff_ = false;
+  hector_offset_ << 0, 0;
+  hector_offset_hdg_ = 0;
 
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
@@ -1543,6 +1553,7 @@ void Odometry::onInit() {
   param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
   param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
   param_loader.load_param("max_altitude_correction", max_altitude_correction_);
+  param_loader.load_param("reset_hector_after_takeoff", _reset_hector_after_takeoff_);
 
   param_loader.load_param("lateral/saturate_mavros_position", saturate_mavros_position_);
   param_loader.load_param("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
@@ -1624,6 +1635,9 @@ void Odometry::onInit() {
 
   // republisher for gps local odometry (e.g. for rviz)
   pub_gps_local_odom = nh_.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
+
+  // publisher for resetting hector map
+  pub_hector_reset_ = nh_.advertise<std_msgs::String>("hector_map_reset_out", 1);
 
   // publisher for tf
   broadcaster_ = new tf2_ros::TransformBroadcaster();
@@ -2609,6 +2623,36 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
 
   //}
+
+  // Call reset of hector map after taking off
+  if (_reset_hector_after_takeoff_ && isUavFlying() && !isUavLandoff() && !hector_reset_called_) { 
+    
+    for (auto &estimator : m_state_estimators) {
+      if (isEqual(estimator.first.c_str(), "HECTOR")) {
+        estimator.second->getState(0, hector_offset_);
+      }
+    }
+
+    for (auto &estimator : m_heading_estimators) {
+      if (isEqual(estimator.first.c_str(), "HECTOR")) {
+        Eigen::VectorXd tmp_hdg_offset(1);
+        estimator.second->getState(0, tmp_hdg_offset);
+        hector_offset_hdg_ = tmp_hdg_offset(0);
+      }
+    }
+
+    ROS_INFO("[Odometry]: Calling Hector map reset.");
+    std_msgs::String reset_msg;
+    reset_msg.data = "reset";
+    try {
+      pub_hector_reset_.publish(reset_msg);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
+    }
+    hector_reset_called_ = true;
+    ROS_INFO("[Odometry]: Hector map reset called.");
+  }
 
   // Just return without publishing - the t265 odometry is republished in callback at faster rate
   if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
@@ -5631,6 +5675,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   }
 
   yaw_hector          = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous);
+  yaw_hector += hector_offset_hdg_;
   hector_yaw_previous = yaw_hector;
 
   // Apply correction step to all heading estimators
@@ -5658,8 +5703,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   {
     std::scoped_lock lock(mutex_hector);
 
-    pos_hector_x = hector_pose.pose.position.x;
-    pos_hector_y = hector_pose.pose.position.y;
+    pos_hector_x = hector_pose.pose.position.x + hector_offset_(0);
+    pos_hector_y = hector_pose.pose.position.y + hector_offset_(1);
   }
 
   // Current orientation

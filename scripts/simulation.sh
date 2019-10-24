@@ -25,7 +25,7 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
 input=(
   'Roscore' 'roscore
 '
-  'Gazebo' "waitForRos; roslaunch simulation simulation.launch gui:=true debug:=false
+  'Gazebo' "waitForRos; roslaunch simulation darpa.launch gui:=true debug:=false
 "
   'Spawn' "waitForSimulation; spawn 1 --run --delete --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "

@@ -152,7 +152,8 @@
       <remap from="~reset_hector_in" to="~reset_hector" />
       <remap from="~reliable_hector_in" to="~set_hector_reliable" />
 
-      <remap from="~failsafe_out" to="~control_manager/eland" />
+      <remap from="~failsafe_out" to="control_manager/eland" />
+      <remap from="~hector_map_reset_out" to="hector_mapping/syscommand" />
 
     </node>
 
