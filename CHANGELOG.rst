@@ -2,8 +2,8 @@
 Changelog for package mrs_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2019-10-25)
+------------------
 * reset hector map after takeoff (tested in simulation)
 * checking hector velocity
 * hector reliable after switching estimator
