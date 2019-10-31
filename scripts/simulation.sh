@@ -12,6 +12,9 @@ if [ "$ESTIMATOR" == "optflow" ]; then
 elif [ "$ESTIMATOR" == "hector" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
+elif [ "$ESTIMATOR" == "icp" ]; then
+  SENSORS="$SENSORS --enable-rplidar"
+  LAUNCH_NODES='waitForOdometry; roslaunch lidar_stabilization simulation.launch'
 elif [ "$ESTIMATOR" == "lidar" ]; then
   SENSORS="$SENSORS --enable-velodyne"
   LAUNCH_NODES='waitForOdometry; roslaunch aloam_velodyne velodyne_odometry_simulation.launch'
@@ -50,8 +53,8 @@ input=(
   "
   'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
   "
-  'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh simulation
-  "
+  # 'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh rviz_rqt_juggler
+  # "
   'Camera_follow' "waitForOdometry; gz camera -c gzclient_camera -f uav1
 "
 )

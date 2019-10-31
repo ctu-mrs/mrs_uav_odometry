@@ -13,10 +13,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "HECTOR", "LIDAR"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "HECTOR", "LIDAR", "ICP"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP"]
 
 # Available localization methods
 gps_available: true
@@ -120,6 +120,11 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
+  icp_twist_median_filter: true
+  icp_twist_filter_buffer_size: 20
+  icp_twist_filter_max_valid: 5.0
+  icp_twist_filter_max_diff: 2.0
+
   lidar_vel_median_filter: true
   lidar_vel_filter_buffer_size: 50
   lidar_vel_filter_max_valid: 8.0
@@ -153,6 +158,7 @@ lateral:
     pos_brick: [10]
     vel_brick: [100]
     pos_hector: [1000]
+    vel_icp: [1000]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
@@ -217,6 +223,10 @@ heading:
   optflow_yaw_rate_filter_max_valid: 3.0
   optflow_yaw_rate_filter_max_diff: 3.0
 
+  icp_yaw_rate_filter_buffer_size: 100
+  icp_yaw_rate_filter_max_valid: 3.0
+  icp_yaw_rate_filter_max_diff: 2.0
+
   compass_yaw_filter_buffer_size: 100
   compass_yaw_filter_max_diff: deg(45)
 
@@ -260,3 +270,4 @@ heading:
     rate_optflow: [10]
     yaw_vslam: [1]
     yaw_lidar: [1]
+    rate_icp: [100]
