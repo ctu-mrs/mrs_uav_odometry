@@ -182,7 +182,7 @@ private:
   ros::Subscriber sub_brick_;
   ros::Subscriber rtk_gps_sub_;
   ros::Subscriber sub_lidar_odom_;
-  ros::Subscriber sub_icp_twist_global_;
+  ros::Subscriber sub_icp_twist_;
   ros::Subscriber sub_hector_pose_;
   ros::Subscriber sub_brick_pose_;
   ros::Subscriber sub_target_attitude_;
@@ -1755,7 +1755,7 @@ void Odometry::onInit() {
   if (_lidar_available) {
     sub_lidar_odom_  = nh_.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
     sub_hector_pose_ = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
-    sub_icp_twist_global_  = nh_.subscribe("icp_twist_global_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
+    sub_icp_twist_  = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for terarangers range
@@ -3658,6 +3658,10 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     des_yaw_rate = 0.0;
   }
 
+  if (!isUavFlying()) {
+    des_yaw_rate = 0.0;
+  }
+
   // Apply prediction step to all heading estimators
   headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt);
 
@@ -4580,6 +4584,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
 void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
+  // Note: ICP twist is coming in the UAV body frame (fcu_uav)
   if (!is_initialized)
     return;
 
@@ -4627,12 +4632,19 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     return;
   }
 
+  double hdg = getCurrentHeading();
+
+  double cy = cos(hdg);
+  double sy = sin(hdg);
+
   double icp_vel_x, icp_vel_y;
   {
     std::scoped_lock lock(mutex_icp_twist);
 
-    icp_vel_x = icp_twist.twist.twist.linear.x;
-    icp_vel_y = icp_twist.twist.twist.linear.y;
+
+    // Rotate body frame velocity to global frame
+    icp_vel_x = icp_twist.twist.twist.linear.x * cy - icp_twist.twist.twist.linear.y * sy;
+    icp_vel_y = icp_twist.twist.twist.linear.x * sy + icp_twist.twist.twist.linear.y * cy;
   }
 
   if (_icp_twist_median_filter) {

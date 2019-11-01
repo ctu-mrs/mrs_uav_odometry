@@ -106,7 +106,7 @@
       <remap from="~tracker_status_in" to="control_manager/diagnostics" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~lidar_odom_in" to="aloam_odometry/laser_odom_to_init" />
-      <remap from="~icp_twist_global_in" to="lidar_stabilization/twist_global" />
+      <remap from="~icp_twist_in" to="lidar_stabilization/twist_body" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />

@@ -34,6 +34,8 @@ input=(
 "
   'MRS_control' "waitForOdometry; roslaunch mrs_general core.launch
 "
+  'Bumper' "waitForOdometry; roslaunch mrs_bumper bumper.launch
+"
   'Localization' "waitForOdometry; $LAUNCH_NODES
 "
   # 'Lidar Stab' "waitForOdometry; roslaunch lidar_stabilization simulation.launch
