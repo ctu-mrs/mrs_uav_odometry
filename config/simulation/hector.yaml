@@ -13,7 +13,7 @@ heading_estimator: "HECTOR"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "HECTOR"]
+  active: ["OPTFLOW", "HECTOR", "ICP"]
 
 heading_estimators:
   active: ["GYRO", "OPTFLOW", "HECTOR"]

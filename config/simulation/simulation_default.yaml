@@ -65,7 +65,8 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 2.0
 
-reset_hector_after_takeoff: true
+reset_hector_after_takeoff: true # Gets rid of map clutter accumulated during takeoff tilting
+perform_hector_reset_routine: true # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
 null_tracker: "NullTracker"
 
