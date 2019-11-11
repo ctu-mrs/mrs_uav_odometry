@@ -3083,7 +3083,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::TransformStamped tf;
   tf.header.stamp          = ros::Time::now();
   tf.header.frame_id       = "local_origin";
-  tf.child_frame_id        = std::string("fcu_") + uav_name;
+  tf.child_frame_id        = uav_name + std::string("/fcu");
   tf.transform.translation = position;
   tf.transform.rotation    = odom_main.pose.pose.orientation;
   try {
@@ -3562,7 +3562,7 @@ void Odometry::transformTimer(const ros::TimerEvent &event) {
   geometry_msgs::TransformStamped tf;
   tf.header.stamp          = ros::Time::now();
   tf.header.frame_id       = "local_origin";
-  tf.child_frame_id        = std::string("fcu_") + uav_name + std::string("_origin");
+  tf.child_frame_id        = uav_name + std::string("/fcu_origin");
   tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0));
   tf.transform.rotation    = tf2::toMsg(q);
   try {
@@ -4723,7 +4723,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
 void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
-  // Note: ICP twist is coming in the UAV body frame (fcu_uav)
+  // Note: ICP twist is coming in the UAV body frame (uav/fcu)
   if (!is_initialized)
     return;
 
@@ -6413,13 +6413,13 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     try {
       const ros::Duration             timeout(1.0 / 100.0);
       geometry_msgs::TransformStamped tf_fcu2garmin =
-          m_tf_buffer.lookupTransform("fcu_" + uav_name, range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
+          m_tf_buffer.lookupTransform(uav_name+"/fcu", range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
       range_fcu = range_garmin.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
                   tf_fcu2garmin.transform.translation.y * tan(roll);
     }
     catch (tf2::TransformException &ex) {
       ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                        range_garmin.header.frame_id.c_str(), ("fcu_" + uav_name).c_str(), ex.what());
+                        range_garmin.header.frame_id.c_str(), (uav_name + "/fcu" ).c_str(), ex.what());
       range_fcu = range_garmin.range + garmin_z_offset_;
     }
   }
@@ -6585,13 +6585,13 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     try {
       const ros::Duration             timeout(1.0 / 100.0);
       geometry_msgs::TransformStamped tf_fcu2sonar =
-          m_tf_buffer.lookupTransform("fcu_" + uav_name, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
+          m_tf_buffer.lookupTransform( uav_name + "/fcu" , range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
       range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
                   tf_fcu2sonar.transform.translation.y * tan(roll);
     }
     catch (tf2::TransformException &ex) {
       ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                        range_sonar.header.frame_id.c_str(), ("fcu_" + uav_name).c_str(), ex.what());
+                        range_sonar.header.frame_id.c_str(), (uav_name + "/fcu").c_str(), ex.what());
       range_fcu = range_sonar.range + sonar_z_offset_;
     }
   }
@@ -7176,7 +7176,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = "local_origin";
-    tf.child_frame_id        = std::string("fcu_") + uav_name;
+    tf.child_frame_id        = uav_name + std::string("/fcu") ;
     tf.transform.translation = position;
     tf.transform.rotation    = odom_main.pose.pose.orientation;
     try {
