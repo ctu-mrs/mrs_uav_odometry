@@ -207,6 +207,8 @@ private:
   ros::ServiceServer ser_gyro_jump_;
 
   ros::ServiceClient ser_client_failsafe_;
+  ros::ServiceClient ser_client_hover_;
+  ros::ServiceClient ser_client_enable_callbacks_;
 
 private:
   tf2_ros::TransformBroadcaster *             broadcaster_;
@@ -1830,6 +1832,8 @@ void Odometry::onInit() {
   ser_gyro_jump_ = nh_.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
 
   ser_client_failsafe_ = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
+  ser_client_hover_ = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  ser_client_enable_callbacks_ = nh_.serviceClient<std_srvs::SetBool>("enable_callbacks_out");
   //}
 
   // --------------------------------------------------------------
@@ -3586,6 +3590,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTimerHectorResetRoutine", topic_watcher_rate_, 0.01, event);
 
+  // Change estimator to ICP
   bool in_icp = false;
       if (_lidar_available && got_icp_twist) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
@@ -3608,7 +3613,31 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
       }
       }
 
+    // Call hover service
+    ROS_INFO("[Odometry]: Calling hover service.");
+    std_srvs::Trigger hover_srv;
+    ser_client_hover_.call(hover_srv);
+    if (hover_srv.response.success) {
+      ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
+    } else {
+      ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
+    }
 
+    // Disable callbacks
+    ROS_INFO("[Odometry]: Calling disable callbacks service");
+    std_srvs::SetBool disable_callbacks_srv;
+    disable_callbacks_srv.request.data = false;
+    ser_client_enable_callbacks_.call(disable_callbacks_srv);
+    if (disable_callbacks_srv.response.success) {
+      ROS_INFO("[Odometry]: Disable callbacks service called successfully: %s", disable_callbacks_srv.response.message.c_str());
+    } else {
+      ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
+    }
+
+    // Let the UAV stabilize
+    ros::Duration(0.1).sleep();
+
+    // Reset HECTOR map
     ROS_INFO("[Odometry]: Calling Hector map reset.");
     std_msgs::String reset_msg;
     reset_msg.data = "reset";
@@ -3621,6 +3650,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
     hector_reset_called_ = true;
     ROS_INFO("[Odometry]: Hector map reset called.");
 
+    // Reset HECTOR heading
       for (auto &estimator : m_heading_estimators) {
         if (isEqual(estimator.first.c_str(), "HECTOR")) {
           Eigen::VectorXd hdg(1);
@@ -3631,6 +3661,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
         }
       }
 
+      // Reset HECTOR position
       for (auto &estimator : m_state_estimators) {
         if (isEqual(estimator.first.c_str(), "HECTOR")) {
           Vec2 pos_vec, vel_vec;
@@ -3642,12 +3673,14 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
         }
       }
 
+      // Let the estimator converge
     ROS_INFO("[Odometry]: Waiting for 20 HECTOR msgs after map reset.");
     c_hector_msg_ = 0;
     while (c_hector_msg_ < 100) {
       ros::Duration(0.1).sleep();
     }
 
+    // Switch back to HECTOR
     ROS_INFO("[Odometry]:  20 HECTOR msgs after map reset arrived. Switching to HECTOR type");
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
@@ -3659,7 +3692,19 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
     if (!changeCurrentEstimator(hector_type)) {
       ROS_WARN("[Odometry]: Switching back to HECTOR type after map reset failed.");
     }
+
+    // Enable callbacks
+    ROS_INFO("[Odometry]: Calling enable callbacks service");
+    std_srvs::SetBool enable_callbacks_srv;
+    enable_callbacks_srv.request.data = true;
+    ser_client_enable_callbacks_.call(enable_callbacks_srv);
+    if (enable_callbacks_srv.response.success) {
+      ROS_INFO("[Odometry]: Enable callbacks service called successfully: %s", enable_callbacks_srv.response.message.c_str());
+    } else {
+      ROS_INFO("[Odometry]: Enable callbacks service call failed: %s", enable_callbacks_srv.response.message.c_str());
+    }
         
+    // Prepare timer for next run
   hector_reset_routine_running_ = false;
   hector_reset_routine_timer.stop();
   hector_reset_routine_timer.setPeriod(ros::Duration(0.00001));

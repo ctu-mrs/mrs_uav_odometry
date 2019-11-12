@@ -155,6 +155,8 @@
       <remap from="~reliable_hector_in" to="~set_hector_reliable" />
 
       <remap from="~failsafe_out" to="control_manager/eland" />
+      <remap from="~hover_out" to="control_manager/hover" />
+      <remap from="~enable_callbacks_out" to="control_manager/enable_callbacks" />
       <remap from="~hector_map_reset_out" to="hector_mapping/syscommand" />
 
     </node>
