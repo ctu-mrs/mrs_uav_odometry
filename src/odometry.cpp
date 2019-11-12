@@ -393,30 +393,30 @@ private:
   int                           _hector_pos_filter_buffer_size;
   double                        _hector_pos_filter_max_valid;
   double                        _hector_pos_filter_max_diff;
-  bool hector_reset_called_ = false;
-  bool _reset_hector_after_takeoff_ = false;
-  Vec2 hector_offset_;
-  Vec2 hector_vel_state_;
-  double hector_offset_hdg_;
-  int c_hector_msg_;
+  bool                          hector_reset_called_         = false;
+  bool                          _reset_hector_after_takeoff_ = false;
+  Vec2                          hector_offset_;
+  Vec2                          hector_vel_state_;
+  double                        hector_offset_hdg_;
+  int                           c_hector_msg_;
 
   // VIO messages
-  std::mutex                    mutex_icp_twist;
-  geometry_msgs::TwistWithCovarianceStamped    icp_twist;
-  geometry_msgs::TwistWithCovarianceStamped    icp_twist_previous;
-  ros::Time icp_twist_last_update;
-  std::shared_ptr<MedianFilter> icp_twist_filter_x;
-  std::shared_ptr<MedianFilter> icp_twist_filter_y;
-  bool                          _icp_twist_median_filter;
-  int                           _icp_twist_filter_buffer_size;
-  double                        _icp_twist_filter_max_valid;
-  double                        _icp_twist_filter_max_diff;
-  std::shared_ptr<MedianFilter> icp_yaw_rate_filter;
-  int                                                      _icp_yaw_rate_filter_buffer_size;
-  double                                                   _icp_yaw_rate_filter_max_valid;
-  double                                                   _icp_yaw_rate_filter_max_diff;
-  double  icp_yaw_rate_inconsistent_samples;
-  
+  std::mutex                                mutex_icp_twist;
+  geometry_msgs::TwistWithCovarianceStamped icp_twist;
+  geometry_msgs::TwistWithCovarianceStamped icp_twist_previous;
+  ros::Time                                 icp_twist_last_update;
+  std::shared_ptr<MedianFilter>             icp_twist_filter_x;
+  std::shared_ptr<MedianFilter>             icp_twist_filter_y;
+  bool                                      _icp_twist_median_filter;
+  int                                       _icp_twist_filter_buffer_size;
+  double                                    _icp_twist_filter_max_valid;
+  double                                    _icp_twist_filter_max_diff;
+  std::shared_ptr<MedianFilter>             icp_yaw_rate_filter;
+  int                                       _icp_yaw_rate_filter_buffer_size;
+  double                                    _icp_yaw_rate_filter_max_valid;
+  double                                    _icp_yaw_rate_filter_max_diff;
+  double                                    icp_yaw_rate_inconsistent_samples;
+
   // brick messages
   std::mutex                    mutex_brick;
   geometry_msgs::PoseStamped    brick_pose;
@@ -589,7 +589,7 @@ private:
   bool got_pixhawk_imu      = false;
   bool got_compass_hdg      = false;
   bool got_control_accel    = false;
-  bool got_icp_twist       = false;
+  bool got_icp_twist        = false;
 
   bool failsafe_called = false;
 
@@ -781,8 +781,8 @@ private:
   ros::Timer max_altitude_timer;
   ros::Timer topic_watcher_timer;
   ros::Timer hector_reset_routine_timer;
-  bool  hector_reset_routine_running_;
-  bool _perform_hector_reset_routine;
+  bool       hector_reset_routine_running_;
+  bool       _perform_hector_reset_routine;
   int        slow_odom_rate_;
   int        aux_rate_;
   int        diag_rate_;
@@ -880,14 +880,14 @@ void Odometry::onInit() {
   got_compass_hdg       = false;
   got_icp_twist         = false;
 
-  failsafe_called = false;
-  hector_reset_called_ = false;
-  _reset_hector_after_takeoff_ = false;
+  failsafe_called               = false;
+  hector_reset_called_          = false;
+  _reset_hector_after_takeoff_  = false;
   _perform_hector_reset_routine = false;
   hector_reset_routine_running_ = false;
   hector_offset_ << 0, 0;
   hector_offset_hdg_ = 0;
-  c_hector_msg_ = 0;
+  c_hector_msg_      = 0;
 
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
@@ -1469,14 +1469,14 @@ void Odometry::onInit() {
 
   optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
                                                            -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
-  icp_yaw_rate_filter = std::make_shared<MedianFilter>(_icp_yaw_rate_filter_buffer_size, _icp_yaw_rate_filter_max_valid,
-                                                           -_icp_yaw_rate_filter_max_valid, _icp_yaw_rate_filter_max_diff);
+  icp_yaw_rate_filter     = std::make_shared<MedianFilter>(_icp_yaw_rate_filter_buffer_size, _icp_yaw_rate_filter_max_valid, -_icp_yaw_rate_filter_max_valid,
+                                                       _icp_yaw_rate_filter_max_diff);
   hector_yaw_filter       = std::make_shared<MedianFilter>(_hector_yaw_filter_buffer_size, 1000000, -1000000, _hector_yaw_filter_max_diff);
   brick_yaw_filter        = std::make_shared<MedianFilter>(_brick_yaw_filter_buffer_size, 1000000, -1000000, _brick_yaw_filter_max_diff);
 
-  compass_yaw_filter           = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
-  compass_inconsistent_samples = 0;
-  optflow_inconsistent_samples = 0;
+  compass_yaw_filter                = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
+  compass_inconsistent_samples      = 0;
+  optflow_inconsistent_samples      = 0;
   icp_yaw_rate_inconsistent_samples = 0;
 
   size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
@@ -1767,7 +1767,7 @@ void Odometry::onInit() {
   if (_lidar_available) {
     sub_lidar_odom_  = nh_.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
     sub_hector_pose_ = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
-    sub_icp_twist_  = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
+    sub_icp_twist_   = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for terarangers range
@@ -1831,8 +1831,8 @@ void Odometry::onInit() {
 
   ser_gyro_jump_ = nh_.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
 
-  ser_client_failsafe_ = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
-  ser_client_hover_ = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  ser_client_failsafe_         = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
+  ser_client_hover_            = nh_.serviceClient<std_srvs::Trigger>("hover_out");
   ser_client_enable_callbacks_ = nh_.serviceClient<std_srvs::SetBool>("enable_callbacks_out");
   //}
 
@@ -1842,15 +1842,15 @@ void Odometry::onInit() {
 
   /* timers //{ */
 
-  main_timer          = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  aux_timer           = nh_.createTimer(ros::Rate(aux_rate_), &Odometry::auxTimer, this);
-  slow_odom_timer     = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
-  rtk_rate_timer      = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
-  diag_timer          = nh_.createTimer(ros::Rate(diag_rate_), &Odometry::diagTimer, this);
-  lkf_states_timer    = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
-  max_altitude_timer  = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
-  topic_watcher_timer = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
-  transform_timer     = nh_.createTimer(ros::Rate(transform_timer_rate_), &Odometry::transformTimer, this);
+  main_timer                 = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
+  aux_timer                  = nh_.createTimer(ros::Rate(aux_rate_), &Odometry::auxTimer, this);
+  slow_odom_timer            = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
+  rtk_rate_timer             = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
+  diag_timer                 = nh_.createTimer(ros::Rate(diag_rate_), &Odometry::diagTimer, this);
+  lkf_states_timer           = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
+  max_altitude_timer         = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
+  topic_watcher_timer        = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
+  transform_timer            = nh_.createTimer(ros::Rate(transform_timer_rate_), &Odometry::transformTimer, this);
   hector_reset_routine_timer = nh_.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
@@ -2348,7 +2348,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not ready to takeoff.");
     return;
   }
-  
+
   if (failsafe_called) {
     return;
   }
@@ -2479,40 +2479,39 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       if (_lidar_available && got_icp_twist) {
 
-      if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
+        if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
 
-        ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
-        hector_reset_routine_timer.start(); 
+          ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
+          hector_reset_routine_timer.start();
 
-      } else {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
-        mrs_msgs::EstimatorType icp_type;
-        icp_type.type = mrs_msgs::EstimatorType::ICP;
-        if (!changeCurrentEstimator(icp_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called = true;
+        } else {
+          ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
+          mrs_msgs::EstimatorType icp_type;
+          icp_type.type = mrs_msgs::EstimatorType::ICP;
+          if (!changeCurrentEstimator(icp_type)) {
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+            std_srvs::Trigger failsafe_out;
+            ser_client_failsafe_.call(failsafe_out);
+            failsafe_called = true;
+          }
         }
-      }
-      }
-      else if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
-      if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
+      } else if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+        if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
 
-        ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
-        hector_reset_routine_timer.start(); 
+          ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
+          hector_reset_routine_timer.start();
 
-      } else {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
-        mrs_msgs::EstimatorType optflow_type;
-        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-        if (!changeCurrentEstimator(optflow_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called = true;
+        } else {
+          ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
+          mrs_msgs::EstimatorType optflow_type;
+          optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+          if (!changeCurrentEstimator(optflow_type)) {
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+            std_srvs::Trigger failsafe_out;
+            ser_client_failsafe_.call(failsafe_out);
+            failsafe_called = true;
+          }
         }
-      }
       } else if (gps_reliable && got_odom_pixhawk) {
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
@@ -2779,8 +2778,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   //}
 
   // Call reset of hector map after taking off
-  if (_reset_hector_after_takeoff_ && isUavFlying() && !isUavLandoff() && !hector_reset_called_) { 
-    
+  if (_reset_hector_after_takeoff_ && isUavFlying() && !isUavLandoff() && !hector_reset_called_) {
+
     for (auto &estimator : m_state_estimators) {
       if (isEqual(estimator.first.c_str(), "HECTOR")) {
         Vec2 new_offset;
@@ -2864,7 +2863,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_INFO("[Odometry]: Initializing the states of all estimators");
     if ((_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW || _estimator_type.type == mrs_msgs::EstimatorType::HECTOR ||
          _estimator_type.type == mrs_msgs::EstimatorType::BRICK || _estimator_type.type == mrs_msgs::EstimatorType::VIO ||
-         _estimator_type.type == mrs_msgs::EstimatorType::VSLAM || _estimator_type.type == mrs_msgs::EstimatorType::BRICKFLOW || _estimator_type.type == mrs_msgs::EstimatorType::ICP) &&
+         _estimator_type.type == mrs_msgs::EstimatorType::VSLAM || _estimator_type.type == mrs_msgs::EstimatorType::BRICKFLOW ||
+         _estimator_type.type == mrs_msgs::EstimatorType::ICP) &&
         use_local_origin_) {
       Eigen::VectorXd state(2);
       state << local_origin_x_, local_origin_y_;
@@ -3538,7 +3538,6 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (got_lidar_odom && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: LIDAR velocities not received for %f seconds.", interval.toSec());
     got_lidar_odom = false;
-
   }
   //  icp twist global
   interval = ros::Time::now() - icp_twist_last_update;
@@ -3592,123 +3591,122 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
   // Change estimator to ICP
   bool in_icp = false;
-      if (_lidar_available && got_icp_twist) {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
-        mrs_msgs::EstimatorType icp_type;
-        icp_type.type = mrs_msgs::EstimatorType::ICP;
-        if (changeCurrentEstimator(icp_type)) {
-          in_icp = true;
-        }
-      if (_optflow_available && got_optflow && !in_icp) {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
-        mrs_msgs::EstimatorType optflow_type;
-        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-        if (!changeCurrentEstimator(optflow_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called = true;
-          return;
-        }
-      }
-      }
-
-    // Call hover service
-    ROS_INFO("[Odometry]: Calling hover service.");
-    std_srvs::Trigger hover_srv;
-    ser_client_hover_.call(hover_srv);
-    if (hover_srv.response.success) {
-      ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
-    } else {
-      ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
+  if (_lidar_available && got_icp_twist) {
+    ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
+    mrs_msgs::EstimatorType icp_type;
+    icp_type.type = mrs_msgs::EstimatorType::ICP;
+    if (changeCurrentEstimator(icp_type)) {
+      in_icp = true;
     }
-
-    // Disable callbacks
-    ROS_INFO("[Odometry]: Calling disable callbacks service");
-    std_srvs::SetBool disable_callbacks_srv;
-    disable_callbacks_srv.request.data = false;
-    ser_client_enable_callbacks_.call(disable_callbacks_srv);
-    if (disable_callbacks_srv.response.success) {
-      ROS_INFO("[Odometry]: Disable callbacks service called successfully: %s", disable_callbacks_srv.response.message.c_str());
-    } else {
-      ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
+    if (_optflow_available && got_optflow && !in_icp) {
+      ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
+      mrs_msgs::EstimatorType optflow_type;
+      optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+      if (!changeCurrentEstimator(optflow_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called = true;
+        return;
+      }
     }
+  }
 
-    // Let the UAV stabilize
+  // Call hover service
+  ROS_INFO("[Odometry]: Calling hover service.");
+  std_srvs::Trigger hover_srv;
+  ser_client_hover_.call(hover_srv);
+  if (hover_srv.response.success) {
+    ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
+  } else {
+    ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
+  }
+
+  // Disable callbacks
+  ROS_INFO("[Odometry]: Calling disable callbacks service");
+  std_srvs::SetBool disable_callbacks_srv;
+  disable_callbacks_srv.request.data = false;
+  ser_client_enable_callbacks_.call(disable_callbacks_srv);
+  if (disable_callbacks_srv.response.success) {
+    ROS_INFO("[Odometry]: Disable callbacks service called successfully: %s", disable_callbacks_srv.response.message.c_str());
+  } else {
+    ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
+  }
+
+  // Let the UAV stabilize
+  ros::Duration(0.1).sleep();
+
+  // Reset HECTOR map
+  ROS_INFO("[Odometry]: Calling Hector map reset.");
+  std_msgs::String reset_msg;
+  reset_msg.data = "reset";
+  try {
+    pub_hector_reset_.publish(reset_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
+  }
+  hector_reset_called_ = true;
+  ROS_INFO("[Odometry]: Hector map reset called.");
+
+  // Reset HECTOR heading
+  for (auto &estimator : m_heading_estimators) {
+    if (isEqual(estimator.first.c_str(), "HECTOR")) {
+      Eigen::VectorXd hdg(1);
+      hdg << 0;
+      /* hdg << hector_offset_hdg_; */
+      /* estimator.second->setState(0, hdg); */
+      estimator.second->setState(0, hdg);
+    }
+  }
+
+  // Reset HECTOR position
+  for (auto &estimator : m_state_estimators) {
+    if (isEqual(estimator.first.c_str(), "HECTOR")) {
+      Vec2 pos_vec, vel_vec;
+      pos_vec << 0, 0;
+      vel_vec << 0, 0;
+      /* vel_vec << hector_vel_state_; */
+      estimator.second->setState(0, pos_vec);
+      estimator.second->setState(1, vel_vec);
+    }
+  }
+
+  // Let the estimator converge
+  ROS_INFO("[Odometry]: Waiting for 20 HECTOR msgs after map reset.");
+  c_hector_msg_ = 0;
+  while (c_hector_msg_ < 100) {
     ros::Duration(0.1).sleep();
+  }
 
-    // Reset HECTOR map
-    ROS_INFO("[Odometry]: Calling Hector map reset.");
-    std_msgs::String reset_msg;
-    reset_msg.data = "reset";
-    try {
-      pub_hector_reset_.publish(reset_msg);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
-    }
-    hector_reset_called_ = true;
-    ROS_INFO("[Odometry]: Hector map reset called.");
+  // Switch back to HECTOR
+  ROS_INFO("[Odometry]:  20 HECTOR msgs after map reset arrived. Switching to HECTOR type");
+  mrs_msgs::HeadingType desired_estimator;
+  desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
+  desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+  changeCurrentHeadingEstimator(desired_estimator);
+  hector_reliable = true;
+  mrs_msgs::EstimatorType hector_type;
+  hector_type.type = mrs_msgs::EstimatorType::HECTOR;
+  if (!changeCurrentEstimator(hector_type)) {
+    ROS_WARN("[Odometry]: Switching back to HECTOR type after map reset failed.");
+  }
 
-    // Reset HECTOR heading
-      for (auto &estimator : m_heading_estimators) {
-        if (isEqual(estimator.first.c_str(), "HECTOR")) {
-          Eigen::VectorXd hdg(1);
-          hdg << 0;
-          /* hdg << hector_offset_hdg_; */
-          /* estimator.second->setState(0, hdg); */
-          estimator.second->setState(0, hdg);
-        }
-      }
+  // Enable callbacks
+  ROS_INFO("[Odometry]: Calling enable callbacks service");
+  std_srvs::SetBool enable_callbacks_srv;
+  enable_callbacks_srv.request.data = true;
+  ser_client_enable_callbacks_.call(enable_callbacks_srv);
+  if (enable_callbacks_srv.response.success) {
+    ROS_INFO("[Odometry]: Enable callbacks service called successfully: %s", enable_callbacks_srv.response.message.c_str());
+  } else {
+    ROS_INFO("[Odometry]: Enable callbacks service call failed: %s", enable_callbacks_srv.response.message.c_str());
+  }
 
-      // Reset HECTOR position
-      for (auto &estimator : m_state_estimators) {
-        if (isEqual(estimator.first.c_str(), "HECTOR")) {
-          Vec2 pos_vec, vel_vec;
-          pos_vec << 0, 0;
-          vel_vec << 0, 0;
-          /* vel_vec << hector_vel_state_; */
-          estimator.second->setState(0, pos_vec);
-          estimator.second->setState(1, vel_vec);
-        }
-      }
-
-      // Let the estimator converge
-    ROS_INFO("[Odometry]: Waiting for 20 HECTOR msgs after map reset.");
-    c_hector_msg_ = 0;
-    while (c_hector_msg_ < 100) {
-      ros::Duration(0.1).sleep();
-    }
-
-    // Switch back to HECTOR
-    ROS_INFO("[Odometry]:  20 HECTOR msgs after map reset arrived. Switching to HECTOR type");
-    mrs_msgs::HeadingType desired_estimator;
-    desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
-    changeCurrentHeadingEstimator(desired_estimator);
-    hector_reliable = true;
-    mrs_msgs::EstimatorType hector_type;
-    hector_type.type = mrs_msgs::EstimatorType::HECTOR;
-    if (!changeCurrentEstimator(hector_type)) {
-      ROS_WARN("[Odometry]: Switching back to HECTOR type after map reset failed.");
-    }
-
-    // Enable callbacks
-    ROS_INFO("[Odometry]: Calling enable callbacks service");
-    std_srvs::SetBool enable_callbacks_srv;
-    enable_callbacks_srv.request.data = true;
-    ser_client_enable_callbacks_.call(enable_callbacks_srv);
-    if (enable_callbacks_srv.response.success) {
-      ROS_INFO("[Odometry]: Enable callbacks service called successfully: %s", enable_callbacks_srv.response.message.c_str());
-    } else {
-      ROS_INFO("[Odometry]: Enable callbacks service call failed: %s", enable_callbacks_srv.response.message.c_str());
-    }
-        
-    // Prepare timer for next run
+  // Prepare timer for next run
   hector_reset_routine_running_ = false;
   hector_reset_routine_timer.stop();
   hector_reset_routine_timer.setPeriod(ros::Duration(0.00001));
-
 }
 
 //}
@@ -4789,8 +4787,8 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
       icp_twist_previous = *msg;
       icp_twist          = *msg;
 
-      got_icp_twist      = true;
-      icp_reliable = true;
+      got_icp_twist = true;
+      icp_reliable  = true;
 
       return;
     }
@@ -6091,65 +6089,65 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
     if (got_hector_pose) {
       if (hector_reliable) {
-    // Detect jump since previous pose
-    if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
-        std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
-      ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
+        // Detect jump since previous pose
+        if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
+            std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
+          ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
 
-      Vec2 pos_vec, vel_vec;
-      for (auto &estimator : m_state_estimators) {
-        if (isEqual(estimator.first.c_str(), "HECTOR")) {
-          estimator.second->getState(0, pos_vec);
-          estimator.second->getState(1, vel_vec);
+          Vec2 pos_vec, vel_vec;
+          for (auto &estimator : m_state_estimators) {
+            if (isEqual(estimator.first.c_str(), "HECTOR")) {
+              estimator.second->getState(0, pos_vec);
+              estimator.second->getState(1, vel_vec);
+            }
+          }
+
+          /* for (auto &estimator : m_heading_estimators) { */
+          /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+          /*     Eigen::VectorXd tmp_hdg_offset(1); */
+          /*     estimator.second->getState(0, tmp_hdg_offset); */
+          /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
+          /*   } */
+          /* } */
+
+          /* Vec2 new_offset; */
+          /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
+          /* hector_offset_ += pos_vec; */
+          /* hector_vel_state_ = vel_vec; */
+          /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
+          hector_reliable = false;
         }
-      }
 
-    /* for (auto &estimator : m_heading_estimators) { */
-    /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-    /*     Eigen::VectorXd tmp_hdg_offset(1); */
-    /*     estimator.second->getState(0, tmp_hdg_offset); */
-    /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
-    /*   } */
-    /* } */
+        if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
+          Vec2 vel_vec;
+          current_estimator->getState(1, vel_vec);
+          if (vel_vec(0) > 5 || vel_vec(1) > 5) {
+            ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
 
-      /* Vec2 new_offset; */
-      /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
-      /* hector_offset_ += pos_vec; */
-      /* hector_vel_state_ = vel_vec; */
-      /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
-      hector_reliable = false;
-    }
+            /* Vec2 pos_vec, vel_vec; */
+            /* for (auto &estimator : m_state_estimators) { */
+            /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+            /*     estimator.second->getState(0, pos_vec); */
+            /*     estimator.second->getState(1, vel_vec); */
+            /*   } */
+            /* } */
 
-    if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
-      Vec2 vel_vec;
-      current_estimator->getState(1, vel_vec);
-      if (vel_vec(0) > 5 || vel_vec(1) > 5) {
-        ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
+            /* for (auto &estimator : m_heading_estimators) { */
+            /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+            /*   Eigen::VectorXd tmp_hdg_offset(1); */
+            /*   estimator.second->getState(0, tmp_hdg_offset); */
+            /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
+            /* } */
+            /* } */
 
-      /* Vec2 pos_vec, vel_vec; */
-      /* for (auto &estimator : m_state_estimators) { */
-      /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-      /*     estimator.second->getState(0, pos_vec); */
-      /*     estimator.second->getState(1, vel_vec); */
-      /*   } */
-      /* } */
-
-    /* for (auto &estimator : m_heading_estimators) { */
-      /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-      /*   Eigen::VectorXd tmp_hdg_offset(1); */
-      /*   estimator.second->getState(0, tmp_hdg_offset); */
-      /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
-      /* } */
-    /* } */
-
-      /* Vec2 new_offset; */
-      /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
-      /* hector_offset_ += pos_vec; */
-      /* hector_vel_state_ =vel_vec; */
-      /* hector_offset_hdg_ += hector_yaw_previous; */
-      hector_reliable = false;
-      }
-    }
+            /* Vec2 new_offset; */
+            /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
+            /* hector_offset_ += pos_vec; */
+            /* hector_vel_state_ =vel_vec; */
+            /* hector_offset_hdg_ += hector_yaw_previous; */
+            hector_reliable = false;
+          }
+        }
       }
 
       hector_pose_previous = hector_pose;
@@ -6168,7 +6166,6 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     if (c_hector_msg_ < 100) {
       c_hector_msg_++;
     }
-
   }
 
   // --------------------------------------------------------------
@@ -6186,7 +6183,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     yaw_hector = mrs_odometry::getYaw(hector_pose.pose.orientation);
   }
 
-  yaw_hector          = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous);
+  yaw_hector = mrs_odometry::unwrapAngle(yaw_hector, hector_yaw_previous);
   yaw_hector += hector_offset_hdg_;
   hector_yaw_previous = yaw_hector;
 
@@ -6457,13 +6454,13 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     try {
       const ros::Duration             timeout(1.0 / 100.0);
       geometry_msgs::TransformStamped tf_fcu2garmin =
-          m_tf_buffer.lookupTransform(uav_name+"/fcu", range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
+          m_tf_buffer.lookupTransform(uav_name + "/fcu", range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
       range_fcu = range_garmin.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
                   tf_fcu2garmin.transform.translation.y * tan(roll);
     }
     catch (tf2::TransformException &ex) {
       ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                        range_garmin.header.frame_id.c_str(), (uav_name + "/fcu" ).c_str(), ex.what());
+                        range_garmin.header.frame_id.c_str(), (uav_name + "/fcu").c_str(), ex.what());
       range_fcu = range_garmin.range + garmin_z_offset_;
     }
   }
@@ -6629,7 +6626,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     try {
       const ros::Duration             timeout(1.0 / 100.0);
       geometry_msgs::TransformStamped tf_fcu2sonar =
-          m_tf_buffer.lookupTransform( uav_name + "/fcu" , range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
+          m_tf_buffer.lookupTransform(uav_name + "/fcu", range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
       range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
                   tf_fcu2sonar.transform.translation.y * tan(roll);
     }
@@ -7220,7 +7217,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = "local_origin";
-    tf.child_frame_id        = uav_name + std::string("/fcu") ;
+    tf.child_frame_id        = uav_name + std::string("/fcu");
     tf.transform.translation = position;
     tf.transform.rotation    = odom_main.pose.pose.orientation;
     try {
