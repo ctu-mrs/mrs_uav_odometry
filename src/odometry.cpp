@@ -5777,7 +5777,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     }
   }
   brick_hdg = yaw_brick;
-  ROS_INFO("[Odometry]: brick curr: %2.4f est: %2.4f diff: %2.4f", hdg, brick_hdg, hdg - brick_hdg);
+  /* ROS_INFO("[Odometry]: brick curr: %2.4f est: %2.4f diff: %2.4f", hdg, brick_hdg, hdg - brick_hdg); */
   // Correct the position by the current heading
   double corr_brick_pos_x, corr_brick_pos_y;
   /* double hdg_diff  = brick_hdg - hdg; */
