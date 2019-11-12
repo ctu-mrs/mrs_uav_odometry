@@ -3612,16 +3612,6 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
     }
   }
 
-  // Call hover service
-  ROS_INFO("[Odometry]: Calling hover service.");
-  std_srvs::Trigger hover_srv;
-  ser_client_hover_.call(hover_srv);
-  if (hover_srv.response.success) {
-    ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
-  } else {
-    ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
-  }
-
   // Disable callbacks
   ROS_INFO("[Odometry]: Calling disable callbacks service");
   std_srvs::SetBool disable_callbacks_srv;
@@ -3633,8 +3623,18 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
     ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
   }
 
+  // Call hover service
+  ROS_INFO("[Odometry]: Calling hover service.");
+  std_srvs::Trigger hover_srv;
+  ser_client_hover_.call(hover_srv);
+  if (hover_srv.response.success) {
+    ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
+  } else {
+    ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
+  }
+
   // Let the UAV stabilize
-  ros::Duration(0.1).sleep();
+  ros::Duration(2.0).sleep();
 
   // Reset HECTOR map
   ROS_INFO("[Odometry]: Calling Hector map reset.");
@@ -3673,9 +3673,10 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   }
 
   // Let the estimator converge
-  ROS_INFO("[Odometry]: Waiting for 20 HECTOR msgs after map reset.");
+  int wait_msgs = 60;
+  ROS_INFO("[Odometry]: Waiting for %d HECTOR msgs after map reset.", wait_msgs);
   c_hector_msg_ = 0;
-  while (c_hector_msg_ < 100) {
+  while (c_hector_msg_ < wait_msgs) {
     ros::Duration(0.1).sleep();
   }
 
