@@ -2593,7 +2593,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (!got_brick_pose || !brick_reliable) {
       ROS_WARN("[Odometry]: BRICK not reliable. Switching to %s type.", _estimator_type_names[fallback_brick_estimator_type.type].c_str());
       if (!changeCurrentEstimator(fallback_brick_estimator_type)) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
@@ -5629,15 +5629,14 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       return;
     }
 
-    /* if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) { */
-    /*   ROS_INFO("[Odometry]: 1"); */
-    /*   counter_brick_id++; */
-    /*   brick_reliable = true; */
-    /* } else if (counter_odom_brick <= 10) { */
-    /*   counter_odom_brick++; */
-    /*   ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick); */
-    /*   return; */
-    /* } */
+    if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) {
+      counter_brick_id++;
+      brick_reliable = true;
+    } else if (counter_odom_brick <= 10) {
+      counter_odom_brick++;
+      ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick);
+      return;
+    }
 
     if (std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2) > 10 ||
         std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2) > 10) {
@@ -5651,12 +5650,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   if (std::fabs(brick_pose.pose.position.x - brick_pose_previous.pose.position.x) < eps ||
       std::fabs(brick_pose.pose.position.x - brick_pose_previous.pose.position.y) < eps) {
     if (brick_reliable) {
-      if (counter_invalid_brick_pose < 10) {
+      if (counter_invalid_brick_pose < 30) {
         counter_invalid_brick_pose++;
       } else {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Same brick pose detected. Brick is not reliable.");
         counter_odom_brick = 0;
-        /* brick_reliable     = false; */
+        brick_reliable     = false;
       }
       return;
     }
@@ -8417,6 +8416,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     fallback_brick_estimator_type = _estimator_type;
+    ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
 
     if (!_gps_available) {
       max_altitude = _max_optflow_altitude;
