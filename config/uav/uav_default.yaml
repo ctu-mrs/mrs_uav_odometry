@@ -66,7 +66,8 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 1.5
 sonarFilterMaxDifference: 0.5
 
-reset_hector_after_takeoff: true
+reset_hector_after_takeoff: true # Gets rid of map clutter accumulated during takeoff tilting
+perform_hector_reset_routine: true # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
 null_tracker: "NullTracker"
 
@@ -121,6 +122,11 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
+  icp_twist_median_filter: true
+  icp_twist_filter_buffer_size: 20
+  icp_twist_filter_max_valid: 5.0
+  icp_twist_filter_max_diff: 2.0
+
   lidar_vel_median_filter: true
   lidar_vel_filter_buffer_size: 50
   lidar_vel_filter_max_valid: 8.0
@@ -154,6 +160,7 @@ lateral:
     pos_brick: [1000]
     vel_brick: [10000]
     pos_hector: [1.0]
+    vel_icp: [1000]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
@@ -225,6 +232,10 @@ heading:
   optflow_yaw_rate_filter_max_valid: 3.0
   optflow_yaw_rate_filter_max_diff: 3.0
 
+  icp_yaw_rate_filter_buffer_size: 100
+  icp_yaw_rate_filter_max_valid: 3.0
+  icp_yaw_rate_filter_max_diff: 2.0
+
   compass_yaw_filter_buffer_size: 100
   compass_yaw_filter_max_diff: deg(45)
 
@@ -264,3 +275,4 @@ heading:
     yaw_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
+    rate_icp: [100]
