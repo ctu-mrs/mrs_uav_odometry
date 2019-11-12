@@ -447,6 +447,8 @@ private:
   std::string child_frame_id;
   std::mutex  mutex_child_frame_id;
   std::mutex  mutex_odom_stable;
+  std::string local_origin_frame_id_;
+  std::string local_origin_stable_frame_id_;
 
   bool       got_init_heading = false;
   double     m_init_heading;
@@ -859,6 +861,9 @@ void Odometry::onInit() {
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("uav_name", uav_name);
+  local_origin_frame_id_ = uav_name + "/local_origin";
+  local_origin_stable_frame_id_ = uav_name + "/local_origin_stable";
+  
   param_loader.load_param("uav_mass", uav_mass_estimate);
   param_loader.load_param("null_tracker", null_tracker_);
 
@@ -2170,7 +2175,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // prediction step of height estimator
   mrs_msgs::Float64Stamped height_msg;
-  height_msg.header.frame_id = "local_origin";
+  height_msg.header.frame_id = local_origin_frame_id_;
   height_msg.header.stamp    = ros::Time::now();
   {
     std::scoped_lock lock(mutex_estimator_height_);
@@ -2212,7 +2217,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     new_altitude.value  = odom_pixhawk.pose.pose.position.z;
   }
 
-  new_altitude.header.frame_id = "local_origin";
+  new_altitude.header.frame_id = local_origin_frame_id_;
   new_altitude.header.stamp    = ros::Time::now();
 
   // update the altitude state
@@ -2306,7 +2311,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
     orientation.header                = odom_pixhawk.header;
-    orientation.header.frame_id       = "local_origin";
+    orientation.header.frame_id       = local_origin_frame_id_;
     orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
   }
 
@@ -2845,7 +2850,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_main = odom_pixhawk;
   }
 
-  odom_main.header.frame_id = "local_origin";
+  odom_main.header.frame_id = local_origin_frame_id_;
   odom_main.header.stamp    = ros::Time::now();
 
   geometry_msgs::PoseStamped newPose;
@@ -3022,7 +3027,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_stable = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-      odom_stable.header.frame_id = "local_origin_stable";
+      odom_stable.header.frame_id = local_origin_stable_frame_id_;
 
       try {
         pub_odom_stable_.publish(odom_stable);
@@ -3036,8 +3041,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (_publish_local_origin_stable_tf_) {
       geometry_msgs::TransformStamped tf;
       tf.header.stamp          = ros::Time::now();
-      tf.header.frame_id       = "local_origin_stable";
-      tf.child_frame_id        = "local_origin";
+      tf.header.frame_id       = local_origin_stable_frame_id_;
+      tf.child_frame_id        = local_origin_frame_id_;
       tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
       tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
       try {
@@ -3086,7 +3091,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   position.z = odom_main.pose.pose.position.z;
   geometry_msgs::TransformStamped tf;
   tf.header.stamp          = ros::Time::now();
-  tf.header.frame_id       = "local_origin";
+  tf.header.frame_id       = local_origin_frame_id_;
   tf.child_frame_id        = uav_name + std::string("/fcu");
   tf.transform.translation = position;
   tf.transform.rotation    = odom_main.pose.pose.orientation;
@@ -3100,7 +3105,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!isUavFlying()) {
     ROS_WARN_THROTTLE(5.0, "[Odometry]: Preflight check: \nodom: x: %f y: %f z: %f\n%s: x: %f y: %f\nlateral_estimator: %s\naltitude_estimator: %s",
                       odom_main.pose.pose.position.x, odom_main.pose.pose.position.y, odom_main.pose.pose.position.z,
-                      use_local_origin_ ? "local_origin" : "utm_origin", use_local_origin_ ? local_origin_x_ : utm_origin_x_,
+                      use_local_origin_ ? local_origin_frame_id_.c_str() : "utm_origin", use_local_origin_ ? local_origin_x_ : utm_origin_x_,
                       use_local_origin_ ? local_origin_y_ : utm_origin_y_, current_estimator_name.c_str(), current_alt_estimator_name.c_str());
   }
 }
@@ -3131,7 +3136,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       odom_aux->second.pose = odom_pixhawk_shifted.pose;
     }
 
-    odom_aux->second.header.frame_id = "local_origin";
+    odom_aux->second.header.frame_id = local_origin_frame_id_;
     odom_aux->second.header.stamp    = t_pub;
 
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
@@ -3188,7 +3193,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
     mrs_msgs::Float64ArrayStamped heading_aux;
 
-    heading_aux.header.frame_id = "local_origin";
+    heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = t_pub;
 
     Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(heading_n, 1);
@@ -3409,7 +3414,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("maxAltitudeTimer", max_altitude_rate_, 0.01, event);
 
   mrs_msgs::Float64Stamped max_altitude_msg;
-  max_altitude_msg.header.frame_id = "local_origin";
+  max_altitude_msg.header.frame_id = local_origin_frame_id_;
   max_altitude_msg.header.stamp    = ros::Time::now();
 
   max_altitude_msg.value = max_altitude;
@@ -3564,7 +3569,7 @@ void Odometry::transformTimer(const ros::TimerEvent &event) {
 
   geometry_msgs::TransformStamped tf;
   tf.header.stamp          = ros::Time::now();
-  tf.header.frame_id       = "local_origin";
+  tf.header.frame_id       = local_origin_frame_id_;
   tf.child_frame_id        = uav_name + std::string("/fcu_origin");
   tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0));
   tf.transform.rotation    = tf2::toMsg(q);
@@ -4001,7 +4006,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
     mrs_msgs::Float64ArrayStamped cov_msg;
     cov_msg.header.stamp    = ros::Time::now();
-    cov_msg.header.frame_id = "local_origin";
+    cov_msg.header.frame_id = local_origin_frame_id_;
     for (int i = 0; i < cov.rows(); i++) {
       cov_msg.values.push_back(cov(i, i));
     }
@@ -4475,7 +4480,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
     mrs_msgs::Float64Stamped compass_yaw_out;
     compass_yaw_out.header.stamp    = ros::Time::now();
-    compass_yaw_out.header.frame_id = "local_origin";
+    compass_yaw_out.header.frame_id = local_origin_frame_id_;
     compass_yaw_out.value           = yaw;
     pub_compass_yaw_.publish(compass_yaw_out);
 
@@ -5012,7 +5017,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   rtk_local.pose.pose.position.x -= utm_origin_x_;
   rtk_local.pose.pose.position.y -= utm_origin_y_;
 
-  rtk_local.header.frame_id = "local_origin";
+  rtk_local.header.frame_id = local_origin_frame_id_;
 
   // | ------------------ publish the rtk local ----------------- |
   mrs_msgs::RtkGps rtk_local_out = rtk_local;
@@ -5346,7 +5351,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_msgs::Float64Stamped vio_yaw_out;
   vio_yaw_out.header.stamp    = ros::Time::now();
-  vio_yaw_out.header.frame_id = "local_origin";
+  vio_yaw_out.header.frame_id = local_origin_frame_id_;
   vio_yaw_out.value           = yaw_vio;
   pub_vio_yaw_.publish(vio_yaw_out);
 
@@ -5550,7 +5555,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
 
   mrs_msgs::Float64Stamped vslam_yaw_out;
   vslam_yaw_out.header.stamp    = ros::Time::now();
-  vslam_yaw_out.header.frame_id = "local_origin";
+  vslam_yaw_out.header.frame_id = local_origin_frame_id_;
   vslam_yaw_out.value           = yaw_vslam;
   pub_vslam_yaw_.publish(vslam_yaw_out);
 
@@ -5784,7 +5789,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   mrs_msgs::Float64Stamped brick_yaw_out;
   brick_yaw_out.header.stamp    = ros::Time::now();
-  brick_yaw_out.header.frame_id = "local_origin";
+  brick_yaw_out.header.frame_id = local_origin_frame_id_;
   brick_yaw_out.value           = yaw_brick_sat;
   pub_brick_yaw_.publish(brick_yaw_out);
 
@@ -5953,7 +5958,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_msgs::Float64Stamped lidar_yaw_out;
   lidar_yaw_out.header.stamp    = ros::Time::now();
-  lidar_yaw_out.header.frame_id = "local_origin";
+  lidar_yaw_out.header.frame_id = local_origin_frame_id_;
   lidar_yaw_out.value           = yaw_lidar;
   pub_lidar_yaw_.publish(lidar_yaw_out);
 
@@ -6195,7 +6200,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
   mrs_msgs::Float64Stamped hector_yaw_out;
   hector_yaw_out.header.stamp    = ros::Time::now();
-  hector_yaw_out.header.frame_id = "local_origin";
+  hector_yaw_out.header.frame_id = local_origin_frame_id_;
   hector_yaw_out.value           = yaw_hector;
   pub_hector_yaw_.publish(hector_yaw_out);
 
@@ -6765,7 +6770,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
   nav_msgs::Odometry gps_local_odom;
   gps_local_odom.header          = msg->header;
-  gps_local_odom.header.frame_id = "local_origin";
+  gps_local_odom.header.frame_id = local_origin_frame_id_;
 
   // | ------------- offset the gps to local_origin ------------- |
   gps_local_odom.pose.pose.position.x = pixhawk_utm_position_x - utm_origin_x_;
@@ -7089,7 +7094,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       new_altitude.value  = odom_t265.pose.pose.position.z;
     }
 
-    new_altitude.header.frame_id = "local_origin";
+    new_altitude.header.frame_id = local_origin_frame_id_;
     new_altitude.header.stamp    = ros::Time::now();
 
     try {
@@ -7108,7 +7113,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       orientation.header                = odom_t265.header;
       orientation.pose.pose.orientation = odom_t265.pose.pose.orientation;
     }
-    orientation.header.frame_id = "local_origin";
+    orientation.header.frame_id = local_origin_frame_id_;
 
     try {
       pub_orientation_.publish(orientation);
@@ -7126,7 +7131,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_main = odom_t265;
     }
 
-    odom_main.header.frame_id = "local_origin";
+    odom_main.header.frame_id = local_origin_frame_id_;
     odom_main.header.stamp    = ros::Time::now();
 
     if (!odometry_published) {
@@ -7172,7 +7177,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_stable = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-      odom_stable.header.frame_id = "local_origin_stable";
+      odom_stable.header.frame_id = local_origin_stable_frame_id_;
 
       try {
         pub_odom_stable_.publish(odom_stable);
@@ -7185,8 +7190,8 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     // publish TF
     geometry_msgs::TransformStamped tf_stable;
     tf_stable.header.stamp          = ros::Time::now();
-    tf_stable.header.frame_id       = "local_origin_stable";
-    tf_stable.child_frame_id        = "local_origin";
+    tf_stable.header.frame_id       = local_origin_stable_frame_id_;
+    tf_stable.child_frame_id        = local_origin_frame_id_;
     tf_stable.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
     tf_stable.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
     try {
@@ -7217,7 +7222,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     position.z = odom_main.pose.pose.position.z;
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
-    tf.header.frame_id       = "local_origin";
+    tf.header.frame_id       = local_origin_frame_id_;
     tf.child_frame_id        = uav_name + std::string("/fcu");
     tf.transform.translation = position;
     tf.transform.rotation    = odom_main.pose.pose.orientation;
