@@ -38,8 +38,8 @@ input=(
 "
   'Localization' "waitForOdometry; $LAUNCH_NODES
 "
-  # 'Lidar Stab' "waitForOdometry; roslaunch lidar_stabilization simulation.launch
-# "
+  'ICP' "waitForOdometry; roslaunch mrs_icp2d uav.launch
+"
   "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
   'ChangeEstimator' "rosservice call /$UAV_NAME/odometry/change_estimator_type_string GPS"
