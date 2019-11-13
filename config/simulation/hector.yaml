@@ -16,4 +16,4 @@ state_estimators:
   active: ["OPTFLOW", "HECTOR", "ICP"]
 
 heading_estimators:
-  active: ["GYRO", "OPTFLOW", "HECTOR"]
+  active: ["GYRO", "OPTFLOW", "HECTOR", "ICP"]
