@@ -48,5 +48,5 @@ altitude_estimators:
              0, 1, 0.01,
              0, 0, 1]
 height:
-  Q: [0.001]
-  R: [0.01]
+  Q: [0.1]
+  R: [0.1]
