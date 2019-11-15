@@ -112,6 +112,7 @@
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />
 
       <!-- Publishers -->
+      <remap from="~uav_state_out" to="~uav_state" />
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_main_inno_out" to="~odom_main_innovation" />
       <remap from="~odom_stable_out" to="~odom_stable" />
