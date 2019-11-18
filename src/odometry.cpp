@@ -446,7 +446,7 @@ private:
   std::vector<std::string> _altitude_type_names;
   std::string              altitude_estimator_name;
   std::mutex               mutex_estimator_type;
-  int estimator_iteration_;
+  int                      estimator_iteration_;
 
   std::string child_frame_id;
   std::mutex  mutex_child_frame_id;
@@ -600,8 +600,9 @@ private:
 
   bool failsafe_called = false;
 
-  int got_lidar_odom_counter;
-  int got_rtk_counter;
+  int  got_lidar_odom_counter;
+  int  got_rtk_counter;
+  bool got_rtk_local_origin_z;
 
   bool rtk_odom_initialized = false;
 
@@ -610,6 +611,7 @@ private:
   // for setting home position
   bool   use_utm_origin_, use_local_origin_;
   double utm_origin_x_, utm_origin_y_;
+  double rtk_local_origin_z_;
   double local_origin_x_, local_origin_y_;
   double land_position_x, land_position_y;
   bool   land_position_set = false;
@@ -866,10 +868,10 @@ void Odometry::onInit() {
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("uav_name", uav_name);
-  fcu_frame_id_ = uav_name + "/fcu";
-  local_origin_frame_id_ = uav_name + "/local_origin";
+  fcu_frame_id_                 = uav_name + "/fcu";
+  local_origin_frame_id_        = uav_name + "/local_origin";
   local_origin_stable_frame_id_ = uav_name + "/local_origin_stable";
-  
+
   param_loader.load_param("uav_mass", uav_mass_estimate);
   param_loader.load_param("null_tracker", null_tracker_);
 
@@ -897,8 +899,8 @@ void Odometry::onInit() {
   _perform_hector_reset_routine = false;
   hector_reset_routine_running_ = false;
   hector_offset_ << 0, 0;
-  hector_offset_hdg_ = 0;
-  c_hector_msg_      = 0;
+  hector_offset_hdg_   = 0;
+  c_hector_msg_        = 0;
   estimator_iteration_ = 0;
 
   _is_estimator_tmp = false;
@@ -916,6 +918,8 @@ void Odometry::onInit() {
   pixhawk_utm_position_x = 0;
   pixhawk_utm_position_y = 0;
 
+  rtk_local_origin_z_    = 0;
+  got_rtk_local_origin_z = false;
 
   // ------------------------------------------------------------------------
   // |                        odometry estimator type                       |
@@ -1855,10 +1859,10 @@ void Odometry::onInit() {
 
   /* timers //{ */
 
-  main_timer                 = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  aux_timer                  = nh_.createTimer(ros::Rate(aux_rate_), &Odometry::auxTimer, this);
-  slow_odom_timer            = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
-  rtk_rate_timer             = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this);
+  main_timer      = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
+  aux_timer       = nh_.createTimer(ros::Rate(aux_rate_), &Odometry::auxTimer, this);
+  slow_odom_timer = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
+  /* rtk_rate_timer             = nh_.createTimer(ros::Rate(1), &Odometry::rtkRateTimer, this); */
   diag_timer                 = nh_.createTimer(ros::Rate(diag_rate_), &Odometry::diagTimer, this);
   lkf_states_timer           = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
   max_altitude_timer         = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
@@ -2853,42 +2857,42 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Initialize uav_state
   mrs_msgs::UavState uav_state;
-  uav_state.pose.position.x = 0.0;
-  uav_state.pose.position.y = 0.0;
-  uav_state.pose.position.z = 0.0;
-  uav_state.pose.orientation.x = 0.0;
-  uav_state.pose.orientation.y = 0.0;
-  uav_state.pose.orientation.z = 0.0;
-  uav_state.pose.orientation.w = 1.0;
-  uav_state.velocity.linear.x = 0.0;
-  uav_state.velocity.linear.y = 0.0;
-  uav_state.velocity.linear.z = 0.0;
-  uav_state.velocity.angular.x = 0.0;
-  uav_state.velocity.angular.y = 0.0;
-  uav_state.velocity.angular.z = 0.0;
-  uav_state.acceleration.linear.x = 0.0;
-  uav_state.acceleration.linear.y = 0.0;
-  uav_state.acceleration.linear.z = 0.0;
-  uav_state.acceleration.angular.x = 0.0;
-  uav_state.acceleration.angular.y = 0.0;
-  uav_state.acceleration.angular.z = 0.0;
-  uav_state.acceleration_disturbance.linear.x = 0.0;
-  uav_state.acceleration_disturbance.linear.y = 0.0;
-  uav_state.acceleration_disturbance.linear.z = 0.0;
+  uav_state.pose.position.x                    = 0.0;
+  uav_state.pose.position.y                    = 0.0;
+  uav_state.pose.position.z                    = 0.0;
+  uav_state.pose.orientation.x                 = 0.0;
+  uav_state.pose.orientation.y                 = 0.0;
+  uav_state.pose.orientation.z                 = 0.0;
+  uav_state.pose.orientation.w                 = 1.0;
+  uav_state.velocity.linear.x                  = 0.0;
+  uav_state.velocity.linear.y                  = 0.0;
+  uav_state.velocity.linear.z                  = 0.0;
+  uav_state.velocity.angular.x                 = 0.0;
+  uav_state.velocity.angular.y                 = 0.0;
+  uav_state.velocity.angular.z                 = 0.0;
+  uav_state.acceleration.linear.x              = 0.0;
+  uav_state.acceleration.linear.y              = 0.0;
+  uav_state.acceleration.linear.z              = 0.0;
+  uav_state.acceleration.angular.x             = 0.0;
+  uav_state.acceleration.angular.y             = 0.0;
+  uav_state.acceleration.angular.z             = 0.0;
+  uav_state.acceleration_disturbance.linear.x  = 0.0;
+  uav_state.acceleration_disturbance.linear.y  = 0.0;
+  uav_state.acceleration_disturbance.linear.z  = 0.0;
   uav_state.acceleration_disturbance.angular.x = 0.0;
   uav_state.acceleration_disturbance.angular.y = 0.0;
   uav_state.acceleration_disturbance.angular.z = 0.0;
-  uav_state.estimator_iteration = 0;
-  uav_state.estimator_horizontal.type = mrs_msgs::EstimatorType::TYPE_COUNT;
-  uav_state.estimator_vertical.type = mrs_msgs::AltitudeType::TYPE_COUNT;
-  uav_state.estimator_heading.type = mrs_msgs::HeadingType::TYPE_COUNT;
+  uav_state.estimator_iteration                = 0;
+  uav_state.estimator_horizontal.type          = mrs_msgs::EstimatorType::TYPE_COUNT;
+  uav_state.estimator_vertical.type            = mrs_msgs::AltitudeType::TYPE_COUNT;
+  uav_state.estimator_heading.type             = mrs_msgs::HeadingType::TYPE_COUNT;
 
   nav_msgs::Odometry odom_main;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
-    odom_main = odom_pixhawk;
+    odom_main                  = odom_pixhawk;
     uav_state.pose.orientation = odom_pixhawk.pose.pose.orientation;
-    uav_state.velocity = odom_pixhawk.twist.twist;
+    uav_state.velocity         = odom_pixhawk.twist.twist;
   }
 
   odom_main.header.frame_id = local_origin_frame_id_;
@@ -2903,10 +2907,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_altitude_estimator);
 
-    odom_main.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    odom_main.twist.twist.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
-    uav_state.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
+    odom_main.pose.pose.position.z  = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    odom_main.twist.twist.linear.z  = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
+    uav_state.pose.position.z       = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    uav_state.velocity.linear.z     = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
     uav_state.acceleration.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION);
   }
 
@@ -2973,11 +2977,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     {
       std::scoped_lock lock(mutex_child_frame_id);
 
-      odom_main.child_frame_id = fcu_frame_id_;
+      odom_main.child_frame_id       = fcu_frame_id_;
       uav_state.estimator_horizontal = _estimator_type;
-      uav_state.estimator_vertical = _alt_estimator_type;
-      uav_state.estimator_heading = _hdg_estimator_type;
-      uav_state.estimator_iteration = estimator_iteration_;
+      uav_state.estimator_vertical   = _alt_estimator_type;
+      uav_state.estimator_heading    = _hdg_estimator_type;
+      uav_state.estimator_iteration  = estimator_iteration_;
     }
 
     {
@@ -3000,7 +3004,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_main.twist.twist.angular.z = yaw_rate(0);
       mrs_odometry::setYaw(uav_state.pose.orientation, yaw(0));
       uav_state.velocity.angular.z = yaw_rate(0);
-      
+
       uav_state.estimator_heading = _hdg_estimator_type;
     }
 
@@ -3011,13 +3015,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         odom_main.pose.pose.position.x = estimator_rtk->getState(0);
         odom_main.pose.pose.position.y = estimator_rtk->getState(1);
       }
-        uav_state.pose.position.x = odom_main.pose.pose.position.x;
-        uav_state.pose.position.y = odom_main.pose.pose.position.y;
+      uav_state.pose.position.x = odom_main.pose.pose.position.x;
+      uav_state.pose.position.y = odom_main.pose.pose.position.y;
     } else {
       odom_main.pose.pose.position.x = pos_vec(0);
       odom_main.pose.pose.position.y = pos_vec(1);
-      uav_state.pose.position.x = pos_vec(0);
-      uav_state.pose.position.y = pos_vec(1);
+      uav_state.pose.position.x      = pos_vec(0);
+      uav_state.pose.position.y      = pos_vec(1);
     }
 
     // the mavros velocity is correct only in the PIXHAWK heading estimator frame, our velocity estimate should be more accurate anyway
@@ -3026,15 +3030,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (!_publish_pixhawk_velocity) {
       odom_main.twist.twist.linear.x = vel_vec(0);
       odom_main.twist.twist.linear.y = vel_vec(1);
-      uav_state.velocity.linear.x = vel_vec(0);
-      uav_state.velocity.linear.y = vel_vec(1);
+      uav_state.velocity.linear.x    = vel_vec(0);
+      uav_state.velocity.linear.y    = vel_vec(1);
     }
 
-      uav_state.acceleration.linear.x = acc_vec(0);
-      uav_state.acceleration.linear.y = acc_vec(1);
+    uav_state.acceleration.linear.x = acc_vec(0);
+    uav_state.acceleration.linear.y = acc_vec(1);
 
-      uav_state.acceleration_disturbance.linear.x = acc_d_vec(0);
-      uav_state.acceleration_disturbance.linear.y = acc_d_vec(1);
+    uav_state.acceleration_disturbance.linear.x = acc_d_vec(0);
+    uav_state.acceleration_disturbance.linear.y = acc_d_vec(1);
 
     if (!odometry_published) {
       {
@@ -5037,14 +5041,33 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_rtk);
 
+    if (!isUavFlying()) {
+      if (++got_rtk_counter < 10) {
+        rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
+        ROS_INFO("[Odometry]: RTK ASL altitude sample #%d: %f", got_rtk_counter, rtk_utm.pose.pose.position.z);
+        return;
+
+      } else {
+
+        if (!got_rtk_local_origin_z) {
+          rtk_local_origin_z_ /= 10;
+          rtk_local_origin_z_ -= fcu_height_;
+          got_rtk_local_origin_z = true;
+          ROS_INFO("[Odometry]: RTK ASL altitude avg: %f", rtk_local_origin_z_);
+        }
+      }
+
+    } else {
+      if (!got_rtk_local_origin_z) {
+        rtk_local_origin_z_ = 0.0;
+      }
+    }
+
+    got_rtk         = true;
+    rtk_last_update = ros::Time::now();
+
     rtk_local_previous = rtk_local;
     rtk_local          = rtk_utm;
-
-    if (++got_rtk_counter > 2) {
-
-      got_rtk         = true;
-      rtk_last_update = ros::Time::now();
-    }
   }
 
   if (!got_odom_pixhawk || !got_rtk) {
@@ -5083,6 +5106,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // | ------------- offset the rtk to local_origin ------------- |
   rtk_local.pose.pose.position.x -= utm_origin_x_;
   rtk_local.pose.pose.position.y -= utm_origin_y_;
+  rtk_local.pose.pose.position.z -= rtk_local_origin_z_;
 
   rtk_local.header.frame_id = local_origin_frame_id_;
 
@@ -6698,8 +6722,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     std::scoped_lock lock(mutex_range_sonar);
     try {
       const ros::Duration             timeout(1.0 / 100.0);
-      geometry_msgs::TransformStamped tf_fcu2sonar =
-          m_tf_buffer.lookupTransform(fcu_frame_id_, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
+      geometry_msgs::TransformStamped tf_fcu2sonar = m_tf_buffer.lookupTransform(fcu_frame_id_, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
       range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
                   tf_fcu2sonar.transform.translation.y * tan(roll);
     }
