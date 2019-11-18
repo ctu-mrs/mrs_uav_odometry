@@ -4741,12 +4741,22 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     twist_q_y_prev = twist_q_y;
   }
 
+  double hdg = getCurrentHeading();
+
+  double cy = cos(hdg);
+  double sy = sin(hdg);
+
   double optflow_vel_x, optflow_vel_y;
   {
     std::scoped_lock lock(mutex_optflow);
 
-    optflow_vel_x = optflow_twist.twist.twist.linear.x;
-    optflow_vel_y = optflow_twist.twist.twist.linear.y;
+    // Velocities are already in the body frame (not ROS convention)
+    /* optflow_vel_x = optflow_twist.twist.twist.linear.x; */
+    /* optflow_vel_y = optflow_twist.twist.twist.linear.y; */
+
+    // Rotate body frame velocity to global frame
+    optflow_vel_x = optflow_twist.twist.twist.linear.x * cy - optflow_twist.twist.twist.linear.y * sy;
+    optflow_vel_y = optflow_twist.twist.twist.linear.x * sy + optflow_twist.twist.twist.linear.y * cy;
   }
 
   if (_optflow_median_filter) {
