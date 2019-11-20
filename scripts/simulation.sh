@@ -28,7 +28,7 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
 input=(
   'Roscore' 'roscore
 '
-  'Gazebo' "waitForRos; roslaunch simulation darpa.launch gui:=true debug:=false
+  'Gazebo' "waitForRos; roslaunch simulation simulation.launch gui:=true debug:=false
 "
   'Spawn' "waitForSimulation; spawn 1 --run --delete --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "
@@ -51,7 +51,7 @@ input=(
   'GoFcu' "rosservice call /$UAV_NAME/control_manager/goto_fcu \"goal: [0.0, 0.0, 0.0, 0.0]\""
   'RVIZ' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; rosrun rviz rviz -d rviz/odometry.rviz
   "
-  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
+  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/optflow_velocity.xml
   "
   'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
   "

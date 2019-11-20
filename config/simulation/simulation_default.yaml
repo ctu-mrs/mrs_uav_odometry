@@ -114,12 +114,12 @@ lateral:
   rtk_fuse_sps: true
 
   dynamic_optflow_cov: false
-  dynamic_optflow_cov_scale: 100000000
+  dynamic_optflow_cov_scale: 1
 
   optflow_median_filter: true
-  optflow_filter_buffer_size: 50
+  optflow_filter_buffer_size: 10
   optflow_filter_max_valid: 5.0
-  optflow_filter_max_diff: 1.0
+  optflow_filter_max_diff: 2.0
 
   icp_twist_median_filter: true
   icp_twist_filter_buffer_size: 20
@@ -143,7 +143,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [10]
+    vel_optflow: [1]
     pos_mavros: [10000]
     vel_mavros: [100000]
     tilt_mavros: [100]
