@@ -106,12 +106,17 @@ bool mrs_odometry::isEqual(const char* s1, const std::string& s2) {
 
 /* unwrapAngle() //{ */
 double mrs_odometry::unwrapAngle(const double yaw, const double yaw_previous) {
-  if (yaw - yaw_previous > M_PI) {
-    return yaw - 2 * M_PI;
-  } else if (yaw - yaw_previous < -M_PI) {
-    return yaw + 2 * M_PI;
+
+  double yaw_out = yaw;
+
+  while (yaw_out - yaw_previous > M_PI) {
+    yaw_out -= 2 * M_PI;
   }
-  return yaw;
+  while (yaw_out - yaw_previous < -M_PI) {
+    yaw_out += 2 * M_PI;
+  }
+
+  return yaw_out;
 }
 
 //}

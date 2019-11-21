@@ -3459,6 +3459,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     hdg_state_msg.state.push_back(mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation));
 
   } else {
+    hdg_state(0, 0) = mrs_odometry::wrapAngle(hdg_state(0, 0));
     for (int i = 0; i < heading_n; i++) {
       hdg_state_msg.state.push_back(hdg_state(i, 0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i, i));
