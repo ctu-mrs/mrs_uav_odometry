@@ -3108,19 +3108,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // publish TF
     if (_publish_local_origin_stable_tf_) {
+
+      //Get inverse trasnform
+      tf2::Vector3 position(odom_stable.pose.pose.position.x, odom_stable.pose.pose.position.y, odom_stable.pose.pose.position.z);
+      tf2::Transform tf_inv;
+      tf2::Quaternion q;
+      tf2::fromMsg(odom_stable.pose.pose.orientation, q);
+      tf_inv.setOrigin(position);
+      tf_inv.setRotation(q);
+      tf_inv = tf_inv.inverse();
+      geometry_msgs::Vector3 pos_inv;
+      pos_inv.x = tf_inv.getOrigin().getX();
+      pos_inv.y = tf_inv.getOrigin().getY();
+      pos_inv.z = tf_inv.getOrigin().getZ();
+      geometry_msgs::Quaternion q_inv;
+      q_inv = tf2::toMsg(tf_inv.getRotation());
+
       geometry_msgs::TransformStamped tf;
-      geometry_msgs::Vector3 position;
-      position.x = -odom_stable.pose.pose.position.x;
-      position.y = -odom_stable.pose.pose.position.y;
-      position.z = -odom_stable.pose.pose.position.z;
       tf.header.stamp          = ros::Time::now();
       tf.header.frame_id       = fcu_frame_id_;
       tf.child_frame_id        = local_origin_frame_id_;
-      tf.transform.translation = position;
-      tf2::Quaternion q_inv;
-      tf2::fromMsg(odom_stable.pose.pose.orientation, q_inv);
-      tf2::inverse(q_inv);
-      tf.transform.rotation    = tf2::toMsg(q_inv);
+      tf.transform.translation = pos_inv;
+      tf.transform.rotation    = q_inv;
       try {
         broadcaster_->sendTransform(tf);
       }
@@ -3289,20 +3298,32 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
     }
 
+    //Get inverse trasnform
+    tf2::Vector3 position(odom_aux->second.pose.pose.position.x, odom_aux->second.pose.pose.position.y, odom_aux->second.pose.pose.position.z);
+    tf2::Transform tf_inv;
+    tf2::Quaternion q;
+    tf2::fromMsg(odom_aux->second.pose.pose.orientation, q);
+    tf_inv.setOrigin(position);
+    tf_inv.setRotation(q);
+    tf_inv = tf_inv.inverse();
+    geometry_msgs::Vector3 pos_inv;
+    pos_inv.x = tf_inv.getOrigin().getX();
+    pos_inv.y = tf_inv.getOrigin().getY();
+    pos_inv.z = tf_inv.getOrigin().getZ();
+    geometry_msgs::Quaternion q_inv;
+    q_inv = tf2::toMsg(tf_inv.getRotation());
+
     // publish TF
-    geometry_msgs::Vector3 position;
-    position.x = -odom_aux->second.pose.pose.position.x;
-    position.y = -odom_aux->second.pose.pose.position.y;
-    position.z = -odom_aux->second.pose.pose.position.z;
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = odom_aux->second.header.frame_id;
-    tf.transform.translation = position;
-    tf2::Quaternion q_inv;
-    tf2::fromMsg(odom_aux->second.pose.pose.orientation, q_inv);
-    tf2::inverse(q_inv);
-    tf.transform.rotation    = tf2::toMsg(q_inv);
+    tf.transform.translation = pos_inv;
+    /* tf2::Quaternion q_inv; */
+    /* tf2::fromMsg(odom_aux->second.pose.pose.orientation, q_inv); */
+    /* /1* tf2::inverse(q_inv); *1/ */
+    /* q_inv.inverse(); */
+    tf.transform.rotation    = q_inv;
     try {
       broadcaster_->sendTransform(tf);
     }
@@ -7348,18 +7369,18 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     // publish TF
-    geometry_msgs::TransformStamped tf_stable;
-    tf_stable.header.stamp          = ros::Time::now();
-    tf_stable.header.frame_id       = local_origin_frame_id_;
-    tf_stable.child_frame_id        = fcu_frame_id_;
-    tf_stable.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
-    tf_stable.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
-    try {
-      broadcaster_->sendTransform(tf_stable);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str());
-    }
+    /* geometry_msgs::TransformStamped tf_stable; */
+    /* tf_stable.header.stamp          = ros::Time::now(); */
+    /* tf_stable.header.frame_id       = local_origin_frame_id_; */
+    /* tf_stable.child_frame_id        = fcu_frame_id_; */
+    /* tf_stable.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset); */
+    /* tf_stable.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse()); */
+    /* try { */
+    /*   broadcaster_->sendTransform(tf_stable); */
+    /* } */
+    /* catch (...) { */
+    /*   ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str()); */
+    /* } */
 
     {
       std::scoped_lock lock(mutex_shared_odometry);
@@ -7376,22 +7397,22 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
     // publish TF
-    geometry_msgs::Vector3 position;
-    position.x = odom_main.pose.pose.position.x;
-    position.y = odom_main.pose.pose.position.y;
-    position.z = odom_main.pose.pose.position.z;
-    geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = ros::Time::now();
-    tf.header.frame_id       = local_origin_frame_id_;
-    tf.child_frame_id        = fcu_frame_id_;
-    tf.transform.translation = position;
-    tf.transform.rotation    = odom_main.pose.pose.orientation;
-    try {
-      broadcaster_->sendTransform(tf);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-    }
+    /* geometry_msgs::Vector3 position; */
+    /* position.x = odom_main.pose.pose.position.x; */
+    /* position.y = odom_main.pose.pose.position.y; */
+    /* position.z = odom_main.pose.pose.position.z; */
+    /* geometry_msgs::TransformStamped tf; */
+    /* tf.header.stamp          = ros::Time::now(); */
+    /* tf.header.frame_id       = local_origin_frame_id_; */
+    /* tf.child_frame_id        = fcu_frame_id_; */
+    /* tf.transform.translation = position; */
+    /* tf.transform.rotation    = odom_main.pose.pose.orientation; */
+    /* try { */
+    /*   broadcaster_->sendTransform(tf); */
+    /* } */
+    /* catch (...) { */
+    /*   ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+    /* } */
     //}
   }
   //}
