@@ -5925,7 +5925,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   /* yaw_brick = -yaw_brick; */
 
-  double yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous);
+  double yaw_brick          = mrs_odometry::unwrapAngle(yaw_tmp, brick_yaw_previous);
   /* double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous); */
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
