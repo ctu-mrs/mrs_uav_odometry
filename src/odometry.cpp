@@ -3284,9 +3284,9 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) {
-      odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id;
-    }
+    /* if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) { */
+    /*   odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id; */
+    /* } */
 
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
@@ -3319,10 +3319,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = odom_aux->second.header.frame_id;
     tf.transform.translation = pos_inv;
-    /* tf2::Quaternion q_inv; */
-    /* tf2::fromMsg(odom_aux->second.pose.pose.orientation, q_inv); */
-    /* /1* tf2::inverse(q_inv); *1/ */
-    /* q_inv.inverse(); */
     tf.transform.rotation    = q_inv;
     try {
       broadcaster_->sendTransform(tf);
@@ -5929,8 +5925,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   /* yaw_brick = -yaw_brick; */
 
-  /* yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous); */
-  double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous);
+  double yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous);
+  /* double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous); */
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
 
