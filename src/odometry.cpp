@@ -3207,7 +3207,10 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       odom_aux->second.pose = odom_pixhawk_shifted.pose;
     }
 
-    odom_aux->second.header.frame_id = local_origin_frame_id_;
+    /* odom_aux->second.header.frame_id = local_origin_frame_id_; */
+    std::string estimator_name = estimator.first;
+    std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
+    odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
     odom_aux->second.header.stamp    = t_pub;
 
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
@@ -3242,6 +3245,23 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     odom_aux->second.twist.twist.linear.x = vel_vec(0);
     odom_aux->second.pose.pose.position.y = pos_vec(1);
     odom_aux->second.twist.twist.linear.y = vel_vec(1);
+
+    // Loop through each heading estimator
+    Eigen::VectorXd hdg_vec(1);
+    Eigen::VectorXd hdg_vel_vec(1);
+
+    for (auto &hdg_estimator : m_heading_estimators) {
+
+      if (isEqual(hdg_estimator.first, estimator.first)) {
+
+        hdg_estimator.second->getState(0, hdg_vec);
+        hdg_estimator.second->getState(1, hdg_vel_vec);
+
+        odom_aux->second.pose.pose.orientation.z = hdg_vec(0);
+        odom_aux->second.twist.twist.angular.z = hdg_vel_vec(0);
+        
+      }
+    }
 
     if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) {
       odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id;
