@@ -5959,7 +5959,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
 
-  /* yaw_brick = mrs_odometry::wrapAngle(yaw_brick); */
+  yaw_brick_sat = mrs_odometry::wrapAngle(yaw_brick_sat);
 
   mrs_msgs::Float64Stamped brick_yaw_out;
   brick_yaw_out.header.stamp    = ros::Time::now();
@@ -8623,7 +8623,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     // brick localization type
-  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK && _estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
 
     if (!_brick_available) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. brick odometry not available in this world.");
