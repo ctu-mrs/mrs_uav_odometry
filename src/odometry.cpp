@@ -39,6 +39,7 @@
 #include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/ChangeEstimator.h>
 #include <mrs_msgs/ChangeHdgEstimator.h>
+#include <mrs_msgs/ChangeAltEstimator.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/LkfStates.h>
@@ -207,6 +208,8 @@ private:
   ros::ServiceServer ser_change_estimator_type_string;
   ros::ServiceServer ser_change_hdg_estimator_type;
   ros::ServiceServer ser_change_hdg_estimator_type_string;
+  ros::ServiceServer ser_change_alt_estimator_type;
+  ros::ServiceServer ser_change_alt_estimator_type_string;
   ros::ServiceServer ser_gyro_jump_;
 
   ros::ServiceClient ser_client_failsafe_;
@@ -447,6 +450,7 @@ private:
   std::vector<std::string> _altitude_type_names;
   std::string              altitude_estimator_name;
   std::mutex               mutex_estimator_type;
+  std::mutex               mutex_alt_estimator_type;
   int                      estimator_iteration_;
 
   std::string child_frame_id;
@@ -500,6 +504,8 @@ private:
   bool callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res);
   bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
+  bool callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request &req, mrs_msgs::ChangeAltEstimator::Response &res);
+  bool callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // | --------------------- helper methods --------------------- |
@@ -524,6 +530,7 @@ private:
   double             getCurrentHeading();
   bool               isValidType(const mrs_msgs::EstimatorType &type);
   bool               isValidType(const mrs_msgs::HeadingType &type);
+  bool               isValidType(const mrs_msgs::AltitudeType &type);
   bool               isTimestampOK(const double curr_sec, const double prev_sec);
   std::string        printOdometryDiag();
   bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
@@ -590,6 +597,20 @@ private:
   double                        plane_max_valid_altitude;
   double                        plane_filter_max_difference;
   ros::Time                     plane_last_update;
+
+  // Brick altitude subscriber and callback
+  std::shared_ptr<MedianFilter> brickHeightFilter;
+  int                           brick_filter_buffer_size;
+  double                        brick_max_valid_altitude;
+  double                        brick_filter_max_difference;
+  ros::Time                     brick_last_update;
+
+  // VIO altitude subscriber and callback
+  std::shared_ptr<MedianFilter> vioHeightFilter;
+  int                           vio_filter_buffer_size;
+  double                        vio_max_valid_altitude;
+  double                        vio_filter_max_difference;
+  ros::Time                     vio_last_update;
 
   bool got_odom_pixhawk     = false;
   bool got_odom_t265        = false;
@@ -968,6 +989,8 @@ void Odometry::onInit() {
   // IMPORTANT, update this with each update of the AltitudeType message
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::HEIGHT));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::PLANE));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::BRICK));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::VIO));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -1021,6 +1044,14 @@ void Odometry::onInit() {
   param_loader.load_param("planeFilterBufferSize", plane_filter_buffer_size);
   param_loader.load_param("planeFilterMaxValidAltitude", plane_max_valid_altitude);
   param_loader.load_param("planeFilterMaxDifference", plane_filter_max_difference);
+
+  param_loader.load_param("brickFilterBufferSize", brick_filter_buffer_size);
+  param_loader.load_param("brickFilterMaxValidAltitude", brick_max_valid_altitude);
+  param_loader.load_param("brickFilterMaxDifference", brick_filter_max_difference);
+
+  param_loader.load_param("vioFilterBufferSize", vio_filter_buffer_size);
+  param_loader.load_param("vioFilterMaxValidAltitude", vio_max_valid_altitude);
+  param_loader.load_param("vioFilterMaxDifference", vio_filter_max_difference);
 
   param_loader.load_param("trg_z_offset", trg_z_offset_);
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
@@ -1124,6 +1155,8 @@ void Odometry::onInit() {
   garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
   sonarFilter      = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
   planeFilter      = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
+  brickHeightFilter      = std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, 0, brick_filter_max_difference);
+  vioHeightFilter      = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, 0, vio_filter_max_difference);
 
   stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
   stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
@@ -1870,6 +1903,10 @@ void Odometry::onInit() {
 
   ser_change_hdg_estimator_type_string = nh_.advertiseService("change_hdg_estimator_type_string_in", &Odometry::callbackChangeHdgEstimatorString, this);
 
+  ser_change_alt_estimator_type = nh_.advertiseService("change_alt_estimator_type_in", &Odometry::callbackChangeAltEstimator, this);
+
+  ser_change_alt_estimator_type_string = nh_.advertiseService("change_alt_estimator_type_string_in", &Odometry::callbackChangeAltEstimatorString, this);
+
   ser_gyro_jump_ = nh_.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
 
   ser_client_failsafe_         = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
@@ -2268,8 +2305,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /* ROS_WARN_STREAM_THROTTLE(1.0, "[Odometry]: altitude states:" << std::endl << current_altitude); */
     if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::PLANE) {
+      new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) {
+      new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) {
+      new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO);
     }
     /* ROS_WARN_THROTTLE(1.0, "[Odometry]: Publishing altitude from estimator type: %d", _alt_estimator_type.type); */
   }
@@ -3266,12 +3309,18 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
         return;
       }
+    }
 
-      if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
-        odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-      } else {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d", _alt_estimator_type.type);
-      }
+    if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
+      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::PLANE) {
+      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) {
+      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) {
+      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO);
     }
 
     if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
@@ -5539,32 +5588,86 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  /* fuse vio yaw //{ */
+  
   double yaw_vio;
   {
     std::scoped_lock lock(mutex_odom_vio);
     yaw_vio = mrs_odometry::getYaw(odom_vio.pose.pose.orientation);
   }
-
+  
   yaw_vio          = mrs_odometry::unwrapAngle(yaw_vio, vio_yaw_previous);
   vio_yaw_previous = yaw_vio;
-
+  
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_vio, "yaw_vio");
-
+  
   yaw_vio = mrs_odometry::wrapAngle(yaw_vio);
-
+  
   mrs_msgs::Float64Stamped vio_yaw_out;
   vio_yaw_out.header.stamp    = ros::Time::now();
   vio_yaw_out.header.frame_id = local_origin_frame_id_;
   vio_yaw_out.value           = yaw_vio;
   pub_vio_yaw_.publish(vio_yaw_out);
-
+  
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from VIO");
-
+  
+  //}
+  
+  /* fuse vio height //{ */
+  
+  //////////////////// Filter out vio height measurement ////////////////////
+  
+  double measurement = odom_vio.pose.pose.position.z;
+  if (isUavFlying()) {
+    if (!vioHeightFilter->isValid(measurement)) {
+      double filtered = vioHeightFilter->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+      return;
+    }
+  }
+  
+  //////////////////// Fuse main altitude kalman ////////////////////
+  /* if (!vio_enabled) { */
+  /*   ROS_WARN_ONCE("[Odometry]: VIO not enabled. Not fusing range corrections."); */
+  /*   return; */
+  /* } */
+  
+  double min_height = -100.0;
+  double max_height = 100.0;
+  if (measurement < min_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f < %f. Not fusing.", measurement, min_height);
+    return;
+  }
+  
+  if (measurement > max_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO measurement %f > %f. Not fusing.", measurement, max_height);
+    return;
+  }
+  
+  // Fuse vio measurement for each altitude estimator
+  for (auto &estimator : m_altitude_estimators) {
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    if (!estimator.second->getStates(current_altitude)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
+  
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+      if (fabs(measurement) > 100) {
+        ROS_WARN("VIO height correction: %f", measurement);
+      }
+  
+    }
+  }
+  
+  ROS_WARN_ONCE("[Odometry]: Fusing height from VIO pose");
+  
+  //}
+  
   //////////////////// Fuse Lateral Kalman ////////////////////
-
-  // Current orientation
-  double hdg = getCurrentHeading();
 
   /* //{ fuse vio velocity */
 
@@ -5998,6 +6101,56 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   pub_brick_yaw_.publish(brick_yaw_out);
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
+
+  //////////////////// Filter out brick height measurement ////////////////////
+  // do not fuse plane measurements when a height jump is detected - most likely the UAV is flying above an obstacle
+  
+  double measurement = brick_pose.pose.position.z;
+  if (isUavFlying()) {
+    if (!brickHeightFilter->isValid(measurement)) {
+      double filtered = brickHeightFilter->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height easurement %f declined by median filter.", measurement);
+      return;
+    }
+  }
+
+  //////////////////// Fuse main altitude kalman ////////////////////
+  /* if (!brick_enabled) { */
+  /*   ROS_WARN_ONCE("[Odometry]: Brick not enabled. Not fusing range corrections."); */
+  /*   return; */
+  /* } */
+
+  double min_height = 0.0;
+  double max_height = 100.0;
+  if (measurement < min_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f < %f. Not fusing.", measurement, min_height);
+    return;
+  }
+
+  if (measurement > max_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, max_height);
+    return;
+  }
+
+  // Fuse brick measurement for each altitude estimator
+  for (auto &estimator : m_altitude_estimators) {
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    if (!estimator.second->getStates(current_altitude)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+      altitudeEstimatorCorrection(measurement, "height_brick", estimator.second);
+      if (fabs(measurement) > 100) {
+        ROS_WARN("Brick height correction: %f", measurement);
+      }
+
+    }
+  }
+
+  ROS_WARN_ONCE("[Odometry]: Brick height from brick pose");
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -7608,6 +7761,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
 
   mrs_msgs::EstimatorType desired_estimator;
   mrs_msgs::HeadingType   desired_hdg_estimator;
+  mrs_msgs::AltitudeType  desired_alt_estimator;
 
 
   std::string type = req.value;
@@ -7615,39 +7769,51 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   if (std::strcmp(type.c_str(), "OPTFLOW") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::OPTFLOW;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "GPS") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::GPS;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "OPTFLOWGPS") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::OPTFLOWGPS;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "RTK") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::RTK;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "LIDAR") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::LIDAR;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::LIDAR;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "VIO") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::VIO;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::VIO;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::VIO;
   } else if (std::strcmp(type.c_str(), "VSLAM") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::VSLAM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::VSLAM;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICK;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::BRICK;
   } else if (std::strcmp(type.c_str(), "T265") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::T265;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "HECTOR") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::HECTOR;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::HECTOR;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICKFLOW;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "ICP") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::ICP;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ICP;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -7689,9 +7855,25 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     success = changeCurrentEstimator(desired_estimator);
   }
 
+  // Check whether a valid altitude type was requested
+  if (!isValidType(desired_alt_estimator)) {
+    ROS_ERROR("[Odometry]: %d is not a valid altitude estimator type", desired_alt_estimator.type);
+    res.success = false;
+    res.message = ("Not a valid altitude estimator type");
+    return true;
+  }
+
+  desired_alt_estimator.name = _altitude_estimators_names[desired_alt_estimator.type];
+
+  bool success_alt = false;
+  {
+    std::scoped_lock lock(mutex_alt_estimator_type);
+
+    success_alt = changeCurrentAltitudeEstimator(desired_alt_estimator);
+  }
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
-  res.success = success_hdg && success;
+  res.success = success_alt && success_hdg && success;
   res.message = (printOdometryDiag().c_str());
 
   return true;
@@ -7920,6 +8102,104 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
 
   return true;
 }  // namespace mrs_odometry
+
+//}
+
+/* //{ callbackChangeAltEstimator() */
+
+bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request &req, mrs_msgs::ChangeAltEstimator::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  // Check whether a valid type was requested
+  if (!isValidType(req.estimator_type)) {
+    ROS_ERROR("[Odometry]: %d is not a valid altitude estimator type", req.estimator_type.type);
+    res.success = false;
+    res.message = ("Not a valid altitude estimator type");
+    {
+      std::scoped_lock lock(mutex_alt_estimator_type);
+
+      res.estimator_type.type = _alt_estimator_type.type;
+    }
+    return true;
+  }
+
+  bool success = false;
+  {
+    std::scoped_lock lock(mutex_alt_estimator_type);
+
+    mrs_msgs::AltitudeType desired_estimator;
+    desired_estimator.type = req.estimator_type.type;
+    desired_estimator.name = _altitude_estimators_names[desired_estimator.type];
+    success                = changeCurrentAltitudeEstimator(desired_estimator);
+  }
+
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+  res.success = success;
+  res.message = (printOdometryDiag().c_str());
+  {
+    std::scoped_lock lock(mutex_hdg_estimator_type);
+
+    res.estimator_type.type = _hdg_estimator_type.type;
+  }
+
+  return true;
+}
+
+//}
+
+/* //{ callbackChangeAltEstimatorString() */
+
+bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  mrs_msgs::AltitudeType desired_estimator;
+
+  std::string type = req.value;
+  std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+  if (std::strcmp(type.c_str(), "HEIGHT") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+  } else if (std::strcmp(type.c_str(), "PLANE") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::PLANE;
+  } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::BRICK;
+  } else if (std::strcmp(type.c_str(), "VIO") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::VIO;
+  } else {
+    ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
+    res.success = false;
+    res.message = ("Not a valid altitude estimator type");
+    return true;
+  }
+
+  // Check whether a valid type was requested
+  if (!isValidType(desired_estimator)) {
+    ROS_ERROR("[Odometry]: %d is not a valid altitude estimator type", desired_estimator.type);
+    res.success = false;
+    res.message = ("Not a valid altitude estimator type");
+    return true;
+  }
+
+  desired_estimator.name = _altitude_estimators_names[desired_estimator.type];
+
+  bool success = false;
+  {
+    std::scoped_lock lock(mutex_alt_estimator_type);
+
+    success = changeCurrentAltitudeEstimator(desired_estimator);
+  }
+
+  ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
+
+  res.success = success;
+  res.message = (printOdometryDiag().c_str());
+
+  return true;
+}  
 
 //}
 
@@ -8699,7 +8979,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
   {
     std::scoped_lock lock(mutex_altitude_estimator);
-    if (!current_alt_estimator->getStates(current_altitude)) {
+    if (isUavFlying() && !current_alt_estimator->getStates(current_altitude)) {
       ROS_WARN("[Odometry]: Altitude estimator not initialized.");
       return false;
     }
@@ -9003,8 +9283,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   mrs_msgs::AltitudeType target_estimator = desired_estimator;
   target_estimator.name                   = _altitude_type_names[target_estimator.type];
 
-  if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT) {
-    ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
+  if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE && target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO) {
+    ROS_ERROR("[Odometry]: Rejected transition to invalid type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
 
@@ -9128,6 +9408,19 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
       type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP) {
+    return true;
+  }
+
+  return false;
+}
+
+//}
+
+/* //{ isValidType() */
+bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
+
+  if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
+      type.type == mrs_msgs::AltitudeType::VIO) {
     return true;
   }
 
