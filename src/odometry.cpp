@@ -8614,9 +8614,11 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
   }
 
   Vec2 mes;
-  mes << x, y;
 
   for (auto &estimator : m_state_estimators) {
+
+    mes(0) = x;
+    mes(1) = y;
     
     // Rotate body frame measurements into estimator frame
     if (isEqual(measurement_name, "tilt_mavros") || isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp")) {
@@ -8645,7 +8647,6 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
       mes_y = mes(0) * sin(current_yaw(0)) + mes(1) * cos(current_yaw(0));
       mes(0) = mes_x;
       mes(1) = mes_y;
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: rotating state %s", measurement_name.c_str());
     
     }
 
