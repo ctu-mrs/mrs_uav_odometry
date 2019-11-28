@@ -4,7 +4,7 @@
 lateral_estimator: "RTK"
 
 # Altitude state estimator:
-# HEIGHT - rangefinder
+# HEIGHT - rangefinder, PLANE - height above plane estimated from realsense
 altitude_estimator: "HEIGHT"
 
 # Heading state estimator:
@@ -65,6 +65,10 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 2.0
 
+planeFilterBufferSize: 200
+planeFilterMaxValidAltitude: 40.0
+planeFilterMaxDifference: 2.0
+
 reset_hector_after_takeoff: true # Gets rid of map clutter accumulated during takeoff tilting
 perform_hector_reset_routine: true # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
@@ -93,7 +97,8 @@ altitude:
   # Covariances of measurements
   Q:
     height_range: [10] # 0.04 stddev in simulation
-    height_sonar: [1] # 0.04 stddev in simulation
+    height_sonar: [1]
+    height_plane: [1] 
     vel_baro: [0.1]
     acc_imu: [100] 
 

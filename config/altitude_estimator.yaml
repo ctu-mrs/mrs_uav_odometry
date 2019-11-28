@@ -5,7 +5,8 @@ altitude_estimators:
 
   # The available altitude estimators
   altitude_estimators: [
-    "HEIGHT"
+    "HEIGHT",
+    "PLANE"
   ] 
 
   # The measured states of the model
@@ -19,6 +20,7 @@ altitude_estimators:
   measurements: [
     "height_range",
     "height_sonar",
+    "height_plane",
     "vel_baro",
     "acc_imu"
   ]
@@ -26,11 +28,13 @@ altitude_estimators:
   # The fused measurements for each state estimator
   fused_measurements:
     HEIGHT: ["height_range", "height_sonar", "vel_baro", "acc_imu"]
+    PLANE: ["height_plane", "vel_baro", "acc_imu"]
 
   # Mapping of measurements to states
   measurement_states:
     height_range: HEIGHT
     height_sonar: HEIGHT
+    height_plane: HEIGHT
     vel_baro: VELOCITY
     acc_imu: ACCELERATION
 
@@ -42,9 +46,13 @@ altitude_estimators:
 
   n_A:
     HEIGHT: 3
+    PLANE: 3
 
   A:
     HEIGHT: [1, 0.01, 0.0001,
+             0, 1, 0.01,
+             0, 0, 1]
+    PLANE: [1, 0.01, 0.0001,
              0, 1, 0.01,
              0, 0, 1]
 height:
