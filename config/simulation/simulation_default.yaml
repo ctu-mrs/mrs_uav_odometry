@@ -30,7 +30,7 @@ vslam_available: true
 
 # Rates of odometry publishers
 rate: 100 # [Hz]
-aux_rate: 1 # [Hz]
+aux_rate: 100 # [Hz]
 slow_odom_rate: 2 # [Hz]
 diag_rate: 10 # [Hz]
 max_altitude_rate: 10 # [Hz]
@@ -157,8 +157,8 @@ lateral:
     pos_lidar: [1000]
     vel_lidar: [10000]
     pos_vslam: [1]
-    pos_vio: [100]
-    vel_vio: [10000]
+    pos_vio: [0.1] #0.1
+    vel_vio: [10] #10
     pos_object: [100]
     vel_object: [10000]
     pos_brick: [10]
@@ -271,7 +271,7 @@ heading:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_brick: [1]
-    yaw_vio: [1]
+    yaw_vio: [100] #100
     rate_gyro: [0.1]
     rate_optflow: [10]
     yaw_vslam: [1]

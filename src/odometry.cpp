@@ -71,6 +71,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
+#include <tf/transform_datatypes.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -453,13 +454,13 @@ private:
   std::mutex  mutex_odom_stable;
   std::string fcu_frame_id_;
   std::string local_origin_frame_id_;
-  std::string local_origin_stable_frame_id_;
+  std::string last_stable_name_;
 
   bool       got_init_heading = false;
   double     m_init_heading;
-  ros::Timer transform_timer;
-  int        transform_timer_rate_ = 1;
-  void       transformTimer(const ros::TimerEvent &event);
+  /* ros::Timer transform_timer; */
+  /* int        transform_timer_rate_ = 1; */
+  /* void       transformTimer(const ros::TimerEvent &event); */
 
   bool is_updating_state_     = false;
   bool finished_state_update_ = false;
@@ -883,7 +884,7 @@ void Odometry::onInit() {
   param_loader.load_param("uav_name", uav_name);
   fcu_frame_id_                 = uav_name + "/fcu";
   local_origin_frame_id_        = uav_name + "/local_origin";
-  local_origin_stable_frame_id_ = uav_name + "/local_origin_stable";
+  last_stable_name_        = uav_name + "/null_origin";
 
   param_loader.load_param("uav_mass", uav_mass_estimate);
   param_loader.load_param("null_tracker", null_tracker_);
@@ -1889,7 +1890,7 @@ void Odometry::onInit() {
   lkf_states_timer           = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
   max_altitude_timer         = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
   topic_watcher_timer        = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
-  transform_timer            = nh_.createTimer(ros::Rate(transform_timer_rate_), &Odometry::transformTimer, this);
+  /* transform_timer            = nh_.createTimer(ros::Rate(transform_timer_rate_), &Odometry::transformTimer, this); */
   hector_reset_routine_timer = nh_.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
@@ -2917,9 +2918,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     uav_state.velocity         = odom_pixhawk.twist.twist;
   }
 
-  odom_main.header.frame_id = local_origin_frame_id_;
+  std::transform(current_estimator_name.begin(), current_estimator_name.end(), current_estimator_name.begin(), ::tolower);
+  odom_main.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
+  /* odom_main.header.frame_id = local_origin_frame_id_; */
   odom_main.header.stamp    = ros::Time::now();
-  uav_state.header.frame_id = local_origin_frame_id_;
+  uav_state.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
+  /* uav_state.header.frame_id = local_origin_frame_id_; */
   uav_state.header.stamp    = ros::Time::now();
 
   geometry_msgs::PoseStamped newPose;
@@ -3083,8 +3087,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /*   odom_main.pose.pose.position.y += pixhawk_odom_offset_y; */
     {
       std::scoped_lock lock(mutex_odom_stable);
-      if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
+      if (!isEqual(odom_main.header.frame_id, last_stable_name_)) {
 
+        last_stable_name_ = odom_main.header.frame_id;
         tf2::Vector3 v1, v2;
         tf2::fromMsg(odom_main.pose.pose.position, v1);
         tf2::fromMsg(odom_stable.pose.pose.position, v2);
@@ -3113,7 +3118,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_stable = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-      odom_stable.header.frame_id = local_origin_stable_frame_id_;
+      odom_stable.header.frame_id = local_origin_frame_id_;
 
       try {
         pub_odom_stable_.publish(odom_stable);
@@ -3125,12 +3130,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // publish TF
     if (_publish_local_origin_stable_tf_) {
+
+      //Get inverse trasnform
+      tf2::Vector3 position(odom_stable.pose.pose.position.x, odom_stable.pose.pose.position.y, odom_stable.pose.pose.position.z);
+      tf2::Transform tf_inv;
+      tf2::Quaternion q;
+      tf2::fromMsg(odom_stable.pose.pose.orientation, q);
+      tf_inv.setOrigin(position);
+      tf_inv.setRotation(q);
+      tf_inv = tf_inv.inverse();
+      geometry_msgs::Vector3 pos_inv;
+      pos_inv.x = tf_inv.getOrigin().getX();
+      pos_inv.y = tf_inv.getOrigin().getY();
+      pos_inv.z = tf_inv.getOrigin().getZ();
+      geometry_msgs::Quaternion q_inv;
+      q_inv = tf2::toMsg(tf_inv.getRotation());
+
       geometry_msgs::TransformStamped tf;
       tf.header.stamp          = ros::Time::now();
-      tf.header.frame_id       = local_origin_stable_frame_id_;
+      tf.header.frame_id       = fcu_frame_id_;
       tf.child_frame_id        = local_origin_frame_id_;
-      tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
-      tf.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
+      tf.transform.translation = pos_inv;
+      tf.transform.rotation    = q_inv;
       try {
         broadcaster_->sendTransform(tf);
       }
@@ -3178,22 +3199,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // publish TF
-  geometry_msgs::Vector3 position;
-  position.x = odom_main.pose.pose.position.x;
-  position.y = odom_main.pose.pose.position.y;
-  position.z = odom_main.pose.pose.position.z;
-  geometry_msgs::TransformStamped tf;
-  tf.header.stamp          = ros::Time::now();
-  tf.header.frame_id       = local_origin_frame_id_;
-  tf.child_frame_id        = fcu_frame_id_;
-  tf.transform.translation = position;
-  tf.transform.rotation    = odom_main.pose.pose.orientation;
-  try {
-    broadcaster_->sendTransform(tf);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-  }
+  /* geometry_msgs::Vector3 position; */
+  /* position.x = odom_main.pose.pose.position.x; */
+  /* position.y = odom_main.pose.pose.position.y; */
+  /* position.z = odom_main.pose.pose.position.z; */
+  /* geometry_msgs::TransformStamped tf; */
+  /* tf.header.stamp          = ros::Time::now(); */
+  /* tf.header.frame_id       = local_origin_frame_id_; */
+  /* tf.child_frame_id        = fcu_frame_id_; */
+  /* tf.transform.translation = position; */
+  /* tf.transform.rotation    = odom_main.pose.pose.orientation; */
+  /* try { */
+  /*   broadcaster_->sendTransform(tf); */
+  /* } */
+  /* catch (...) { */
+  /*   ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+  /* } */
 
   if (!isUavFlying()) {
     ROS_WARN_THROTTLE(5.0, "[Odometry]: Preflight check: \nodom: x: %f y: %f z: %f\n%s: x: %f y: %f\nlateral_estimator: %s\naltitude_estimator: %s",
@@ -3229,8 +3250,12 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       odom_aux->second.pose = odom_pixhawk_shifted.pose;
     }
 
-    odom_aux->second.header.frame_id = local_origin_frame_id_;
+    /* odom_aux->second.header.frame_id = local_origin_frame_id_; */
+    std::string estimator_name = estimator.first;
+    std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
+    odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
     odom_aux->second.header.stamp    = t_pub;
+    odom_aux->second.child_frame_id = fcu_frame_id_;
 
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
     // update the altitude state
@@ -3265,19 +3290,66 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     odom_aux->second.pose.pose.position.y = pos_vec(1);
     odom_aux->second.twist.twist.linear.y = vel_vec(1);
 
-    if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) {
-      odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id;
+    // Loop through each heading estimator
+    Eigen::VectorXd hdg_vec(1);
+    Eigen::VectorXd hdg_vel_vec(1);
+
+    for (auto &hdg_estimator : m_heading_estimators) {
+
+      if (isEqual(hdg_estimator.first, estimator.first)) {
+
+        hdg_estimator.second->getState(0, hdg_vec);
+        hdg_estimator.second->getState(1, hdg_vel_vec);
+        mrs_odometry::setYaw(odom_aux->second.pose.pose.orientation, hdg_vec(0));
+        odom_aux->second.twist.twist.angular.z = hdg_vel_vec(0);
+        
+      }
     }
+
+    /* if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) { */
+    /*   odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id; */
+    /* } */
 
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
+    // Publish odom
     try {
       pub_odom_aux->second.publish(odom_aux->second);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
     }
+
+    //Get inverse trasnform
+    tf2::Vector3 position(odom_aux->second.pose.pose.position.x, odom_aux->second.pose.pose.position.y, odom_aux->second.pose.pose.position.z);
+    tf2::Transform tf_inv;
+    tf2::Quaternion q;
+    tf2::fromMsg(odom_aux->second.pose.pose.orientation, q);
+    tf_inv.setOrigin(position);
+    tf_inv.setRotation(q);
+    tf_inv = tf_inv.inverse();
+    geometry_msgs::Vector3 pos_inv;
+    pos_inv.x = tf_inv.getOrigin().getX();
+    pos_inv.y = tf_inv.getOrigin().getY();
+    pos_inv.z = tf_inv.getOrigin().getZ();
+    geometry_msgs::Quaternion q_inv;
+    q_inv = tf2::toMsg(tf_inv.getRotation());
+
+    // publish TF
+    geometry_msgs::TransformStamped tf;
+    tf.header.stamp          = ros::Time::now();
+    tf.header.frame_id       = fcu_frame_id_;
+    tf.child_frame_id        = odom_aux->second.header.frame_id;
+    tf.transform.translation = pos_inv;
+    tf.transform.rotation    = q_inv;
+    try {
+      broadcaster_->sendTransform(tf);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
   }
+
 
   // Loop through each heading estimator
   for (auto &estimator : m_heading_estimators) {
@@ -3481,6 +3553,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     hdg_state_msg.state.push_back(mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation));
 
   } else {
+    hdg_state(0, 0) = mrs_odometry::wrapAngle(hdg_state(0, 0));
     for (int i = 0; i < heading_n; i++) {
       hdg_state_msg.state.push_back(hdg_state(i, 0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i, i));
@@ -3649,30 +3722,30 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
 /* //{ transformTimer() */
 
-void Odometry::transformTimer(const ros::TimerEvent &event) {
+/* void Odometry::transformTimer(const ros::TimerEvent &event) { */
 
-  if (!is_initialized || !got_init_heading)
-    return;
+/*   if (!is_initialized || !got_init_heading) */
+/*     return; */
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event);
+/*   mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event); */
 
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, m_init_heading);
-  q.normalize();
+/*   tf2::Quaternion q; */
+/*   q.setRPY(0.0, 0.0, m_init_heading); */
+/*   q.normalize(); */
 
-  geometry_msgs::TransformStamped tf;
-  tf.header.stamp          = ros::Time::now();
-  tf.header.frame_id       = local_origin_frame_id_;
-  tf.child_frame_id        = uav_name + std::string("/fcu_origin");
-  tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0));
-  tf.transform.rotation    = tf2::toMsg(q);
-  try {
-    broadcaster_->sendTransform(tf);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-  }
-}
+/*   geometry_msgs::TransformStamped tf; */
+/*   tf.header.stamp          = ros::Time::now(); */
+/*   tf.header.frame_id       = local_origin_frame_id_; */
+/*   tf.child_frame_id        = uav_name + std::string("/fcu_origin"); */
+/*   tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0)); */
+/*   tf.transform.rotation    = tf2::toMsg(q); */
+/*   try { */
+/*     broadcaster_->sendTransform(tf); */
+/*   } */
+/*   catch (...) { */
+/*     ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+/*   } */
+/* } */
 
 //}
 
@@ -5874,8 +5947,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   /* yaw_brick = -yaw_brick; */
 
-  /* yaw_brick          = mrs_odometry::unwrapAngle(yaw_brick, brick_yaw_previous); */
-  double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous);
+  double yaw_brick          = mrs_odometry::unwrapAngle(yaw_tmp, brick_yaw_previous);
+  /* double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous); */
   brick_yaw_previous = yaw_brick;
   /* yaw          = M_PI / 2 - yaw; */
 
@@ -5908,7 +5981,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
 
-  /* yaw_brick = mrs_odometry::wrapAngle(yaw_brick); */
+  yaw_brick_sat = mrs_odometry::wrapAngle(yaw_brick_sat);
 
   mrs_msgs::Float64Stamped brick_yaw_out;
   brick_yaw_out.header.stamp    = ros::Time::now();
@@ -7368,7 +7441,8 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_main = odom_t265;
     }
 
-    odom_main.header.frame_id = local_origin_frame_id_;
+    odom_main.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
+    odom_main.child_frame_id = fcu_frame_id_;
     odom_main.header.stamp    = ros::Time::now();
 
     if (!odometry_published) {
@@ -7381,10 +7455,13 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       m_pos_odom_offset.setZero();
       m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
       m_rot_odom_offset.normalize();
+      last_stable_name_ = odom_main.header.frame_id;
     }
     {
       std::scoped_lock lock(mutex_odom_stable);
-      if (std::strcmp(odom_main.child_frame_id.c_str(), odom_stable.child_frame_id.c_str()) != STRING_EQUAL) {
+      if (!isEqual(odom_main.header.frame_id, last_stable_name_)) {
+
+        last_stable_name_ = odom_main.header.frame_id;
 
         tf2::Vector3 v1, v2;
         tf2::fromMsg(odom_main.pose.pose.position, v1);
@@ -7414,7 +7491,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_stable = applyOdomOffset(odom_main);
       /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
        * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
-      odom_stable.header.frame_id = local_origin_stable_frame_id_;
+      odom_stable.header.frame_id = local_origin_frame_id_;
 
       try {
         pub_odom_stable_.publish(odom_stable);
@@ -7425,18 +7502,18 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     // publish TF
-    geometry_msgs::TransformStamped tf_stable;
-    tf_stable.header.stamp          = ros::Time::now();
-    tf_stable.header.frame_id       = local_origin_stable_frame_id_;
-    tf_stable.child_frame_id        = local_origin_frame_id_;
-    tf_stable.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset);
-    tf_stable.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse());
-    try {
-      broadcaster_->sendTransform(tf_stable);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str());
-    }
+    /* geometry_msgs::TransformStamped tf_stable; */
+    /* tf_stable.header.stamp          = ros::Time::now(); */
+    /* tf_stable.header.frame_id       = local_origin_frame_id_; */
+    /* tf_stable.child_frame_id        = fcu_frame_id_; */
+    /* tf_stable.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0) - m_pos_odom_offset); */
+    /* tf_stable.transform.rotation    = tf2::toMsg(m_rot_odom_offset.inverse()); */
+    /* try { */
+    /*   broadcaster_->sendTransform(tf_stable); */
+    /* } */
+    /* catch (...) { */
+    /*   ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str()); */
+    /* } */
 
     {
       std::scoped_lock lock(mutex_shared_odometry);
@@ -7453,22 +7530,22 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
     // publish TF
-    geometry_msgs::Vector3 position;
-    position.x = odom_main.pose.pose.position.x;
-    position.y = odom_main.pose.pose.position.y;
-    position.z = odom_main.pose.pose.position.z;
-    geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = ros::Time::now();
-    tf.header.frame_id       = local_origin_frame_id_;
-    tf.child_frame_id        = fcu_frame_id_;
-    tf.transform.translation = position;
-    tf.transform.rotation    = odom_main.pose.pose.orientation;
-    try {
-      broadcaster_->sendTransform(tf);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-    }
+    /* geometry_msgs::Vector3 position; */
+    /* position.x = odom_main.pose.pose.position.x; */
+    /* position.y = odom_main.pose.pose.position.y; */
+    /* position.z = odom_main.pose.pose.position.z; */
+    /* geometry_msgs::TransformStamped tf; */
+    /* tf.header.stamp          = ros::Time::now(); */
+    /* tf.header.frame_id       = local_origin_frame_id_; */
+    /* tf.child_frame_id        = fcu_frame_id_; */
+    /* tf.transform.translation = position; */
+    /* tf.transform.rotation    = odom_main.pose.pose.orientation; */
+    /* try { */
+    /*   broadcaster_->sendTransform(tf); */
+    /* } */
+    /* catch (...) { */
+    /*   ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+    /* } */
     //}
   }
   //}
@@ -8683,7 +8760,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     // brick localization type
-  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK && _estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
 
     if (!_brick_available) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. brick odometry not available in this world.");
