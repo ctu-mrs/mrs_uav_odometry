@@ -954,6 +954,7 @@ void Odometry::onInit() {
   // prepare the array of names
   // IMPORTANT, update this with each update of the AltitudeType message
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::HEIGHT));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::PLANE));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
