@@ -4271,7 +4271,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // Apply correction step to all state estimators
   if (isUavFlying()) {
-    stateEstimatorsCorrection(rot_y, rot_x, "tilt_mavros");
+    stateEstimatorsCorrection(orient, "tilt_mavros");
   } else {
   }
 
