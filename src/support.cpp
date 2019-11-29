@@ -159,7 +159,7 @@ void mrs_odometry::tryPublish(const ros::Publisher& pub, const MsgType& msg) {
     pub.publish(msg);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", pub.getTopic().c_str());
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub.getTopic().c_str());
   }
 }
 
