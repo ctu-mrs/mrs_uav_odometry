@@ -1099,10 +1099,10 @@ void Odometry::onInit() {
   param_loader.load_param("utm_origin_x", utm_origin_x_);
   param_loader.load_param("utm_origin_y", utm_origin_y_);
 
-  /* param_loader.load_param("local_origin_x", local_origin_x_); */
-  /* param_loader.load_param("local_origin_y", local_origin_y_); */
-  local_origin_x_ = 0.0;
-  local_origin_y_ = 0.0;
+  param_loader.load_param("local_origin_x", local_origin_x_);
+  param_loader.load_param("local_origin_y", local_origin_y_);
+  /* local_origin_x_ = 0.0; */
+  /* local_origin_y_ = 0.0; */
 
   pixhawk_odom_offset_x = 0;
   pixhawk_odom_offset_y = 0;
@@ -2986,6 +2986,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       {
         std::scoped_lock lock(mutex_rtk_est);
 
+        state(0) = 0.0;
+        state(1) = 0.0;
         estimator_rtk->setStates(state);
       }
     }
@@ -5244,7 +5246,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   rtk_local.pose.pose.position.y -= utm_origin_y_;
   rtk_local.pose.pose.position.z -= rtk_local_origin_z_;
 
-  rtk_local.header.frame_id = local_origin_frame_id_;
+  rtk_local.header.frame_id = uav_name + "/rtk_origin";
 
   // | ------------------ publish the rtk local ----------------- |
   mrs_msgs::RtkGps rtk_local_out = rtk_local;
