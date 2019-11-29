@@ -4142,6 +4142,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     tf2::fromMsg(odom_pixhawk.pose.pose.orientation, q);
   }
       q = q.inverse();
+      setYaw(q, 0.0);
 
       geometry_msgs::TransformStamped tf;
       tf.header.stamp          = ros::Time::now();
