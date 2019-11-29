@@ -188,7 +188,7 @@ try
   } catch (const std::exception& e)
     {
       // In case of error, alert the user
-      ROS_ERROR("LKF prediction step failed: %s", e.what());
+      ROS_ERROR("[Odometry]: LKF prediction step failed: %s", e.what());
     }
 
 }
@@ -277,7 +277,7 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
   } catch (const std::exception& e)
     {
       // In case of error, alert the user
-      ROS_ERROR("LKF correction step failed: %s", e.what());
+      ROS_ERROR("[Odometry]: LKF correction step failed: %s", e.what());
     }
   }
 
