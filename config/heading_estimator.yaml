@@ -13,7 +13,8 @@ heading_estimators:
     "LIDAR",
     "BRICK",
     "VIO",
-    "VSLAM"
+    "VSLAM",
+    "PAVEL"
   ] 
 
   # The measured states of the model
@@ -33,6 +34,7 @@ heading_estimators:
     "yaw_vio",
     "yaw_vslam",
     "yaw_lidar",
+    "yaw_pavel",
   ]
 
   # The fused measurements for each state estimator
@@ -46,6 +48,7 @@ heading_estimators:
     BRICK: ["rate_gyro", "yaw_brick"]
     VIO: ["rate_gyro", "yaw_vio"]
     VSLAM: ["rate_gyro", "yaw_vslam"]
+    PAVEL: ["rate_gyro", "yaw_pavel"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
@@ -58,6 +61,7 @@ heading_estimators:
     yaw_vio: YAW
     yaw_vslam: YAW
     yaw_lidar: YAW
+    yaw_pavel: YAW
 
   # Mapping states to model
   state_mapping:
