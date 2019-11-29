@@ -3750,27 +3750,30 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
 /* void Odometry::transformTimer(const ros::TimerEvent &event) { */
 
-/*   if (!is_initialized || !got_init_heading) */
+/*   if (!is_initialized) */
 /*     return; */
 
 /*   mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event); */
 
+/*       //Get inverse trasnform */
 /*   tf2::Quaternion q; */
-/*   q.setRPY(0.0, 0.0, m_init_heading); */
-/*   q.normalize(); */
+/*       tf2::fromMsg(odom_pixhawk.pose.pose.orientation, q); */
+/*       q = q.inverse(); */
 
-/*   geometry_msgs::TransformStamped tf; */
-/*   tf.header.stamp          = ros::Time::now(); */
-/*   tf.header.frame_id       = local_origin_frame_id_; */
-/*   tf.child_frame_id        = uav_name + std::string("/fcu_origin"); */
-/*   tf.transform.translation = tf2::toMsg(tf2::Vector3(0.0, 0.0, 0.0)); */
-/*   tf.transform.rotation    = tf2::toMsg(q); */
-/*   try { */
-/*     broadcaster_->sendTransform(tf); */
-/*   } */
-/*   catch (...) { */
-/*     ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
-/*   } */
+/*       geometry_msgs::TransformStamped tf; */
+/*       tf.header.stamp          = ros::Time::now(); */
+/*       tf.header.frame_id       = fcu_frame_id_; */
+/*       tf.child_frame_id        = fcu_frame_id_ + "_untilted"; */
+/*       tf.transform.translation.x = 0.0; */
+/*       tf.transform.translation.y = 0.0; */
+/*       tf.transform.translation.z = 0.0; */
+/*       tf.transform.rotation    = tf2::toMsg(q); */
+/*       try { */
+/*         broadcaster_->sendTransform(tf); */
+/*       } */
+/*       catch (...) { */
+/*         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+/*       } */
 /* } */
 
 //}
@@ -4132,6 +4135,28 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  tf2::Quaternion q;
+  {
+    std::scoped_lock lock(mutex_odom_pixhawk);
+  
+    tf2::fromMsg(odom_pixhawk.pose.pose.orientation, q);
+  }
+      q = q.inverse();
+
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = ros::Time::now();
+      tf.header.frame_id       = fcu_frame_id_;
+      tf.child_frame_id        = fcu_frame_id_ + "_untilted";
+      tf.transform.translation.x = 0.0;
+      tf.transform.translation.y = 0.0;
+      tf.transform.translation.z = 0.0;
+      tf.transform.rotation    = tf2::toMsg(q);
+      try {
+        broadcaster_->sendTransform(tf);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
   double dt;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
