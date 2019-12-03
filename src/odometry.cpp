@@ -3095,6 +3095,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       std::scoped_lock lock(mutex_rtk_local_odom);
 
       odom_main = rtk_local_odom;
+      uav_state.header.frame_id = rtk_local_odom.header.frame_id;
       uav_state.pose= rtk_local_odom.pose.pose;
       uav_state.velocity = rtk_local_odom.twist.twist;
     }
