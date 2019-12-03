@@ -3301,6 +3301,14 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO);
     }
 
+    if (isEqual(estimator.second->getName(), "RTK") && pass_rtk_as_odom) {
+      {
+        std::scoped_lock lock(mutex_rtk_local_odom);
+      
+        odom_aux->second.pose.pose.position.z = rtk_local_odom.pose.pose.position.z;
+      }
+    }
+
     if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
                         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY),
