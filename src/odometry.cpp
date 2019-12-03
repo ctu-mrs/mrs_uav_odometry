@@ -3090,6 +3090,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     uav_state.acceleration_disturbance.linear.x = acc_d_vec(0);
     uav_state.acceleration_disturbance.linear.y = acc_d_vec(1);
 
+  if (pass_rtk_as_odom) {
+    {
+      std::scoped_lock lock(mutex_rtk_local_odom);
+
+      odom_main = rtk_local_odom;
+      uav_state.pose= rtk_local_odom.pose.pose;
+      uav_state.velocity = rtk_local_odom.twist.twist;
+    }
+  }
+
     if (!odometry_published) {
       {
         std::scoped_lock lock(mutex_odom_stable);
@@ -3109,6 +3119,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /*   odom_main.pose.pose.position.x += pixhawk_odom_offset_x; */
     /*   odom_main.pose.pose.position.y += pixhawk_odom_offset_y; */
+
+  // publish the odometry
     {
       std::scoped_lock lock(mutex_odom_stable);
       if (!isEqual(odom_main.header.frame_id, last_stable_name_)) {
@@ -3185,16 +3197,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
 
-  // publish the odometry
-  if (pass_rtk_as_odom) {
-    {
-      std::scoped_lock lock(mutex_rtk_local_odom);
-
-      odom_main = rtk_local_odom;
-      uav_state.pose= rtk_local_odom.pose.pose;
-      uav_state.velocity = rtk_local_odom.twist.twist;
-    }
-  }
 
   {
     std::scoped_lock lock(mutex_shared_odometry);
