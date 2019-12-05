@@ -3290,7 +3290,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    Eigen::VectorXd alt;
+    Eigen::VectorXd alt(1);
     if (isEqual(estimator_name, "BRICK")) {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "BRICK")) {
