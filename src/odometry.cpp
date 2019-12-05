@@ -3294,25 +3294,29 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     if (isEqual(estimator_name, "BRICK")) {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "BRICK")) {
-          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt(0);
         }
       }
     } else if (isEqual(estimator_name, "PLANE")) {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "PLANE")) {
-          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt(0);
         }
       }
     } else if (isEqual(estimator_name, "VIO")) {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "VIO")) {
-          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt(0);
         }
       }
     } else {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "HEIGHT")) {
-          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt(0);
         }
       }
     }
