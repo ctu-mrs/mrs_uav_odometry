@@ -3290,17 +3290,44 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) {
-      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::PLANE) {
-      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) {
-      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) {
-      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    Eigen::VectorXd alt;
+    if (isEqual(estimator_name, "BRICK")) {
+      for (auto &alt_estimator : m_altitude_estimators) {
+        if (isEqual(alt_estimator.first, "BRICK")) {
+          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+        }
+      }
+    } else if (isEqual(estimator_name, "PLANE")) {
+      for (auto &alt_estimator : m_altitude_estimators) {
+        if (isEqual(alt_estimator.first, "PLANE")) {
+          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+        }
+      }
+    } else if (isEqual(estimator_name, "VIO")) {
+      for (auto &alt_estimator : m_altitude_estimators) {
+        if (isEqual(alt_estimator.first, "VIO")) {
+          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+        }
+      }
     } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO);
+      for (auto &alt_estimator : m_altitude_estimators) {
+        if (isEqual(alt_estimator.first, "HEIGHT")) {
+          odom_aux->second.pose.pose.position.z = alt_estimator.second->getState(0, alt);
+        }
+      }
     }
+
+    /* if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) { */
+    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
+    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::PLANE) { */
+    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
+    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) { */
+    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
+    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) { */
+    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
+    /* } else { */
+    /*   ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO); */
+    /* } */
 
     if (isEqual(estimator.second->getName(), "RTK") && pass_rtk_as_odom) {
       {
