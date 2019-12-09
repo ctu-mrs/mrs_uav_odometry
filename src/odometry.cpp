@@ -3169,8 +3169,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // publish TF
-    if (_publish_local_origin_stable_tf_) {
-
       //Get inverse trasnform
       tf2::Vector3 position(odom_stable.pose.pose.position.x, odom_stable.pose.pose.position.y, odom_stable.pose.pose.position.z);
       tf2::Transform tf_inv;
@@ -3198,7 +3196,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
-    }
   }
 
 
