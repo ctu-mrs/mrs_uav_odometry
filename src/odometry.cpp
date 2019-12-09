@@ -2414,6 +2414,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   if (failsafe_called) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Failsafe called");
     return;
   }
 
@@ -2894,11 +2895,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // blocking/returning when cannot calculate utm_origin_offset
-  if (!calculatePixhawkOdomOffset()) {
+  if (_gps_available && !calculatePixhawkOdomOffset()) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Cannot calculate pixhawk odom offset.");
     return;
   }
 
-  if (!got_pixhawk_odom_shifted) {
+  if (_gps_available && !got_pixhawk_odom_shifted) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for pixhawk odom offset");
     return;
   }
 
