@@ -3190,12 +3190,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf.child_frame_id        = local_origin_frame_id_;
       tf.transform.translation = pos_inv;
       tf.transform.rotation    = q_inv;
+    if (noNans(tf)){
       try {
         broadcaster_->sendTransform(tf);
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
+    }
   }
 
 
@@ -3410,11 +3412,14 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     tf.child_frame_id        = odom_aux->second.header.frame_id;
     tf.transform.translation = pos_inv;
     tf.transform.rotation    = q_inv;
+    
+    if (noNans(tf)){
     try {
       broadcaster_->sendTransform(tf);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+    }
     }
   }
 
@@ -4194,12 +4199,14 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       tf.transform.translation.y = 0.0;
       tf.transform.translation.z = 0.0;
       tf.transform.rotation    = tf2::toMsg(q);
+    if (noNans(tf)){
       try {
         broadcaster_->sendTransform(tf);
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
+    }
   double dt;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);

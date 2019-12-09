@@ -164,3 +164,10 @@ void mrs_odometry::tryPublish(const ros::Publisher& pub, const MsgType& msg) {
 }
 
 //}
+
+/* noNans() //{ */
+bool mrs_odometry::noNans(const geometry_msgs::TransformStamped& tf) {
+
+  return (std::isfinite(tf.transform.rotation.z) && std::isfinite(tf.transform.translation.x) && std::isfinite(tf.transform.translation.z));
+}
+//}

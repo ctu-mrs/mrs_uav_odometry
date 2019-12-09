@@ -52,6 +52,8 @@ double disambiguateAngle(const double yaw, const double yaw_previous);
 template <typename MsgType>
 void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
+bool noNans(const geometry_msgs::TransformStamped& tf);
+
 }
 
 #endif
