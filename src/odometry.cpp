@@ -8581,6 +8581,10 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
       }
     }
 
+    if (isEqual(estimator.first, "BRICK") && !brick_reliable) {
+      break;
+    }
+
     double rot_x, rot_y;
 
     getRotatedTilt(attitude, current_yaw(0), rot_x, rot_y);
