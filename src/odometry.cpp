@@ -8582,7 +8582,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
     }
 
     if (isEqual(estimator.first, "BRICK") && !brick_reliable) {
-      break;
+      continue;
     }
 
     double rot_x, rot_y;
