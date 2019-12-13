@@ -15,6 +15,7 @@ heading_estimators:
     "VIO",
     "VSLAM",
     "ICP",
+    "BRICKFLOW",
   ] 
 
   # The measured states of the model
@@ -49,6 +50,7 @@ heading_estimators:
     VIO: ["rate_gyro", "yaw_vio"]
     VSLAM: ["rate_gyro", "yaw_vslam"]
     ICP: ["rate_icp"]
+    BRICKFLOW: ["rate_gyro", "rate_optflow", "yaw_brick"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states

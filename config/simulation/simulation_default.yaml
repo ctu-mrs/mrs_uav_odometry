@@ -13,10 +13,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "HECTOR", "LIDAR", "ICP"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "LIDAR", "ICP"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW"]
 
 # Available localization methods
 gps_available: true

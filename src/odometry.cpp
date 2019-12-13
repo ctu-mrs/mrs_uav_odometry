@@ -1010,6 +1010,7 @@ void Odometry::onInit() {
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::VSLAM));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::LIDAR));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::ICP));
+  _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::BRICKFLOW));
 
   ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
@@ -6070,14 +6071,14 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       counter_invalid_brick_pose--;
     } else if (!brick_reliable) {
       for (auto &estimator : m_state_estimators) {
-        if (std::strcmp(estimator.first.c_str(), "BRICK") == 0 || std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
+        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
           Vec2 pos_vec;
           pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
           estimator.second->setState(0, pos_vec);
         }
       }
       for (auto &estimator : m_heading_estimators) {
-        if (std::strcmp(estimator.first.c_str(), "BRICK")) {
+        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW"))  {
           Eigen::VectorXd hdg(1);
           init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
           hdg << init_brick_yaw_;
@@ -7856,7 +7857,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICKFLOW;
-    desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICKFLOW;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "ICP") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::ICP;
@@ -8119,6 +8120,8 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::HeadingType::VSLAM;
   } else if (std::strcmp(type.c_str(), "ICP") == 0) {
     desired_estimator.type = mrs_msgs::HeadingType::ICP;
+  } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
+    desired_estimator.type = mrs_msgs::HeadingType::BRICKFLOW;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9374,7 +9377,8 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
       target_estimator.type != mrs_msgs::HeadingType::COMPASS && target_estimator.type != mrs_msgs::HeadingType::OPTFLOW &&
       target_estimator.type != mrs_msgs::HeadingType::LIDAR && target_estimator.type != mrs_msgs::HeadingType::HECTOR &&
       target_estimator.type != mrs_msgs::HeadingType::BRICK && target_estimator.type != mrs_msgs::HeadingType::VIO &&
-      target_estimator.type != mrs_msgs::HeadingType::VSLAM && target_estimator.type != mrs_msgs::HeadingType::ICP) {
+      target_estimator.type != mrs_msgs::HeadingType::VSLAM && target_estimator.type != mrs_msgs::HeadingType::ICP &&
+      target_estimator.type != mrs_msgs::HeadingType::BRICKFLOW) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
     return false;
   }
@@ -9459,7 +9463,7 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
-      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP) {
+      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP || type.type == mrs_msgs::HeadingType::BRICKFLOW) {
     return true;
   }
 
@@ -9593,6 +9597,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "VSLAM";
   } else if (hdg_type.type == mrs_msgs::HeadingType::ICP) {
     s_diag += "ICP";
+  } else if (hdg_type.type == mrs_msgs::HeadingType::BRICKFLOW) {
+    s_diag += "BRICKFLOW";
   } else {
     s_diag += "UNKNOWN";
   }

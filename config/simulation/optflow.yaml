@@ -13,14 +13,15 @@ heading_estimator: "OPTFLOW"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["GPS", "OPTFLOW"]
+  active: ["GPS", "OPTFLOW", "BRICKFLOW"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "OPTFLOW"]
+  active: ["PIXHAWK", "GYRO", "OPTFLOW", "BRICKFLOW"]
 
 lateral:
   # Covariances of measurements
   Q:
+    pos_brick: [10]
     vel_optflow: [0.1]
     tilt_mavros: [100]
 
