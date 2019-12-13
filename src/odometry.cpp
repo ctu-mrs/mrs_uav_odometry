@@ -3140,6 +3140,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         // Somehow the odom_stable quaternion becomes (0.0, 0.0, 0.0, 0.0)
         if (odom_stable.pose.pose.orientation.w == 0.0) {
           /* odom_stable.pose.pose.orientation.w = 1.0; */
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Something bad is happening to odom_stable quaternion");
           odom_stable.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
         }
         tf2::Quaternion q1, q2;
@@ -9686,7 +9687,7 @@ nav_msgs::Odometry Odometry::applyOdomOffset(const nav_msgs::Odometry &msg) {
   tf2::Quaternion q;
   tf2::fromMsg(msg.pose.pose.orientation, q);
   q = m_rot_odom_offset * q;
-  tf2::toMsg(v, ret.pose.pose.position);
+  ret.pose.pose.orientation = tf2::toMsg(q);
 
   return ret;
 }
