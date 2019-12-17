@@ -243,8 +243,8 @@ private:
   std::mutex mutex_gps_local_odom;
 
   geometry_msgs::Quaternion des_attitude_;
-  double des_yaw_rate_, des_yaw_;
-  bool new_des_attitude_available_ = false;
+  double                    des_yaw_rate_, des_yaw_;
+  bool                      new_des_attitude_available_ = false;
 
   std::vector<nav_msgs::Odometry> vec_odom_aux;
 
@@ -1763,8 +1763,8 @@ void Odometry::onInit() {
 
   // publishers for roll pitch yaw orientations in local_origin frame
   pub_des_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
-  pub_orientation_gt_         = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
-  pub_orientation_mavros_     = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
+  pub_orientation_gt_      = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
+  pub_orientation_mavros_  = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
   //}
 
   // --------------------------------------------------------------
@@ -2252,8 +2252,27 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_height_.getTopic().c_str());
   }
 
+  if (!got_target_attitude) {
+    /* des_yaw_ = init_pose_yaw; */
+    /* des_yaw_rate_ = 0.0; */
+    /* setRPY(0, 0, init_pose_yaw, des_attitude_); */
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: No target attitude.");
+    return;
+  }
+
+  double des_yaw;
+  double des_yaw_rate;
+  geometry_msgs::Quaternion des_attitude;
+  {
+    std::scoped_lock lock(mutex_target_attitude);
+  
+    des_yaw = des_yaw_;
+    des_yaw_rate = des_yaw_rate_;
+    des_attitude = des_attitude_;
+  }
+
   // Apply prediction step to all heading estimators
-  headingEstimatorsPrediction(des_yaw_, des_yaw_rate_, dt);
+  headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt);
 
   /* if (!got_lateral_sensors) { */
   /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing target attitude. Waiting for other sensors."); */
@@ -2264,10 +2283,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_updating_state_) {
 
     if (isUavFlying()) {
-      stateEstimatorsPrediction(des_attitude_, dt);
+      stateEstimatorsPrediction(des_attitude, dt);
     } else {
-      setRPY(0, 0, 0, des_attitude_);
-      stateEstimatorsPrediction(des_attitude_, dt);
+      setRPY(0, 0, init_pose_yaw, des_attitude);
+      stateEstimatorsPrediction(des_attitude, dt);
     }
 
     // correction step for hector
@@ -4004,6 +4023,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   if (!is_initialized)
     return;
 
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: target attitude callback");
+
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTargetAttitude");
 
   {
@@ -4011,7 +4032,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
     if (got_target_attitude) {
 
-      des_attitude_previous     = target_attitude;
+      des_attitude_previous        = target_attitude;
       target_attitude              = *msg;
       target_attitude.header.stamp = ros::Time::now();  // why?
 
@@ -4019,7 +4040,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
       target_attitude              = *msg;
       target_attitude.header.stamp = ros::Time::now();  // why?
-      des_attitude_previous     = target_attitude;
+      des_attitude_previous        = target_attitude;
 
       got_target_attitude = true;
       return;
@@ -4111,7 +4132,6 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     std::scoped_lock lock(mutex_target_attitude);
     des_yaw_rate_ = target_attitude.body_rate.z;
     des_yaw_      = mrs_odometry::getYaw(target_attitude.orientation);
-  }
 
   if (!std::isfinite(des_yaw_rate_)) {
     ROS_ERROR("[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
@@ -4120,6 +4140,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   if (!isUavFlying()) {
     des_yaw_rate_ = 0.0;
+  }
   }
 
   new_des_attitude_available_ = true;
@@ -6112,7 +6133,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
         }
       }
       for (auto &estimator : m_heading_estimators) {
-        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW"))  {
+        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
           Eigen::VectorXd hdg(1);
           init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
           hdg << init_brick_yaw_;
@@ -9497,7 +9518,8 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
-      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP || type.type == mrs_msgs::HeadingType::BRICKFLOW) {
+      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP ||
+      type.type == mrs_msgs::HeadingType::BRICKFLOW) {
     return true;
   }
 
