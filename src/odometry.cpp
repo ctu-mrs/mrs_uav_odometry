@@ -6055,7 +6055,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // Detect exactly the same msg
   const double eps = 1e-5;
   if (std::fabs(brick_pose.pose.position.x - brick_pose_previous.pose.position.x) < eps ||
-      std::fabs(brick_pose.pose.position.x - brick_pose_previous.pose.position.y) < eps) {
+      std::fabs(brick_pose.pose.position.y - brick_pose_previous.pose.position.y) < eps) {
     if (brick_reliable) {
       if (counter_invalid_brick_pose < 30) {
         counter_invalid_brick_pose++;
@@ -7291,7 +7291,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
   nav_msgs::Odometry gps_local_odom;
   gps_local_odom.header          = msg->header;
-  gps_local_odom.header.frame_id = local_origin_frame_id_;
+  gps_local_odom.header.frame_id = uav_name + "/gps_origin";
 
   // | ------------- offset the gps to local_origin ------------- |
   gps_local_odom.pose.pose.position.x = pixhawk_utm_position_x - utm_origin_x_;
