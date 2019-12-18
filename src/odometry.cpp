@@ -454,7 +454,6 @@ private:
   int                      estimator_iteration_;
 
   std::string child_frame_id;
-  std::mutex  mutex_child_frame_id;
   std::mutex  mutex_odom_stable;
   std::string fcu_frame_id_;
   std::string local_origin_frame_id_;
@@ -3039,6 +3038,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     {
       std::scoped_lock lock(mutex_altitude_estimator);
 
+      if (!current_alt_estimator->getStates(current_altitude)) {
+        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+        return;
+      }
+
       odom_main.pose.pose.position.z  = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
       odom_main.twist.twist.linear.z  = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
       uav_state.pose.position.z       = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
@@ -3071,15 +3075,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     ROS_INFO_THROTTLE(10.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
 
-    {
-      std::scoped_lock lock(mutex_child_frame_id);
-
-      odom_main.child_frame_id       = fcu_frame_id_;
-      uav_state.estimator_horizontal = _estimator_type;
-      uav_state.estimator_vertical   = _alt_estimator_type;
-      uav_state.estimator_heading    = _hdg_estimator_type;
-      uav_state.estimator_iteration  = estimator_iteration_;
-    }
+    odom_main.child_frame_id       = fcu_frame_id_;
+    uav_state.estimator_horizontal = _estimator_type;
+    uav_state.estimator_vertical   = _alt_estimator_type;
+    uav_state.estimator_heading    = _hdg_estimator_type;
+    uav_state.estimator_iteration  = estimator_iteration_;
 
     {
       std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -8251,9 +8251,9 @@ bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request 
   res.success = success;
   res.message = (printOdometryDiag().c_str());
   {
-    std::scoped_lock lock(mutex_hdg_estimator_type);
+    std::scoped_lock lock(mutex_alt_estimator_type);
 
-    res.estimator_type.type = _hdg_estimator_type.type;
+    res.estimator_type.type = _alt_estimator_type.type;
   }
 
   return true;
@@ -9424,6 +9424,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to nonexistent altitude estimator %s", target_estimator.name.c_str());
+    is_updating_state_ = false;
     return false;
   }
 
