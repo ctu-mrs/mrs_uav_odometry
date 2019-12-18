@@ -445,6 +445,7 @@ private:
   bool                     _is_estimator_tmp;
   mrs_msgs::EstimatorType  _estimator_type;
   mrs_msgs::EstimatorType  fallback_brick_estimator_type;
+  mrs_msgs::HeadingType    fallback_brick_hdg_estimator_type;
   mrs_msgs::EstimatorType  _estimator_type_takeoff;
   std::vector<std::string> _estimator_type_names;
   std::vector<std::string> _altitude_type_names;
@@ -1132,12 +1133,13 @@ void Odometry::onInit() {
   _alt_estimator_type_takeoff.name = altitude_estimator_name;
   _alt_estimator_type_takeoff.type = (int)pos_alt;
 
-  terarangerFilter  = std::make_shared<MedianFilter>(trg_filter_buffer_size, trg_max_valid_altitude, 0, trg_filter_max_difference);
-  garminFilter      = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
-  sonarFilter       = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
-  planeFilter       = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
-  brickHeightFilter = std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, -brick_max_valid_altitude, brick_filter_max_difference);
-  vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
+  terarangerFilter = std::make_shared<MedianFilter>(trg_filter_buffer_size, trg_max_valid_altitude, 0, trg_filter_max_difference);
+  garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
+  sonarFilter      = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
+  planeFilter      = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
+  brickHeightFilter =
+      std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, -brick_max_valid_altitude, brick_filter_max_difference);
+  vioHeightFilter = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
 
   stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
   stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
@@ -2535,13 +2537,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from Hector Slam
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::HECTOR) {
-    if (_hdg_estimator_type.type == mrs_msgs::HeadingType::HECTOR && !hector_reliable && _gyro_fallback) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to GYRO heading estimator.");
-      mrs_msgs::HeadingType desired_estimator;
-      desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
-      changeCurrentHeadingEstimator(desired_estimator);
-    }
+    /* if (_hdg_estimator_type.type == mrs_msgs::HeadingType::HECTOR && !hector_reliable && _gyro_fallback) { */
+    /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to GYRO heading estimator."); */
+    /*   mrs_msgs::HeadingType desired_estimator; */
+    /*   desired_estimator.type = mrs_msgs::HeadingType::GYRO; */
+    /*   desired_estimator.name = _heading_estimators_names[desired_estimator.type]; */
+    /*   changeCurrentHeadingEstimator(desired_estimator); */
+    /* } */
     if (!got_hector_pose || !hector_reliable) {
 
       if (_lidar_available && got_icp_twist) {
@@ -2552,6 +2554,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           hector_reset_routine_timer.start();
 
         } else {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to ICP heading estimator.");
+          mrs_msgs::HeadingType desired_estimator;
+          desired_estimator.type = mrs_msgs::HeadingType::ICP;
+          desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+          changeCurrentHeadingEstimator(desired_estimator);
           ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
           mrs_msgs::EstimatorType icp_type;
           icp_type.type = mrs_msgs::EstimatorType::ICP;
@@ -2569,6 +2576,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           hector_reset_routine_timer.start();
 
         } else {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to OPTFLOW heading estimator.");
+          mrs_msgs::HeadingType desired_estimator;
+          desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+          desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+          changeCurrentHeadingEstimator(desired_estimator);
           ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
           mrs_msgs::EstimatorType optflow_type;
           optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -2580,7 +2592,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           }
         }
       } else if (gps_reliable && got_odom_pixhawk) {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to GPS type.");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to PIXHAWK heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to PIXHAWK type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
         if (!changeCurrentEstimator(gps_type)) {
@@ -2611,16 +2628,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from ICP
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::ICP) {
-    if (_hdg_estimator_type.type == mrs_msgs::HeadingType::ICP && !icp_reliable && _gyro_fallback) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to GYRO heading estimator.");
-      mrs_msgs::HeadingType desired_estimator;
-      desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
-      changeCurrentHeadingEstimator(desired_estimator);
-    }
+    /* if (_hdg_estimator_type.type == mrs_msgs::HeadingType::ICP && !icp_reliable && _gyro_fallback) { */
+    /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to GYRO heading estimator."); */
+    /*   mrs_msgs::HeadingType desired_estimator; */
+    /*   desired_estimator.type = mrs_msgs::HeadingType::GYRO; */
+    /*   desired_estimator.name = _heading_estimators_names[desired_estimator.type]; */
+    /*   changeCurrentHeadingEstimator(desired_estimator); */
+    /* } */
     if (!got_icp_twist || !icp_reliable) {
       if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
-        ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to OPTFLOW heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ICP not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
         if (!changeCurrentEstimator(optflow_type)) {
@@ -2630,6 +2652,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           failsafe_called = true;
         }
       } else if (gps_reliable && got_odom_pixhawk) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to PIXHAWK heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ICP not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -2661,6 +2688,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Fallback from BRICK
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::BRICK) {
     if (!got_brick_pose || !brick_reliable) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: BRICK heading not reliable. Switching to fallback heading estimator.");
+      mrs_msgs::HeadingType desired_estimator;
+      desired_estimator.type = fallback_brick_hdg_estimator_type.type;
+      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      changeCurrentHeadingEstimator(desired_estimator);
       ROS_WARN("[Odometry]: BRICK not reliable. Switching to %s type.", _estimator_type_names[fallback_brick_estimator_type.type].c_str());
       if (!changeCurrentEstimator(fallback_brick_estimator_type)) {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
@@ -2675,11 +2707,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (gps_reliable) {
 
       if (!optflow_reliable) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: OTPFLOW heading not reliable. Switching to PIXHAWK heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: OPTFLOW not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
         if (!changeCurrentEstimator(gps_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry available. Triggering failsafe.");
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
           std_srvs::Trigger failsafe_out;
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
@@ -5670,8 +5707,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //////////////////// Filter out vio height measurement ////////////////////
 
-  bool vio_altitude_ok = true;
-  double measurement = odom_vio.pose.pose.position.z;
+  bool   vio_altitude_ok = true;
+  double measurement     = odom_vio.pose.pose.position.z;
   if (isUavFlying()) {
     if (!vioHeightFilter->isValid(measurement)) {
       double filtered = vioHeightFilter->getMedian();
@@ -5690,12 +5727,12 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   double max_height = 100.0;
   if (measurement < min_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f < %f. Not fusing.", measurement, min_height);
-      vio_altitude_ok = false;
+    vio_altitude_ok = false;
   }
 
   if (measurement > max_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO measurement %f > %f. Not fusing.", measurement, max_height);
-      vio_altitude_ok = false;
+    vio_altitude_ok = false;
   }
 
   // Fuse vio measurement for each altitude estimator
@@ -5707,13 +5744,13 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     if (vio_altitude_ok) {
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
-      if (fabs(measurement) > 100) {
-        ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+        if (fabs(measurement) > 100) {
+          ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+        }
       }
-    }
     }
   }
 
@@ -6082,7 +6119,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
         }
       }
       for (auto &estimator : m_heading_estimators) {
-        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW"))  {
+        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
           Eigen::VectorXd hdg(1);
           init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
           hdg << init_brick_yaw_;
@@ -9387,6 +9424,27 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
     return false;
   }
 
+  // brick heading type
+  if (target_estimator.type == mrs_msgs::HeadingType::BRICK && _hdg_estimator_type.type != mrs_msgs::HeadingType::BRICK) {
+
+    if (!_brick_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK heading type. brick odometry not available in this world.");
+      return false;
+    }
+
+    if (!got_brick_pose && is_ready_to_takeoff) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK heading type. No new brick msgs received.");
+      return false;
+    }
+
+    if (!brick_reliable) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK heading type. brick detection is not reliable");
+      return false;
+    }
+
+    fallback_brick_hdg_estimator_type = _hdg_estimator_type;
+    ROS_INFO("[Odometry]: Fallback from BRICK heading estimator: %s", _hdg_estimator_type.name.c_str());
+  }
   is_updating_state_ = true;
   if (stringInVector(target_estimator.name, _active_heading_estimators_names)) {
     if (is_initialized) {
@@ -9467,7 +9525,8 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
-      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP || type.type == mrs_msgs::HeadingType::BRICKFLOW) {
+      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP ||
+      type.type == mrs_msgs::HeadingType::BRICKFLOW) {
     return true;
   }
 
@@ -9689,7 +9748,7 @@ nav_msgs::Odometry Odometry::applyOdomOffset(const nav_msgs::Odometry &msg) {
 
   tf2::Quaternion q;
   tf2::fromMsg(msg.pose.pose.orientation, q);
-  q = m_rot_odom_offset * q;
+  q                         = m_rot_odom_offset * q;
   ret.pose.pose.orientation = tf2::toMsg(q);
 
   return ret;
