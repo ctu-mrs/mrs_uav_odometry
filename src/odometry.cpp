@@ -2688,6 +2688,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Fallback from BRICK
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::BRICK) {
     if (!got_brick_pose || !brick_reliable) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: BRICK altitude not reliable. Switching to HEIGHT altitude estimator.");
+      mrs_msgs::AltitudeType desired_alt_estimator;
+      desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+      desired_alt_estimator.name = _altitude_estimators_names[desired_alt_estimator.type];
+      changeCurrentAltitudeEstimator(desired_alt_estimator);
       ROS_WARN_THROTTLE(1.0, "[Odometry]: BRICK heading not reliable. Switching to fallback heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
       desired_estimator.type = fallback_brick_hdg_estimator_type.type;
