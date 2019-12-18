@@ -3000,17 +3000,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::PoseStamped newPose;
   newPose.header = odom_main.header;
 
-  // update the altitude state
-  {
-    std::scoped_lock lock(mutex_altitude_estimator);
-
-    odom_main.pose.pose.position.z  = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    odom_main.twist.twist.linear.z  = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
-    uav_state.pose.position.z       = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    uav_state.velocity.linear.z     = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
-    uav_state.acceleration.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION);
-  }
-
 
   // if odometry has not been published yet, initialize lateralKF
   if (!odometry_published) {
@@ -3045,6 +3034,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (is_updating_state_)
       return;
+
+    // update the altitude state
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+
+      odom_main.pose.pose.position.z  = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+      odom_main.twist.twist.linear.z  = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
+      uav_state.pose.position.z       = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+      uav_state.velocity.linear.z     = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
+      uav_state.acceleration.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION);
+    }
+
 
     Vec2 pos_vec;
     Vec2 vel_vec;
@@ -9365,6 +9366,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     return false;
   }
 
+  is_updating_state_ = true;
   if (stringInVector(target_estimator.name, _active_state_estimators_names)) {
 
     {
@@ -9385,6 +9387,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   _estimator_type      = target_estimator;
   _estimator_type.name = _estimator_type_names[_estimator_type.type];
   estimator_iteration_++;
+
+  is_updating_state_ = false;
   return true;
 }
 
@@ -9402,6 +9406,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     return false;
   }
 
+  is_updating_state_ = true;
   if (stringInVector(target_estimator.name, _altitude_estimators_names)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator);
@@ -9421,6 +9426,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   _alt_estimator_type      = target_estimator;
   _alt_estimator_type.name = _altitude_type_names[_alt_estimator_type.type];
   estimator_iteration_++;
+  is_updating_state_ = false;
   return true;
 }
 
