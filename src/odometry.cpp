@@ -1136,8 +1136,8 @@ void Odometry::onInit() {
   garminFilter      = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
   sonarFilter       = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
   planeFilter       = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
-  brickHeightFilter = std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, 0, brick_filter_max_difference);
-  vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, 0, vio_filter_max_difference);
+  brickHeightFilter = std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, -brick_max_valid_altitude, brick_filter_max_difference);
+  vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
 
   stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
   stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
@@ -5670,12 +5670,13 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //////////////////// Filter out vio height measurement ////////////////////
 
+  bool vio_altitude_ok = true;
   double measurement = odom_vio.pose.pose.position.z;
   if (isUavFlying()) {
     if (!vioHeightFilter->isValid(measurement)) {
       double filtered = vioHeightFilter->getMedian();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
-      return;
+      vio_altitude_ok = false;
     }
   }
 
@@ -5689,12 +5690,12 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   double max_height = 100.0;
   if (measurement < min_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f < %f. Not fusing.", measurement, min_height);
-    return;
+      vio_altitude_ok = false;
   }
 
   if (measurement > max_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO measurement %f > %f. Not fusing.", measurement, max_height);
-    return;
+      vio_altitude_ok = false;
   }
 
   // Fuse vio measurement for each altitude estimator
@@ -5702,15 +5703,17 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-      return;
+      vio_altitude_ok = false;
     }
 
+    if (vio_altitude_ok) {
     {
       std::scoped_lock lock(mutex_altitude_estimator);
       altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
       if (fabs(measurement) > 100) {
         ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
       }
+    }
     }
   }
 
