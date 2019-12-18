@@ -9312,9 +9312,6 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     // brick localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
 
-    if (_estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Already in BRICK state estimator.");
-    }
 
     if (!_brick_available) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. brick odometry not available in this world.");
@@ -9331,8 +9328,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    fallback_brick_estimator_type = _estimator_type;
-    ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
+    if (!_estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Already in BRICK state estimator.");
+      fallback_brick_estimator_type = _estimator_type;
+      ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
+    }
 
     if (!_gps_available) {
       max_altitude = _max_optflow_altitude;
