@@ -9310,7 +9310,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     // brick localization type
-  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK && _estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
+
+    if (_estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Already in BRICK state estimator.");
+    }
 
     if (!_brick_available) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. brick odometry not available in this world.");
@@ -9402,7 +9406,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO) {
-    ROS_ERROR("[Odometry]: Rejected transition to invalid type %d: %s.", target_estimator.type, target_estimator.name.c_str());
+    ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
 
