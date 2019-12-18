@@ -60,6 +60,7 @@
 #include <mrs_lib/MedianFilter.h>
 #include <mrs_lib/GpsConversions.h>
 #include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/mutex.h>
 
 #include <types.h>
 #include <support.h>
@@ -281,8 +282,6 @@ private:
   nav_msgs::Odometry odom_brick_previous;
   ros::Time          odom_brick_last_update;
   int                counter_odom_brick;
-  int                counter_brick_id;
-  int                counter_invalid_brick_pose;
 
   // IMU msgs
   sensor_msgs::Imu pixhawk_imu;
@@ -810,6 +809,9 @@ private:
   bool   height_available_  = false;
   bool   icp_reliable       = false;
 
+  bool      brick_semi_reliable = false;
+  ros::Time brick_semi_reliable_started;
+
   bool   pass_rtk_as_odom = false;
   double max_pos_correction_rate;
   double max_altitude_correction_;
@@ -1078,15 +1080,13 @@ void Odometry::onInit() {
   param_loader.load_param("t265_available", _t265_available);
   param_loader.load_param("lidar_available", _lidar_available);
   param_loader.load_param("brick_available", _brick_available);
-  gps_reliable               = _gps_available;
-  hector_reliable            = _lidar_available;
-  icp_reliable               = _lidar_available;
-  brick_reliable             = _brick_available;
-  rtk_reliable               = _rtk_available;
-  t265_reliable              = _t265_available;
-  counter_odom_brick         = 0;
-  counter_brick_id           = 0;
-  counter_invalid_brick_pose = 0;
+  gps_reliable       = _gps_available;
+  hector_reliable    = _lidar_available;
+  icp_reliable       = _lidar_available;
+  brick_reliable     = _brick_available;
+  rtk_reliable       = _rtk_available;
+  t265_reliable      = _t265_available;
+  counter_odom_brick = 0;
 
   // Takeoff type
   std::string takeoff_estimator;
@@ -4010,7 +4010,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
-  double                    rot_x, rot_y, rot_z;
+  [[maybe_unused]] double   rot_x, rot_y, rot_z;
   double                    dt;
   geometry_msgs::Quaternion attitude;
 
@@ -4359,7 +4359,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     orientation_mavros.header = odom_pixhawk_shifted.header;
   }
 
-  double hdg = getCurrentHeading();
+  [[maybe_unused]] double hdg = getCurrentHeading();
 
   // Rotate the tilt into the current estimation frame
   double rot_x, rot_y, rot_z;
@@ -6016,6 +6016,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackBrickPose");
 
+  auto brick_pose_local = mrs_lib::get_mutexed(mutex_brick, brick_pose);
+
   brick_pose_last_update = ros::Time::now();
 
   {
@@ -6036,14 +6038,14 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       return;
     }
 
-    if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) {
-      counter_brick_id++;
-      brick_reliable = true;
-    } else if (counter_odom_brick <= 10) {
-      counter_odom_brick++;
-      ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick);
-      return;
-    }
+    /* if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) { */
+    /*   counter_brick_id++; */
+    /*   brick_reliable = true; */
+    /* } else if (counter_odom_brick <= 10) { */
+    /*   counter_odom_brick++; */
+    /*   ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick); */
+    /*   return; */
+    /* } */
 
     if (std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2) > 10 ||
         std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2) > 10) {
@@ -6052,45 +6054,57 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     }
   }
 
-  // Detect exactly the same msg
-  const double eps = 1e-5;
-  if (std::fabs(brick_pose.pose.position.x - brick_pose_previous.pose.position.x) < eps ||
-      std::fabs(brick_pose.pose.position.y - brick_pose_previous.pose.position.y) < eps) {
-    if (brick_reliable) {
-      if (counter_invalid_brick_pose < 30) {
-        counter_invalid_brick_pose++;
-      } else {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Same brick pose detected. Brick is not reliable.");
-        counter_odom_brick = 0;
-        brick_reliable     = false;
-      }
+  // brick times out after not being received for some time
+  if (brick_reliable || brick_semi_reliable) {
+
+    if ((ros::Time::now() - brick_pose_local.header.stamp).toSec() > 1.0) {
+
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out.");
+      brick_reliable      = false;
+      brick_semi_reliable = false;
+
       return;
     }
+  }
 
-  } else {
-    if (counter_invalid_brick_pose > 0) {
-      counter_invalid_brick_pose--;
-    } else if (!brick_reliable) {
-      for (auto &estimator : m_state_estimators) {
-        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
-          Vec2 pos_vec;
-          pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
-          estimator.second->setState(0, pos_vec);
-        }
-      }
-      for (auto &estimator : m_heading_estimators) {
-        if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW"))  {
-          Eigen::VectorXd hdg(1);
-          init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
-          hdg << init_brick_yaw_;
-          estimator.second->setState(0, hdg);
-        }
-      }
-      ROS_WARN("[Odometry]: Brick is now reliable");
-      brick_reliable = true;
-      counter_brick_id++;
+  // brick appears after not seeing it for long time -> becomes semi-reliable
+  if (!brick_reliable && !brick_semi_reliable) {
+
+    if ((ros::Time::now() - brick_pose_local.header.stamp).toSec() < 1.0) {
+
+      brick_semi_reliable         = true;
+      brick_semi_reliable_started = ros::Time::now();
+
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick becomes semi-reliable.");
     }
   }
+
+  // brick is semi-reliable for some time -> becomes reliable
+  if (brick_semi_reliable && (ros::Time::now() - brick_semi_reliable_started).toSec() > 1.0) {
+
+    for (auto &estimator : m_state_estimators) {
+
+      if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
+        Vec2 pos_vec;
+        pos_vec << brick_pose.pose.position.x, brick_pose.pose.position.y;
+        estimator.second->setState(0, pos_vec);
+      }
+    }
+
+    for (auto &estimator : m_heading_estimators) {
+      if (isEqual(estimator.first.c_str(), "BRICK") || isEqual(estimator.first.c_str(), "BRICKFLOW")) {
+        Eigen::VectorXd hdg(1);
+        init_brick_yaw_ = mrs_odometry::getYaw(brick_pose.pose.orientation);
+        hdg << init_brick_yaw_;
+        estimator.second->setState(0, hdg);
+      }
+    }
+
+    ROS_WARN("[Odometry]: Brick is now reliable");
+    brick_reliable      = true;
+    brick_semi_reliable = false;
+  }
+
 
   // --------------------------------------------------------------
   // |                        callback body                       |
@@ -6306,7 +6320,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   ROS_WARN_ONCE("[Odometry]: Fusing brick position");
-}
+}  // namespace mrs_odometry
 //}
 
 /* //{ callbackLidarOdom() */
@@ -9464,7 +9478,8 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
-      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP || type.type == mrs_msgs::HeadingType::BRICKFLOW) {
+      type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP ||
+      type.type == mrs_msgs::HeadingType::BRICKFLOW) {
     return true;
   }
 
@@ -9686,7 +9701,7 @@ nav_msgs::Odometry Odometry::applyOdomOffset(const nav_msgs::Odometry &msg) {
 
   tf2::Quaternion q;
   tf2::fromMsg(msg.pose.pose.orientation, q);
-  q = m_rot_odom_offset * q;
+  q                         = m_rot_odom_offset * q;
   ret.pose.pose.orientation = tf2::toMsg(q);
 
   return ret;
