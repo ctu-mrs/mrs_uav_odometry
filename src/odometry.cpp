@@ -645,6 +645,7 @@ private:
 
   // for setting home position
   double utm_origin_x_, utm_origin_y_;
+  bool   use_utm_origin_ = false;
   double rtk_local_origin_z_;
   double local_origin_x_, local_origin_y_;
   double land_position_x, land_position_y;
@@ -1097,6 +1098,7 @@ void Odometry::onInit() {
   _estimator_type_takeoff.name = takeoff_estimator;
   _estimator_type_takeoff.type = (int)pos;
 
+  param_loader.load_param("use_utm_origin", use_utm_origin_);
   param_loader.load_param("utm_origin_x", utm_origin_x_);
   param_loader.load_param("utm_origin_y", utm_origin_y_);
 
@@ -3467,6 +3469,33 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
   }
 
+  // publish the static transform between utm and latlon
+
+  if (use_utm_origin_) {
+
+    // publish TF
+    geometry_msgs::TransformStamped tf;
+
+    tf.header.stamp            = ros::Time::now();
+    tf.header.frame_id         = uav_name + "/gps_origin";
+    tf.child_frame_id          = uav_name + "/utm_origin";
+    tf.transform.translation.x = -utm_origin_x_;
+    tf.transform.translation.y = -utm_origin_y_;
+
+    tf.transform.rotation.x = 0;
+    tf.transform.rotation.y = 0;
+    tf.transform.rotation.z = 0;
+    tf.transform.rotation.w = 1;
+
+    if (noNans(tf)) {
+      try {
+        broadcaster_->sendTransform(tf);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
+    }
+  }
 
   // Loop through each heading estimator
   for (auto &estimator : m_heading_estimators) {
