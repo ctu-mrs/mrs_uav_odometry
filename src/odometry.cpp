@@ -8696,11 +8696,11 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
       ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_x\", setting it to 0!!!");
       return;
     } else if (rot_x > 1.57) {
-      ROS_INFO("[Odometry]: rot_x: %2.2f", rot_x);
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: rot_x: %2.2f", rot_x);
       rot_x = 1.57;
     } else if (rot_x < -1.57) {
       rot_x = -1.57;
-      ROS_INFO("[Odometry]: rot_x: %2.2f", rot_x);
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: rot_x: %2.2f", rot_x);
     }
 
     if (!std::isfinite(rot_y)) {
@@ -8708,10 +8708,10 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
       ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_y\", setting it to 0!!!");
       return;
     } else if (rot_y > 1.57) {
-      ROS_INFO("[Odometry]: rot_y: %2.2f", rot_y);
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: rot_y: %2.2f", rot_y);
       rot_y = 1.57;
     } else if (rot_y < -1.57) {
-      ROS_INFO("[Odometry]: rot_y: %2.2f", rot_y);
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: rot_y: %2.2f", rot_y);
       rot_y = -1.57;
     }
 
