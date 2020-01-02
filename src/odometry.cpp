@@ -1774,7 +1774,7 @@ void Odometry::onInit() {
 
   /* //{ subscribers */
   // subsribe to target attitude
-  sub_des_attitude_ = nh_.subscribe("des_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
+  sub_des_attitude_ = nh_.subscribe("target_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to pixhawk imu
   sub_pixhawk_imu_ = nh_.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
@@ -2260,17 +2260,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   if (!got_target_attitude) {
-    /* des_yaw_ = init_pose_yaw; */
-    /* des_yaw_rate_ = 0.0; */
-    /* setRPY(0, 0, init_pose_yaw, des_attitude_); */
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: No target attitude.");
-    return;
+    des_yaw_ = init_pose_yaw;
+    des_yaw_rate_ = 0.0;
+    setRPY(0, 0, init_pose_yaw, des_attitude_);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not receiving target attitude.");
   }
 
 
   double des_yaw;
   double des_yaw_rate;
   geometry_msgs::Quaternion des_attitude;
+
   {
     std::scoped_lock lock(mutex_target_attitude);
   
@@ -4029,14 +4029,8 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 /* //{ callbackTargetAttitude() */
 void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
 
-  ROS_INFO("[Odometry]: callback");
-
   if (!is_initialized)
     return;
-
-  ROS_INFO("[Odometry]: 0");
-
-  ROS_INFO_THROTTLE(1.0, "[Odometry]: target attitude callback");
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTargetAttitude");
 
@@ -4060,8 +4054,6 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     }
   }
 
-  ROS_INFO("[Odometry]: 1");
-
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
@@ -4076,8 +4068,6 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     }
   }
 
-  ROS_INFO("[Odometry]: 2");
-
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   double                    rot_x, rot_y, rot_z;
@@ -4091,7 +4081,6 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
     dt = (target_attitude.header.stamp - des_attitude_previous.header.stamp).toSec();
   }
-  ROS_INFO("[Odometry]: 3");
   /* getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); */
 
   /* double hdg = getCurrentHeading(); */
@@ -4162,8 +4151,6 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   }
 
   new_des_attitude_available_ = true;
-
-  ROS_INFO("[Odometry]: 4");
 
   /* // Apply prediction step to all heading estimators */
   /* headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt); */
