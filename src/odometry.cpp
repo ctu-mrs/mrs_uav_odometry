@@ -853,6 +853,7 @@ private:
   lkf_height_t::statecov_t      sc_height_;
   std::mutex                    mutex_estimator_height_;
   ros::Time                     time_main_timer_prev_;
+  bool                          first_main_timer_tick_ = true;
 
   // for fusing rtk altitude
   double trg_z_offset_;
@@ -2226,10 +2227,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
 
+
   double    dt;
   ros::Time time_now    = ros::Time::now();
   dt                    = (time_now - time_main_timer_prev_).toSec();
   time_main_timer_prev_ = time_now;
+
+  if (first_main_timer_tick_) {
+    first_main_timer_tick_ = false;
+    return;
+  }
 
   // prediction step of height estimator
   mrs_msgs::Float64Stamped height_msg;
@@ -2243,7 +2250,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     sc_height_       = estimator_height_->predict(sc_height_, u, Q_height_, dt);
     height_msg.value = sc_height_.x(0);
   }
-
+  
 
   try {
     pub_height_.publish(height_msg);
@@ -2259,6 +2266,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: No target attitude.");
     return;
   }
+
 
   double des_yaw;
   double des_yaw_rate;
@@ -2300,6 +2308,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   ROS_INFO_ONCE("[Odometry]: Prediction step of all state estimators running.");
+
 
   // --------------------------------------------------------------
   // |              publish the new altitude message              |
@@ -4020,8 +4029,12 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 /* //{ callbackTargetAttitude() */
 void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
 
+  ROS_INFO("[Odometry]: callback");
+
   if (!is_initialized)
     return;
+
+  ROS_INFO("[Odometry]: 0");
 
   ROS_INFO_THROTTLE(1.0, "[Odometry]: target attitude callback");
 
@@ -4047,6 +4060,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     }
   }
 
+  ROS_INFO("[Odometry]: 1");
+
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
@@ -4061,6 +4076,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     }
   }
 
+  ROS_INFO("[Odometry]: 2");
+
   //////////////////// Fuse Lateral Kalman ////////////////////
 
   double                    rot_x, rot_y, rot_z;
@@ -4074,6 +4091,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
     dt = (target_attitude.header.stamp - des_attitude_previous.header.stamp).toSec();
   }
+  ROS_INFO("[Odometry]: 3");
   /* getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); */
 
   /* double hdg = getCurrentHeading(); */
@@ -4144,6 +4162,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   }
 
   new_des_attitude_available_ = true;
+
+  ROS_INFO("[Odometry]: 4");
 
   /* // Apply prediction step to all heading estimators */
   /* headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt); */
