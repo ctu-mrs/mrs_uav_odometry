@@ -6235,7 +6235,6 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
           estimator.second->setState(0, hdg);
         }
       }
-    }
 
     ROS_WARN("[Odometry]: Brick is now reliable");
     brick_reliable      = true;
