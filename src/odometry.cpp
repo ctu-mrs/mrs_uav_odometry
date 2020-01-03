@@ -2150,18 +2150,10 @@ bool Odometry::isReadyToTakeoff() {
       return false;
     }
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICK) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICK || _estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
-  }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICKFLOW) {
-    if (got_optflow) {
-      return true;
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for OPTFLOW msg to initialize takeoff estimator");
-      return false;
-    }
   }
   return false;
 }
@@ -2453,7 +2445,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     yaw(0) = mrs_odometry::wrapAngle(yaw(0));
     mrs_odometry::setYaw(orientation.pose.pose.orientation, yaw(0));
-    /* odom_main.twist.twist.angular.z = yaw_rate(0); */
     {
       std::scoped_lock lock(mutex_current_hdg_estimator);
       orientation.child_frame_id = current_hdg_estimator->getName();
@@ -3051,12 +3042,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     uav_state.velocity         = odom_pixhawk.twist.twist;
   }
 
+  // Fill in odometry headers according to the uav name and current estimator
   std::transform(current_estimator_name.begin(), current_estimator_name.end(), current_estimator_name.begin(), ::tolower);
   odom_main.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
-  /* odom_main.header.frame_id = local_origin_frame_id_; */
   odom_main.header.stamp    = ros::Time::now();
   uav_state.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
-  /* uav_state.header.frame_id = local_origin_frame_id_; */
   uav_state.header.stamp = ros::Time::now();
 
   geometry_msgs::PoseStamped newPose;
@@ -3474,7 +3464,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
     for (auto &hdg_estimator : m_heading_estimators) {
 
-      if (isEqual(hdg_estimator.first, estimator.first)) {
+      if (isEqual(hdg_estimator.first, estimator.first) || (isEqual(hdg_estimator.first, "BRICK") && isEqual(estimator.first, "BRICKFLOW"))) {
 
         hdg_estimator.second->getState(0, hdg_vec);
         hdg_estimator.second->getState(1, hdg_vel_vec);
@@ -8008,8 +7998,8 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICKFLOW;
-    desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICKFLOW;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::BRICK;
   } else if (std::strcmp(type.c_str(), "ICP") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::ICP;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ICP;
