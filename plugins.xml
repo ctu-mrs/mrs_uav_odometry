@@ -9,3 +9,9 @@
     <description>RtkRepublisher nodelet</description>
   </class>
 </library>
+
+<library path="lib/libTFConnectorDummy">
+  <class name="mrs_odometry/TFConnectorDummy" type="mrs_odometry::TFConnectorDummy" base_class_type="nodelet::Nodelet">
+    <description>RtkRepublisher nodelet</description>
+  </class>
+</library>

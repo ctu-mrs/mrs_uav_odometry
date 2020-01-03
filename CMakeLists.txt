@@ -80,3 +80,12 @@ target_link_libraries(RtkRepublisher
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   )
+
+## Declare a C++ executable
+add_library(TFConnectorDummy src/tf_connector_dummy.cpp)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(TFConnectorDummy
+  ${catkin_LIBRARIES}
+  ${mavros_msgs_LIBRARIES}
+  )
