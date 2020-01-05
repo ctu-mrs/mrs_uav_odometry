@@ -129,6 +129,11 @@ lateral:
   hector_pos_filter_buffer_size: 50
   hector_pos_filter_max_valid: 8.0
   hector_pos_filter_max_diff: 3.0
+  
+  pavel_pos_median_filter: true
+  pavel_pos_filter_buffer_size: 50
+  pavel_pos_filter_max_valid: 8.0
+  pavel_pos_filter_max_diff: 3.0
 
   brick_pos_median_filter: false
   brick_pos_filter_buffer_size: 50
@@ -153,6 +158,7 @@ lateral:
     pos_brick: [10]
     vel_brick: [100]
     pos_hector: [1000]
+    pos_pavel: [100]
 
   # The system matrix
   # pos, vel, acc, acc_in, acc_dist, tilt
@@ -223,6 +229,10 @@ heading:
   hector_yaw_median_filter: true
   hector_yaw_filter_buffer_size: 100
   hector_yaw_filter_max_diff: deg(10)
+  
+  pavel_yaw_median_filter: true
+  pavel_yaw_filter_buffer_size: 100
+  pavel_yaw_filter_max_diff: deg(10)
 
   vio_yaw_median_filter: true
   vio_yaw_filter_buffer_size: 100
@@ -254,6 +264,7 @@ heading:
   Q:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
+    yaw_pavel: [0.01]
     yaw_brick: [1]
     yaw_vio: [1]
     rate_gyro: [0.1]
