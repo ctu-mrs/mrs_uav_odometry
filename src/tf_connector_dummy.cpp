@@ -78,7 +78,16 @@ namespace mrs_odometry
       {
         const auto& root_frame_id = m_root_frame_ids.at(it);
         const auto& equal_frame_id = m_equal_frame_ids.at(it);
-        geometry_msgs::TransformStamped new_tf = m_tf_buffer.lookupTransform(equal_frame_id, root_frame_id, ros::Time(0));
+        geometry_msgs::TransformStamped new_tf ;
+        try
+        {
+          new_tf = m_tf_buffer.lookupTransform(equal_frame_id, root_frame_id, ros::Time(0));
+        }
+        catch (const tf2::TransformException& ex)
+        {
+          ROS_WARN("Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", root_frame_id.c_str(), equal_frame_id.c_str(), ex.what());
+          continue;
+        }
         new_tf.child_frame_id = root_frame_id;
         new_tf.header.frame_id = m_connecting_frame_id;
         new_tf_msg.transforms.push_back(new_tf);
