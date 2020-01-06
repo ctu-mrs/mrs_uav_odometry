@@ -8,4 +8,4 @@ root_frame_ids:
  
 # names of frames in each tree, which are equal - this will be used to connect the trees
 equal_frame_ids:
-  ["uav1/local_origin", "uav2/local_origin"]
+  ["uav1/gps_origin", "uav2/gps_origin"]
