@@ -70,6 +70,8 @@
 
       <param name="enable_profiler" type="bool" value="$(arg PROFILER)" />
 
+      <rosparam file="$(find mrs_odometry)/config/default_config.yaml" command="load" />
+      <rosparam file="$(arg default_config_file)" command="load" />
       <rosparam file="$(arg default_config_file)" command="load" />
       <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
