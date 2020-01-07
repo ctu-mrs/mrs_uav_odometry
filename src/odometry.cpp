@@ -6297,11 +6297,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // do not fuse plane measurements when a height jump is detected - most likely the UAV is flying above an obstacle
 
   double measurement = brick_pose.pose.position.z;
+  bool fuse_brick_height = true;
   if (isUavFlying()) {
     if (!brickHeightFilter->isValid(measurement)) {
       double filtered = brickHeightFilter->getMedian();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height easurement %f declined by median filter.", measurement);
-      return;
+      fuse_brick_height = false;
     }
   }
 
@@ -6315,15 +6316,16 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double max_height = 100.0;
   if (measurement < min_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f < %f. Not fusing.", measurement, min_height);
-    return;
+    fuse_brick_height = false;
   }
 
   if (measurement > max_height) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, max_height);
-    return;
+    fuse_brick_height = false;
   }
 
   // Fuse brick measurement for each altitude estimator
+  if (fuse_brick_height) {
   for (auto &estimator : m_altitude_estimators) {
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
     if (!estimator.second->getStates(current_altitude)) {
@@ -6341,6 +6343,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   ROS_WARN_ONCE("[Odometry]: Brick height from brick pose");
+  }
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -8698,6 +8701,10 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &con
 
 void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitude, double dt) {
 
+  if (dt<=0.0) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
+    return;
+  }
 
   Vec2 input;
 
@@ -8962,6 +8969,11 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 /*  //{ headingEstimatorsPrediction() */
 
 void Odometry::headingEstimatorsPrediction(const double yaw, const double yaw_rate, const double dt) {
+
+  if (dt<=0.0) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
+    return;
+  }
 
   if (!std::isfinite(yaw)) {
     ROS_ERROR("[Odometry]: NaN detected in variable \"yaw\" (headingEstimatorsPrediction) !!!");
