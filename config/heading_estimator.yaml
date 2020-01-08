@@ -50,7 +50,7 @@ heading_estimators:
     VIO: ["rate_gyro", "yaw_vio"]
     VSLAM: ["rate_gyro", "yaw_vslam"]
     ICP: ["rate_icp"]
-    BRICKFLOW: ["rate_gyro", "rate_optflow", "yaw_brick"]
+    BRICKFLOW: ["rate_gyro", "yaw_brick"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
