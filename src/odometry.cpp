@@ -844,6 +844,7 @@ private:
   bool   _t265_available    = false;
   bool   t265_reliable      = false;
   bool   _lidar_available   = false;
+  bool   _aloam_available   = false;
   bool   _brick_available   = false;
   bool   brick_reliable     = false;
   bool   height_available_  = false;
@@ -1134,11 +1135,12 @@ void Odometry::onInit() {
   param_loader.load_param("rtk_available", _rtk_available);
   param_loader.load_param("t265_available", _t265_available);
   param_loader.load_param("lidar_available", _lidar_available);
+  param_loader.load_param("aloam_available", _aloam_available);
   param_loader.load_param("brick_available", _brick_available);
   gps_reliable       = _gps_available;
   hector_reliable    = _lidar_available;
-  aloam_reliable     = _lidar_available;
   icp_reliable       = _lidar_available;
+  aloam_reliable     = _aloam_available;
   brick_reliable     = _brick_available;
   rtk_reliable       = _rtk_available;
   t265_reliable      = _t265_available;
@@ -1894,8 +1896,11 @@ void Odometry::onInit() {
   if (_lidar_available) {
     sub_lidar_odom_  = nh_.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
     sub_hector_pose_ = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
-    sub_aloam_odom_  = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamPose, this, ros::TransportHints().tcpNoDelay());
     sub_icp_twist_   = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
+  }
+  
+  if (_aloam_available) {
+    sub_aloam_odom_  = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamPose, this, ros::TransportHints().tcpNoDelay());
   }
 
 
@@ -2030,13 +2035,13 @@ void Odometry::onInit() {
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ALOAM && !_lidar_available) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available) {
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP localization not available. Shutting down.",
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ALOAM && !_aloam_available) {
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAM localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
@@ -2769,7 +2774,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Fallback from ALOAM Slam
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::ALOAM) {
     if (!got_aloam_odom || !aloam_reliable) {
-      if (_lidar_available && got_icp_twist) {
+      if (_aloam_available && got_icp_twist) {
         /* if (_perform_hector_reset_routine && !hector_reset_routine_running_) { */
 
         /*   ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine."); */
@@ -9688,7 +9693,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     // ALOAM SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAM) {
 
-    if (!_lidar_available) {
+    if (!_aloam_available) {
       ROS_ERROR("[Odometry]: Cannot transition to ALOAM type. Lidar localization not available in this world.");
       return false;
     }
