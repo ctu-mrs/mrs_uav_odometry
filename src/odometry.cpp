@@ -650,6 +650,7 @@ private:
   // for setting home position
   double utm_origin_x_, utm_origin_y_;
   bool   use_utm_origin_ = false;
+  int    utm_origin_units = 0;
   double rtk_local_origin_z_;
   double local_origin_x_, local_origin_y_;
   double land_position_x, land_position_y;
@@ -1104,13 +1105,24 @@ void Odometry::onInit() {
   _estimator_type_takeoff.type = (int)pos;
 
   param_loader.load_param("use_utm_origin", use_utm_origin_);
-  param_loader.load_param("utm_origin_x", utm_origin_x_);
-  param_loader.load_param("utm_origin_y", utm_origin_y_);
+
+  // Load UTm origin either in UTM or LatLon units
+  param_loader.load_param("utm_origin_units", utm_origin_units);
+  if (utm_origin_units == 0) {
+    ROS_INFO("[Odometry]: Loading UTM origin in UTM units.");
+    param_loader.load_param("utm_origin_x", utm_origin_x_);
+    param_loader.load_param("utm_origin_y", utm_origin_y_);
+  } else {
+    double lat, lon;
+    ROS_INFO("[Odometry]: Loading UTM origin in LatLon units.");
+    param_loader.load_param("utm_origin_lat", lat);
+    param_loader.load_param("utm_origin_lon", lon);
+    ROS_INFO("[Odometry]: Converted to UTM x: %f, y: %f.", utm_origin_x_, utm_origin_y_);
+    mrs_lib::UTM(lat, lon, &utm_origin_x_, &utm_origin_y_);
+  }
 
   param_loader.load_param("local_origin_x", local_origin_x_);
   param_loader.load_param("local_origin_y", local_origin_y_);
-  /* local_origin_x_ = 0.0; */
-  /* local_origin_y_ = 0.0; */
 
   pixhawk_odom_offset_x = 0;
   pixhawk_odom_offset_y = 0;
@@ -3520,7 +3532,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
   }
 
-  // publish the static transform between utm and latlon
+  // publish the static transform between utm and local gps origin
 
   if (use_utm_origin_) {
 
