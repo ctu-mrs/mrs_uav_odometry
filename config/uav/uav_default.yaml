@@ -13,7 +13,7 @@ altitude:
 
   # Covariances of measurements
   Q:
-    height_range: [10] # 0.04 stddev in simulation
+    height_range: [1000] # 0.04 stddev in simulation
     height_sonar: [1000] # 0.04 stddev in simulation
     height_plane: [1] 
     height_brick: [1] 
@@ -31,8 +31,8 @@ lateral:
   # Covariances of measurements
   Q:
     vel_optflow: [1]
-    pos_mavros: [0.1]
-    vel_mavros: [1]
+    pos_mavros: [0.01]
+    vel_mavros: [0.1]
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
