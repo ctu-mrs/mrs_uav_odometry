@@ -34,8 +34,10 @@
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('ODOMETRY_TYPE') == 'gps')" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('ODOMETRY_TYPE') != 'gps')" name="world_file" value="$(find mrs_general)/config/world_simulation_local.yaml" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_current.yaml" />
+
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/simulation/simulation_default.yaml" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/uav/uav_default.yaml" />

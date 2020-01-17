@@ -440,7 +440,6 @@ private:
   Vec2                          aloam_offset_;
   Vec2                          aloam_vel_state_;
   double                        aloam_offset_hdg_;
-  int                           c_aloam_msg_;
 
   // VIO messages
   std::mutex                                mutex_icp_twist;
@@ -515,7 +514,7 @@ private:
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
   void callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg);
-  void callbackAloamPose(const nav_msgs::OdometryConstPtr &msg);
+  void callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
@@ -647,6 +646,14 @@ private:
   double                        vio_max_valid_altitude;
   double                        vio_filter_max_difference;
   ros::Time                     vio_last_update;
+
+  // ALOAM height median filter
+  std::shared_ptr<MedianFilter> aloamHeightFilter;
+  int                           aloam_height_filter_buffer_size;
+  double                        aloam_height_max_valid_altitude;
+  double                        aloam_height_filter_max_difference;
+  ros::Time                     aloam_height_last_update;
+
 
   bool got_odom_pixhawk     = false;
   bool got_odom_t265        = false;
@@ -992,7 +999,6 @@ void Odometry::onInit() {
   aloam_reset_routine_running_ = false;
   aloam_offset_ << 0, 0;
   aloam_offset_hdg_ = 0;
-  c_aloam_msg_      = 0;
 
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
@@ -1047,6 +1053,7 @@ void Odometry::onInit() {
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::PLANE));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::BRICK));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::VIO));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAM));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -1110,6 +1117,10 @@ void Odometry::onInit() {
   param_loader.load_param("vioFilterBufferSize", vio_filter_buffer_size);
   param_loader.load_param("vioFilterMaxValidAltitude", vio_max_valid_altitude);
   param_loader.load_param("vioFilterMaxDifference", vio_filter_max_difference);
+  
+  param_loader.load_param("aloamHeightFilterBufferSize", aloam_height_filter_buffer_size);
+  param_loader.load_param("aloamHeightFilterMaxValidAltitude", aloam_height_max_valid_altitude);
+  param_loader.load_param("aloamHeightFilterMaxDifference", aloam_height_filter_max_difference);
 
   param_loader.load_param("trg_z_offset", trg_z_offset_);
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
@@ -1197,7 +1208,9 @@ void Odometry::onInit() {
   planeFilter      = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
   brickHeightFilter =
       std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, -brick_max_valid_altitude, brick_filter_max_difference);
-  vioHeightFilter = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
+  vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
+  aloamHeightFilter = std::make_shared<MedianFilter>(aloam_height_filter_buffer_size, aloam_height_max_valid_altitude, -aloam_height_max_valid_altitude,
+                                                     aloam_height_filter_max_difference);
 
   stddev_veldiff        = std::make_shared<StddevBuffer>(1000);
   stddev_inno_elevation = std::make_shared<StddevBuffer>(1000);
@@ -1205,6 +1218,7 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   ROS_INFO("[Odometry]: Sonar max valid altitude: %2.2f", sonar_max_valid_altitude);
   ROS_INFO("[Odometry]: Teraranger max valid altitude: %2.2f", trg_max_valid_altitude);
+  ROS_INFO("[Odometry]: ALOAM max valid altitude: %2.2f", aloam_height_max_valid_altitude);
 
   /* brickAltitudeFilter = new MedianFilter(brick_filter_buffer_size, 0, false, brick_max_valid_altitude, brick_filter_max_difference); */
 
@@ -1898,9 +1912,9 @@ void Odometry::onInit() {
     sub_hector_pose_ = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
     sub_icp_twist_   = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
   }
-  
+
   if (_aloam_available) {
-    sub_aloam_odom_  = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamPose, this, ros::TransportHints().tcpNoDelay());
+    sub_aloam_odom_ = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
 
@@ -2439,6 +2453,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) {
+      new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::ALOAM) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type,
@@ -3581,6 +3597,13 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     } else if (isEqual(estimator.first, "VIO")) {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "VIO")) {
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt(0);
+        }
+      }
+    } else if (isEqual(estimator.first, "ALOAM")) {
+      for (auto &alt_estimator : m_altitude_estimators) {
+        if (isEqual(alt_estimator.first, "ALOAM")) {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt(0);
         }
@@ -7001,14 +7024,14 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 }
 //}
 
-/* //{ callbackAloamPose() */
+/* //{ callbackAloamOdom() */
 
-void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
+void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAloamPose");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAloamOdom");
 
   aloam_odom_last_update = ros::Time::now();
 
@@ -7016,32 +7039,6 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
     std::scoped_lock lock(mutex_aloam);
 
     if (got_aloam_odom) {
-      if (aloam_reliable) {
-        // Detect jump since previous pose
-        if (std::pow(aloam_odom.pose.pose.position.x - aloam_odom_previous.pose.pose.position.x, 2) > 4 ||
-            std::pow(aloam_odom.pose.pose.position.y - aloam_odom_previous.pose.pose.position.y, 2) > 4) {
-          ROS_WARN("[Odometry]: Jump detected in ALOAM Slam pose. Not reliable");
-
-          Vec2 pos_vec, vel_vec;
-          for (auto &estimator : m_state_estimators) {
-            if (isEqual(estimator.first.c_str(), "ALOAM")) {
-              estimator.second->getState(0, pos_vec);
-              estimator.second->getState(1, vel_vec);
-            }
-          }
-          aloam_reliable = false;
-        }
-
-        if (isEqual(current_estimator->getName().c_str(), "ALOAM")) {
-          Vec2 vel_vec;
-          current_estimator->getState(1, vel_vec);
-          if (vel_vec(0) > 5 || vel_vec(1) > 5) {
-            ROS_WARN("[Odometry]: ALOAM Slam velocity too large. Not reliable.");
-            aloam_reliable = false;
-          }
-        }
-      }
-
       aloam_odom_previous = aloam_odom;
       aloam_odom          = *msg;
 
@@ -7054,11 +7051,34 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
       got_aloam_odom = true;
       return;
     }
-
-    if (c_aloam_msg_ < 100) {
-      c_aloam_msg_++;
-    }
   }
+
+  /* { */
+  /*   std::scoped_lock lock(mutex_aloam); */
+  /*   // Detect jump since previous pose */
+  /*   if (std::pow(aloam_odom.pose.pose.position.x - aloam_odom_previous.pose.pose.position.x, 2) > 4 || */
+  /*       std::pow(aloam_odom.pose.pose.position.y - aloam_odom_previous.pose.pose.position.y, 2) > 4) { */
+  /*     ROS_WARN("[Odometry]: Jump detected in ALOAM Slam pose. Not reliable"); */
+
+  /*     Vec2 pos_vec, vel_vec; */
+  /*     for (auto &estimator : m_state_estimators) { */
+  /*       if (isEqual(estimator.first.c_str(), "ALOAM")) { */
+  /*         estimator.second->getState(0, pos_vec); */
+  /*         estimator.second->getState(1, vel_vec); */
+  /*       } */
+  /*     } */
+  /*     aloam_reliable = false; */
+  /*   } */
+  /* } */
+
+  /* if (isEqual(current_estimator->getName().c_str(), "ALOAM")) { */
+  /*   Vec2 vel_vec; */
+  /*   current_estimator->getState(1, vel_vec); */
+  /*   if (vel_vec(0) > 5 || vel_vec(1) > 5) { */
+  /*     ROS_WARN("[Odometry]: ALOAM Slam velocity too large. Not reliable."); */
+  /*     aloam_reliable = false; */
+  /*   } */
+  /* } */
 
   // --------------------------------------------------------------
   // |                        callback body                       |
@@ -7069,6 +7089,62 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+  /* fuse aloam height //{ */
+
+  //////////////////// Filter out aloam height measurement ////////////////////
+
+  bool   aloam_height_ok = true;
+  double measurement;
+  {
+    std::scoped_lock lock(mutex_aloam);
+    measurement = aloam_odom.pose.pose.position.z;
+  }
+  if (isUavFlying()) {
+    if (!aloamHeightFilter->isValid(measurement)) {
+      double filtered = aloamHeightFilter->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+      aloam_height_ok = false;
+    }
+  }
+
+  /* //////////////////// Fuse main altitude kalman //////////////////// */
+
+  double min_height = -100.0;
+  double max_height = 100.0;
+  if (measurement < min_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM height measurement %f < %f. Not fusing.", measurement, min_height);
+    aloam_height_ok = false;
+  }
+
+  if (measurement > max_height) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM height measurement %f > %f. Not fusing.", measurement, max_height);
+    aloam_height_ok = false;
+  }
+
+  // Fuse vio measurement for each altitude estimator
+  for (auto &estimator : m_altitude_estimators) {
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    if (!estimator.second->getStates(current_altitude)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      aloam_height_ok = false;
+    }
+
+    if (aloam_height_ok) {
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second);
+        if (fabs(measurement) > 100) {
+          ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
+        }
+      }
+    }
+  }
+
+  /* ROS_WARN_ONCE("[Odometry]: Fusing height from ALOAM odometry"); */
+
+  //}
+
+  /*//{ fuse aloam heading*/
   double yaw_aloam;
   {
     std::scoped_lock lock(mutex_aloam);
@@ -7091,9 +7167,9 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
   pub_aloam_yaw_.publish(aloam_yaw_out);
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from ALOAM SLAM");
+  /*//}*/
 
-  //////////////////// Fuse Lateral Kalman ////////////////////
-
+  /*//{ fuse aloam xy */
   if (!got_lateral_sensors) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing ALOAM odom. Waiting for other sensors.");
     return;
@@ -7123,7 +7199,7 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
     current_hdg_estimator->getState(0, hdg_state);
   }
 
-  double yaw = hdg_state(0);
+  /* double yaw = hdg_state(0); */
 
   {
     std::scoped_lock lock(mutex_aloam, mutex_pos_aloam_);
@@ -7160,6 +7236,7 @@ void Odometry::callbackAloamPose(const nav_msgs::OdometryConstPtr &msg) {
   /* stateEstimatorsCorrection(pos_aloam_corr_x_, pos_aloam_corr_y_, "pos_aloam"); */
 
   ROS_WARN_ONCE("[Odometry]: Fusing ALOAM position");
+  /*//}*/
 }
 //}
 
@@ -8338,7 +8415,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   } else if (std::strcmp(type.c_str(), "ALOAM") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAM;
   } else if (std::strcmp(type.c_str(), "BRICKFLOW") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICKFLOW;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICK;
@@ -8708,6 +8785,8 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::AltitudeType::BRICK;
   } else if (std::strcmp(type.c_str(), "VIO") == 0) {
     desired_estimator.type = mrs_msgs::AltitudeType::VIO;
+  } else if (std::strcmp(type.c_str(), "ALOAM") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::ALOAM;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9863,7 +9942,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   target_estimator.name                   = _altitude_type_names[target_estimator.type];
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
-      target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO) {
+      target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAM) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -10027,7 +10107,7 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
 
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
-      type.type == mrs_msgs::AltitudeType::VIO) {
+      type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM) {
     return true;
   }
 

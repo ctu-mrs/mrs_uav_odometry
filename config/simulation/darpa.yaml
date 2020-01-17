@@ -5,7 +5,7 @@ lateral_estimator: "ALOAM"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder
-altitude_estimator: "HEIGHT"
+altitude_estimator: "ALOAM"
 
 # Heading state estimator:
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
@@ -28,3 +28,9 @@ aloam_available: true
 brick_available: false
 t265_available: false
 
+garmin_z_offset: -0.01 # [m]
+fcu_height: 0.0 # [m]
+
+aloamHeightFilterBufferSize: 200
+aloamHeightFilterMaxValidAltitude: 40.0
+aloamHeightFilterMaxDifference: 2.0
