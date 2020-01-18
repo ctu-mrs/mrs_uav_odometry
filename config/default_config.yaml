@@ -37,7 +37,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 min_satellites: 0
-max_default_altitude: 20.0
+max_default_altitude: 30.0
 max_optflow_altitude: 10.0
 april_objects: false
 
