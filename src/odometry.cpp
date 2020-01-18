@@ -7045,6 +7045,21 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   got_range = true;
 
+  if (measurement < 0.01) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", measurement, 0.01);
+    return;
+  }
+
+  if (measurement > garmin_max_valid_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > %f. Not fusing.", measurement, garmin_max_valid_altitude);
+    return;
+  }
+
+  if (excessive_tilt) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    return;
+  }
+
   // fuse height estimate
   lkf_height_t::z_t z;
   z << measurement;
@@ -7074,20 +7089,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  if (measurement < 0.01) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", measurement, 0.01);
-    return;
-  }
-
-  if (measurement > garmin_max_valid_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > %f. Not fusing.", measurement, garmin_max_valid_altitude);
-    return;
-  }
-
-  if (excessive_tilt) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
-    return;
-  }
 
   // Fuse garmin measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
