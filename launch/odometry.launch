@@ -94,6 +94,7 @@
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
       <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
+      <remap from="~optflow_low_in" to="optic_flow/velocity" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
       <remap from="~vio_in" to="ground_truth" />
       <remap from="~vslam_in" to="ground_truth_pose" />

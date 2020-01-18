@@ -47,6 +47,7 @@ publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
 publish_local_origin_stable_tf: false
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.5 # [m]
+use_optflow_low: false # use optimized optflow for takeoff and landing
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]

@@ -30,7 +30,7 @@ input=(
 '
   'Gazebo' "waitForRos; roslaunch simulation simulation.launch gui:=true debug:=false
 "
-  'Spawn' "waitForSimulation; spawn 1 --run --delete --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
+  'Spawn' "waitForSimulation; spawn 1 --run --delete --$UAV_TYPE --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "
   'MRS_control' "waitForOdometry; roslaunch mrs_general core.launch
 "
@@ -38,8 +38,7 @@ input=(
 "
   'Localization' "waitForOdometry; $LAUNCH_NODES
 "
-  'ICP' "waitForOdometry; roslaunch mrs_icp2d uav.launch
-"
+  'ICP' "waitForOdometry; roslaunch mrs_icp2d uav.launch"
   "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
   'ChangeEstimator' "rosservice call /$UAV_NAME/odometry/change_estimator_type_string GPS"

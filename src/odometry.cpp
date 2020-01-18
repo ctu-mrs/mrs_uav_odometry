@@ -179,6 +179,7 @@ private:
   ros::Subscriber sub_pixhawk_imu_;
   ros::Subscriber sub_pixhawk_compass_;
   ros::Subscriber sub_optflow_;
+  ros::Subscriber sub_optflow_low_;
   ros::Subscriber sub_optflow_stddev_;
   ros::Subscriber sub_vio_;
   ros::Subscriber sub_vslam_;
@@ -261,6 +262,8 @@ private:
   int                                       _optflow_filter_buffer_size;
   double                                    _optflow_filter_max_valid;
   double                                    _optflow_filter_max_diff;
+  bool fusing_optflow_low_ = true;
+  bool _use_optflow_low_ = false;
 
   // VIO
   nav_msgs::Odometry odom_vio;
@@ -478,6 +481,7 @@ private:
   void callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedConstPtr &msg);
   void callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg);
   void callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
+  void callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackOptflowStddev(const geometry_msgs::Vector3ConstPtr &msg);
   void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
@@ -1068,6 +1072,7 @@ void Odometry::onInit() {
   param_loader.load_param("fcu_height", fcu_height_);
 
   // Optic flow
+  param_loader.load_param("use_optflow_low", _use_optflow_low_);
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
   param_loader.load_param("max_default_altitude", _max_default_altitude);
   max_altitude = _max_default_altitude;
@@ -1811,6 +1816,9 @@ void Odometry::onInit() {
   // subscriber to optflow velocity
   if (_optflow_available) {
     sub_optflow_        = nh_.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
+    if (_use_optflow_low_) {
+      sub_optflow_low_        = nh_.subscribe("optflow_low_in", 1, &Odometry::callbackOptflowTwistLow, this, ros::TransportHints().tcpNoDelay());
+    }
     sub_optflow_stddev_ = nh_.subscribe("optflow_stddev_in", 1, &Odometry::callbackOptflowStddev, this, ros::TransportHints().tcpNoDelay());
   }
 
@@ -4974,6 +4982,9 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   if (!is_initialized)
     return;
 
+  if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying()))
+    return;
+
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
 
   optflow_twist_last_update = ros::Time::now();
@@ -5016,6 +5027,16 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   if (!got_lateral_sensors) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow velocity. Waiting for other sensors.");
     return;
+  }
+
+  // Change to OPTFLOW hdg estimator if OPTFLOW low was being used
+  if (_use_optflow_low_ && fusing_optflow_low_) {
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Switching from OPTFLOW low to OPTFLOW regular");
+      fusing_optflow_low_ = false;
+      mrs_msgs::HeadingType desired_estimator;
+      desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      changeCurrentHeadingEstimator(desired_estimator);
   }
 
   static int    measurement_id     = 0;
@@ -5182,6 +5203,197 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
     ROS_ERROR("[Odometry]: NaN detected in optflow variable \"yaw_rate\", not fusing!!!");
   }
+}
+
+//}
+
+/* //{ callbackOptflowTwistLow() */
+
+void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (isUavFlying() && !isUavLandoff()) 
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwistLow");
+
+  optflow_twist_last_update = ros::Time::now();
+
+  {
+    std::scoped_lock lock(mutex_optflow);
+
+    if (got_optflow) {
+
+      optflow_twist_previous = optflow_twist;
+      optflow_twist          = *msg;
+
+    } else {
+
+      optflow_twist_previous = *msg;
+      optflow_twist          = *msg;
+
+      got_optflow      = true;
+      optflow_reliable = true;
+
+      return;
+    }
+  }
+
+  if (!got_range) {
+    return;
+  }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  if (!isTimestampOK(optflow_twist.header.stamp.toSec(), optflow_twist_previous.header.stamp.toSec())) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction.");
+    return;
+  }
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  if (!got_lateral_sensors) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow velocity. Waiting for other sensors.");
+    return;
+  }
+
+  fusing_optflow_low_ = true;
+
+  if (isEqual(current_hdg_estimator_name, "OPTFLOW")) {
+      mrs_msgs::HeadingType desired_estimator;
+      desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      changeCurrentHeadingEstimator(desired_estimator);
+  }
+
+  static int    measurement_id     = 0;
+  static bool   got_init_optflow_Q = false;
+  static double init_Q             = 0.0;
+
+  for (auto &estimator : m_state_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
+
+      // Get initial Q
+      if (!got_init_optflow_Q) {
+        std::string                          measurement_name  = "vel_optflow";
+        std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
+        if (it_measurement_id == map_measurement_name_id.end()) {
+          ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
+          return;
+        }
+
+        measurement_id = it_measurement_id->second;
+
+        estimator.second->getR(init_Q, measurement_id);
+        got_init_optflow_Q = true;
+      }
+    }
+  }
+
+  if (_dynamic_optflow_cov) {
+    double twist_q_x = optflow_twist.twist.covariance[0];
+    double twist_q_y = optflow_twist.twist.covariance[7];
+
+    if (std::isfinite(twist_q_x)) {
+
+      // Scale covariance
+      twist_q_x *= _dynamic_optflow_cov_scale;
+      twist_q_y *= _dynamic_optflow_cov_scale;
+
+      double twist_q = std::max(twist_q_x, twist_q_y);
+
+      std::string                          measurement_name  = "vel_optflow";
+      std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
+      if (it_measurement_id == map_measurement_name_id.end()) {
+        ROS_ERROR("[Odometry]: Tried to set covariance of measurement with invalid name: \'%s\'.", measurement_name.c_str());
+        return;
+      }
+
+      for (auto &estimator : m_state_estimators) {
+        if (std::strcmp(estimator.first.c_str(), "OPTFLOW") == 0 || std::strcmp(estimator.first.c_str(), "OPTFLOWGPS") == 0 ||
+            std::strcmp(estimator.first.c_str(), "BRICKFLOW") == 0) {
+          estimator.second->setR(twist_q, it_measurement_id->second);
+          ROS_INFO_THROTTLE(5.0, "[Odometry]: estimator: %s setting Q_optflow_twist to: %f", estimator.first.c_str(), twist_q);
+        }
+      }
+    } else {
+      twist_q_x = twist_q_x_prev;
+      twist_q_y = twist_q_y_prev;
+    }
+    twist_q_x_prev = twist_q_x;
+    twist_q_y_prev = twist_q_y;
+  }
+
+  /* double hdg = getCurrentHeading(); */
+
+  /* double cy = cos(hdg); */
+  /* double sy = sin(hdg); */
+
+  /* double optflow_vel_x, optflow_vel_y; */
+  /* { */
+  /*   std::scoped_lock lock(mutex_optflow); */
+
+  /*   // Velocities are already in the body frame (not ROS convention) */
+  /*   /1* optflow_vel_x = optflow_twist.twist.twist.linear.x; *1/ */
+  /*   /1* optflow_vel_y = optflow_twist.twist.twist.linear.y; *1/ */
+
+  /*   // Rotate body frame velocity to global frame */
+  /*   optflow_vel_x = optflow_twist.twist.twist.linear.x * cy - optflow_twist.twist.twist.linear.y * sy; */
+  /*   optflow_vel_y = optflow_twist.twist.twist.linear.x * sy + optflow_twist.twist.twist.linear.y * cy; */
+  /* } */
+  double optflow_vel_x = optflow_twist.twist.twist.linear.x;
+  double optflow_vel_y = optflow_twist.twist.twist.linear.y;
+
+  if (_optflow_median_filter) {
+    if (!optflow_filter_x->isValid(optflow_vel_x)) {
+
+      double median = optflow_filter_x->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
+      optflow_vel_x = median;
+    }
+
+    if (!optflow_filter_y->isValid(optflow_vel_y)) {
+      double median = optflow_filter_y->getMedian();
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
+      optflow_vel_y = median;
+    }
+  }
+  geometry_msgs::TwistWithCovarianceStamped optflow_filtered = optflow_twist;
+  optflow_filtered.twist.twist.linear.x                      = optflow_vel_x;
+  optflow_filtered.twist.twist.linear.y                      = optflow_vel_y;
+
+  try {
+    pub_debug_optflow_filter.publish(optflow_filtered);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
+  }
+  // Set innoation variable if ccurnet estimator is OPTFLOW
+  if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "OPTFLOW")) {
+    Vec2 vel_vec, innovation;
+    current_estimator->getState(1, vel_vec);
+
+    innovation(0) = optflow_vel_x - vel_vec(0);
+    innovation(1) = optflow_vel_y - vel_vec(1);
+    {
+      std::scoped_lock lock(mutex_odom_main_inno);
+      odom_main_inno.pose.pose.position.x = 0;
+      odom_main_inno.pose.pose.position.y = 0;
+      odom_main_inno.pose.pose.position.z = 0;
+      odom_main_inno.twist.twist.linear.x = innovation(0);
+      odom_main_inno.twist.twist.linear.y = innovation(1);
+    }
+  }
+
+  // Apply correction step to all state estimators
+  stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
+
+  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTLOW low");
+
 }
 
 //}
