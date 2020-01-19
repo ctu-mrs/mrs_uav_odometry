@@ -32,7 +32,7 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 ###################################
 
 generate_dynamic_reconfigure_options(
-  config/lkf.cfg
+  cfg/odometry_dynparam.cfg
   )
 
 catkin_package(

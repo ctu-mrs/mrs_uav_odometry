@@ -68,7 +68,7 @@
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
 #include <StddevBuffer.h>
-#include <mrs_odometry/lkfConfig.h>
+#include <mrs_odometry/odometry_dynparamConfig.h>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -223,8 +223,8 @@ private:
   tf2_ros::Buffer                             m_tf_buffer;
   std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
 
-  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>               server;
-  dynamic_reconfigure::Server<mrs_odometry::lkfConfig>::CallbackType f;
+  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
+  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
 
   nav_msgs::Odometry odom_pixhawk;
   nav_msgs::Odometry odom_pixhawk_previous;
@@ -491,7 +491,7 @@ private:
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
-  void callbackReconfigure(mrs_odometry::lkfConfig &config, uint32_t level);
+  void callbackReconfigure(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void callbackVioState(const std_msgs::Bool &msg);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
@@ -892,11 +892,11 @@ private:
   // --------------------------------------------------------------
 
   boost::recursive_mutex                      config_mutex_;
-  typedef mrs_odometry::lkfConfig             Config;
+  typedef mrs_odometry::odometry_dynparamConfig             Config;
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
-  void                                        drs_callback(mrs_odometry::lkfConfig &config, uint32_t level);
-  mrs_odometry::lkfConfig                     last_drs_config;
+  void                                        drs_callback(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
+  mrs_odometry::odometry_dynparamConfig                     last_drs_config;
 };
 
 //}
@@ -2035,40 +2035,68 @@ void Odometry::onInit() {
   {
     std::scoped_lock lock(mutex_current_estimator);
 
-    current_estimator->getR(last_drs_config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    current_estimator->getR(last_drs_config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    current_estimator->getR(last_drs_config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getR(last_drs_config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
-    current_estimator->getR(last_drs_config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    current_estimator->getR(last_drs_config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    current_estimator->getR(last_drs_config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    current_estimator->getR(last_drs_config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    current_estimator->getR(last_drs_config.Q_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-    current_estimator->getR(last_drs_config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
-    current_estimator->getR(last_drs_config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-    current_estimator->getQ(last_drs_config.R_pos, Eigen::Vector2i(0, 0));
-    current_estimator->getQ(last_drs_config.R_vel, Eigen::Vector2i(1, 1));
-    current_estimator->getQ(last_drs_config.R_acc, Eigen::Vector2i(2, 3));
-    current_estimator->getQ(last_drs_config.R_acc_d, Eigen::Vector2i(4, 4));
-    current_estimator->getQ(last_drs_config.R_acc_i, Eigen::Vector2i(3, 5));
-    current_estimator->getQ(last_drs_config.R_tilt, Eigen::Vector2i(5, 5));
+    // Lateral position measurement covariances
+    current_estimator->getR(last_drs_config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+    current_estimator->getR(last_drs_config.R_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+    current_estimator->getR(last_drs_config.R_pos_vslam, map_measurement_name_id.find("pos_vslam")->second);
+    current_estimator->getR(last_drs_config.R_pos_brick, map_measurement_name_id.find("pos_brick")->second);
+    current_estimator->getR(last_drs_config.R_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
+    current_estimator->getR(last_drs_config.R_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    current_estimator->getR(last_drs_config.R_pos_hector, map_measurement_name_id.find("pos_hector")->second);
+
+    // Lateral velocity measurement covariances
+    current_estimator->getR(last_drs_config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+    current_estimator->getR(last_drs_config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    current_estimator->getR(last_drs_config.R_vel_icp, map_measurement_name_id.find("vel_icp")->second);
+    current_estimator->getR(last_drs_config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
+    current_estimator->getR(last_drs_config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
+    current_estimator->getR(last_drs_config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+
+    // Lateral angle measurement covariance
+    current_estimator->getR(last_drs_config.R_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+
+    // Lateral process covariances
+    current_estimator->getQ(last_drs_config.Q_pos, Eigen::Vector2i(0, 0));
+    current_estimator->getQ(last_drs_config.Q_vel, Eigen::Vector2i(1, 1));
+    current_estimator->getQ(last_drs_config.Q_acc, Eigen::Vector2i(2, 3));
+    current_estimator->getQ(last_drs_config.Q_acc_d, Eigen::Vector2i(4, 4));
+    current_estimator->getQ(last_drs_config.Q_acc_i, Eigen::Vector2i(3, 5));
+    current_estimator->getQ(last_drs_config.Q_tilt, Eigen::Vector2i(5, 5));
+
   }
 
   {
     std::scoped_lock lock(mutex_current_alt_estimator);
 
-    current_alt_estimator->getQ(last_drs_config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
-    current_alt_estimator->getQ(last_drs_config.Q_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+    // Altitude measurement covariances
+    current_alt_estimator->getR(last_drs_config.R_height_range, map_alt_measurement_name_id.find("height_range")->second);
+    current_alt_estimator->getR(last_drs_config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
+    current_alt_estimator->getR(last_drs_config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
+    current_alt_estimator->getR(last_drs_config.R_height_vio, map_alt_measurement_name_id.find("height_vio")->second);
+
+    // Altitude velocity measurement covariances
+    current_alt_estimator->getR(last_drs_config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
+
+    // Altitude acceleration measurement covariances
+    current_alt_estimator->getR(last_drs_config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+
   }
 
   {
     std::scoped_lock lock(mutex_current_hdg_estimator);
-    current_hdg_estimator->getQ(last_drs_config.Q_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
-    current_hdg_estimator->getQ(last_drs_config.Q_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
-    current_hdg_estimator->getQ(last_drs_config.Q_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
-    current_hdg_estimator->getQ(last_drs_config.Q_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
-    current_hdg_estimator->getQ(last_drs_config.Q_yaw_brick, map_hdg_measurement_name_id.find("yaw_brick")->second);
+
+    // Heading measurement covariances
+    current_hdg_estimator->getR(last_drs_config.R_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
+    current_hdg_estimator->getR(last_drs_config.R_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
+    current_hdg_estimator->getR(last_drs_config.R_yaw_brick, map_hdg_measurement_name_id.find("yaw_brick")->second);
+    current_hdg_estimator->getR(last_drs_config.R_yaw_vio, map_hdg_measurement_name_id.find("yaw_vio")->second);
+    current_hdg_estimator->getR(last_drs_config.R_yaw_vslam, map_hdg_measurement_name_id.find("yaw_vslam")->second);
+    current_hdg_estimator->getR(last_drs_config.R_yaw_lidar, map_hdg_measurement_name_id.find("yaw_lidar")->second);
+
+    // Heading rate measurement covariances
+    current_hdg_estimator->getR(last_drs_config.R_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
+    current_hdg_estimator->getR(last_drs_config.R_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
+    current_hdg_estimator->getR(last_drs_config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
   }
 
   reconfigure_server_->updateConfig(last_drs_config);
@@ -8869,51 +8897,108 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
 //}
 
 /* //{ callbackReconfigure() */
-void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::lkfConfig &config, [[maybe_unused]] uint32_t level) {
+void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized)
     return;
-  ROS_INFO(
-      "Reconfigure Request: "
-      "Q_pos_mavros: %f, Q_pos_vio: %f, Q_pos_lidar: %f, Q_pos_rtk: %f\nQ_vel_mavros: %f, Q_vel_vio: %f, Q_vel_lidar: %f, Q_vel_optflow: "
-      "%f, Q_vel_rtk: %f\nQ_tilt:%f ",
-      config.Q_pos_mavros, config.Q_pos_vio, config.Q_pos_lidar, config.Q_pos_rtk, config.Q_vel_mavros, config.Q_vel_vio, config.Q_vel_lidar,
-      config.Q_vel_optflow, config.Q_vel_rtk, config.Q_tilt);
+  ROS_INFO("Reconfigure Request:\n"
+      "Lateral measurement covariance:\n"
+      "\nPosition:\n"
+      "R_pos_mavros: %f\n"
+      "R_pos_vio: %f\n"
+      "R_pos_vslam: %f\n"
+      "R_pos_lidar: %f\n"
+      "R_pos_rtk: %f\n"
+      "R_pos_brick: %f\n"
+      "R_pos_hector: %f\n"
+
+      "\nVelocity:\n"
+      "R_vel_mavros: %f\n"
+      "R_vel_vio: %f\n"
+      "R_vel_lidar: %f\n" 
+      "R_vel_optflow: %f\n"
+      "R_vel_rtk: %f\n"
+
+      "\nTilt:\n"
+      "R_tilt: %f\n",
+      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector, 
+      config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_tilt);
 
   for (auto &estimator : m_state_estimators) {
-    estimator.second->setR(config.Q_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    estimator.second->setR(config.Q_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    estimator.second->setR(config.Q_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
-    estimator.second->setR(config.Q_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    estimator.second->setR(config.Q_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    estimator.second->setR(config.Q_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    estimator.second->setR(config.Q_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    estimator.second->setR(config.Q_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    estimator.second->setR(config.Q_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
-    estimator.second->setR(config.Q_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
-    estimator.second->setR(config.Q_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
-    estimator.second->setR(config.Q_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+    estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
+    estimator.second->setR(config.R_pos_vio, map_measurement_name_id.find("pos_vio")->second);
+    estimator.second->setR(config.R_pos_vslam, map_measurement_name_id.find("pos_vslam")->second);
+    estimator.second->setR(config.R_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
+    estimator.second->setR(config.R_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
+    estimator.second->setR(config.R_pos_brick, map_measurement_name_id.find("pos_brick")->second);
+    estimator.second->setR(config.R_pos_hector, map_measurement_name_id.find("pos_hector")->second);
 
-    estimator.second->setQ(config.R_pos, Eigen::Vector2i(0, 0));
-    estimator.second->setQ(config.R_vel, Eigen::Vector2i(1, 1));
-    estimator.second->setQ(config.R_acc, Eigen::Vector2i(2, 3));
-    estimator.second->setQ(config.R_acc, Eigen::Vector2i(2, 4));
-    estimator.second->setQ(config.R_acc_d, Eigen::Vector2i(4, 4));
-    estimator.second->setQ(config.R_acc_i, Eigen::Vector2i(3, 5));
-    estimator.second->setQ(config.R_tilt, Eigen::Vector2i(5, 5));
+    estimator.second->setR(config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
+    estimator.second->setR(config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    estimator.second->setR(config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
+    estimator.second->setR(config.R_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
+    estimator.second->setR(config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+    
+    estimator.second->setR(config.R_tilt, map_measurement_name_id.find("tilt_mavros")->second);
+
+  ROS_INFO("Lateral process covariance:\n"
+      "Position (0,0): %f\n"
+      "Velocity (1,1): %f\n"
+      "Input Acceleration -> Acceleration (2,3): %f\n"
+      "Disturbance Acceleration -> Acceleration (2,4): %f\n"
+      "Disturbance acceleration (4,4): %f\n"
+      "Tilt -> Input Acceleration (3,5): %f\n"
+      "Tilt (5,5): %f\n",
+    config.Q_pos, config.Q_vel, config.Q_acc, config.Q_acc, config.Q_acc_d, config.Q_acc_i, config.Q_tilt); 
+
+    estimator.second->setQ(config.Q_pos, Eigen::Vector2i(0, 0));
+    estimator.second->setQ(config.Q_vel, Eigen::Vector2i(1, 1));
+    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 3));
+    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 4));
+    estimator.second->setQ(config.Q_acc_d, Eigen::Vector2i(4, 4));
+    estimator.second->setQ(config.Q_acc_i, Eigen::Vector2i(3, 5));
+    estimator.second->setQ(config.Q_tilt, Eigen::Vector2i(5, 5));
+
   }
+
+  ROS_INFO("Altitude measurement covariance:\n"
+      "R_height_range: %f\n"
+      "R_height_plane: %f\n"
+      "R_height_brick: %f\n"
+      "R_vel_baro: %f\n"
+      "R_acc_imu: %f\n",
+    config.R_height_range, config.R_height_plane, config.R_height_brick, config.R_vel_baro, config.R_acc_imu); 
 
   for (auto &estimator : m_altitude_estimators) {
-    estimator.second->setQ(config.Q_height_range, map_alt_measurement_name_id.find("height_range")->second);
-    estimator.second->setQ(config.Q_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
-    estimator.second->setQ(config.Q_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+    estimator.second->setR(config.R_height_range, map_alt_measurement_name_id.find("height_range")->second);
+    estimator.second->setR(config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
+    estimator.second->setR(config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
+    estimator.second->setR(config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
+    estimator.second->setR(config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
   }
 
+  ROS_INFO("Heading measurement covariance:\n"
+      "R_yaw_compass: %f\n"
+      "R_yaw_hector: %f\n"
+      "R_yaw_brick: %f\n"
+      "R_yaw_vio: %f\n"
+      "R_yaw_vslam: %f\n"
+      "R_yaw_lidar: %f\n"
+      "R_rate_gyro: %f\n"
+      "R_rate_optflow: %f\n"
+      "R_rate_icp: %f\n",
+    config.R_yaw_compass, config.R_yaw_hector, config.R_yaw_brick, config.R_yaw_vio, config.R_yaw_vslam, config.R_yaw_lidar, config.R_rate_gyro, config.R_rate_optflow, config.R_rate_icp); 
+
   for (auto &estimator : m_heading_estimators) {
-    estimator.second->setQ(config.Q_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
-    estimator.second->setQ(config.Q_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
-    estimator.second->setQ(config.Q_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
-    estimator.second->setQ(config.Q_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
+    estimator.second->setR(config.R_yaw_compass, map_hdg_measurement_name_id.find("yaw_compass")->second);
+    estimator.second->setR(config.R_yaw_hector, map_hdg_measurement_name_id.find("yaw_hector")->second);
+    estimator.second->setR(config.R_yaw_brick, map_hdg_measurement_name_id.find("yaw_brick")->second);
+    estimator.second->setR(config.R_yaw_vio, map_hdg_measurement_name_id.find("yaw_vio")->second);
+    estimator.second->setR(config.R_yaw_vslam, map_hdg_measurement_name_id.find("yaw_vslam")->second);
+    estimator.second->setR(config.R_yaw_lidar, map_hdg_measurement_name_id.find("yaw_lidar")->second);
+    estimator.second->setR(config.R_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
+    estimator.second->setR(config.R_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
+    estimator.second->setR(config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
   }
 }
 //}
