@@ -1697,7 +1697,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
 
   if (pass_rtk_as_odom && !_rtk_available) {
-    ROS_ERROR("[Odometry]: cant have pass_rtk_as_odom TRUE when rtk_available FALSE");
+    ROS_ERROR("[Odometry]: cannot have pass_rtk_as_odom TRUE when rtk_available FALSE");
     ros::shutdown();
   }
 
@@ -4235,14 +4235,14 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
 
   if (!std::isfinite(dt)) {
     dt = 0;
-    ROS_ERROR("[Odometry]: NaN detected in Mavros variable \"dt\", setting it to 0 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"dt\", setting it to 0 and returning!!!");
     return;
   } else if (dt > 1) {
-    ROS_ERROR("[Odometry]: Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
     dt = 1;
     return;
   } else if (dt < 0) {
-    ROS_ERROR("[Odometry]: Mavros variable \"dt\" < 0, setting it to 0 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Mavros variable \"dt\" < 0, setting it to 0 and returning!!!");
     dt = 0;
     return;
   }
@@ -4252,7 +4252,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     des_yaw_      = mrs_odometry::getYaw(target_attitude.orientation);
 
   if (!std::isfinite(des_yaw_rate_)) {
-    ROS_ERROR("[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
     des_yaw_rate_ = 0.0;
   }
 
@@ -4679,7 +4679,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           // X position
           if (!std::isfinite(pos_mavros_x)) {
             pos_mavros_x = 0;
-            ROS_ERROR("[Odometry]: NaN detected in variable \"pos_mavros_x\", setting it to 0 and returning!!!");
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"pos_mavros_x\", setting it to 0 and returning!!!");
             return;
           } else if (innovation(0) > max_mavros_pos_correction) {
             ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), max_mavros_pos_correction);
@@ -4692,7 +4692,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           // Y position
           if (!std::isfinite(pos_mavros_y)) {
             pos_mavros_y = 0;
-            ROS_ERROR("[Odometry]: NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
             return;
           } else if (innovation(1) > max_mavros_pos_correction) {
             ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), max_mavros_pos_correction);
@@ -4795,7 +4795,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   } else {
 
-    ROS_ERROR("[Odometry]: NaN detected in PixHawk IMU variable \"yaw_rate\", not fusing!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk IMU variable \"yaw_rate\", not fusing!!!");
   }
 
   //////////////////// Fuse Linear Z Acceleration ////////////////////
@@ -4930,7 +4930,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
   } else {
 
-    ROS_ERROR("[Odometry]: NaN detected in PixHawk compass variable \"yaw\", not fusing!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"yaw\", not fusing!!!");
   }
 }
 
@@ -5229,7 +5229,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
   } else {
 
-    ROS_ERROR("[Odometry]: NaN detected in optflow variable \"yaw_rate\", not fusing!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in optflow variable \"yaw_rate\", not fusing!!!");
   }
 }
 
@@ -5580,7 +5580,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
 
   } else {
 
-    ROS_ERROR("[Odometry]: NaN detected in ICP variable \"yaw_rate\", not fusing!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in ICP variable \"yaw_rate\", not fusing!!!");
   }
 }
 
@@ -5767,12 +5767,12 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     }
 
     if (!std::isfinite(x_rtk)) {
-      ROS_ERROR("[Odometry]: NaN detected in variable \"x_rtk\" (callbackRtk)!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x_rtk\" (callbackRtk)!!!");
       return;
     }
 
     if (!std::isfinite(y_rtk)) {
-      ROS_ERROR("[Odometry]: NaN detected in variable \"y_rtk\" (callbackRtk)!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y_rtk\" (callbackRtk)!!!");
       return;
     }
 
@@ -5843,7 +5843,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     x_correction = x_rtk - x_est;
     if (!std::isfinite(x_rtk)) {
       x_rtk = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
       return;
     }
     if (x_correction > max_rtk_pos_correction) {
@@ -5858,7 +5858,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     y_correction = y_rtk - y_est;
     if (!std::isfinite(y_rtk)) {
       y_rtk = 0;
-      ROS_ERROR("[Odometry]: NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
       return;
     }
     if (y_correction > max_rtk_pos_correction) {
@@ -6173,7 +6173,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       // X position
       if (!std::isfinite(vio_pos_x)) {
         vio_pos_x = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
         return;
       } else if (innovation(0) > max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), max_vio_pos_correction);
@@ -6186,7 +6186,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       // Y position
       if (!std::isfinite(vio_pos_y)) {
         vio_pos_y = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
         return;
       } else if (innovation(1) > max_vio_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), max_vio_pos_correction);
@@ -6333,7 +6333,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
       // X position
       if (!std::isfinite(vslam_pos_x)) {
         vslam_pos_x = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"vslam_pos_x\", setting it to 0 and returning!!!");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_x\", setting it to 0 and returning!!!");
         return;
       } else if (innovation(0) > max_vslam_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), max_vslam_pos_correction);
@@ -6346,7 +6346,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
       // Y position
       if (!std::isfinite(vslam_pos_y)) {
         vslam_pos_y = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"vslam_pos_y\", setting it to 0 and returning!!!");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_y\", setting it to 0 and returning!!!");
         return;
       } else if (innovation(1) > max_vslam_pos_correction) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), max_vslam_pos_correction);
@@ -7173,7 +7173,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
       // saturate the correction
       if (!std::isfinite(correction)) {
         correction = 0;
-        ROS_ERROR("[Odometry]: NaN detected in Teraranger variable \"correction\", setting it to 0!!!");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Teraranger variable \"correction\", setting it to 0!!!");
       } else if (correction > max_altitude_correction_) {
         correction = max_altitude_correction_;
       } else if (correction < -max_altitude_correction_) {
@@ -7188,7 +7188,7 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
         std::scoped_lock lock(mutex_altitude_estimator);
         altitudeEstimatorCorrection(height_range, "height_range");
         if (fabs(height_range) > 100) {
-          ROS_WARN("[Odometry]: Teraranger height correction: %f", height_range);
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Teraranger height correction: %f", height_range);
         }
       }
 
@@ -7345,7 +7345,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     // saturate the correction
     if (!std::isfinite(correction)) {
       correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
     } else if (correction > max_altitude_correction_) {
       correction = max_altitude_correction_;
     } else if (correction < -max_altitude_correction_) {
@@ -7507,7 +7507,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     // saturate the correction
     if (!std::isfinite(correction)) {
       correction = 0;
-      ROS_ERROR("[Odometry]: NaN detected in sonar variable \"correction\", setting it to 0!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in sonar variable \"correction\", setting it to 0!!!");
     } else if (correction > max_altitude_correction_) {
       correction = max_altitude_correction_;
     } else if (correction < -max_altitude_correction_) {
@@ -7667,12 +7667,12 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   mrs_lib::UTM(msg->latitude, msg->longitude, &out_x, &out_y);
 
   if (!std::isfinite(out_x)) {
-    ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_x\"!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in UTM variable \"out_x\"!!!");
     return;
   }
 
   if (!std::isfinite(out_y)) {
-    ROS_ERROR("[Odometry]: NaN detected in UTM variable \"out_y\"!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in UTM variable \"out_y\"!!!");
     return;
   }
 
@@ -7960,21 +7960,21 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   /* check NaNs //{ */
   if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.x)) {
     odom_t265.pose.pose.position.x = 0;
-    ROS_ERROR("[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.x\", T265 odom is now unreliable!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.x\", T265 odom is now unreliable!!!");
     t265_reliable = false;
     return;
   }
 
   if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.y)) {
     odom_t265.pose.pose.position.y = 0;
-    ROS_ERROR("[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.y\", T265 odom is now unreliable!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.y\", T265 odom is now unreliable!!!");
     t265_reliable = false;
     return;
   }
 
   if (t265_reliable && !std::isfinite(odom_t265.pose.pose.position.z)) {
     odom_t265.pose.pose.position.z = 0;
-    ROS_ERROR("[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.z\", T265 odom is now unreliable!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"odom_t265.pose.pose.position.z\", T265 odom is now unreliable!!!");
     t265_reliable = false;
     return;
   }
@@ -9051,18 +9051,18 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
     getRotatedTilt(attitude, current_yaw(0), rot_x, rot_y);
 
     if (!std::isfinite(rot_x)) {
-      ROS_ERROR("[Odometry]: NaN detected in variable \"x\" (stateEstimatorsPrediction) !!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x\" (stateEstimatorsPrediction) !!!");
       return;
     }
 
     if (!std::isfinite(rot_y)) {
-      ROS_ERROR("[Odometry]: NaN detected in variable \"y\" (stateEstimatorsPrediction) !!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y\" (stateEstimatorsPrediction) !!!");
       return;
     }
 
     if (!std::isfinite(rot_x)) {
       rot_x = 0;
-      ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_x\", setting it to 0!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in target attitude variable \"rot_x\", setting it to 0!!!");
       return;
     } else if (rot_x > 1.57) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_x: %2.2f", rot_x);
@@ -9074,7 +9074,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
 
     if (!std::isfinite(rot_y)) {
       rot_y = 0;
-      ROS_ERROR("[Odometry]: NaN detected in target attitude variable \"rot_y\", setting it to 0!!!");
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in target attitude variable \"rot_y\", setting it to 0!!!");
       return;
     } else if (rot_y > 1.57) {
       ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_y: %2.2f", rot_y);
@@ -9117,12 +9117,12 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
   }
 
   if (!std::isfinite(x)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"x\" (stateEstimatorsCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x\" (stateEstimatorsCorrection) !!!");
     return;
   }
 
   if (!std::isfinite(y)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"y\" (stateEstimatorsCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y\" (stateEstimatorsCorrection) !!!");
     return;
   }
 
@@ -9227,12 +9227,12 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id.end()) {
-    ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
     return;
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
     return;
   }
 
@@ -9259,12 +9259,12 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id.end()) {
-    ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
     return;
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
     return;
   }
 
@@ -9286,12 +9286,12 @@ void Odometry::headingEstimatorsPrediction(const double yaw, const double yaw_ra
   }
 
   if (!std::isfinite(yaw)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"yaw\" (headingEstimatorsPrediction) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"yaw\" (headingEstimatorsPrediction) !!!");
     return;
   }
 
   if (!std::isfinite(yaw_rate)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"yaw rate\" (headingEstimatorsPrediction) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"yaw rate\" (headingEstimatorsPrediction) !!!");
     return;
   }
 
@@ -9328,12 +9328,12 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
   /* ROS_INFO("[Odometry]: headingEstimatorCorrection(%f, %s)", value, measurement_name.c_str() ); */
   std::map<std::string, int>::iterator it_measurement_id = map_hdg_measurement_name_id.find(measurement_name);
   if (it_measurement_id == map_hdg_measurement_name_id.end()) {
-    ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
     return;
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR("[Odometry]: NaN detected in variable \"value\" (headingEstimatorsCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (headingEstimatorsCorrection) !!!");
     return;
   }
 
