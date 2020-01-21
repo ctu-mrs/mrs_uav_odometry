@@ -103,7 +103,7 @@ altitude:
   # Process covariance
   R: [0.0001, 0, 0,
       0, 0.001, 0,
-      0, 0, 0.001]
+      0, 0, 10]
 
   # Covariances of measurements
   Q:
@@ -112,7 +112,7 @@ altitude:
     height_plane: [1] 
     height_brick: [1] 
     height_vio: [1] 
-    vel_baro: [0.1]
+    vel_baro: [10]
     acc_imu: [100] 
 
 lateral:
