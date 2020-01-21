@@ -50,6 +50,8 @@ input=(
   'GoFcu' "rosservice call /$UAV_NAME/control_manager/goto_fcu \"goal: [0.0, 0.0, 0.0, 0.0]\""
   'RVIZ' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; rosrun rviz rviz -d rviz/odometry.rviz
   "
+  'rviz_interface' "waitForOdometry; roslaunch mrs_rviz_interface mrs_rviz_interface.launch
+"
   'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
   "
   'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
