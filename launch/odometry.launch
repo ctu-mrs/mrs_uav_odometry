@@ -7,6 +7,7 @@
   <arg name="UAV_NAME" default="$(env UAV_NAME)" />
   <arg name="PIXGARM" default="$(optenv PIXGARM false)" />
   <arg name="PROFILER" default="$(optenv PROFILER false)" />
+  <arg name="WORLD_FILE" default="" />
 
     <!-- other args -->
   <arg name="custom_config" default="" />
@@ -33,9 +34,6 @@
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
-
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
-  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_current.yaml" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/simulation/simulation_default.yaml" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/uav/uav_default.yaml" />
@@ -77,7 +75,7 @@
       <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg config_file)" />
-      <rosparam file="$(arg world_file)" />
+      <rosparam file="$(arg WORLD_FILE)" />
 
       <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
