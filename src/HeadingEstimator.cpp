@@ -485,9 +485,9 @@ bool HeadingEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 //}
 
-/*  //{ setQ() */
+/*  //{ setR() */
 
-bool HeadingEstimator::setQ(double cov, int measurement_type) {
+bool HeadingEstimator::setR(double cov, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -533,9 +533,9 @@ bool HeadingEstimator::setQ(double cov, int measurement_type) {
 
 //}
 
-/*  //{ getQ() */
+/*  //{ getR() */
 
-bool HeadingEstimator::getQ(double &cov, int measurement_type) {
+bool HeadingEstimator::getR(double &cov, int measurement_type) {
 
   /*  //{ sanity checks */
 

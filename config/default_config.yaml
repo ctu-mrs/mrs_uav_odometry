@@ -38,7 +38,7 @@ max_altitude_rate: 10 # [Hz]
 lkf_states_rate: 10 # [Hz]
 
 min_satellites: 0
-max_default_altitude: 20.0
+max_default_altitude: 30.0
 max_optflow_altitude: 10.0
 april_objects: false
 
@@ -48,6 +48,7 @@ publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
 publish_local_origin_stable_tf: false
 pass_rtk_as_odom: false # dangerous outside simulation!
 max_altitude_correction: 0.5 # [m]
+use_optflow_low: false # use optimized optflow for takeoff and landing
 
 trg_z_offset: 0.035 # [m]
 garmin_z_offset: -0.03 # [m]
@@ -107,17 +108,21 @@ altitude:
   # Process covariance
   R: [0.0001, 0, 0,
       0, 0.001, 0,
-      0, 0, 0.001]
+      0, 0, 10]
 
   # Covariances of measurements
   Q:
-    height_range: [10] # 0.04 stddev in simulation
+    height_range: [1000] # 0.04 stddev in simulation
     height_sonar: [1]
     height_plane: [1] 
     height_brick: [1] 
     height_vio: [1] 
+<<<<<<< HEAD
     height_aloam: [1] 
     vel_baro: [0.1]
+=======
+    vel_baro: [10]
+>>>>>>> master
     acc_imu: [100] 
 
 lateral:
@@ -172,8 +177,8 @@ lateral:
   # Covariances of measurements
   Q:
     vel_optflow: [1]
-    pos_mavros: [10000]
-    vel_mavros: [100000]
+    pos_mavros: [0.01]
+    vel_mavros: [0.1]
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]

@@ -560,9 +560,9 @@ bool AltitudeEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 //}
 
-/*  //{ setQ() */
+/*  //{ setR() */
 
-bool AltitudeEstimator::setQ(double cov, int measurement_type) {
+bool AltitudeEstimator::setR(double cov, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -608,9 +608,9 @@ bool AltitudeEstimator::setQ(double cov, int measurement_type) {
 
 //}
 
-/*  //{ getQ() */
+/*  //{ getR() */
 
-bool AltitudeEstimator::getQ(double &cov, int measurement_type) {
+bool AltitudeEstimator::getR(double &cov, int measurement_type) {
 
   /*  //{ sanity checks */
 

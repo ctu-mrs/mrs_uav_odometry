@@ -31,8 +31,8 @@ namespace mrs_odometry
     bool        getState(int state_id, Eigen::VectorXd &state);
     std::string getName(void);
     bool        setState(int state_id, const Eigen::VectorXd &state);
-    bool        setQ(double cov, int measurement_type);
-    bool        getQ(double &cov, int measurement_type);
+    bool        setR(double cov, int measurement_type);
+    bool        getR(double &cov, int measurement_type);
     bool        getCovariance(Eigen::MatrixXd &cov);
     bool        setCovariance(const Eigen::MatrixXd &cov);
     bool        getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd &innovation);
