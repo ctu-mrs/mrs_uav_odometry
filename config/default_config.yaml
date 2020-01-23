@@ -117,12 +117,8 @@ altitude:
     height_plane: [1] 
     height_brick: [1] 
     height_vio: [1] 
-<<<<<<< HEAD
     height_aloam: [1] 
-    vel_baro: [0.1]
-=======
     vel_baro: [10]
->>>>>>> master
     acc_imu: [100] 
 
 lateral:
