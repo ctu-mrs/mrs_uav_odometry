@@ -4489,7 +4489,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         double           mes = (altitude - altitude_previous) / dt;
-        altitudeEstimatorCorrection(mes, "vel_baro");
+        // difference or twist?
+        /* altitudeEstimatorCorrection(mes, "vel_baro"); */
+        altitudeEstimatorCorrection(twist_z, "vel_baro");
       }
     }
 
