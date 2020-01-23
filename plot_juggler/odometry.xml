@@ -1,162 +1,168 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <root version="2.3.8">
- <tabbed_widget name="Main Window" parent="main_window">
-  <plotmatrix rows="3" tab_name="position" columns="1">
+ <tabbed_widget parent="main_window" name="Main Window">
+  <plotmatrix rows="3" columns="1" tab_name="position">
    <plot col="0" row="0">
-    <range top="-0.072238" bottom="-0.113574" right="-6.088000" left="-26.132000"/>
+    <range left="0.004000" right="10.016000" bottom="9.446481" top="19.913782"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/pose/position/x" custom_transform="noTransform"/>
-    <curve R="255" G="149" B="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/position/x" custom_transform="noTransform"/>
-    <curve R="8" G="0" B="255" name="/uav1/odometry/odom_main/pose/position/x" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/pose/position/x" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/pose/position/x" B="0"/>
+    <curve R="8" custom_transform="noTransform" G="0" name="/uav1/odometry/odom_main/pose/position/x" B="255"/>
+    <curve R="255" custom_transform="noTransform" G="170" name="/uav1/odometry/odom_mavros/pose/position/x" B="0"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="1">
-    <range top="-0.087058" bottom="-0.245422" right="-6.088000" left="-26.132000"/>
+    <range left="0.004000" right="10.016000" bottom="-0.877602" top="-0.293792"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/pose/position/y" custom_transform="noTransform"/>
-    <curve R="255" G="161" B="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/position/y" custom_transform="noTransform"/>
-    <curve R="1" G="0" B="255" name="/uav1/odometry/odom_main/pose/position/y" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/pose/position/y" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/pose/position/y" B="0"/>
+    <curve R="1" custom_transform="noTransform" G="0" name="/uav1/odometry/odom_main/pose/position/y" B="255"/>
+    <curve R="255" custom_transform="noTransform" G="168" name="/uav1/odometry/odom_mavros/pose/position/y" B="14"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="2">
-    <range top="1.578830" bottom="1.308207" right="-6.088000" left="-26.132000"/>
+    <range left="0.004000" right="10.016000" bottom="1.276075" top="1.751285"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/pose/position/z" custom_transform="noTransform"/>
-    <curve R="0" G="177" B="10" name="/uav1/mavros/distance_sensor/garmin/range" custom_transform="noTransform"/>
-    <curve R="255" G="170" B="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/position/z" custom_transform="noTransform"/>
-    <curve R="8" G="0" B="236" name="/uav1/odometry/odom_main/pose/position/z" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/pose/position/z" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/pose/position/z" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="177" name="/uav1/mavros/distance_sensor/garmin/range" B="10"/>
+    <curve R="8" custom_transform="noTransform" G="0" name="/uav1/odometry/odom_main/pose/position/z" B="236"/>
+    <curve R="255" custom_transform="noTransform" G="184" name="/uav1/odometry/odom_mavros/pose/position/z" B="0"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <plotmatrix rows="3" tab_name="lin_twist" columns="1">
+  <plotmatrix rows="3" columns="1" tab_name="lin_twist">
    <plot col="0" row="0">
-    <range top="0.120240" bottom="-0.091505" right="-56.400000" left="-76.420000"/>
+    <range left="0.004000" right="10.016000" bottom="-3.812156" top="0.091338"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/twist/linear/x" custom_transform="noTransform"/>
-    <curve R="255" G="165" B="0" name="/uav1/mavros_interface/converted_mavros_odom/twist/linear/x" custom_transform="noTransform"/>
-    <curve R="0" G="10" B="255" name="/uav1/odometry/odom_main/twist/linear/x" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/twist/linear/x" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/twist/linear/x" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="10" name="/uav1/odometry/odom_main/twist/linear/x" B="255"/>
+    <curve R="255" custom_transform="noTransform" G="189" name="/uav1/odometry/odom_mavros/twist/linear/x" B="0"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="1">
-    <range top="0.048099" bottom="-0.043095" right="-56.400000" left="-76.420000"/>
+    <range left="0.004000" right="10.016000" bottom="-0.100216" top="0.195729"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/twist/linear/y" custom_transform="noTransform"/>
-    <curve R="255" G="154" B="0" name="/uav1/mavros_interface/converted_mavros_odom/twist/linear/y" custom_transform="noTransform"/>
-    <curve R="3" G="0" B="255" name="/uav1/odometry/odom_main/twist/linear/y" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/twist/linear/y" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/twist/linear/y" B="0"/>
+    <curve R="3" custom_transform="noTransform" G="0" name="/uav1/odometry/odom_main/twist/linear/y" B="255"/>
+    <curve R="255" custom_transform="noTransform" G="187" name="/uav1/odometry/odom_mavros/twist/linear/y" B="0"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="2">
-    <range top="0.109083" bottom="-0.118361" right="-56.400000" left="-76.420000"/>
+    <range left="0.004000" right="10.016000" bottom="-0.081232" top="0.097216"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/cmd_odom/twist/linear/z" custom_transform="noTransform"/>
-    <curve R="255" G="157" B="0" name="/uav1/mavros_interface/converted_mavros_odom/twist/linear/z" custom_transform="noTransform"/>
-    <curve R="12" G="0" B="255" name="/uav1/odometry/odom_main/twist/linear/z" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/cmd_odom/twist/linear/z" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="0" name="/uav1/ground_truth/twist/linear/z" B="0"/>
+    <curve R="12" custom_transform="noTransform" G="0" name="/uav1/odometry/odom_main/twist/linear/z" B="255"/>
+    <curve R="255" custom_transform="noTransform" G="197" name="/uav1/odometry/odom_mavros/twist/linear/z" B="0"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <plotmatrix rows="3" tab_name="lin_acc" columns="1">
+  <plotmatrix rows="3" columns="1" tab_name="lin_acc">
    <plot col="0" row="0">
-    <range top="0.367813" bottom="-0.531150" right="39.200000" left="19.204000"/>
+    <range left="0.024000" right="10.016000" bottom="-1.489181" top="1.339539"/>
     <limitY/>
-    <curve R="255" G="0" B="20" name="/uav1/control_manager/attitude_cmd/desired_acceleration/x" custom_transform="noTransform"/>
-    <curve R="255" G="191" B="0" name="/uav1/mavros/imu/data/linear_acceleration/x" custom_transform="noTransform"/>
-    <curve R="0" G="25" B="255" name="/uav1/odometry/uav_state/acceleration/linear/x" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/desired_acceleration/x" B="20"/>
+    <curve R="255" custom_transform="noTransform" G="191" name="/uav1/mavros/imu/data/linear_acceleration/x" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="25" name="/uav1/odometry/uav_state/acceleration/linear/x" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="1">
-    <range top="0.245037" bottom="-0.377347" right="39.200000" left="19.204000"/>
+    <range left="0.024000" right="10.016000" bottom="-0.255879" top="0.255288"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/desired_acceleration/y" custom_transform="noTransform"/>
-    <curve R="255" G="189" B="0" name="/uav1/mavros/imu/data/linear_acceleration/y" custom_transform="noTransform"/>
-    <curve R="0" G="16" B="255" name="/uav1/odometry/uav_state/acceleration/linear/y" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/desired_acceleration/y" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="189" name="/uav1/mavros/imu/data/linear_acceleration/y" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="16" name="/uav1/odometry/uav_state/acceleration/linear/y" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="2">
-    <range top="10.344592" bottom="-0.511146" right="39.200000" left="19.204000"/>
+    <range left="0.024000" right="10.016000" bottom="-0.479653" top="10.546934"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/desired_acceleration/z" custom_transform="noTransform"/>
-    <curve R="255" G="189" B="0" name="/uav1/mavros/imu/data/linear_acceleration/z" custom_transform="noTransform"/>
-    <curve R="0" G="32" B="255" name="/uav1/odometry/uav_state/acceleration/linear/z" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/desired_acceleration/z" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="189" name="/uav1/mavros/imu/data/linear_acceleration/z" B="0"/>
+    <curve R="0" custom_transform="noTransform" G="32" name="/uav1/odometry/uav_state/acceleration/linear/z" B="255"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <plotmatrix rows="3" tab_name="error" columns="2">
+  <plotmatrix rows="3" columns="2" tab_name="error">
    <plot col="0" row="0">
-    <range top="0.133339" bottom="-0.002416" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="31" G="119" B="180" name="/uav1/control_manager/control_error/pose/position/x" custom_transform="noTransform"/>
+    <curve R="31" custom_transform="noTransform" G="119" name="/uav1/control_manager/control_error/pose/position/x" B="180"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="1">
-    <range top="0.176547" bottom="-0.002734" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="214" G="39" B="40" name="/uav1/control_manager/control_error/pose/position/y" custom_transform="noTransform"/>
+    <curve R="214" custom_transform="noTransform" G="39" name="/uav1/control_manager/control_error/pose/position/y" B="40"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="2">
-    <range top="0.146899" bottom="-0.052262" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="26" G="201" B="56" name="/uav1/control_manager/control_error/pose/position/z" custom_transform="noTransform"/>
+    <curve R="26" custom_transform="noTransform" G="201" name="/uav1/control_manager/control_error/pose/position/z" B="56"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="1" row="0">
-    <range top="0.032027" bottom="-0.058206" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="255" G="127" B="14" name="/uav1/control_manager/control_error/twist/linear/x" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="127" name="/uav1/control_manager/control_error/twist/linear/x" B="14"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="1" row="1">
-    <range top="0.041756" bottom="-0.091087" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="241" G="76" B="193" name="/uav1/control_manager/control_error/twist/linear/y" custom_transform="noTransform"/>
+    <curve R="241" custom_transform="noTransform" G="76" name="/uav1/control_manager/control_error/twist/linear/y" B="193"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="1" row="2">
-    <range top="0.032577" bottom="-0.320817" right="-195.980000" left="-199.136000"/>
+    <range left="0.000000" right="0.000000" bottom="-0.100000" top="0.100000"/>
     <limitY/>
-    <curve R="148" G="103" B="189" name="/uav1/control_manager/control_error/twist/linear/z" custom_transform="noTransform"/>
+    <curve R="148" custom_transform="noTransform" G="103" name="/uav1/control_manager/control_error/twist/linear/z" B="189"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <plotmatrix rows="4" tab_name="attitude" columns="1">
+  <plotmatrix rows="4" columns="1" tab_name="attitude">
    <plot col="0" row="0">
-    <range top="0.012529" bottom="-0.012435" right="-160.416000" left="-180.412000"/>
+    <range left="0.000000" right="9.996000" bottom="-0.022798" top="0.023444"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/x" custom_transform="noTransform"/>
-    <curve R="255" G="7" B="0" name="/uav1/mavros/setpoint_raw/attitude/orientation/x" custom_transform="noTransform"/>
-    <curve R="255" G="0" B="1" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/x" custom_transform="noTransform"/>
-    <curve R="14" G="0" B="255" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_x" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/x" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="7" name="/uav1/mavros/setpoint_raw/attitude/orientation/x" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/x" B="1"/>
+    <curve R="14" custom_transform="noTransform" G="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_x" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="1">
-    <range top="0.016564" bottom="-0.016564" right="-160.416000" left="-180.412000"/>
+    <range left="0.000000" right="9.996000" bottom="-0.118189" top="0.125841"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/y" custom_transform="noTransform"/>
-    <curve R="255" G="8" B="0" name="/uav1/mavros/setpoint_raw/attitude/orientation/y" custom_transform="noTransform"/>
-    <curve R="255" G="0" B="6" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/y" custom_transform="noTransform"/>
-    <curve R="20" G="0" B="255" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_y" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/y" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="8" name="/uav1/mavros/setpoint_raw/attitude/orientation/y" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/y" B="6"/>
+    <curve R="20" custom_transform="noTransform" G="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_y" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="2">
-    <range top="0.016800" bottom="-0.016485" right="-160.416000" left="-180.412000"/>
+    <range left="0.000000" right="9.996000" bottom="-0.019160" top="0.019378"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/z" custom_transform="noTransform"/>
-    <curve R="255" G="0" B="3" name="/uav1/mavros/setpoint_raw/attitude/orientation/z" custom_transform="noTransform"/>
-    <curve R="255" G="17" B="14" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/z" custom_transform="noTransform"/>
-    <curve R="0" G="10" B="255" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_z" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/z" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/mavros/setpoint_raw/attitude/orientation/z" B="3"/>
+    <curve R="255" custom_transform="noTransform" G="17" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/z" B="14"/>
+    <curve R="0" custom_transform="noTransform" G="10" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_z" B="255"/>
     <transform value="noTransform"/>
    </plot>
    <plot col="0" row="3">
-    <range top="1.049786" bottom="-1.049788" right="-160.416000" left="-180.412000"/>
+    <range left="0.000000" right="9.996000" bottom="-1.049829" top="1.049830"/>
     <limitY/>
-    <curve R="255" G="0" B="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/w" custom_transform="noTransform"/>
-    <curve R="255" G="0" B="0" name="/uav1/mavros/setpoint_raw/attitude/orientation/w" custom_transform="noTransform"/>
-    <curve R="255" G="0" B="7" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/w" custom_transform="noTransform"/>
-    <curve R="19" G="0" B="255" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_w" custom_transform="noTransform"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/control_manager/attitude_cmd/quater_attitude/w" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/mavros/setpoint_raw/attitude/orientation/w" B="0"/>
+    <curve R="255" custom_transform="noTransform" G="0" name="/uav1/mavros/setpoint_raw/target_attitude/orientation/w" B="7"/>
+    <curve R="19" custom_transform="noTransform" G="0" name="/uav1/mavros_interface/converted_mavros_odom/pose/orientation/quat_w" B="255"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <currentPlotMatrix index="2"/>
+  <currentPlotMatrix index="0"/>
  </tabbed_widget>
  <use_relative_time_offset enabled="1"/>
  <!-- - - - - - - - - - - - - - - -->

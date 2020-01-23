@@ -233,6 +233,7 @@ private:
   double             init_magnetic_heading_ = 0.0;
   double             init_brick_yaw_        = 0.0;
   double             yaw_diff_              = 0.0;
+  ros::Publisher pub_odom_mavros_;
 
   nav_msgs::Odometry odom_main_inno;
   std::mutex         mutex_odom_main_inno;
@@ -1743,6 +1744,7 @@ void Odometry::onInit() {
   pub_odom_main_inno_        = nh_.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
   pub_odom_stable_           = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
   pub_slow_odom_             = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
+  pub_odom_mavros_           = nh_.advertise<nav_msgs::Odometry>("odom_mavros_out", 1);
   pub_esp_odom_              = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
   pub_odometry_diag_         = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_              = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
@@ -4645,13 +4647,20 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     double pos_mavros_x, pos_mavros_y, yaw_mavros;
-
+    nav_msgs::Odometry odom_mavros_out;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_shifted);
 
+      odom_mavros_out = odom_pixhawk_shifted;
       pos_mavros_x = odom_pixhawk_shifted.pose.pose.position.x;
       pos_mavros_y = odom_pixhawk_shifted.pose.pose.position.y;
       yaw_mavros   = mrs_odometry::getYaw(odom_pixhawk_shifted.pose.pose.orientation);
+    }
+
+    try {
+      pub_odom_mavros_.publish(odom_mavros_out);
+    } catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", pub_odom_mavros_.getTopic().c_str());
     }
 
     /* if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) { */
