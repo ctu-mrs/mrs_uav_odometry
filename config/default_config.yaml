@@ -47,7 +47,7 @@ publish_local_origin_stable_tf: true
 publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
 publish_local_origin_stable_tf: false
 pass_rtk_as_odom: false # dangerous outside simulation!
-max_altitude_correction: 0.5 # [m]
+max_altitude_correction: 0.001 # [m]
 use_optflow_low: false # use optimized optflow for takeoff and landing
 
 trg_z_offset: 0.035 # [m]
@@ -60,9 +60,9 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-garminFilterBufferSize: 100
+garminFilterBufferSize: 200
 garminFilterMaxValidAltitude: 40.0
-garminFilterMaxDifference: 1.0
+garminFilterMaxDifference: 2.0
 
 sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
@@ -106,8 +106,8 @@ altitude:
       0.1]
 
   # Process covariance
-  R: [0.0001, 0, 0,
-      0, 0.001, 0,
+  R: [1, 1, 0,
+      0, 1, 0,
       0, 0, 10]
 
   # Covariances of measurements
@@ -117,8 +117,8 @@ altitude:
     height_plane: [1] 
     height_brick: [1] 
     height_vio: [1] 
-    height_aloam: [1] 
-    vel_baro: [10]
+    # vel_baro: [100] # for difference
+    vel_baro: [0.1] # for twist
     acc_imu: [100] 
 
 lateral:

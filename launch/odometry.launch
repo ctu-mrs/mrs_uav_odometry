@@ -131,6 +131,7 @@
       <remap from="~odom_brick_out" to="~odom_brick" />
       <remap from="~odom_vio_out" to="~odom_vio" />
       <remap from="~odom_icp_out" to="~odom_icp" />
+      <remap from="~odom_mavros_out" to="~odom_mavros" />
       <remap from="~slow_odom_out" to="~slow_odom" />
       <remap from="~esp_odom_out" to="~esp_odom" />
       <remap from="~rtk_local_out" to="~rtk_local" />
