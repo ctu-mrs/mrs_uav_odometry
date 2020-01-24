@@ -581,6 +581,7 @@ private:
   ros::Time                     garmin_last_update;
   bool                          excessive_tilt = false;
   std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
+  bool saturate_garmin_corrections_ = false;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -7361,11 +7362,18 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       correction = max_altitude_correction_;
     } else if (correction < -max_altitude_correction_) {
       correction = -max_altitude_correction_;
+    } else if (saturate_garmin_corrections_) {
+      saturate_garmin_corrections_ = false;
+      ROS_INFO("[Odometry]: Saturating garmin corrections: false");
     }
 
     // set the measurement vector
-    /* double height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction; */
-    double height_range = measurement;
+    double height_range;
+    if (saturate_garmin_corrections_) {
+    height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
+    } else {
+    height_range = measurement;
+    }
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -8697,6 +8705,12 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
     return false;
 
   garmin_enabled = req.data;
+
+  // after enabling garmin we want to start correcting the altitude slowly
+  if (garmin_enabled) {
+    saturate_garmin_corrections_ = true;
+    ROS_INFO("[Odometry]: Saturating garmin corrections: true");
+  }
 
   res.success = true;
   res.message = (garmin_enabled ? "Garmin enabled" : "Garmin disabled");
