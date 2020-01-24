@@ -109,8 +109,8 @@ altitude:
   Q:
     height_range: [1000] # 0.04 stddev in simulation
     height_sonar: [1]
-    height_plane: [1] 
-    height_brick: [1] 
+    height_plane: [100] 
+    height_brick: [100] 
     height_vio: [1] 
     # vel_baro: [100] # for difference
     vel_baro: [0.1] # for twist
