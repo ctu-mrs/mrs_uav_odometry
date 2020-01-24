@@ -37,6 +37,7 @@ altitude_estimators:
     PLANE: ["height_plane", "vel_baro"]
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_baro"]
+    ALOAM: ["height_aloam", "vel_baro"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -73,6 +74,9 @@ altitude_estimators:
              0, 1, 0.00,
              0, 0, 0]
     VIO: [1, 0.01, 0.0000,
+             0, 1, 0.00,
+             0, 0, 0]
+    ALOAM: [1, 0.01, 0.0000,
              0, 1, 0.00,
              0, 0, 0]
 height:

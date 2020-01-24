@@ -28,9 +28,22 @@ aloam_available: true
 brick_available: false
 t265_available: false
 
+lateral:
+  # Covariances of measurements
+  Q:
+    pos_mavros: [10]
+    vel_mavros: [1000]
+    pos_aloam: [10]
+
+heading:
+  # Covariances of measurements
+  Q:
+    yaw_aloam: [0.1]
+    rate_gyro: [0.1]
+
 garmin_z_offset: -0.01 # [m]
 fcu_height: 0.0 # [m]
 
-aloamHeightFilterBufferSize: 200
+aloamHeightFilterBufferSize: 100
 aloamHeightFilterMaxValidAltitude: 40.0
 aloamHeightFilterMaxDifference: 2.0
