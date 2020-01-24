@@ -6451,7 +6451,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
     if ((ros::Time::now() - brick_pose_local.header.stamp).toSec() > _brick_timeout_) {
 
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out.");
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out, not reliable.");
       brick_reliable      = false;
       brick_semi_reliable = false;
 
@@ -6585,12 +6585,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   if (measurement > max_height) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, max_height);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f > %f. Not fusing.", measurement, max_height);
     fuse_brick_height = false;
   }
 
   // Fuse brick measurement for each altitude estimator
-  if (fuse_brick_height) {
+  if (fuse_brick_height && brick_reliable) {
     for (auto &estimator : m_altitude_estimators) {
       Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
       if (!estimator.second->getStates(current_altitude)) {
