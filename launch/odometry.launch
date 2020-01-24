@@ -14,7 +14,7 @@
   <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') == '' and arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
   <arg if="$(eval arg('WORLD_FILE') != '')" name="world_file" value="$(arg WORLD_FILE)" />
 
-    <!-- other args -->
+  <!-- other args -->
   <arg name="custom_config" default="" />
   <arg name="debug" default="false" />
   <arg name="standalone" default="true" />
@@ -110,6 +110,7 @@
       <remap from="~plane_in" to="$(arg range_topic)" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
+      <remap from="~aloam_odom_in" to="aloam_mapping/aft_mapped_to_init" />
       <remap from="~tracker_status_in" to="control_manager/diagnostics" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~lidar_odom_in" to="aloam_odometry/laser_odom_to_init" />

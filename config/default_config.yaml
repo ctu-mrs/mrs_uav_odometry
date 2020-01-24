@@ -13,10 +13,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "LIDAR", "ICP"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "LIDAR", "ICP", "ALOAM"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
 # Available localization methods
 gps_available: true
@@ -24,6 +24,7 @@ optflow_available: true
 vio_available: true
 rtk_available: true
 lidar_available: true
+aloam_available: false
 brick_available: true
 t265_available: false
 vslam_available: true
@@ -78,6 +79,10 @@ brickFilterMaxDifference: 4.0
 vioFilterBufferSize: 200
 vioFilterMaxValidAltitude: 40.0
 vioFilterMaxDifference: 2.0
+
+aloamHeightFilterBufferSize: 200
+aloamHeightFilterMaxValidAltitude: 40.0
+aloamHeightFilterMaxDifference: 2.0
 
 reset_hector_after_takeoff: true # Gets rid of map clutter accumulated during takeoff tilting
 
@@ -154,6 +159,11 @@ lateral:
   hector_pos_filter_buffer_size: 50
   hector_pos_filter_max_valid: 8.0
   hector_pos_filter_max_diff: 3.0
+  
+  aloam_pos_median_filter: false
+  aloam_pos_filter_buffer_size: 50
+  aloam_pos_filter_max_valid: 8.0
+  aloam_pos_filter_max_diff: 3.0
 
   brick_pos_median_filter: false
   brick_pos_filter_buffer_size: 50
@@ -178,6 +188,7 @@ lateral:
     pos_brick: [1000]
     vel_brick: [100]
     pos_hector: [1000]
+    pos_aloam: [10]
     vel_icp: [1000]
 
   # The system matrix
@@ -252,6 +263,10 @@ heading:
   hector_yaw_median_filter: true
   hector_yaw_filter_buffer_size: 100
   hector_yaw_filter_max_diff: deg(10)
+  
+  aloam_yaw_median_filter: true
+  aloam_yaw_filter_buffer_size: 100
+  aloam_yaw_filter_max_diff: deg(10)
 
   vio_yaw_median_filter: true
   vio_yaw_filter_buffer_size: 100
@@ -282,6 +297,7 @@ heading:
   Q:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
+    yaw_aloam: [0.01]
     yaw_brick: [1]
     yaw_vio: [100] #100
     yaw_vslam: [1]

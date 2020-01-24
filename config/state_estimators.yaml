@@ -17,6 +17,7 @@ state_estimators:
     "BRICKFLOW",
     "VSLAM",
     "ICP",
+    "ALOAM",
   ] 
 
   # The measured states of the model
@@ -42,6 +43,7 @@ state_estimators:
     "pos_hector",
     "pos_vslam",
     "vel_icp",
+    "pos_aloam",
   ]
 
   # The fused measurements for each state estimator
@@ -55,6 +57,7 @@ state_estimators:
     # ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
     LIDAR: ["tilt_mavros", "pos_lidar"]
     HECTOR: ["tilt_mavros", "pos_hector"]
+    ALOAM: ["tilt_mavros", "pos_aloam"]
     VIO: ["tilt_mavros", "pos_vio", "vel_vio"]
     VSLAM: ["tilt_mavros", "pos_vslam"]
     # BRICK: ["pos_brick"]
@@ -78,6 +81,7 @@ state_estimators:
     pos_brick: POSITION
     vel_brick: VELOCITY
     pos_hector: POSITION
+    pos_aloam: POSITION
     pos_vslam: POSITION
     vel_icp: VELOCITY
 
