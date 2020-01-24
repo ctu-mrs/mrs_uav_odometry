@@ -31,10 +31,10 @@ altitude_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    HEIGHT: ["height_range", "height_sonar", "vel_baro", "acc_imu"]
-    PLANE: ["height_plane", "vel_baro", "acc_imu"]
-    BRICK: ["height_brick", "vel_baro", "acc_imu"]
-    VIO: ["height_vio", "vel_baro", "acc_imu"]
+    HEIGHT: ["height_range", "vel_baro"]
+    PLANE: ["height_plane", "vel_baro"]
+    BRICK: ["height_brick", "vel_baro"]
+    VIO: ["height_vio", "vel_baro"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -59,18 +59,18 @@ altitude_estimators:
     VIO: 3
 
   A:
-    HEIGHT: [1, 0.01, 0.0001,
-             0, 1, 0.01,
-             0, 0, 1]
-    PLANE: [1, 0.01, 0.0001,
-             0, 1, 0.01,
-             0, 0, 1]
-    BRICK: [1, 0.01, 0.0001,
-             0, 1, 0.01,
-             0, 0, 1]
-    VIO: [1, 0.01, 0.0001,
-             0, 1, 0.01,
-             0, 0, 1]
+    HEIGHT: [1, 0.01, 0.000,
+             0, 1, 0.00,
+             0, 0, 0.0]
+    PLANE: [1, 0.01, 0.0000,
+             0, 1, 0.00,
+             0, 0, 0]
+    BRICK: [1, 0.01, 0.0000,
+             0, 1, 0.00,
+             0, 0, 0]
+    VIO: [1, 0.01, 0.0000,
+             0, 1, 0.00,
+             0, 0, 0]
 height:
   Q: [0.1]
   R: [0.1]

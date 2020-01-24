@@ -233,6 +233,7 @@ private:
   double             init_magnetic_heading_ = 0.0;
   double             init_brick_yaw_        = 0.0;
   double             yaw_diff_              = 0.0;
+  ros::Publisher pub_odom_mavros_;
 
   nav_msgs::Odometry odom_main_inno;
   std::mutex         mutex_odom_main_inno;
@@ -580,6 +581,7 @@ private:
   ros::Time                     garmin_last_update;
   bool                          excessive_tilt = false;
   std::shared_ptr<StddevBuffer> stddev_inno_elevation, stddev_veldiff;
+  bool saturate_garmin_corrections_ = false;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -1743,6 +1745,7 @@ void Odometry::onInit() {
   pub_odom_main_inno_        = nh_.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
   pub_odom_stable_           = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
   pub_slow_odom_             = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
+  pub_odom_mavros_           = nh_.advertise<nav_msgs::Odometry>("odom_mavros_out", 1);
   pub_esp_odom_              = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
   pub_odometry_diag_         = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
   pub_altitude_              = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
@@ -4487,7 +4490,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         double           mes = (altitude - altitude_previous) / dt;
-        altitudeEstimatorCorrection(mes, "vel_baro");
+        // difference or twist?
+        /* altitudeEstimatorCorrection(mes, "vel_baro"); */
+        altitudeEstimatorCorrection(twist_z, "vel_baro");
       }
     }
 
@@ -4645,13 +4650,20 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
 
     double pos_mavros_x, pos_mavros_y, yaw_mavros;
-
+    nav_msgs::Odometry odom_mavros_out;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_shifted);
 
+      odom_mavros_out = odom_pixhawk_shifted;
       pos_mavros_x = odom_pixhawk_shifted.pose.pose.position.x;
       pos_mavros_y = odom_pixhawk_shifted.pose.pose.position.y;
       yaw_mavros   = mrs_odometry::getYaw(odom_pixhawk_shifted.pose.pose.orientation);
+    }
+
+    try {
+      pub_odom_mavros_.publish(odom_mavros_out);
+    } catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", pub_odom_mavros_.getTopic().c_str());
     }
 
     /* if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") != STRING_EQUAL) { */
@@ -7350,11 +7362,18 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       correction = max_altitude_correction_;
     } else if (correction < -max_altitude_correction_) {
       correction = -max_altitude_correction_;
+    } else if (saturate_garmin_corrections_) {
+      saturate_garmin_corrections_ = false;
+      ROS_INFO("[Odometry]: Saturating garmin corrections: false");
     }
 
     // set the measurement vector
-    /* double height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction; */
-    double height_range = measurement;
+    double height_range;
+    if (saturate_garmin_corrections_) {
+    height_range = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) + correction;
+    } else {
+    height_range = measurement;
+    }
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -8686,6 +8705,12 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
     return false;
 
   garmin_enabled = req.data;
+
+  // after enabling garmin we want to start correcting the altitude slowly
+  if (garmin_enabled) {
+    saturate_garmin_corrections_ = true;
+    ROS_INFO("[Odometry]: Saturating garmin corrections: true");
+  }
 
   res.success = true;
   res.message = (garmin_enabled ? "Garmin enabled" : "Garmin disabled");
