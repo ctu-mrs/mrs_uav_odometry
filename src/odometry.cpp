@@ -126,6 +126,8 @@ private:
   double twist_q_y_prev             = 0;
 
   double _max_optflow_altitude;
+  double _max_brick_altitude;
+  double _max_plane_altitude;
   double _max_default_altitude;
   int    _min_satellites;
 
@@ -1068,6 +1070,8 @@ void Odometry::onInit() {
   // Optic flow
   param_loader.load_param("use_optflow_low", _use_optflow_low_);
   param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
+  param_loader.load_param("max_brick_altitude", _max_brick_altitude);
+  param_loader.load_param("max_plane_altitude", _max_plane_altitude);
   param_loader.load_param("max_default_altitude", _max_default_altitude);
   max_altitude = _max_default_altitude;
   param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
@@ -3247,27 +3251,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // publish TF
     // Get inverse trasnform
-    // TODO make a function for this
-    tf2::Vector3    position(odom_stable.pose.pose.position.x, odom_stable.pose.pose.position.y, odom_stable.pose.pose.position.z);
-    tf2::Transform  tf_inv;
-    tf2::Quaternion q;
-    tf2::fromMsg(odom_stable.pose.pose.orientation, q);
-    tf_inv.setOrigin(position);
-    tf_inv.setRotation(q);
+    tf2::Transform  tf_inv = mrs_odometry::tf2FromPose(odom_stable.pose.pose);
     tf_inv = tf_inv.inverse();
-    geometry_msgs::Vector3 pos_inv;
-    pos_inv.x = tf_inv.getOrigin().getX();
-    pos_inv.y = tf_inv.getOrigin().getY();
-    pos_inv.z = tf_inv.getOrigin().getZ();
-    geometry_msgs::Quaternion q_inv;
-    q_inv = tf2::toMsg(tf_inv.getRotation());
+    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
 
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = local_origin_frame_id_;
-    tf.transform.translation = pos_inv;
-    tf.transform.rotation    = q_inv;
+    tf.transform.translation = mrs_odometry::pointToVector3(pose_inv.position);
+    tf.transform.rotation    = pose_inv.orientation;
     if (noNans(tf)) {
       try {
         broadcaster_->sendTransform(tf);
@@ -3277,7 +3270,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
   }
-
 
   {
     std::scoped_lock lock(mutex_shared_odometry);
@@ -3335,7 +3327,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       odom_aux->second.pose = odom_pixhawk_shifted.pose;
     }
 
-    /* odom_aux->second.header.frame_id = local_origin_frame_id_; */
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
     odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
@@ -3383,19 +3374,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    /* if (_alt_estimator_type.type == mrs_msgs::AltitudeType::HEIGHT) { */
-    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
-    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::PLANE) { */
-    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
-    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BRICK) { */
-    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
-    /* } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) { */
-    /*   odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT); */
-    /* } else { */
-    /*   ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d", _alt_estimator_type.type,
-     * mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK, mrs_msgs::AltitudeType::VIO); */
-    /* } */
-
     if (isEqual(estimator.second->getName(), "RTK") && pass_rtk_as_odom) {
       {
         std::scoped_lock lock(mutex_rtk_local_odom);
@@ -3436,10 +3414,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    /* if (std::strcmp(estimator.second->getName().c_str(), "BRICK") == STRING_EQUAL) { */
-    /*   odom_aux->second.child_frame_id = "BRICK" + odom_brick.child_frame_id; */
-    /* } */
-
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
     // Publish odom
@@ -3451,27 +3425,17 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
 
     // Get inverse trasnform
-    tf2::Vector3    position(odom_aux->second.pose.pose.position.x, odom_aux->second.pose.pose.position.y, odom_aux->second.pose.pose.position.z);
-    tf2::Transform  tf_inv;
-    tf2::Quaternion q;
-    tf2::fromMsg(odom_aux->second.pose.pose.orientation, q);
-    tf_inv.setOrigin(position);
-    tf_inv.setRotation(q);
+    tf2::Transform  tf_inv = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv = tf_inv.inverse();
-    geometry_msgs::Vector3 pos_inv;
-    pos_inv.x = tf_inv.getOrigin().getX();
-    pos_inv.y = tf_inv.getOrigin().getY();
-    pos_inv.z = tf_inv.getOrigin().getZ();
-    geometry_msgs::Quaternion q_inv;
-    q_inv = tf2::toMsg(tf_inv.getRotation());
+    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
 
     // publish TF
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = odom_aux->second.header.frame_id;
-    tf.transform.translation = pos_inv;
-    tf.transform.rotation    = q_inv;
+    tf.transform.translation = pointToVector3(pose_inv.position);
+    tf.transform.rotation    = pose_inv.orientation;
 
     if (noNans(tf)) {
       try {
@@ -3484,7 +3448,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
   }
 
   // publish the static transform between utm and local gps origin
-
   if (use_utm_origin_) {
 
     // publish TF
@@ -3513,8 +3476,6 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
   // Loop through each heading estimator
   for (auto &estimator : m_heading_estimators) {
-
-    /* std::map<std::string, mrs_msgs::Float64ArrayStamped>::iterator heading_aux = map_hdg_estimator_msg.find(estimator.first); */
 
     mrs_msgs::Float64ArrayStamped heading_aux;
 
@@ -3639,31 +3600,17 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", lkf_states_rate_, 0.01, event);
 
   LatState2D states_mat;
-  /* Eigen::MatrixXd cov_mat; */
 
   // get states and covariances from lateral kalman
   {
     std::scoped_lock lock(mutex_current_estimator);
 
     current_estimator->getStates(states_mat);
-    /* cov_mat    = current_estimator->getQ(); */
   }
-
-  // convert eigen matrix to std::vector
-  /* std::vector<double> cov_vec(cov_mat.data(), cov_mat.data() + cov_mat.rows() * cov_mat.cols()); */
-
-  /* Eigen::EigenSolver<Eigen::MatrixXd> es(cov_mat); */
 
   /* // fill the message */
   mrs_msgs::LkfStates lkf_states_x;
   mrs_msgs::LkfStates lkf_states_y;
-  /* for (int i = 0; i < cov_mat.rows(); ++i) { */
-  /*   lkf_states.eigenvalues[i] = (es.eigenvalues().col(0)[i].real()); */
-  /* } */
-
-  /* for (int i = 0; i < cov_mat.rows(); i++) { */
-  /*   lkf_states.covariance[i] = cov_mat(i, i); */
-  /* } */
 
   lkf_states_x.header.stamp = ros::Time::now();
   lkf_states_x.pos          = states_mat(0, 0);
@@ -3740,7 +3687,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("maxAltitudeTimer", max_altitude_rate_, 0.01, event);
 
   mrs_msgs::Float64Stamped max_altitude_msg;
-  max_altitude_msg.header.frame_id = local_origin_frame_id_;
+  max_altitude_msg.header.frame_id =  uav_name + "/" + current_estimator_name + "_origin";
   max_altitude_msg.header.stamp    = ros::Time::now();
 
   max_altitude_msg.value = max_altitude;
@@ -3880,38 +3827,6 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
 //}
 
-/* //{ transformTimer() */
-
-/* void Odometry::transformTimer(const ros::TimerEvent &event) { */
-
-/*   if (!is_initialized) */
-/*     return; */
-
-/*   mrs_lib::Routine profiler_routine = profiler->createRoutine("transformTimer", 1, 0.01, event); */
-
-/*       //Get inverse trasnform */
-/*   tf2::Quaternion q; */
-/*       tf2::fromMsg(odom_pixhawk.pose.pose.orientation, q); */
-/*       q = q.inverse(); */
-
-/*       geometry_msgs::TransformStamped tf; */
-/*       tf.header.stamp          = ros::Time::now(); */
-/*       tf.header.frame_id       = fcu_frame_id_; */
-/*       tf.child_frame_id        = fcu_frame_id_ + "_untilted"; */
-/*       tf.transform.translation.x = 0.0; */
-/*       tf.transform.translation.y = 0.0; */
-/*       tf.transform.translation.z = 0.0; */
-/*       tf.transform.rotation    = tf2::toMsg(q); */
-/*       try { */
-/*         broadcaster_->sendTransform(tf); */
-/*       } */
-/*       catch (...) { */
-/*         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
-/*       } */
-/* } */
-
-//}
-
 /* //{ callbackTimerHectorResetRoutine() */
 
 void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
@@ -3988,8 +3903,6 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
     if (isEqual(estimator.first.c_str(), "HECTOR")) {
       Eigen::VectorXd hdg(1);
       hdg << 0;
-      /* hdg << hector_offset_hdg_; */
-      /* estimator.second->setState(0, hdg); */
       estimator.second->setState(0, hdg);
     }
   }
@@ -4000,7 +3913,6 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
       Vec2 pos_vec, vel_vec;
       pos_vec << 0, 0;
       vel_vec << 0, 0;
-      /* vel_vec << hector_vel_state_; */
       estimator.second->setState(0, pos_vec);
       estimator.second->setState(1, vel_vec);
     }
@@ -4015,7 +3927,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   }
 
   // Switch back to HECTOR
-  ROS_INFO("[Odometry]:  20 HECTOR msgs after map reset arrived. Switching to HECTOR type");
+  ROS_INFO("[Odometry]: %d HECTOR msgs after map reset arrived. Switching to HECTOR type", wait_msgs);
   mrs_msgs::HeadingType desired_estimator;
   desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
   desired_estimator.name = _heading_estimators_names[desired_estimator.type];
@@ -6362,7 +6274,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
     if ((ros::Time::now() - brick_pose_local.header.stamp).toSec() > _brick_timeout_) {
 
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out.");
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out, not reliable");
       brick_reliable      = false;
       brick_semi_reliable = false;
 
@@ -6496,12 +6408,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   if (measurement > max_height) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, max_height);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f > %f. Not fusing.", measurement, max_height);
     fuse_brick_height = false;
   }
 
   // Fuse brick measurement for each altitude estimator
-  if (fuse_brick_height) {
+  if (fuse_brick_height && brick_reliable) {
     for (auto &estimator : m_altitude_estimators) {
       Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
       if (!estimator.second->getStates(current_altitude)) {
@@ -9671,7 +9583,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!_estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
+    if (_estimator_type.type != mrs_msgs::EstimatorType::BRICK) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Already in BRICK state estimator.");
       fallback_brick_estimator_type = _estimator_type;
       ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
@@ -9753,12 +9665,78 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     return false;
   }
 
+  /* brick type //{ */
+  
+  if (target_estimator.type == mrs_msgs::AltitudeType::BRICK) {
+  
+    if (!_brick_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Bricks not available in this world.");
+      return false;
+    }
+  
+    if (!got_brick && is_ready_to_takeoff) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK type. No new brick msgs received.");
+      return false;
+    }
+  
+  // update the altitude state
+  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+  {
+    std::scoped_lock lock(mutex_altitude_estimator);
+    if (!current_alt_estimator->getStates(current_altitude)) {
+      ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      return false;
+    }
+  }
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.",
+                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_brick_altitude);
+      return false;
+    }
+  
+    max_altitude = _max_brick_altitude;
+    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+  
+  }
+  
+  //}
+
+  /* plane type //{ */
+  
+  if (target_estimator.type == mrs_msgs::AltitudeType::PLANE) {
+  
+    if (!got_plane && is_ready_to_takeoff) {
+      ROS_ERROR("[Odometry]: Cannot transition to PLANE type. No new plane msgs received.");
+      return false;
+    }
+  
+  // update the altitude state
+  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+  {
+    std::scoped_lock lock(mutex_altitude_estimator);
+    if (!current_alt_estimator->getStates(current_altitude)) {
+      ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      return false;
+    }
+  }
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
+      ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.",
+                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_plane_altitude);
+      return false;
+    }
+  
+    max_altitude = _max_plane_altitude;
+    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+  
+  }
+  
+  //}
+
   is_updating_state_ = true;
   if (stringInVector(target_estimator.name, _altitude_estimators_names)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator);
 
-      /* ROS_WARN_STREAM("[Odometry]: " << m_state_estimators.find(target_estimator.name)->second->getName()); */
       current_alt_estimator      = m_altitude_estimators.find(target_estimator.name)->second;
       current_alt_estimator_name = current_alt_estimator->getName();
     }

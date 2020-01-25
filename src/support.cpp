@@ -73,6 +73,52 @@ void mrs_odometry::addYaw(geometry_msgs::Quaternion& q_msg, const double& yaw_ad
 }
 //}
 
+/* tf2FromPose() //{ */
+
+tf2::Transform mrs_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {
+
+tf2::Vector3    position(pose_in.position.x, pose_in.position.y, pose_in.position.z);
+
+tf2::Quaternion q;
+tf2::fromMsg(pose_in.orientation, q);
+
+tf2::Transform  tf_out;
+tf_out.setOrigin(position);
+tf_out.setRotation(q);
+tf_out.inverse();
+
+}
+
+//}
+
+/* posefromTf2() //{ */
+
+geometry_msgs::Pose mrs_odometry::poseFromTf2(const tf2::Transform& tf_in) {
+
+geometry_msgs::Pose pose_out;
+pose_out.position.x = tf_in.getOrigin().getX();
+pose_out.position.y = tf_in.getOrigin().getY();
+pose_out.position.z = tf_in.getOrigin().getZ();
+
+pose_out.orientation = tf2::toMsg(tf_in.getRotation());
+
+}
+
+//}
+
+/* pointToVector3() //{ */
+
+geometry_msgs::Vector3 mrs_odometry::pointToVector3(const geometry_msgs::Point& point_in) {
+
+  geometry_msgs::Vector3 vec_out;
+  vec_out.x = point_in.x;
+  vec_out.y = point_in.y;
+  vec_out.z = point_in.z;
+
+}
+
+//}
+
 /* distance() //{ */
 double mrs_odometry::distance(const nav_msgs::Odometry& odom1, const nav_msgs::Odometry& odom2) {
   return std::sqrt(pow(odom1.pose.pose.position.x - odom2.pose.pose.position.x, 2) + pow(odom1.pose.pose.position.y - odom2.pose.pose.position.y, 2) +

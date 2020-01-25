@@ -157,6 +157,8 @@
       <remap from="~change_odometry_source_in" to="~change_odometry_source" />
       <remap from="~change_estimator_type_in" to="~change_estimator_type" />
       <remap from="~change_estimator_type_string_in" to="~change_estimator_type_string" />
+      <remap from="~change_alt_estimator_type_in" to="~change_alt_estimator_type" />
+      <remap from="~change_alt_estimator_type_string_in" to="~change_alt_estimator_type_string" />
       <remap from="~change_hdg_estimator_type_in" to="~change_hdg_estimator_type" />
       <remap from="~change_hdg_estimator_type_string_in" to="~change_hdg_estimator_type_string" />
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
