@@ -40,7 +40,6 @@ double mrs_odometry::getYaw(geometry_msgs::Quaternion& q_msg) {
   tf2::Quaternion q_tf;
   tf2::fromMsg(q_msg, q_tf);
   return getYaw(q_tf);
-  ;
 }
 //}
 
@@ -77,16 +76,17 @@ void mrs_odometry::addYaw(geometry_msgs::Quaternion& q_msg, const double& yaw_ad
 
 tf2::Transform mrs_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {
 
-tf2::Vector3    position(pose_in.position.x, pose_in.position.y, pose_in.position.z);
+  tf2::Vector3 position(pose_in.position.x, pose_in.position.y, pose_in.position.z);
 
-tf2::Quaternion q;
-tf2::fromMsg(pose_in.orientation, q);
+  tf2::Quaternion q;
+  tf2::fromMsg(pose_in.orientation, q);
 
-tf2::Transform  tf_out;
-tf_out.setOrigin(position);
-tf_out.setRotation(q);
-tf_out.inverse();
+  tf2::Transform tf_out;
+  tf_out.setOrigin(position);
+  tf_out.setRotation(q);
+  tf_out.inverse();
 
+  return tf_out;
 }
 
 //}
@@ -95,13 +95,14 @@ tf_out.inverse();
 
 geometry_msgs::Pose mrs_odometry::poseFromTf2(const tf2::Transform& tf_in) {
 
-geometry_msgs::Pose pose_out;
-pose_out.position.x = tf_in.getOrigin().getX();
-pose_out.position.y = tf_in.getOrigin().getY();
-pose_out.position.z = tf_in.getOrigin().getZ();
+  geometry_msgs::Pose pose_out;
+  pose_out.position.x = tf_in.getOrigin().getX();
+  pose_out.position.y = tf_in.getOrigin().getY();
+  pose_out.position.z = tf_in.getOrigin().getZ();
 
-pose_out.orientation = tf2::toMsg(tf_in.getRotation());
+  pose_out.orientation = tf2::toMsg(tf_in.getRotation());
 
+  return pose_out;
 }
 
 //}
@@ -115,6 +116,7 @@ geometry_msgs::Vector3 mrs_odometry::pointToVector3(const geometry_msgs::Point& 
   vec_out.y = point_in.y;
   vec_out.z = point_in.z;
 
+  return vec_out;
 }
 
 //}
