@@ -483,7 +483,7 @@ bool StateEstimator::setR(double cov, int measurement_type) {
 
   //}
 
-  double old_cov = m_R_arr[measurement_type](0, 0);
+  /* double old_cov = m_R_arr[measurement_type](0, 0); */
 
   {
     std::scoped_lock lock(mutex_lkf);
