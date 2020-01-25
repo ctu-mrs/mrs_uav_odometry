@@ -40,10 +40,13 @@ heading:
   Q:
     yaw_aloam: [0.1]
     rate_gyro: [0.1]
+altitude:
+  Q:
+    height_aloam: [1]
 
 garmin_z_offset: -0.01 # [m]
 fcu_height: 0.0 # [m]
 
-aloamHeightFilterBufferSize: 100
+aloamHeightFilterBufferSize: 200
 aloamHeightFilterMaxValidAltitude: 40.0
 aloamHeightFilterMaxDifference: 2.0
