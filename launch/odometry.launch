@@ -164,6 +164,7 @@
       <remap from="~reset_lateral_kalman_in" to="~reset_lateral_kalman" />
       <remap from="~reset_hector_in" to="~reset_hector" />
       <remap from="~reliable_hector_in" to="~set_hector_reliable" />
+      <remap from="~toggle_callbacks_in" to="~toggle_callbacks" />
 
       <remap from="~failsafe_out" to="control_manager/eland" />
       <remap from="~hover_out" to="control_manager/hover" />

@@ -210,6 +210,7 @@ private:
   ros::ServiceServer ser_change_alt_estimator_type;
   ros::ServiceServer ser_change_alt_estimator_type_string;
   ros::ServiceServer ser_gyro_jump_;
+  ros::ServiceServer ser_toggle_callbacks_;
 
   ros::ServiceClient ser_client_failsafe_;
   ros::ServiceClient ser_client_hover_;
@@ -510,6 +511,7 @@ private:
   bool callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request &req, mrs_msgs::ChangeAltEstimator::Response &res);
   bool callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   // | --------------------- helper methods --------------------- |
   bool isReadyToTakeoff();
@@ -576,6 +578,7 @@ private:
   ros::Time                     garmin_last_update;
   bool                          excessive_tilt = false;
   bool                          saturate_garmin_corrections_ = false;
+  bool                          callbacks_enabled_ = true;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -1894,6 +1897,9 @@ void Odometry::onInit() {
   ser_change_alt_estimator_type_string = nh_.advertiseService("change_alt_estimator_type_string_in", &Odometry::callbackChangeAltEstimatorString, this);
 
   ser_gyro_jump_ = nh_.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
+
+  // subscribe for callbacks toggle service
+  ser_toggle_callbacks_ = nh_.advertiseService("toggle_callbacks_in", &Odometry::callbackToggleCallbacks, this);
 
   ser_client_failsafe_         = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
   ser_client_hover_            = nh_.serviceClient<std_srvs::Trigger>("hover_out");
@@ -8320,6 +8326,13 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   mrs_msgs::EstimatorType desired_estimator;
   mrs_msgs::HeadingType   desired_hdg_estimator;
   mrs_msgs::AltitudeType  desired_alt_estimator;
@@ -8449,6 +8462,13 @@ bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, 
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   // Check whether a valid type was requested
   if (!isValidType(req.estimator_type)) {
     ROS_ERROR("[Odometry]: %d is not a valid odometry type", req.estimator_type.type);
@@ -8493,6 +8513,13 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
 
   if (!is_initialized)
     return false;
+
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
 
   mrs_msgs::EstimatorType desired_estimator;
 
@@ -8563,6 +8590,13 @@ bool Odometry::callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request 
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   // Check whether a valid type was requested
   if (!isValidType(req.estimator_type)) {
     ROS_ERROR("[Odometry]: %d is not a valid heading estimator type", req.estimator_type.type);
@@ -8607,6 +8641,13 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
 
   if (!is_initialized)
     return false;
+
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
 
   mrs_msgs::HeadingType desired_estimator;
 
@@ -8675,6 +8716,13 @@ bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request 
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   // Check whether a valid type was requested
   if (!isValidType(req.estimator_type)) {
     ROS_ERROR("[Odometry]: %d is not a valid altitude estimator type", req.estimator_type.type);
@@ -8719,6 +8767,13 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
 
   if (!is_initialized)
     return false;
+
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
 
   mrs_msgs::AltitudeType desired_estimator;
 
@@ -8773,6 +8828,13 @@ bool Odometry::callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srv
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   teraranger_enabled = req.data;
 
   res.success = true;
@@ -8799,6 +8861,13 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
   if (!is_initialized)
     return false;
+
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
 
   garmin_enabled = req.data;
 
@@ -8832,6 +8901,13 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
   if (!is_initialized)
     return false;
+
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
 
   LatState2D states;
   bool       success = false;
@@ -8935,6 +9011,13 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   LatState2D states;
 
   // obtain the states of the current estimator
@@ -8974,6 +9057,13 @@ bool Odometry::callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Reques
   if (!is_initialized)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   hector_reliable = true;
 
   ROS_WARN("[Odometry]: Hector manually set to reliable.");
@@ -8995,6 +9085,13 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
   if (!simulation_)
     return false;
 
+  if (!callbacks_enabled_) {
+    res.success = false;
+    res.message = ("Service callbacks are disabled");
+    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
+    return true;
+  }
+
   Eigen::VectorXd state   = Eigen::VectorXd::Zero(1);
 
   for (auto &estimator : m_heading_estimators) {
@@ -9014,11 +9111,42 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
 }
 //}
 
+/* //{ callbackToggleCallbacks() */
+
+bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  if (!is_initialized)
+    return false;
+
+  callbacks_enabled_ = req.data;
+
+  res.success = true;
+  res.message = (callbacks_enabled_ ? "Callbacks enabled" : "Callbacks disabled");
+
+  if (callbacks_enabled_) {
+
+    ROS_INFO("[Odometry]: Callbacks enabled.");
+
+  } else {
+
+    ROS_INFO("[Odometry]: Callbacks disabled");
+  }
+
+  return true;
+}
+
+//}
+
 /* //{ callbackReconfigure() */
 void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized)
     return;
+
+  if (!callbacks_enabled_) {
+    return;
+  }
+  
   ROS_INFO(
       "Reconfigure Request:\n"
       "Lateral measurement covariance:\n"
