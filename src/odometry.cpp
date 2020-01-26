@@ -2976,18 +2976,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish fused odometry //{ */
 
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-
-    if ((ros::Time::now() - odom_pixhawk_last_update).toSec() > 0.1) {
-
-      ROS_ERROR("[Odometry]: mavros odometry has not come for > 0.1 s, interrupting");
-      got_odom_pixhawk = false;
-
-      return;
-    }
-  }
-
   // blocking/returning when cannot calculate utm_origin_offset
   if (_gps_available && !calculatePixhawkOdomOffset()) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Cannot calculate pixhawk odom offset.");
@@ -3032,12 +3020,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   uav_state.estimator_heading.type             = mrs_msgs::HeadingType::TYPE_COUNT;
 
   nav_msgs::Odometry odom_main;
-  {
+
+   {
     std::scoped_lock lock(mutex_odom_pixhawk);
     odom_main                  = odom_pixhawk;
     uav_state.pose.orientation = odom_pixhawk.pose.pose.orientation;
     uav_state.velocity         = odom_pixhawk.twist.twist;
-  }
+
+   }
+
 
   // Fill in odometry headers according to the uav name and current estimator
   std::transform(current_estimator_name.begin(), current_estimator_name.end(), current_estimator_name.begin(), ::tolower);
@@ -3074,8 +3065,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         estimator_rtk->setStates(state);
       }
     }
+
+    odom_stable                         = odom_main;
+    last_stable_name_ = odom_main.header.frame_id;
+    m_pos_odom_offset.setZero();
+    m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+    m_rot_odom_offset.normalize();
+
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
-    odometry_published = true;
+
   }
 
   if (_publish_fused_odom) {
@@ -3153,7 +3151,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       uav_state.estimator_heading = _hdg_estimator_type;
     }
 
-    if (std::strcmp(current_estimator_name.c_str(), "RTK") == STRING_EQUAL) {
+    if (isEqual(toUppercase(current_estimator_name), "RTK")) {
       {
         std::scoped_lock lock(mutex_rtk_est);
 
@@ -3196,20 +3194,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (!odometry_published) {
-      {
-        std::scoped_lock lock(mutex_odom_stable);
-
-        odom_stable                         = odom_main;
-      }
-      m_pos_odom_offset.setZero();
-      m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
-      m_rot_odom_offset.normalize();
     }
 
     // publish the odometry
     {
       std::scoped_lock lock(mutex_odom_stable);
       if (!isEqual(odom_main.header.frame_id, last_stable_name_)) {
+        ROS_WARN("[Odometry]: Changing odometry estimator from %s to %s. Updating offset for stable odometry.", last_stable_name_.c_str(), odom_main.header.frame_id.c_str());
 
         last_stable_name_ = odom_main.header.frame_id;
         tf2::Vector3 v1, v2;
@@ -3231,7 +3222,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         /* ROS_WARN("[Odometry]: odometry change stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
          * odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
         /* ROS_WARN("[Odometry]: q1: %f, %f, %f, %f,\t q2: %f, %f, %f, %f", q1.x(), q1.y(), q1.z(), q1.w(), q2.x(), q2.y(), q2.z(), q2.w()); */
-        ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
+        ROS_WARN("[Odometry]: pos_diff: x: %f y: %f z: %f", pos_diff.getX(), pos_diff.getY(), pos_diff.getZ());
       }
 
       /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y,
@@ -3268,6 +3259,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf.header.frame_id.c_str(), tf.child_frame_id.c_str());
     }
   }
 
@@ -3298,7 +3291,32 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_inno_.getTopic().c_str());
   }
+  /* ROS_INFO("[Odometry]: Odom stable position: x: %f y: %f z: %f quaternion x: %f y: %f z: %f w: %f", odom_stable.pose.pose.position.x, odom_stable.pose.pose.position.y, odom_stable.pose.pose.position.z, odom_stable.pose.pose.orientation.x, odom_stable.pose.pose.orientation.y, odom_stable.pose.pose.orientation.z, odom_stable.pose.pose.orientation.w); */
+  /* ROS_INFO("[Odometry]: Odom main position: x: %f y: %f z: %f quaternion x: %f y: %f z: %f w: %f", odom_main.pose.pose.position.x, odom_main.pose.pose.position.y, odom_main.pose.pose.position.z, odom_main.pose.pose.orientation.x, odom_main.pose.pose.orientation.y, odom_main.pose.pose.orientation.z, odom_main.pose.pose.orientation.w); */
 
+    /* tf2::Transform  tf_inv = mrs_odometry::tf2FromPose(odom_main.pose.pose); */
+    /* tf_inv = tf_inv.inverse(); */
+    /* geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv); */
+
+    /* // publish TF */
+    /* geometry_msgs::TransformStamped tf; */
+    /* tf.header.stamp          = ros::Time::now(); */
+    /* tf.header.frame_id       = fcu_frame_id_; */
+    /* tf.child_frame_id        = odom_main.header.frame_id; */
+    /* tf.transform.translation = pointToVector3(pose_inv.position); */
+    /* tf.transform.rotation    = pose_inv.orientation; */
+
+    /* if (noNans(tf)) { */
+    /*   try { */
+    /*     broadcaster_->sendTransform(tf); */
+    /*   } */
+    /*   catch (...) { */
+    /*     ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str()); */
+    /*   } */
+    /* } else { */
+    /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_main.header.frame_id.c_str(), fcu_frame_id_.c_str()); */
+    /* } */
+  odometry_published = true;
 }
 
 //}
@@ -3321,11 +3339,10 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
     std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom.find(estimator.first);
 
-    // TODO this is wrong
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
-
-      odom_aux->second.pose = odom_pixhawk_shifted.pose;
+    
+      odom_aux->second = odom_pixhawk;
     }
 
     std::string estimator_name = estimator.first;
@@ -3415,6 +3432,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
+    /* ROS_INFO("[Odometry]: Odom aux %s position: x: %f y: %f z: %f quaternion x: %f y: %f z: %f w: %f", odom_aux->second.header.frame_id.c_str(), odom_aux->second.pose.pose.position.x, odom_aux->second.pose.pose.position.y, odom_aux->second.pose.pose.position.z, odom_aux->second.pose.pose.orientation.x, odom_aux->second.pose.pose.orientation.y, odom_aux->second.pose.pose.orientation.z, odom_aux->second.pose.pose.orientation.w); */
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
 
     // Publish odom
@@ -3438,6 +3456,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     tf.transform.translation = pointToVector3(pose_inv.position);
     tf.transform.rotation    = pose_inv.orientation;
 
+
     if (noNans(tf)) {
       try {
         broadcaster_->sendTransform(tf);
@@ -3445,6 +3464,8 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(), fcu_frame_id_.c_str());
     }
   }
 

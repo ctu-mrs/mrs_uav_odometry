@@ -152,6 +152,26 @@ bool mrs_odometry::isEqual(const char* s1, const std::string& s2) {
 
 //}
 
+/* toLowercase //{ */
+
+std::string mrs_odometry::toLowercase(const std::string str_in) {
+    std::string str_out = str_in;
+    std::transform(str_out.begin(), str_out.end(), str_out.begin(), ::tolower);
+    return str_out;
+}
+
+//}
+
+/* toUppercase //{ */
+
+std::string mrs_odometry::toUppercase(const std::string str_in) {
+    std::string str_out = str_in;
+    std::transform(str_out.begin(), str_out.end(), str_out.begin(), ::toupper);
+    return str_out;
+}
+
+//}
+
 /* unwrapAngle() //{ */
 double mrs_odometry::unwrapAngle(const double yaw, const double yaw_previous) {
 

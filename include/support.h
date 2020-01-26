@@ -50,6 +50,10 @@ bool isEqual(const std::string& s1, const std::string& s2);
 bool isEqual(const std::string& s1, const char* s2);
 bool isEqual(const char* s1, const std::string& s2);
 
+std::string toLowercase(const std::string str_in);
+
+std::string toUppercase(const std::string str_in);
+
 double unwrapAngle(const double yaw, const double yaw_previous);
 
 double wrapAngle(const double angle_in);
