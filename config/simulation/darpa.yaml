@@ -31,15 +31,13 @@ t265_available: false
 lateral:
   # Covariances of measurements
   Q:
-    pos_mavros: [10]
-    vel_mavros: [1000]
     pos_aloam: [10]
 
 heading:
   # Covariances of measurements
   Q:
     yaw_aloam: [0.1]
-    rate_gyro: [0.1]
+
 altitude:
   Q:
     height_aloam: [1]
