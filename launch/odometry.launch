@@ -110,6 +110,7 @@
       <remap from="~plane_in" to="brick_detection/altitude" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
+      <remap from="~aloam_odom_in" to="aloam_mapping/aft_mapped_to_init" />
       <remap from="~tracker_status_in" to="control_manager/diagnostics" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~lidar_odom_in" to="aloam_odometry/laser_odom_to_init" />

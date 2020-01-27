@@ -17,6 +17,7 @@ state_estimators:
     "BRICKFLOW",
     "VSLAM",
     "ICP",
+    "ALOAM",
   ] 
 
   # The measured states of the model
@@ -25,6 +26,7 @@ state_estimators:
     "VELOCITY", 
     "TILT"
   ] 
+
   # The available measurements
   measurements: [
     "vel_optflow",
@@ -42,6 +44,7 @@ state_estimators:
     "pos_hector",
     "pos_vslam",
     "vel_icp",
+    "pos_aloam",
   ]
 
   # The fused measurements for each state estimator
@@ -62,6 +65,7 @@ state_estimators:
     BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
     T265: []
     ICP: ["tilt_mavros", "vel_icp"]
+    ALOAM: ["tilt_mavros", "pos_aloam"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -80,6 +84,7 @@ state_estimators:
     pos_hector: POSITION
     pos_vslam: POSITION
     vel_icp: VELOCITY
+    pos_aloam: POSITION
 
   # Mapping states to model
   state_mapping:
