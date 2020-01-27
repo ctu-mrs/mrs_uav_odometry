@@ -603,7 +603,7 @@ private:
   ros::Time                     garmin_last_update;
   bool                          excessive_tilt               = false;
   bool                          saturate_garmin_corrections_ = false;
-  bool                          callbacks_enabled_           = true;
+  bool                          callbacks_enabled_           = false;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
