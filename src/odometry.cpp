@@ -322,12 +322,8 @@ private:
 
   // ALOAM heading msgs
   double                        aloam_yaw_previous;
-  std::mutex                    mutex_aloam_hdg;
-  ros::Time                     aloam_yaw_last_update;
   std::shared_ptr<MedianFilter> aloam_yaw_filter;
-  bool                          _aloam_yaw_median_filter;
   int                           _aloam_yaw_filter_buffer_size;
-  double                        _aloam_yaw_filter_max_valid;
   double                        _aloam_yaw_filter_max_diff;
 
   // Lidar heading msgs
@@ -342,7 +338,6 @@ private:
 
   // Aloam heading messages
   std::mutex                    mutex_aloam;
-  std::mutex                    mutex_pos_aloam_;
   double                        pos_aloam_corr_x_, pos_aloam_corr_y_;
   nav_msgs::Odometry            aloam_odom;
   nav_msgs::Odometry            aloam_odom_previous;
@@ -353,8 +348,6 @@ private:
   int                           _aloam_pos_filter_buffer_size;
   double                        _aloam_pos_filter_max_valid;
   double                        _aloam_pos_filter_max_diff;
-  bool                          aloam_reset_called_         = false;
-  bool                          _reset_aloam_after_takeoff_ = false;
   Vec2                          aloam_offset_;
   Vec2                          aloam_vel_state_;
   double                        aloam_offset_hdg_;
@@ -655,7 +648,6 @@ private:
   int                           aloam_height_filter_buffer_size;
   double                        aloam_height_max_valid_altitude;
   double                        aloam_height_filter_max_difference;
-  ros::Time                     aloam_height_last_update;
 
   bool got_odom_pixhawk     = false;
   bool got_odom_t265        = false;
@@ -878,11 +870,8 @@ private:
   ros::Timer max_altitude_timer;
   ros::Timer topic_watcher_timer;
   ros::Timer hector_reset_routine_timer;
-  ros::Timer aloam_reset_routine_timer;
   bool       hector_reset_routine_running_;
   bool       _perform_hector_reset_routine;
-  bool       aloam_reset_routine_running_;
-  bool       _perform_aloam_reset_routine;
   int        slow_odom_rate_;
   int        aux_rate_;
   int        diag_rate_;
@@ -896,8 +885,6 @@ private:
   void       maxAltitudeTimer(const ros::TimerEvent &event);
   void       topicWatcherTimer(const ros::TimerEvent &event);
   void       callbackTimerHectorResetRoutine(const ros::TimerEvent &event);
-  void       callbackTimerAloamResetRoutine(const ros::TimerEvent &event);
-
 
   using lkf_height_t = mrs_lib::LKF<1, 1, 1>;
   std::unique_ptr<lkf_height_t> estimator_height_;
@@ -996,10 +983,6 @@ void Odometry::onInit() {
   c_hector_msg_        = 0;
   estimator_iteration_ = 0;
 
-  aloam_reset_called_          = false;
-  _reset_aloam_after_takeoff_  = false;
-  _perform_aloam_reset_routine = false;
-  aloam_reset_routine_running_ = false;
   aloam_offset_ << 0, 0;
   aloam_offset_hdg_ = 0;
 
@@ -1621,8 +1604,7 @@ void Odometry::onInit() {
                                                        _icp_yaw_rate_filter_max_diff);
   hector_yaw_filter       = std::make_shared<MedianFilter>(_hector_yaw_filter_buffer_size, 1000000, -1000000, _hector_yaw_filter_max_diff);
   brick_yaw_filter        = std::make_shared<MedianFilter>(_brick_yaw_filter_buffer_size, 1000000, -1000000, _brick_yaw_filter_max_diff);
-
-  aloam_yaw_filter = std::make_shared<MedianFilter>(_aloam_yaw_filter_buffer_size, 1000000, -1000000, _aloam_yaw_filter_max_diff);
+  aloam_yaw_filter        = std::make_shared<MedianFilter>(_aloam_yaw_filter_buffer_size, 1000000, -1000000, _aloam_yaw_filter_max_diff);
 
   compass_yaw_filter                = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
   compass_inconsistent_samples      = 0;
@@ -7447,7 +7429,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
   if (isUavFlying()) {
     if (!aloamHeightFilter->isValid(measurement)) {
-      double filtered = aloamHeightFilter->getMedian();
+      /* double filtered = aloamHeightFilter->getMedian(); */
       ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
       aloam_height_ok = false;
     }
@@ -7548,7 +7530,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   /* double yaw = hdg_state(0); */
 
   {
-    std::scoped_lock lock(mutex_aloam, mutex_pos_aloam_);
+    std::scoped_lock lock(mutex_aloam);
 
     /* if (mrs_odometry::isEqual(current_hdg_estimator->getName().c_str(), current_estimator->getName().c_str())) { */
     // Corrections and heading are in the same frame of reference
@@ -10481,7 +10463,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   target_estimator.name                   = _altitude_type_names[target_estimator.type];
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
-      target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO && target_estimator.type != mrs_msgs::AltitudeType::ALOAM) {
+      target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAM) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
