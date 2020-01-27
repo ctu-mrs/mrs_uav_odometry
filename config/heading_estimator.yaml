@@ -16,7 +16,6 @@ heading_estimators:
     "VSLAM",
     "ICP",
     "BRICKFLOW",
-    "ALOAM",
   ] 
 
   # The measured states of the model
@@ -37,7 +36,6 @@ heading_estimators:
     "yaw_vslam",
     "yaw_lidar",
     "rate_icp",
-    "yaw_aloam",
   ]
 
   # The fused measurements for each state estimator
@@ -53,8 +51,6 @@ heading_estimators:
     VSLAM: ["rate_gyro", "yaw_vslam"]
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "yaw_brick"]
-    HECTOR: ["rate_gyro", "yaw_hector"]
-    ALOAM: ["rate_gyro", "yaw_aloam"]
     # BRICK: ["yaw_brick"]
 
   # Mapping of measurements to states
@@ -63,7 +59,6 @@ heading_estimators:
     rate_gyro: YAW_RATE
     rate_optflow: YAW_RATE
     yaw_hector: YAW
-    yaw_aloam: YAW
     yaw_brick: YAW
     yaw_vio: YAW
     yaw_vslam: YAW

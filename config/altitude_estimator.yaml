@@ -8,8 +8,7 @@ altitude_estimators:
     "HEIGHT",
     "PLANE",
     "BRICK",
-    "VIO",
-    "ALOAM"
+    "VIO"
   ] 
 
   # The measured states of the model
@@ -26,7 +25,6 @@ altitude_estimators:
     "height_plane",
     "height_brick",
     "height_vio",
-    "height_aloam",
     "vel_baro",
     "acc_imu"
   ]
@@ -46,7 +44,6 @@ altitude_estimators:
     height_plane: HEIGHT
     height_brick: HEIGHT
     height_vio: HEIGHT
-    height_aloam: HEIGHT
     vel_baro: VELOCITY
     acc_imu: ACCELERATION
 
@@ -61,7 +58,6 @@ altitude_estimators:
     PLANE: 3
     BRICK: 3
     VIO: 3
-    ALOAM: 3
 
   A:
     HEIGHT: [1, 0.01, 0.000,
