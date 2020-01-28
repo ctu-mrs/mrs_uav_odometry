@@ -9,7 +9,8 @@ altitude_estimators:
     "PLANE",
     "BRICK",
     "VIO",
-    "ALOAM"
+    "ALOAM",
+    "BARO"
   ] 
 
   # The measured states of the model
@@ -27,6 +28,7 @@ altitude_estimators:
     "height_brick",
     "height_vio",
     "height_aloam",
+    "height_baro",
     "vel_baro",
     "acc_imu"
   ]
@@ -38,6 +40,7 @@ altitude_estimators:
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_baro"]
     ALOAM: ["height_aloam", "vel_baro"]
+    BARO: ["height_baro", "vel_baro"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -47,6 +50,7 @@ altitude_estimators:
     height_brick: HEIGHT
     height_vio: HEIGHT
     height_aloam: HEIGHT
+    height_baro: HEIGHT
     vel_baro: VELOCITY
     acc_imu: ACCELERATION
 
@@ -62,6 +66,7 @@ altitude_estimators:
     BRICK: 3
     VIO: 3
     ALOAM: 3
+    BARO: 3
 
   A:
     HEIGHT: [1, 0.01, 0.000,
@@ -77,6 +82,9 @@ altitude_estimators:
              0, 1, 0.00,
              0, 0, 0]
     ALOAM: [1, 0.01, 0.0000,
+             0, 1, 0.00,
+             0, 0, 0]
+    BARO: [1, 0.01, 0.0000,
              0, 1, 0.00,
              0, 0, 0]
 height:

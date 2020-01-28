@@ -120,6 +120,7 @@ altitude:
     height_brick: [100] 
     height_vio: [1] 
     height_aloam: [1] 
+    height_baro: [1] 
     # vel_baro: [100] # for difference
     vel_baro: [0.1] # for twist
     acc_imu: [100] 

@@ -1040,6 +1040,7 @@ void Odometry::onInit() {
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::BRICK));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::VIO));
   _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAM));
+  _altitude_type_names.push_back(NAME_OF(mrs_msgs::AltitudeType::BARO));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -2126,6 +2127,7 @@ void Odometry::onInit() {
     current_alt_estimator->getR(last_drs_config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
     current_alt_estimator->getR(last_drs_config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
     current_alt_estimator->getR(last_drs_config.R_height_vio, map_alt_measurement_name_id.find("height_vio")->second);
+    current_alt_estimator->getR(last_drs_config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
 
     // Altitude velocity measurement covariances
     current_alt_estimator->getR(last_drs_config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
@@ -2463,6 +2465,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::VIO) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::ALOAM) {
+      new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (_alt_estimator_type.type == mrs_msgs::AltitudeType::BARO) {
       new_altitude.value = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d. Publishing mavros altitude instead.",
@@ -4764,11 +4768,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       }
 
-      /* double altitude, altitude_previous; */
+      double altitude; 
+      /* double altitude_previous; */
       double twist_z;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
-        /* altitude          = odom_pixhawk.pose.pose.position.z; */
+        altitude          = odom_pixhawk.pose.pose.position.z;
         /* altitude_previous = odom_pixhawk_previous.pose.pose.position.z; */
         twist_z = odom_pixhawk.twist.twist.linear.z;
       }
@@ -4779,15 +4784,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         // difference or twist?
         /* altitudeEstimatorCorrection(mes, "vel_baro"); */
         altitudeEstimatorCorrection(twist_z, "vel_baro");
+        altitudeEstimatorCorrection(altitude, "height_baro");
       }
     }
 
-
     ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
 
-
     //}
-
 
   } else {
     Eigen::VectorXd zero_state = Eigen::VectorXd::Zero(1);
@@ -9171,6 +9174,8 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::AltitudeType::VIO;
   } else if (std::strcmp(type.c_str(), "ALOAM") == 0) {
     desired_estimator.type = mrs_msgs::AltitudeType::ALOAM;
+  } else if (std::strcmp(type.c_str(), "BARO") == 0) {
+    desired_estimator.type = mrs_msgs::AltitudeType::BARO;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -10464,7 +10469,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
-      target_estimator.type != mrs_msgs::AltitudeType::ALOAM) {
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::BARO) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -10692,7 +10697,7 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
 
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
-      type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM) {
+      type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO) {
     return true;
   }
 
