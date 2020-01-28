@@ -2378,7 +2378,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     des_yaw_      = init_pose_yaw;
     des_yaw_rate_ = 0.0;
     setRPY(0, 0, init_pose_yaw, des_attitude_);
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not receiving target attitude.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Not receiving target attitude.");
   }
 
   double                    des_yaw;
