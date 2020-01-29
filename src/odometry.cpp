@@ -3204,10 +3204,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   nav_msgs::Odometry odom_main;
 
   {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    odom_main                  = odom_pixhawk;
-    uav_state.pose.orientation = odom_pixhawk.pose.pose.orientation;
-    uav_state.velocity         = odom_pixhawk.twist.twist;
+    std::scoped_lock lock(mutex_odom_pixhawk_shifted);
+    odom_main                  = odom_pixhawk_shifted;
+    uav_state.pose.orientation = odom_pixhawk_shifted.pose.pose.orientation;
+    uav_state.velocity         = odom_pixhawk_shifted.twist.twist;
   }
 
   // Fill in odometry headers according to the uav name and current estimator
@@ -3259,8 +3259,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // initialize stable odometry
     odom_stable       = odom_main;
     last_stable_name_ = odom_main.header.frame_id;
-    m_pos_odom_offset.setZero();
+
+    // initialize offset of local_origin
+    m_pos_odom_offset.setX(odom_main.pose.pose.position.x);
+    m_pos_odom_offset.setY(odom_main.pose.pose.position.y);
+    m_pos_odom_offset.setZ(odom_main.pose.pose.position.z);
+    double yaw_tmp = getYaw(odom_main.pose.pose.orientation);
+
+    // we want to keep the frame horizontal
     m_rot_odom_offset = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+    setYaw(m_rot_odom_offset, yaw_tmp);
     m_rot_odom_offset.normalize();
 
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
@@ -4768,12 +4776,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         return;
       }
 
-      double altitude; 
+      double altitude;
       /* double altitude_previous; */
       double twist_z;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
-        altitude          = odom_pixhawk.pose.pose.position.z;
+        altitude = odom_pixhawk.pose.pose.position.z;
         /* altitude_previous = odom_pixhawk_previous.pose.pose.position.z; */
         twist_z = odom_pixhawk.twist.twist.linear.z;
       }
@@ -10905,12 +10913,12 @@ nav_msgs::Odometry Odometry::applyOdomOffset(const nav_msgs::Odometry &msg) {
 
   tf2::Vector3 v;
   tf2::fromMsg(msg.pose.pose.position, v);
-  v = v - m_pos_odom_offset;
+  v = tf2::quatRotate(m_rot_odom_offset.inverse(), (v - m_pos_odom_offset));
   tf2::toMsg(v, ret.pose.pose.position);
 
   tf2::Quaternion q;
   tf2::fromMsg(msg.pose.pose.orientation, q);
-  q                         = m_rot_odom_offset * q;
+  q                         = m_rot_odom_offset.inverse() * q;
   ret.pose.pose.orientation = tf2::toMsg(q);
 
   return ret;
