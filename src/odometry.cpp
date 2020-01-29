@@ -3250,8 +3250,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       {
         std::scoped_lock lock(mutex_rtk_est);
 
-        state(0) = 0.0;
-        state(1) = 0.0;
+        state(0) = odom_pixhawk_shifted.pose.pose.position.x;
+        state(1) = odom_pixhawk_shifted.pose.pose.position.y;
         estimator_rtk->setStates(state);
       }
     }
