@@ -4474,7 +4474,7 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   {
     std::scoped_lock lock(mutex_target_attitude);
     if (!isTimestampOK(target_attitude.header.stamp.toSec(), des_attitude_previous.header.stamp.toSec())) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Target attitude timestamp not OK, skipping prediction of lateral estimators.");
+      ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Target attitude timestamp not OK, skipping prediction of lateral estimators.");
       return;
     }
   }
@@ -4651,7 +4651,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   odom_pixhawk_last_update = ros::Time::now();
 
   if (!isTimestampOK(odom_pixhawk.header.stamp.toSec(), odom_pixhawk_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk odom timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Pixhawk odom timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5087,7 +5087,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   // --------------------------------------------------------------
 
   if (!isTimestampOK(pixhawk_imu.header.stamp.toSec(), pixhawk_imu_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk IMU timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Pixhawk IMU timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5190,7 +5190,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
   // Compass heading msg does not have timestamp - check at least time of msg arrival
   if (!isTimestampOK(ros::Time::now().toSec(), compass_hdg_last_update.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Pixhawk compass heading time between msgs not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Pixhawk compass heading time between msgs not OK, not fusing correction.");
     compass_hdg_last_update = ros::Time::now();
     return;
   }
@@ -5287,7 +5287,7 @@ void Odometry::callbackControlAccel(const sensor_msgs::ImuConstPtr &msg) {
   // --------------------------------------------------------------
 
   if (!isTimestampOK(control_accel.header.stamp.toSec(), control_accel_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Control acceleration timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Control acceleration timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5358,7 +5358,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   // --------------------------------------------------------------
 
   if (!isTimestampOK(optflow_twist.header.stamp.toSec(), optflow_twist_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5590,7 +5590,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   // --------------------------------------------------------------
 
   if (!isTimestampOK(optflow_twist.header.stamp.toSec(), optflow_twist_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Optflow twist timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5778,7 +5778,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   // --------------------------------------------------------------
 
   if (!isTimestampOK(icp_twist.header.stamp.toSec(), icp_twist_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP twist timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: ICP twist timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -5977,7 +5977,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   }
 
   if (!isTimestampOK(rtk_local.header.stamp.toSec(), rtk_local_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: RTK local timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: RTK local timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -6323,7 +6323,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
 
   if (!isTimestampOK(odom_vio.header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -6583,7 +6583,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // --------------------------------------------------------------
 
   if (!isTimestampOK(pose_vslam.header.stamp.toSec(), pose_vslam_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: VSLAM timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VSLAM timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -6800,7 +6800,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // --------------------------------------------------------------
 
   if (!isTimestampOK(brick_pose.header.stamp.toSec(), brick_pose_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: brick pose timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: brick pose timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -7050,7 +7050,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
 
   if (!isTimestampOK(lidar_odom.header.stamp.toSec(), lidar_odom_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR velocity timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: LIDAR velocity timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -7292,7 +7292,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   // --------------------------------------------------------------
 
   if (!isTimestampOK(hector_pose.header.stamp.toSec(), hector_pose_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector pose timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Hector pose timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -7424,7 +7424,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
 
   if (!isTimestampOK(aloam_odom.header.stamp.toSec(), aloam_odom_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM odom timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: ALOAM odom timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -7727,7 +7727,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   garmin_last_update = ros::Time::now();
 
   if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin range timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Garmin range timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -7907,7 +7907,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   if (!isTimestampOK(range_sonar.header.stamp.toSec(), range_sonar_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar range timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: sonar range timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -8072,7 +8072,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
   plane_last_update = ros::Time::now();
 
   if (!isTimestampOK(range_plane.header.stamp.toSec(), range_plane_previous.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane range timestamp not OK, not fusing correction.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Plane range timestamp not OK, not fusing correction.");
     return;
   }
 
@@ -8434,7 +8434,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   odom_t265_last_update = ros::Time::now();
 
   if (!isTimestampOK(odom_t265.header.stamp.toSec(), odom_t265.header.stamp.toSec())) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 odom timestamp not OK.");
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: T265 odom timestamp not OK.");
   }
 
   double dt;
@@ -9662,7 +9662,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
 void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitude, double dt) {
 
   if (dt <= 0.0) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
     return;
   }
 
@@ -9931,7 +9931,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 void Odometry::headingEstimatorsPrediction(const double yaw, const double yaw_rate, const double dt) {
 
   if (dt <= 0.0) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
     return;
   }
 
@@ -10737,12 +10737,12 @@ bool Odometry::isTimestampOK(const double curr_sec, const double prev_sec) {
   }
 
   if (fabs(delta) < 0.001) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: time delta too small: %f", delta);
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: time delta too small: %f", delta);
     return false;
   }
 
   if (delta > delta_tol) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: time delta %f > %f", delta, delta_tol);
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: time delta %f > %f", delta, delta_tol);
     return false;
   }
 
