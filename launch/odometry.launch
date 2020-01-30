@@ -35,8 +35,8 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg if="$(eval not arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
-  <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
+  <arg if="$(eval not arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range" />
+  <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
 
   <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
   <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
