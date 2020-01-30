@@ -9,7 +9,7 @@
   <arg name="PROFILER" default="$(optenv PROFILER false)" />
   <arg name="WORLD_FILE" default="$(optenv WORLD_FILE)" />
   <arg name="WORLD_NAME" default="$(optenv WORLD_NAME)" />
-  <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED)" />
+  <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
 
   <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') != '')" name="world_file" value="$(find mrs_general)/config/world_$(env WORLD_NAME).yaml" />
   <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') == '' and arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_general)/config/world_simulation.yaml" />
