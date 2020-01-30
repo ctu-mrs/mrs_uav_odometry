@@ -3237,6 +3237,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         state << local_origin_x_, local_origin_y_;
         estimator.second->setState(0, state);
 
+        odom_main.pose.pose.position.x = local_origin_x_;
+        odom_main.pose.pose.position.y = local_origin_y_;
+        setYaw(odom_main.pose.pose.orientation, 0.0);
+
         // GNSS based estimators (GPS)
       } else {
 
