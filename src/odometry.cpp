@@ -604,6 +604,8 @@ private:
   bool                          excessive_tilt               = false;
   bool                          saturate_garmin_corrections_ = false;
   bool                          callbacks_enabled_           = false;
+  bool                          baro_corrected_              = false;
+  double                        baro_offset_                 = 0.0;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -3622,14 +3624,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
       // we might want other than height estimator when in GPS (baro)
     } else if (isEqual(estimator.first, "GPS")) {
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      if (!current_alt_estimator->getStates(current_altitude)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-        return;
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (!current_alt_estimator->getStates(current_altitude)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+          return;
+        }
+        odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
       }
-      odom_aux->second.pose.pose.position.z = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    }
     } else {
       for (auto &alt_estimator : m_altitude_estimators) {
         if (isEqual(alt_estimator.first, "HEIGHT")) {
@@ -4805,10 +4807,24 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       double twist_z;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
-        altitude = odom_pixhawk.pose.pose.position.z;
+        altitude = odom_pixhawk.pose.pose.position.z - baro_offset_;
         /* altitude_previous = odom_pixhawk_previous.pose.pose.position.z; */
         twist_z = odom_pixhawk.twist.twist.linear.z;
       }
+
+      // fuse zero into baro estimator when on the ground
+      if (!isUavFlying()) {
+        altitude        = 0.0;
+        baro_corrected_ = false;
+      } else if (!baro_corrected_) {
+        {
+          std::scoped_lock lock(mutex_range_garmin, mutex_odom_pixhawk);
+
+          baro_offset_ = odom_pixhawk.pose.pose.position.z - range_garmin.range;
+        }
+        baro_corrected_ = true;
+      }
+
 
       {
         std::scoped_lock lock(mutex_altitude_estimator);
