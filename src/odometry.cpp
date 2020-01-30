@@ -3263,7 +3263,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // initialize offset of local_origin
     m_pos_odom_offset.setX(odom_main.pose.pose.position.x);
     m_pos_odom_offset.setY(odom_main.pose.pose.position.y);
-    m_pos_odom_offset.setZ(odom_main.pose.pose.position.z);
+
+    {
+      std::scoped_lock lock(mutex_altitude_estimator);
+
+      if (!current_alt_estimator->getStates(current_altitude)) {
+        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+        return;
+      }
+    }
+
+    m_pos_odom_offset.setZ(current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT));
     double yaw_tmp = getYaw(odom_main.pose.pose.orientation);
 
     // we want to keep the frame horizontal
