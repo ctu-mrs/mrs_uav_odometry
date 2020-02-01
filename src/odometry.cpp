@@ -1181,7 +1181,7 @@ void Odometry::onInit() {
   pixhawk_odom_offset_x = 0;
   pixhawk_odom_offset_y = 0;
 
-  initPoseFromFile();
+  /* initPoseFromFile(); */
 
   /* load parameters of altitude estimator //{ */
 
@@ -2335,6 +2335,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
 
+  ros::Time t_start = ros::Time::now();
 
   // calculate time since last main timer tick
   double    dt;
@@ -3239,9 +3240,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         state << local_origin_x_, local_origin_y_;
         estimator.second->setState(0, state);
 
-        odom_main.pose.pose.position.x = local_origin_x_;
-        odom_main.pose.pose.position.y = local_origin_y_;
-        setYaw(odom_main.pose.pose.orientation, 0.0);
 
         // GNSS based estimators (GPS)
       } else {
@@ -3260,6 +3258,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         state(1) = odom_pixhawk_shifted.pose.pose.position.y;
         estimator_rtk->setStates(state);
       }
+    }
+
+    if (!isEqual(toUppercase(current_estimator_name), "GPS") && !isEqual(toUppercase(current_estimator_name), "RTK")) {
+        odom_main.pose.pose.position.x = local_origin_x_;
+        odom_main.pose.pose.position.y = local_origin_y_;
+        setYaw(odom_main.pose.pose.orientation, 0.0);
     }
 
     // initialize stable odometry
@@ -3733,7 +3737,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // publish the static transform between utm and local gps origin
-  if (use_utm_origin_) {
+  if (gps_reliable) {
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -3793,6 +3797,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
   ROS_INFO_ONCE("[Odometry]: Publishing auxiliary odometry");
+
+  ros::Time t_end = ros::Time::now();
+  ROS_DEBUG("[Odometry]: mainTimer took: %.6f s.", (t_end-t_start).toSec());
 }
 
 //}
@@ -3948,7 +3955,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
   }
 
   // publish the static transform between utm and local gps origin
-  if (use_utm_origin_) {
+  if (gps_reliable) {
 
     // publish TF
     geometry_msgs::TransformStamped tf;
