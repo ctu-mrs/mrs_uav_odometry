@@ -3586,8 +3586,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish stable odometry //{ */
 
+    nav_msgs::Odometry odom_stable_tmp;
+    odom_stable_tmp                 = odom_main;
+    odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
+    tf2::Vector3 v;
+    tf2::fromMsg(odom_main.pose.pose.position, v);
+    v = v - odom_stable_pos_offset_;
+    tf2::toMsg(v, odom_stable_tmp.pose.pose.position);
+
+    tf2::Quaternion q;
+    tf2::fromMsg(odom_main.pose.pose.orientation, q);
+    q                                     = odom_stable_rot_offset_.inverse() * q;
+    odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q);
+
     try {
-      pub_odom_stable_.publish(odom_stable);
+      pub_odom_stable_.publish(odom_stable_tmp);
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
@@ -11059,6 +11072,7 @@ nav_msgs::Odometry Odometry::applyOdomOffset(const nav_msgs::Odometry &msg, cons
   tf2::Vector3 v;
   tf2::fromMsg(msg.pose.pose.position, v);
   v = tf2::quatRotate(rot_offset.inverse(), (v - pos_offset));
+  /* v = v - pos_offset; */
   tf2::toMsg(v, ret.pose.pose.position);
 
   tf2::Quaternion q;
