@@ -3586,43 +3586,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     //}
 
-    /* publish stable odometry //{ */
-
-    // ver1
-    nav_msgs::Odometry odom_stable_tmp;
-    odom_stable_tmp = odom_main;
-
-    /* odom_stable_tmp.header.frame_id = stable_origin_frame_id_; */
-    /* tf2::Vector3 v; */
-    /* tf2::fromMsg(odom_main.pose.pose.position, v); */
-    /* v = v - odom_stable_pos_offset_; */
-    /* tf2::toMsg(v, odom_stable_tmp.pose.pose.position); */
-
-    /* tf2::Quaternion q; */
-    /* tf2::fromMsg(odom_main.pose.pose.orientation, q); */
-    /* q                                     = odom_stable_rot_offset_.inverse() * q; */
-    /* odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q); */
-
-    // ver2
-    try {
-      const ros::Duration             timeout(1.0 / 100.0);
-      geometry_msgs::TransformStamped stable_tf = m_tf_buffer.lookupTransform(first_frame_, odom_main.header.frame_id, odom_main.header.stamp, timeout);
-      tf2::doTransform(odom_stable_tmp.pose.pose.position, odom_stable_tmp.pose.pose.position, stable_tf);
-      tf2::doTransform(odom_stable_tmp.pose.pose.orientation, odom_stable_tmp.pose.pose.orientation, stable_tf);
-      odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
-    }
-    catch (tf2::TransformException &ex) {
-      ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", odom_main.header.frame_id.c_str(), (first_frame_).c_str(),
-                        ex.what());
-    }
-    try {
-      pub_odom_stable_.publish(odom_stable_tmp);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
-    }
-
-    //}
 
     /* publish stable origin tf //{ */
 
@@ -3695,23 +3658,25 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   //}
 
+  /* publish aux odometry //{ */
+  
   // Loop through each estimator
   for (auto &estimator : m_state_estimators) {
-
+  
     std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom.find(estimator.first);
-
+  
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
-
+  
       odom_aux->second = odom_pixhawk;
     }
-
+  
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
     odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
     odom_aux->second.header.stamp    = time_now;
     odom_aux->second.child_frame_id  = fcu_frame_id_;
-
+  
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
     // update the altitude state
     {
@@ -3721,7 +3686,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         return;
       }
     }
-
+  
     Eigen::VectorXd alt(1);
     if (isEqual(estimator.first, "BRICK") || isEqual(estimator.first, "BRICKFLOW")) {
       for (auto &alt_estimator : m_altitude_estimators) {
@@ -3769,63 +3734,63 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
       }
     }
-
+  
     if (isEqual(estimator.second->getName(), "RTK") && pass_rtk_as_odom) {
       {
         std::scoped_lock lock(mutex_rtk_local_odom);
-
+  
         odom_aux->second.pose.pose.position.z = rtk_local_odom.pose.pose.position.z;
       }
     }
-
+  
     if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
                         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY),
                         current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION));
     }
-
+  
     Vec2 pos_vec;
     Vec2 vel_vec;
-
+  
     if (isEqual(toUppercase(estimator.second->getName()), "RTK")) {
       {
         std::scoped_lock lock(mutex_rtk_est);
-
+  
         pos_vec(0) = estimator_rtk->getState(0);
         pos_vec(1) = estimator_rtk->getState(1);
       }
     } else {
-
+  
       estimator.second->getState(0, pos_vec);
     }
     estimator.second->getState(1, vel_vec);
-
+  
     odom_aux->second.pose.pose.position.x = pos_vec(0);
     odom_aux->second.twist.twist.linear.x = vel_vec(0);
     odom_aux->second.pose.pose.position.y = pos_vec(1);
     odom_aux->second.twist.twist.linear.y = vel_vec(1);
-
+  
     // Loop through each heading estimator
     Eigen::VectorXd hdg_vec(1);
     Eigen::VectorXd hdg_vel_vec(1);
-
+  
     for (auto &hdg_estimator : m_heading_estimators) {
-
+  
       if (isEqual(hdg_estimator.first, estimator.first) || (isEqual(hdg_estimator.first, "BRICK") && isEqual(estimator.first, "BRICKFLOW"))) {
-
+  
         hdg_estimator.second->getState(0, hdg_vec);
         hdg_estimator.second->getState(1, hdg_vel_vec);
         mrs_odometry::setYaw(odom_aux->second.pose.pose.orientation, hdg_vec(0));
         odom_aux->second.twist.twist.angular.z = hdg_vel_vec(0);
       }
     }
-
+  
     /* ROS_INFO("[Odometry]: Odom aux %s position: x: %f y: %f z: %f quaternion x: %f y: %f z: %f w: %f", odom_aux->second.header.frame_id.c_str(),
      * odom_aux->second.pose.pose.position.x, odom_aux->second.pose.pose.position.y, odom_aux->second.pose.pose.position.z,
      * odom_aux->second.pose.pose.orientation.x, odom_aux->second.pose.pose.orientation.y, odom_aux->second.pose.pose.orientation.z,
      * odom_aux->second.pose.pose.orientation.w); */
     std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub.find(estimator.second->getName());
-
+  
     // Publish odom
     try {
       pub_odom_aux->second.publish(odom_aux->second);
@@ -3833,12 +3798,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
     }
-
+  
     // Get inverse trasnform
     tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
     geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
-
+  
     // publish TF
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
@@ -3846,8 +3811,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.child_frame_id        = odom_aux->second.header.frame_id;
     tf.transform.translation = pointToVector3(pose_inv.position);
     tf.transform.rotation    = pose_inv.orientation;
-
-
+  
+  
     if (noNans(tf)) {
       try {
         broadcaster_->sendTransform(tf);
@@ -3860,24 +3825,24 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
                         fcu_frame_id_.c_str());
     }
   }
-
+  
   // publish the static transform between utm and local gps origin
   if (gps_reliable) {
-
+  
     // publish TF
     geometry_msgs::TransformStamped tf;
-
+  
     tf.header.stamp            = ros::Time::now();
     tf.header.frame_id         = uav_name + "/gps_origin";
     tf.child_frame_id          = uav_name + "/utm_origin";
     tf.transform.translation.x = -utm_origin_x_;
     tf.transform.translation.y = -utm_origin_y_;
-
+  
     tf.transform.rotation.x = 0;
     tf.transform.rotation.y = 0;
     tf.transform.rotation.z = 0;
     tf.transform.rotation.w = 1;
-
+  
     if (noNans(tf)) {
       try {
         broadcaster_->sendTransform(tf);
@@ -3887,15 +3852,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
   }
-
+  
   // Loop through each heading estimator
   for (auto &estimator : m_heading_estimators) {
-
+  
     mrs_msgs::Float64ArrayStamped heading_aux;
-
+  
     heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = time_now;
-
+  
     Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(heading_n, 1);
     // update the altitude state
     {
@@ -3905,15 +3870,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         return;
       }
     }
-
+  
     current_heading(0) = mrs_odometry::wrapAngle(current_heading(0));
-
+  
     for (int i = 0; i < current_heading.rows(); i++) {
       heading_aux.values.push_back(current_heading(i));
     }
-
+  
     std::map<std::string, ros::Publisher>::iterator pub_hdg_aux = map_hdg_estimator_pub.find(estimator.second->getName());
-
+  
     try {
       pub_hdg_aux->second.publish(heading_aux);
     }
@@ -3922,6 +3887,46 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
   ROS_INFO_ONCE("[Odometry]: Publishing auxiliary odometry");
+  
+  //}
+
+    /* publish stable odometry //{ */
+
+    // ver1
+    nav_msgs::Odometry odom_stable_tmp;
+    odom_stable_tmp = odom_main;
+
+    /* odom_stable_tmp.header.frame_id = stable_origin_frame_id_; */
+    /* tf2::Vector3 v; */
+    /* tf2::fromMsg(odom_main.pose.pose.position, v); */
+    /* v = v - odom_stable_pos_offset_; */
+    /* tf2::toMsg(v, odom_stable_tmp.pose.pose.position); */
+
+    /* tf2::Quaternion q; */
+    /* tf2::fromMsg(odom_main.pose.pose.orientation, q); */
+    /* q                                     = odom_stable_rot_offset_.inverse() * q; */
+    /* odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q); */
+
+    // ver2
+    try {
+      const ros::Duration             timeout(1.0 / 100.0);
+      geometry_msgs::TransformStamped stable_tf = m_tf_buffer.lookupTransform(first_frame_, odom_main.header.frame_id, odom_main.header.stamp, timeout);
+      tf2::doTransform(odom_stable_tmp.pose.pose.position, odom_stable_tmp.pose.pose.position, stable_tf);
+      tf2::doTransform(odom_stable_tmp.pose.pose.orientation, odom_stable_tmp.pose.pose.orientation, stable_tf);
+      odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_WARN_THROTTLE(1.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", odom_main.header.frame_id.c_str(), (first_frame_).c_str(),
+                        ex.what());
+    }
+    try {
+      pub_odom_stable_.publish(odom_stable_tmp);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+    }
+
+    //}
 
   ros::Time t_end = ros::Time::now();
   ROS_DEBUG("[Odometry]: mainTimer took: %.6f s.", (t_end - t_start).toSec());
