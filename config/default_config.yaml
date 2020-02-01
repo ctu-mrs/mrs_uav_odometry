@@ -174,7 +174,7 @@ lateral:
   brick_pos_filter_max_valid: 8.0
   brick_pos_filter_max_diff: 3.0
 
-  brick_timeout: 2.0 # [s] timeout until fallback from BRICK after loosing detections
+  brick_timeout: 0.5 # [s] timeout until fallback from BRICK after loosing detections
 
   # Covariances of measurements
   Q:
