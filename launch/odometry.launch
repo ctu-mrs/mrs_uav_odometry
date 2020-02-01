@@ -127,6 +127,7 @@
       <remap from="~uav_state_out" to="~uav_state" />
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_main_inno_out" to="~odom_main_innovation" />
+      <remap from="~odom_local_out" to="~odom_local" />
       <remap from="~odom_stable_out" to="~odom_stable" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
