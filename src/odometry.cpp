@@ -10496,6 +10496,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to non-active state estimator %s", target_estimator.name.c_str());
+    is_updating_state_ = false;
     return false;
   }
 
