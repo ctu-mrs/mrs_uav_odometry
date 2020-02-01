@@ -672,7 +672,6 @@ private:
   bool got_target_attitude  = false;
   bool got_vio              = false;
   bool got_vslam            = false;
-  bool got_brick            = false;
   bool got_altitude_sensors = false;
   bool got_lateral_sensors  = false;
   bool got_rtk_fix          = false;
@@ -8901,7 +8900,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   } else if (std::strcmp(type.c_str(), "BRICK") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::BRICK;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::BRICK;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::BRICK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::PLANE;
   } else if (std::strcmp(type.c_str(), "T265") == 0) {
     desired_estimator.type     = mrs_msgs::EstimatorType::T265;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
@@ -10637,7 +10636,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       return false;
     }
 
-    if (!got_brick && is_ready_to_takeoff) {
+    if (!got_brick_pose && is_ready_to_takeoff) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. No new brick msgs received.");
       return false;
     }
