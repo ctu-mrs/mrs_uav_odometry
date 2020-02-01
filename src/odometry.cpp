@@ -61,6 +61,7 @@
 #include <mrs_lib/GpsConversions.h>
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/transformer.h>
 
 #include <types.h>
 #include <support.h>
@@ -223,6 +224,7 @@ private:
   tf2_ros::TransformBroadcaster *             broadcaster_;
   tf2_ros::Buffer                             m_tf_buffer;
   std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
+  mrs_lib::Transformer                        transformer_;
 
   dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
   dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
@@ -1775,6 +1777,7 @@ void Odometry::onInit() {
   // |                         tf listener                        |
   // --------------------------------------------------------------
   m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
+  transformer_       = mrs_lib::Transformer("Odometry", uav_name);
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
@@ -3868,61 +3871,57 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   nav_msgs::Odometry odom_stable_tmp;
   odom_stable_tmp = odom_main;
 
-  /* odom_stable_tmp.header.frame_id = stable_origin_frame_id_; */
-  /* tf2::Vector3 v; */
-  /* tf2::fromMsg(odom_main.pose.pose.position, v); */
-  /* v = v - odom_stable_pos_offset_; */
-  /* tf2::toMsg(v, odom_stable_tmp.pose.pose.position); */
+  bool                      got_stable = false;
 
-  /* tf2::Quaternion q; */
-  /* tf2::fromMsg(odom_main.pose.pose.orientation, q); */
-  /* q                                     = odom_stable_rot_offset_.inverse() * q; */
-  /* odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q); */
+  geometry_msgs::PoseStamped pose_tmp;
+  pose_tmp.header = odom_main.header;
+  pose_tmp.pose = odom_main.pose.pose;
+  auto response = transformer_.transformSingle(first_frame_, pose_tmp);
+  if (response) {
+    got_stable                = true;
+    odom_stable_tmp.pose.pose = response.value().pose;
+  } else {
+    got_stable = false;
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pose_tmp.header.frame_id.c_str(), first_frame_.c_str());
+  }
+  odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
 
-  // ver2
-  try {
-    const ros::Duration             timeout(1.0 / 100.0);
-    geometry_msgs::TransformStamped stable_tf = m_tf_buffer.lookupTransform(first_frame_, odom_main.header.frame_id, odom_main.header.stamp, timeout);
-    tf2::doTransform(odom_stable_tmp.pose.pose.position, odom_stable_tmp.pose.pose.position, stable_tf);
-    tf2::doTransform(odom_stable_tmp.pose.pose.orientation, odom_stable_tmp.pose.pose.orientation, stable_tf);
-    odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN_THROTTLE(1.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", odom_main.header.frame_id.c_str(), (first_frame_).c_str(),
-                      ex.what());
-  }
-  try {
-    pub_odom_stable_.publish(odom_stable_tmp);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+  if (got_stable) {
+    try {
+      pub_odom_stable_.publish(odom_stable_tmp);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
+    }
   }
 
   //}
 
   /* publish stable origin tf //{ */
 
-  // Get inverse trasnform
-  tf2::Transform tf_stable_inv        = mrs_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
-  tf_stable_inv                       = tf_stable_inv.inverse();
-  geometry_msgs::Pose pose_stable_inv = mrs_odometry::poseFromTf2(tf_stable_inv);
+  if (got_stable) {
+    // Get inverse trasnform
+    tf2::Transform tf_stable_inv        = mrs_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
+    tf_stable_inv                       = tf_stable_inv.inverse();
+    geometry_msgs::Pose pose_stable_inv = mrs_odometry::poseFromTf2(tf_stable_inv);
 
-  geometry_msgs::TransformStamped tf_stable;
-  tf_stable.header.stamp          = ros::Time::now();
-  tf_stable.header.frame_id       = fcu_frame_id_;
-  tf_stable.child_frame_id        = stable_origin_frame_id_;
-  tf_stable.transform.translation = mrs_odometry::pointToVector3(pose_stable_inv.position);
-  tf_stable.transform.rotation    = pose_stable_inv.orientation;
-  if (noNans(tf_stable)) {
-    try {
-      broadcaster_->sendTransform(tf_stable);
+    geometry_msgs::TransformStamped tf_stable;
+    tf_stable.header.stamp          = ros::Time::now();
+    tf_stable.header.frame_id       = fcu_frame_id_;
+    tf_stable.child_frame_id        = stable_origin_frame_id_;
+    tf_stable.transform.translation = mrs_odometry::pointToVector3(pose_stable_inv.position);
+    tf_stable.transform.rotation    = pose_stable_inv.orientation;
+    if (noNans(tf_stable)) {
+      try {
+        broadcaster_->sendTransform(tf_stable);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str());
+      }
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf_stable.header.frame_id.c_str(),
+                        tf_stable.child_frame_id.c_str());
     }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_stable.child_frame_id.c_str(), tf_stable.header.frame_id.c_str());
-    }
-  } else {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf_stable.header.frame_id.c_str(),
-                      tf_stable.child_frame_id.c_str());
   }
 
   //}
