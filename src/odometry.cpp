@@ -492,6 +492,7 @@ private:
   std::string stable_origin_frame_id_;
   std::string last_stable_name_;
   std::string last_local_name_;
+  std::string first_frame_;
 
   bool   got_init_heading = false;
   double m_init_heading;
@@ -3278,6 +3279,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // initialize stable odometry
     odom_stable       = odom_main;
     last_stable_name_ = odom_main.header.frame_id;
+    first_frame_      = odom_main.header.frame_id;
 
     // initialize offset of stable_origin
     odom_stable_pos_offset_.setX(0.0);
@@ -3586,19 +3588,33 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish stable odometry //{ */
 
+    // ver1
     nav_msgs::Odometry odom_stable_tmp;
-    odom_stable_tmp                 = odom_main;
-    odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
-    tf2::Vector3 v;
-    tf2::fromMsg(odom_main.pose.pose.position, v);
-    v = v - odom_stable_pos_offset_;
-    tf2::toMsg(v, odom_stable_tmp.pose.pose.position);
+    odom_stable_tmp = odom_main;
 
-    tf2::Quaternion q;
-    tf2::fromMsg(odom_main.pose.pose.orientation, q);
-    q                                     = odom_stable_rot_offset_.inverse() * q;
-    odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q);
+    /* odom_stable_tmp.header.frame_id = stable_origin_frame_id_; */
+    /* tf2::Vector3 v; */
+    /* tf2::fromMsg(odom_main.pose.pose.position, v); */
+    /* v = v - odom_stable_pos_offset_; */
+    /* tf2::toMsg(v, odom_stable_tmp.pose.pose.position); */
 
+    /* tf2::Quaternion q; */
+    /* tf2::fromMsg(odom_main.pose.pose.orientation, q); */
+    /* q                                     = odom_stable_rot_offset_.inverse() * q; */
+    /* odom_stable_tmp.pose.pose.orientation = tf2::toMsg(q); */
+
+    // ver2
+    try {
+      const ros::Duration             timeout(1.0 / 100.0);
+      geometry_msgs::TransformStamped stable_tf = m_tf_buffer.lookupTransform(first_frame_, odom_main.header.frame_id, odom_main.header.stamp, timeout);
+      tf2::doTransform(odom_stable_tmp.pose.pose.position, odom_stable_tmp.pose.pose.position, stable_tf);
+      tf2::doTransform(odom_stable_tmp.pose.pose.orientation, odom_stable_tmp.pose.pose.orientation, stable_tf);
+      odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", odom_main.header.frame_id.c_str(), (first_frame_).c_str(),
+                        ex.what());
+    }
     try {
       pub_odom_stable_.publish(odom_stable_tmp);
     }
