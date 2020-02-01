@@ -8350,7 +8350,7 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
   }
   ROS_INFO_THROTTLE(
       10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d",
-      (ros::Time::now() - t_start).toSec(), current_estimator_name.c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
+      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
       max_altitude, mavros_diag.gps.satellites_visible);
 }
 //}
