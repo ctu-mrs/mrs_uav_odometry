@@ -824,6 +824,7 @@ private:
   double max_brick_yaw_correction_;
   double max_rtk_pos_correction;
   double _max_t265_vel;
+  double max_safe_brick_jump_;
 
   int                           lateral_n, lateral_m, lateral_p;
   LatMat                        A_lat, R_lat;
@@ -1760,6 +1761,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_brick_pos_correction", max_brick_pos_correction);
   param_loader.load_param("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
   param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
+  param_loader.load_param("lateral/max_safe_brick_jump", max_safe_brick_jump_);
 
   if (pass_rtk_as_odom && !_rtk_available) {
     ROS_ERROR("[Odometry]: cannot have pass_rtk_as_odom TRUE when rtk_available FALSE");
@@ -6912,9 +6914,14 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     /*   return; */
     /* } */
 
-    if (std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2) > 10 ||
-        std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2) > 10) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump detected in brick pose. Not reliable.");
+    double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
+    if (diff_x > max_safe_brick_jump_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", diff_x, max_safe_brick_jump_);
+      brick_reliable = false;
+    }
+    double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
+    if (diff_y > max_safe_brick_jump_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_);
       brick_reliable = false;
     }
   }
@@ -6998,25 +7005,25 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   // Saturate correction
   double yaw_brick_sat = yaw_brick;
-  for (auto &estimator : m_heading_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
-      Eigen::VectorXd hdg(1);
-      estimator.second->getState(0, hdg);
+  /* for (auto &estimator : m_heading_estimators) { */
+  /*   if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) { */
+  /*     Eigen::VectorXd hdg(1); */
+  /*     estimator.second->getState(0, hdg); */
 
-      // Heading
-      if (!std::isfinite(yaw_brick)) {
-        yaw_brick = 0;
-        ROS_ERROR("[Odometry]: NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!");
-        return;
-      } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_);
-        yaw_brick_sat = hdg(0) + max_brick_yaw_correction_;
-      } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_);
-        yaw_brick_sat = hdg(0) - max_brick_yaw_correction_;
-      }
-    }
-  }
+  /*     // Heading */
+  /*     if (!std::isfinite(yaw_brick)) { */
+  /*       yaw_brick = 0; */
+  /*       ROS_ERROR("[Odometry]: NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!"); */
+  /*       return; */
+  /*     } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) { */
+  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_); */
+  /*       yaw_brick_sat = hdg(0) + max_brick_yaw_correction_; */
+  /*     } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) { */
+  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_); */
+  /*       yaw_brick_sat = hdg(0) - max_brick_yaw_correction_; */
+  /*     } */
+  /*   } */
+  /* } */
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
