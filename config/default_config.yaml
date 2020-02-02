@@ -279,7 +279,7 @@ heading:
   vio_yaw_filter_max_diff: deg(10)
 
   brick_yaw_median_filter: true
-  brick_yaw_filter_buffer_size: 100
+  brick_yaw_filter_buffer_size: 200
   brick_yaw_filter_max_diff: deg(10)
   max_brick_yaw_correction: deg(1)
   accum_yaw_brick_alpha: 0.1
@@ -304,7 +304,7 @@ heading:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_aloam: [0.1]
-    yaw_brick: [1]
+    yaw_brick: [10]
     yaw_vio: [100] #100
     yaw_vslam: [1]
     yaw_lidar: [1]

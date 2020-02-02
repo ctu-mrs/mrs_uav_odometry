@@ -6998,25 +6998,25 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   // Saturate correction
   double yaw_brick_sat = yaw_brick;
-  /* for (auto &estimator : m_heading_estimators) { */
-  /*   if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) { */
-  /*     Eigen::VectorXd hdg(1); */
-  /*     estimator.second->getState(0, hdg); */
+  for (auto &estimator : m_heading_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+      Eigen::VectorXd hdg(1);
+      estimator.second->getState(0, hdg);
 
-  /*     // Heading */
-  /*     if (!std::isfinite(yaw_brick)) { */
-  /*       yaw_brick = 0; */
-  /*       ROS_ERROR("[Odometry]: NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!"); */
-  /*       return; */
-  /*     } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) { */
-  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_); */
-  /*       yaw_brick_sat = hdg(0) + max_brick_yaw_correction_; */
-  /*     } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) { */
-  /*       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_); */
-  /*       yaw_brick_sat = hdg(0) - max_brick_yaw_correction_; */
-  /*     } */
-  /*   } */
-  /* } */
+      // Heading
+      if (!std::isfinite(yaw_brick)) {
+        yaw_brick = 0;
+        ROS_ERROR("[Odometry]: NaN detected in variable \"yaw_brick\", setting it to 0 and returning!!!");
+        return;
+      } else if (yaw_brick - hdg(0) > max_brick_yaw_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), max_brick_yaw_correction_);
+        yaw_brick_sat = hdg(0) + max_brick_yaw_correction_;
+      } else if (yaw_brick - hdg(0) < -max_brick_yaw_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating brick hdg correction %f -> %f", yaw_brick - hdg(0), -max_brick_yaw_correction_);
+        yaw_brick_sat = hdg(0) - max_brick_yaw_correction_;
+      }
+    }
+  }
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
@@ -7032,7 +7032,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
 
   //////////////////// Filter out brick height measurement ////////////////////
-  // do not fuse plane measurements when a height jump is detected - most likely the UAV is flying above an obstacle
+  // do not fuse brick height measurements when a height jump is detected - most likely the UAV is flying above an obstacle
 
   double measurement       = brick_pose.pose.position.z;
   bool   fuse_brick_height = true;
