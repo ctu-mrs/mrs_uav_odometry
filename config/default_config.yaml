@@ -117,7 +117,7 @@ altitude:
     height_range: [1000] # 0.04 stddev in simulation
     height_sonar: [1]
     height_plane: [100] 
-    height_brick: [100] 
+    height_brick: [10] 
     height_vio: [1] 
     height_aloam: [1] 
     height_baro: [1] 
@@ -191,7 +191,7 @@ lateral:
     vel_vio: [10] #10
     pos_object: [100]
     vel_object: [10000]
-    pos_brick: [1000]
+    pos_brick: [100]
     vel_brick: [100]
     pos_hector: [1000]
     pos_aloam: [10]
