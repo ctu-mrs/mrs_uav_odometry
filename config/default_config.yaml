@@ -140,6 +140,7 @@ lateral:
   max_vslam_pos_correction: 0.2
   max_t265_vel: 10.0
   rtk_fuse_sps: true
+  max_safe_brick_jump: 0.5
 
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 1
