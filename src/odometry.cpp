@@ -5554,8 +5554,10 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   if (!is_initialized)
     return;
 
-  if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying()))
+  if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying())) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow regular.");
     return;
+}
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
 
@@ -5582,6 +5584,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   }
 
   if (!got_range) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optic flow. No range msgs.");
     return;
   }
 
@@ -5786,8 +5789,10 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   if (!is_initialized)
     return;
 
-  if (isUavFlying() && !isUavLandoff())
+  if (isUavFlying() && !isUavLandoff()) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow low.");
     return;
+  }
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwistLow");
 
@@ -5964,7 +5969,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTLOW low");
+  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTFLOW low");
 }
 
 //}
