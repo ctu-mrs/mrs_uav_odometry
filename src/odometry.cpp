@@ -54,6 +54,7 @@
 #include <mrs_msgs/HeadingType.h>
 #include <mrs_msgs/EstimatedState.h>
 #include <mrs_msgs/UavState.h>
+#include <mrs_msgs/AttitudeCommand.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -192,7 +193,7 @@ private:
   ros::Subscriber sub_hector_pose_;
   ros::Subscriber sub_aloam_odom_;
   ros::Subscriber sub_brick_pose_;
-  ros::Subscriber sub_des_attitude_;
+  ros::Subscriber sub_attitude_command_;
   ros::Subscriber sub_ground_truth_;
   ros::Subscriber sub_mavros_diagnostic_;
   ros::Subscriber sub_vio_state_;
@@ -394,10 +395,10 @@ private:
   std::mutex mutex_uav_mass_estimate;
 
   // Target attitude msgs
-  mavros_msgs::AttitudeTarget target_attitude;
-  mavros_msgs::AttitudeTarget des_attitude_previous;
-  ros::Time                   des_attitude_last_update;
-  std::mutex                  mutex_target_attitude;
+  mrs_msgs::AttitudeCommand attitude_command_;
+  mrs_msgs::AttitudeCommand attitude_command_prev_;
+  ros::Time                 attitude_command_last_update_;
+  std::mutex                mutex_attitude_command_;
 
   std::mutex       mutex_rtk;
   mrs_msgs::RtkGps rtk_odom_previous;
@@ -517,7 +518,7 @@ private:
   void callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
-  void callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg);
+  void callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
@@ -672,7 +673,7 @@ private:
   bool got_hector_pose      = false;
   bool got_aloam_odom       = false;
   bool got_brick_pose       = false;
-  bool got_target_attitude  = false;
+  bool got_attitude_command  = false;
   bool got_vio              = false;
   bool got_vslam            = false;
   bool got_altitude_sensors = false;
@@ -1779,7 +1780,7 @@ void Odometry::onInit() {
   // |                         tf listener                        |
   // --------------------------------------------------------------
   m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
-  transformer_       = mrs_lib::Transformer("Odometry", uav_name);
+  transformer_      = mrs_lib::Transformer("Odometry", uav_name);
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
@@ -1855,7 +1856,7 @@ void Odometry::onInit() {
 
   /* //{ subscribers */
   // subsribe to target attitude
-  sub_des_attitude_ = nh_.subscribe("target_attitude_in", 1, &Odometry::callbackTargetAttitude, this, ros::TransportHints().tcpNoDelay());
+  sub_attitude_command_ = nh_.subscribe("attitude_command_in", 1, &Odometry::callbackAttitudeCommand, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to pixhawk imu
   sub_pixhawk_imu_ = nh_.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
@@ -2392,7 +2393,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /* heading estimator prediction //{ */
 
   // set target attitude input to filters to zero when not receiving target attitude msgs
-  if (!got_target_attitude) {
+  if (!got_attitude_command) {
     des_yaw_      = init_pose_yaw;
     des_yaw_rate_ = 0.0;
     setRPY(0, 0, init_pose_yaw, des_attitude_);
@@ -2404,7 +2405,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::Quaternion des_attitude;
 
   {
-    std::scoped_lock lock(mutex_target_attitude);
+    std::scoped_lock lock(mutex_attitude_command_);
 
     des_yaw      = des_yaw_;
     des_yaw_rate = des_yaw_rate_;
@@ -3873,12 +3874,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   nav_msgs::Odometry odom_stable_tmp;
   odom_stable_tmp = odom_main;
 
-  bool                      got_stable = false;
+  bool got_stable = false;
 
   geometry_msgs::PoseStamped pose_tmp;
   pose_tmp.header = odom_main.header;
-  pose_tmp.pose = odom_main.pose.pose;
-  auto response = transformer_.transformSingle(first_frame_, pose_tmp);
+  pose_tmp.pose   = odom_main.pose.pose;
+  auto response   = transformer_.transformSingle(first_frame_, pose_tmp);
   if (response) {
     got_stable                = true;
     odom_stable_tmp.pose.pose = response.value().pose;
@@ -4396,11 +4397,11 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   }
 
   //  target attitude (input to lateral kf)
-  interval = ros::Time::now() - des_attitude_last_update;
-  if (got_target_attitude && interval.toSec() > 0.1) {
-    ROS_WARN("[Odometry]: Target attitude not received for %f seconds.", interval.toSec());
-    if (got_target_attitude && interval.toSec() > 1.0) {
-      got_target_attitude = false;
+  interval = ros::Time::now() - attitude_command_last_update_;
+  if (got_attitude_command && interval.toSec() > 0.1) {
+    ROS_WARN("[Odometry]: Attitude command not received for %f seconds.", interval.toSec());
+    if (got_attitude_command && interval.toSec() > 1.0) {
+      got_attitude_command = false;
     }
   }
 
@@ -4600,30 +4601,30 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
 // | ------------------ subscriber callbacks ------------------ |
 
-/* //{ callbackTargetAttitude() */
-void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr &msg) {
+/* //{ callbackAttitudeCommand() */
+void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg) {
 
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTargetAttitude");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAttitudeCommand");
 
   {
-    std::scoped_lock lock(mutex_target_attitude);
+    std::scoped_lock lock(mutex_attitude_command_);
 
-    if (got_target_attitude) {
+    if (got_attitude_command) {
 
-      des_attitude_previous        = target_attitude;
-      target_attitude              = *msg;
-      target_attitude.header.stamp = ros::Time::now();  // why?
+      attitude_command_prev_        = attitude_command_;
+      attitude_command_              = *msg;
+      attitude_command_.header.stamp = ros::Time::now();  // why?
 
     } else {
 
-      target_attitude              = *msg;
-      target_attitude.header.stamp = ros::Time::now();  // why?
-      des_attitude_previous        = target_attitude;
+      attitude_command_              = *msg;
+      attitude_command_.header.stamp = ros::Time::now();  // why?
+      attitude_command_prev_ = attitude_command_;
 
-      got_target_attitude = true;
+      got_attitude_command = true;
       return;
     }
   }
@@ -4632,11 +4633,11 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  des_attitude_last_update = ros::Time::now();
+  attitude_command_last_update_ = ros::Time::now();
 
   {
-    std::scoped_lock lock(mutex_target_attitude);
-    if (!isTimestampOK(target_attitude.header.stamp.toSec(), des_attitude_previous.header.stamp.toSec())) {
+    std::scoped_lock lock(mutex_attitude_command_);
+    if (!isTimestampOK(attitude_command_.header.stamp.toSec(), attitude_command_prev_.header.stamp.toSec())) {
       ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Target attitude timestamp not OK, skipping prediction of lateral estimators.");
       return;
     }
@@ -4649,13 +4650,13 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   geometry_msgs::Quaternion attitude;
 
   {
-    std::scoped_lock lock(mutex_target_attitude);
+    std::scoped_lock lock(mutex_attitude_command_);
 
-    des_attitude_ = target_attitude.orientation;
+    des_attitude_ = attitude_command_.quater_attitude;
 
-    dt = (target_attitude.header.stamp - des_attitude_previous.header.stamp).toSec();
+    dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
   }
-  /* getGlobalRot(target_attitude.orientation, rot_x, rot_y, rot_z); */
+  /* getGlobalRot(attitude_command.orientation, rot_x, rot_y, rot_z); */
 
   /* double hdg = getCurrentHeading(); */
 
@@ -4664,8 +4665,8 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
   // For model testing
   /* { getGlobalRot(ground_truth.pose.pose.orientation, rot_x, rot_y, rot_z); } */
   /* { */
-  /*   std::scoped_lock lock(mutex_target_attitude); */
-  /*   des_attitude_global.header = target_attitude.header; */
+  /*   std::scoped_lock lock(mutex_attitude_command); */
+  /*   des_attitude_global.header = attitude_command.header; */
   /* } */
   /* des_attitude_global.vector.x = rot_x; */
   /* des_attitude_global.vector.y = rot_y; */
@@ -4710,9 +4711,9 @@ void Odometry::callbackTargetAttitude(const mavros_msgs::AttitudeTargetConstPtr 
     return;
   }
   {
-    std::scoped_lock lock(mutex_target_attitude);
-    des_yaw_rate_ = target_attitude.body_rate.z;
-    des_yaw_      = mrs_odometry::getYaw(target_attitude.orientation);
+    std::scoped_lock lock(mutex_attitude_command_);
+    des_yaw_rate_ = attitude_command_.attitude_rate.z;
+    des_yaw_      = mrs_odometry::getYaw(attitude_command_.quater_attitude);
 
     if (!std::isfinite(des_yaw_rate_)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
