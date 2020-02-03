@@ -108,7 +108,7 @@ altitude:
       0.1]
 
   # Process covariance
-  R: [1, 1, 0,
+  R: [1, 0.1, 0,
       0, 1, 0,
       0, 0, 10]
 
