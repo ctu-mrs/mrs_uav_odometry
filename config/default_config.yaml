@@ -282,7 +282,7 @@ heading:
   brick_yaw_median_filter: true
   brick_yaw_filter_buffer_size: 200
   brick_yaw_filter_max_diff: deg(10)
-  max_brick_yaw_correction: deg(1)
+  max_brick_yaw_correction: deg(5)
   accum_yaw_brick_alpha: 0.1
 
   # The system matrix 

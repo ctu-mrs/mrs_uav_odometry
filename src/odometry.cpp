@@ -6923,6 +6923,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
     if (diff_y > max_safe_brick_jump_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_);
+    double   dt = (brick_pose.header.stamp - brick_pose_previous.header.stamp).toSec();
+
+    if (dt < 0.0001) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: received the same brick pose msg. returning");
+      return;
+    }
       brick_reliable = false;
     }
   }
