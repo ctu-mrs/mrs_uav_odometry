@@ -6993,6 +6993,55 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     return;
   }
 
+  /* brick estimator reset //{ */
+  
+  if (brick_pose.pose.position.z == -1.0) {
+    ROS_INFO("[Odometry]: Detected -1.0 in Z position of brick pose msg. Starting BRICK estimator reset.");
+  
+  LatState2D states;
+  bool       success = false;
+  
+  states(0, 0) = brick_pose.pose.position.x;
+  states(1, 0) = 0.0;
+  states(2, 0) = 0.0;
+  states(3, 0) = 0.0;
+  states(4, 0) = 0.0;
+  states(5, 0) = 0.0;
+  states(0, 1) = brick_pose.pose.position.y;
+  states(2, 1) = 0.0;
+  states(3, 1) = 0.0;
+  states(4, 1) = 0.0;
+  states(5, 1) = 0.0;
+  
+  for (auto &estimator : m_state_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+        success = estimator.second->reset(states);
+    }
+  }
+  
+  Eigen::MatrixXd hdg_states = Eigen::MatrixXd::Zero(3,1);
+  states(0, 0) = getYaw(brick_pose.pose.orientation);
+
+  if (success) {
+  for (auto &estimator : m_heading_estimators) {
+    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+        success &= estimator.second->reset(hdg_states);
+    }
+  }
+  }
+  if (success) {
+    ROS_INFO("[Odometry]: BRICK estimator reset finished. New position: x: %f y: %f, yaw: %f", states(0,0), states(0,1), hdg_states(0,0));
+    estimator_iteration_++;
+  } else {
+    ROS_INFO("[Odometry]: Resetting BRICK estimator failed.");
+  }
+  ROS_INFO("[Odometry]: This msg triggered BRICK estimator reset. Not fusing brick pose this msg.");
+  return;
+  }
+  
+  //}
+  
+
   double r_tmp, p_tmp, yaw_tmp;
   {
     std::scoped_lock lock(mutex_brick);
@@ -7000,6 +7049,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   /* yaw_brick = -yaw_brick; */
+
 
   double yaw_brick = mrs_odometry::unwrapAngle(yaw_tmp, brick_yaw_previous);
   /* double yaw_brick   = mrs_odometry::disambiguateAngle(yaw_tmp, brick_yaw_previous); */
@@ -7032,6 +7082,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   /*   } */
   /* } */
 
+  if (std::isfinite(yaw_brick_sat)) {
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
 
@@ -7042,6 +7093,9 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   brick_yaw_out.header.frame_id = local_origin_frame_id_;
   brick_yaw_out.value           = yaw_brick_sat;
   pub_brick_yaw_.publish(brick_yaw_out);
+  } else {
+  ROS_WARN("[Odometry]: nan in brick yaw");
+  }
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
 
