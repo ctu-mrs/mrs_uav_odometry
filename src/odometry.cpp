@@ -4661,6 +4661,17 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
     dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
   }
+
+    if (!std::isfinite(des_attitude_.x) || !std::isfinite(des_attitude_.y) || !std::isfinite(des_attitude_.z) || !std::isfinite(des_attitude_.w)) {
+      ROS_ERROR("NaN detected in variable \"des_attitude_\"!!!");
+      return;
+    }
+
+    if (des_attitude_.x == 0 && des_attitude_.y == 0 && des_attitude_.z == 0 && des_attitude_.w == 0) {
+      ROS_ERROR("Uninitialized quaternion in attitude command. Returning.");
+      return;
+    }
+
   /* getGlobalRot(attitude_command.orientation, rot_x, rot_y, rot_z); */
 
   /* double hdg = getCurrentHeading(); */
@@ -4704,14 +4715,14 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   if (!std::isfinite(dt)) {
     dt = 0;
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"dt\", setting it to 0 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in attitude cmd variable \"dt\", setting it to 0 and returning!!!");
     return;
   } else if (dt > 1) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Mavros variable \"dt\" > 1, setting it to 1 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Attitude cmd variable \"dt\" > 1, setting it to 1 and returning!!!");
     dt = 1;
     return;
   } else if (dt < 0) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Mavros variable \"dt\" < 0, setting it to 0 and returning!!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Attitude cmd variable \"dt\" < 0, setting it to 0 and returning!!!");
     dt = 0;
     return;
   }
