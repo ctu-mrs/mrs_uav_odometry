@@ -167,6 +167,7 @@ private:
   ros::Publisher pub_altitude_state_;
   ros::Publisher pub_alt_cov_;
   ros::Publisher pub_hector_reset_;
+  ros::Publisher pub_imu_untilted_;
 
   ros::Publisher pub_debug_optflow_filter;
   ros::Publisher pub_debug_icp_twist_filter;
@@ -491,6 +492,7 @@ private:
   std::string child_frame_id;
   std::mutex  mutex_odom_local;
   std::string fcu_frame_id_;
+  std::string fcu_untilted_frame_id_;
   std::string local_origin_frame_id_;
   std::string stable_origin_frame_id_;
   std::string last_stable_name_;
@@ -673,7 +675,7 @@ private:
   bool got_hector_pose      = false;
   bool got_aloam_odom       = false;
   bool got_brick_pose       = false;
-  bool got_attitude_command  = false;
+  bool got_attitude_command = false;
   bool got_vio              = false;
   bool got_vslam            = false;
   bool got_altitude_sensors = false;
@@ -960,8 +962,10 @@ void Odometry::onInit() {
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
+  // establish frame ids
   param_loader.load_param("uav_name", uav_name);
   fcu_frame_id_           = uav_name + "/fcu";
+  fcu_untilted_frame_id_  = uav_name + "/fcu_untilted";
   local_origin_frame_id_  = uav_name + "/local_origin";
   stable_origin_frame_id_ = uav_name + "/stable_origin";
   last_local_name_        = uav_name + "/null_origin";
@@ -1821,6 +1825,7 @@ void Odometry::onInit() {
   pub_altitude_state_      = nh_.advertise<mrs_msgs::EstimatedState>("altitude_state_out", 1);
   pub_alt_cov_             = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
   pub_debug_optflow_filter = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
+  pub_imu_untilted_        = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -4614,7 +4619,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
     if (got_attitude_command) {
 
-      attitude_command_prev_        = attitude_command_;
+      attitude_command_prev_         = attitude_command_;
       attitude_command_              = *msg;
       attitude_command_.header.stamp = ros::Time::now();  // why?
 
@@ -4622,7 +4627,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
       attitude_command_              = *msg;
       attitude_command_.header.stamp = ros::Time::now();  // why?
-      attitude_command_prev_ = attitude_command_;
+      attitude_command_prev_         = attitude_command_;
 
       got_attitude_command = true;
       return;
@@ -4831,7 +4836,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   geometry_msgs::TransformStamped tf;
   tf.header.stamp            = ros::Time::now();
   tf.header.frame_id         = fcu_frame_id_;
-  tf.child_frame_id          = fcu_frame_id_ + "_untilted";
+  tf.child_frame_id          = fcu_untilted_frame_id_;
   tf.transform.translation.x = 0.0;
   tf.transform.translation.y = 0.0;
   tf.transform.translation.z = 0.0;
@@ -5269,6 +5274,55 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     return;
   }
 
+  // transform imu accelerations to untilted frame
+  geometry_msgs::Vector3Stamped acc_untilted;
+  acc_untilted.vector = pixhawk_imu.linear_acceleration;
+  acc_untilted.header = pixhawk_imu.header;
+  acc_untilted.header.frame_id = fcu_frame_id_;
+  auto                   response_acc = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+  if (response_acc) {
+    acc_untilted = response_acc.value();
+  } else {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
+  }
+
+  // transform imu angular rates to untilted frame
+  geometry_msgs::Vector3Stamped ang_vel_untilted;
+  ang_vel_untilted.vector = pixhawk_imu.angular_velocity;
+  ang_vel_untilted.header = pixhawk_imu.header;
+  ang_vel_untilted.header.frame_id = fcu_frame_id_;
+  auto                   response_ang_vel = transformer_.transformSingle(fcu_untilted_frame_id_, ang_vel_untilted);
+  if (response_ang_vel) {
+    ang_vel_untilted = response_ang_vel.value();
+  } else {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
+  }
+
+  // transform imu attitude to untilted frame
+  geometry_msgs::QuaternionStamped attitude_untilted;
+  attitude_untilted.quaternion = pixhawk_imu.orientation;
+  attitude_untilted.header = pixhawk_imu.header;
+  attitude_untilted.header.frame_id = fcu_frame_id_;
+  auto                   response_attitude = transformer_.transformSingle(fcu_untilted_frame_id_, attitude_untilted);
+  if (response_attitude) {
+    attitude_untilted = response_attitude.value();
+  } else {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
+  }
+
+  sensor_msgs::Imu untilted_imu = pixhawk_imu;
+  untilted_imu.header = acc_untilted.header;
+  untilted_imu.linear_acceleration = acc_untilted.vector;
+  untilted_imu.angular_velocity = ang_vel_untilted.vector;
+  untilted_imu.orientation = attitude_untilted.quaternion;
+  
+  try {
+    pub_imu_untilted_.publish(untilted_imu);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_imu_untilted_.getTopic().c_str());
+  }
+
   //////////////////// Fuse Heading Kalman ////////////////////
 
   double yaw_rate;
@@ -5500,8 +5554,10 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   if (!is_initialized)
     return;
 
-  if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying()))
+  if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying())) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow regular.");
     return;
+}
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
 
@@ -5528,6 +5584,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   }
 
   if (!got_range) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optic flow. No range msgs.");
     return;
   }
 
@@ -5732,8 +5789,10 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   if (!is_initialized)
     return;
 
-  if (isUavFlying() && !isUavLandoff())
+  if (isUavFlying() && !isUavLandoff()) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow low.");
     return;
+  }
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwistLow");
 
@@ -5910,7 +5969,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTLOW low");
+  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTFLOW low");
 }
 
 //}

@@ -6,6 +6,10 @@ ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
 
+if [ "$#" == 0 ]; then
+  ESTIMATOR=gps
+fi
+
 if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow optic_flow.launch'
@@ -14,14 +18,14 @@ elif [ "$ESTIMATOR" == "hector" ]; then
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
 elif [ "$ESTIMATOR" == "icp" ]; then
   SENSORS="$SENSORS --enable-rplidar"
-  LAUNCH_NODES='waitForOdometry; roslaunch lidar_stabilization simulation.launch'
+  LAUNCH_NODES='waitForOdometry; roslaunch mrs_icp2d uav.launch'
 elif [ "$ESTIMATOR" == "lidar" ]; then
   SENSORS="$SENSORS --enable-velodyne"
   LAUNCH_NODES='waitForOdometry; roslaunch aloam_velodyne velodyne_odometry_simulation.launch'
 fi
 
 # following commands will be executed first, in each window
-pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0"
+pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0; export ROS_MASTER_URI=http://localhost:11311; export ROS_IP=127.0.0.1; export ODOMETRY_TYPE=$ESTIMATOR"
 
 # define commands
 # 'name' 'command'
@@ -38,7 +42,6 @@ input=(
 "
   'Localization' "waitForOdometry; $LAUNCH_NODES
 "
-  'ICP' "waitForOdometry; roslaunch mrs_icp2d uav.launch"
   "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
   'ChangeEstimator' "rosservice call /$UAV_NAME/odometry/change_estimator_type_string GPS"
@@ -52,10 +55,8 @@ input=(
   "
   'rviz_interface' "waitForOdometry; roslaunch mrs_rviz_interface mrs_rviz_interface.launch
 "
-  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
-  "
-  'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure
-  "
+  'Juggler' "waitForOdometry; roscd mrs_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml"
+  'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure"
   # 'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh rviz_rqt_juggler
   # "
   'Camera_follow' "waitForOdometry; gz camera -c gzclient_camera -f uav1
