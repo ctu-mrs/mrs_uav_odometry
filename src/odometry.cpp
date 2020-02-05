@@ -827,7 +827,7 @@ private:
   double max_brick_yaw_correction_;
   double max_rtk_pos_correction;
   double _max_t265_vel;
-  double max_safe_brick_jump_;
+  double max_safe_brick_jump_sq_;
 
   int                           lateral_n, lateral_m, lateral_p;
   LatMat                        A_lat, R_lat;
@@ -1766,7 +1766,9 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_brick_pos_correction", max_brick_pos_correction);
   param_loader.load_param("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
   param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
-  param_loader.load_param("lateral/max_safe_brick_jump", max_safe_brick_jump_);
+  double max_safe_brick_jump_tmp = 0.0;
+  param_loader.load_param("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
+  max_safe_brick_jump_sq_ = std::pow(max_safe_brick_jump_tmp, 2);
 
   if (pass_rtk_as_odom && !_rtk_available) {
     ROS_ERROR("[Odometry]: cannot have pass_rtk_as_odom TRUE when rtk_available FALSE");
@@ -6975,6 +6977,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       got_brick_pose = true;
       return;
     }
+  }
 
     /* if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) { */
     /*   counter_brick_id++; */
@@ -6986,22 +6989,21 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     /* } */
 
     double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
-    if (diff_x > max_safe_brick_jump_) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", diff_x, max_safe_brick_jump_);
+    if (diff_x > max_safe_brick_jump_sq_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", diff_x, max_safe_brick_jump_sq_);
       brick_reliable = false;
     }
     double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
-    if (diff_y > max_safe_brick_jump_) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_);
-    double   dt = (brick_pose.header.stamp - brick_pose_previous.header.stamp).toSec();
+    if (diff_y > max_safe_brick_jump_sq_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_sq_);
+      brick_reliable = false;
+    }
 
+    double   dt = (brick_pose.header.stamp - brick_pose_previous.header.stamp).toSec();
     if (dt < 0.0001) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: received the same brick pose msg. returning");
       return;
     }
-      brick_reliable = false;
-    }
-  }
 
   // brick times out after not being received for some time
   if (brick_reliable || brick_semi_reliable) {
@@ -7078,6 +7080,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   states(4, 0) = 0.0;
   states(5, 0) = 0.0;
   states(0, 1) = brick_pose.pose.position.y;
+  states(1, 1) = 0.0;
   states(2, 1) = 0.0;
   states(3, 1) = 0.0;
   states(4, 1) = 0.0;
@@ -7164,7 +7167,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   brick_yaw_out.value           = yaw_brick_sat;
   pub_brick_yaw_.publish(brick_yaw_out);
   } else {
-  ROS_WARN("[Odometry]: nan in brick yaw");
+  ROS_WARN("[Odometry]: NaN in brick yaw");
   }
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
