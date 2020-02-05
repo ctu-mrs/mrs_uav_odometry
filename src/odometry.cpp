@@ -2795,7 +2795,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       } else if (gps_reliable && got_odom_pixhawk) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
         desired_estimator.name = _heading_estimators_names[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to PIXHAWK type.");
@@ -4664,15 +4664,15 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
   }
 
-    if (!std::isfinite(des_attitude_.x) || !std::isfinite(des_attitude_.y) || !std::isfinite(des_attitude_.z) || !std::isfinite(des_attitude_.w)) {
-      ROS_ERROR("NaN detected in variable \"des_attitude_\"!!!");
-      return;
-    }
+  if (!std::isfinite(des_attitude_.x) || !std::isfinite(des_attitude_.y) || !std::isfinite(des_attitude_.z) || !std::isfinite(des_attitude_.w)) {
+    ROS_ERROR("NaN detected in variable \"des_attitude_\"!!!");
+    return;
+  }
 
-    if (des_attitude_.x == 0 && des_attitude_.y == 0 && des_attitude_.z == 0 && des_attitude_.w == 0) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Uninitialized quaternion in attitude command. Returning.");
-      return;
-    }
+  if (des_attitude_.x == 0 && des_attitude_.y == 0 && des_attitude_.z == 0 && des_attitude_.w == 0) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Uninitialized quaternion in attitude command. Returning.");
+    return;
+  }
 
   /* getGlobalRot(attitude_command.orientation, rot_x, rot_y, rot_z); */
 
@@ -5289,10 +5289,10 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   // transform imu accelerations to untilted frame
   geometry_msgs::Vector3Stamped acc_untilted;
-  acc_untilted.vector = pixhawk_imu.linear_acceleration;
-  acc_untilted.header = pixhawk_imu.header;
+  acc_untilted.vector          = pixhawk_imu.linear_acceleration;
+  acc_untilted.header          = pixhawk_imu.header;
   acc_untilted.header.frame_id = fcu_frame_id_;
-  auto                   response_acc = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+  auto response_acc            = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
   if (response_acc) {
     acc_untilted = response_acc.value();
   } else {
@@ -5301,10 +5301,10 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   // transform imu angular rates to untilted frame
   geometry_msgs::Vector3Stamped ang_vel_untilted;
-  ang_vel_untilted.vector = pixhawk_imu.angular_velocity;
-  ang_vel_untilted.header = pixhawk_imu.header;
+  ang_vel_untilted.vector          = pixhawk_imu.angular_velocity;
+  ang_vel_untilted.header          = pixhawk_imu.header;
   ang_vel_untilted.header.frame_id = fcu_frame_id_;
-  auto                   response_ang_vel = transformer_.transformSingle(fcu_untilted_frame_id_, ang_vel_untilted);
+  auto response_ang_vel            = transformer_.transformSingle(fcu_untilted_frame_id_, ang_vel_untilted);
   if (response_ang_vel) {
     ang_vel_untilted = response_ang_vel.value();
   } else {
@@ -5313,22 +5313,22 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   // transform imu attitude to untilted frame
   geometry_msgs::QuaternionStamped attitude_untilted;
-  attitude_untilted.quaternion = pixhawk_imu.orientation;
-  attitude_untilted.header = pixhawk_imu.header;
+  attitude_untilted.quaternion      = pixhawk_imu.orientation;
+  attitude_untilted.header          = pixhawk_imu.header;
   attitude_untilted.header.frame_id = fcu_frame_id_;
-  auto                   response_attitude = transformer_.transformSingle(fcu_untilted_frame_id_, attitude_untilted);
+  auto response_attitude            = transformer_.transformSingle(fcu_untilted_frame_id_, attitude_untilted);
   if (response_attitude) {
     attitude_untilted = response_attitude.value();
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
   }
 
-  sensor_msgs::Imu untilted_imu = pixhawk_imu;
-  untilted_imu.header = acc_untilted.header;
+  sensor_msgs::Imu untilted_imu    = pixhawk_imu;
+  untilted_imu.header              = acc_untilted.header;
   untilted_imu.linear_acceleration = acc_untilted.vector;
-  untilted_imu.angular_velocity = ang_vel_untilted.vector;
-  untilted_imu.orientation = attitude_untilted.quaternion;
-  
+  untilted_imu.angular_velocity    = ang_vel_untilted.vector;
+  untilted_imu.orientation         = attitude_untilted.quaternion;
+
   try {
     pub_imu_untilted_.publish(untilted_imu);
   }
@@ -5570,7 +5570,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying())) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optflow regular.");
     return;
-}
+  }
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
 
@@ -6979,31 +6979,31 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     }
   }
 
-    /* if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) { */
-    /*   counter_brick_id++; */
-    /*   brick_reliable = true; */
-    /* } else if (counter_odom_brick <= 10) { */
-    /*   counter_odom_brick++; */
-    /*   ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick); */
-    /*   return; */
-    /* } */
+  /* if (!brick_reliable && counter_odom_brick > 10 && counter_invalid_brick_pose <= 0) { */
+  /*   counter_brick_id++; */
+  /*   brick_reliable = true; */
+  /* } else if (counter_odom_brick <= 10) { */
+  /*   counter_odom_brick++; */
+  /*   ROS_INFO("[Odometry]: brick pose received: %d", counter_odom_brick); */
+  /*   return; */
+  /* } */
 
-    double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
-    if (diff_x > max_safe_brick_jump_sq_) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", diff_x, max_safe_brick_jump_sq_);
-      brick_reliable = false;
-    }
-    double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
-    if (diff_y > max_safe_brick_jump_sq_) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_sq_);
-      brick_reliable = false;
-    }
+  double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
+  if (diff_x > max_safe_brick_jump_sq_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", diff_x, max_safe_brick_jump_sq_);
+    brick_reliable = false;
+  }
+  double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
+  if (diff_y > max_safe_brick_jump_sq_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", diff_y, max_safe_brick_jump_sq_);
+    brick_reliable = false;
+  }
 
-    double   dt = (brick_pose.header.stamp - brick_pose_previous.header.stamp).toSec();
-    if (dt < 0.0001) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: received the same brick pose msg. returning");
-      return;
-    }
+  double dt = (brick_pose.header.stamp - brick_pose_previous.header.stamp).toSec();
+  if (dt < 0.0001) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: received the same brick pose msg. returning");
+    return;
+  }
 
   // brick times out after not being received for some time
   if (brick_reliable || brick_semi_reliable) {
@@ -7066,54 +7066,54 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   /* brick estimator reset //{ */
-  
+
   if (brick_pose.pose.position.z == -1.0) {
     ROS_INFO("[Odometry]: Detected -1.0 in Z position of brick pose msg. Starting BRICK estimator reset.");
-  
-  LatState2D states;
-  bool       success = false;
-  
-  states(0, 0) = brick_pose.pose.position.x;
-  states(1, 0) = 0.0;
-  states(2, 0) = 0.0;
-  states(3, 0) = 0.0;
-  states(4, 0) = 0.0;
-  states(5, 0) = 0.0;
-  states(0, 1) = brick_pose.pose.position.y;
-  states(1, 1) = 0.0;
-  states(2, 1) = 0.0;
-  states(3, 1) = 0.0;
-  states(4, 1) = 0.0;
-  states(5, 1) = 0.0;
-  
-  for (auto &estimator : m_state_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
-        success = estimator.second->reset(states);
-    }
-  }
-  
-  Eigen::MatrixXd hdg_states = Eigen::MatrixXd::Zero(3,1);
-  states(0, 0) = getYaw(brick_pose.pose.orientation);
 
-  if (success) {
-  for (auto &estimator : m_heading_estimators) {
-    if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
-        success &= estimator.second->reset(hdg_states);
+    LatState2D states;
+    bool       success = false;
+
+    states(0, 0) = brick_pose.pose.position.x;
+    states(1, 0) = 0.0;
+    states(2, 0) = 0.0;
+    states(3, 0) = 0.0;
+    states(4, 0) = 0.0;
+    states(5, 0) = 0.0;
+    states(0, 1) = brick_pose.pose.position.y;
+    states(1, 1) = 0.0;
+    states(2, 1) = 0.0;
+    states(3, 1) = 0.0;
+    states(4, 1) = 0.0;
+    states(5, 1) = 0.0;
+
+    for (auto &estimator : m_state_estimators) {
+      if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+        success = estimator.second->reset(states);
+      }
     }
+
+    Eigen::MatrixXd hdg_states = Eigen::MatrixXd::Zero(3, 1);
+    states(0, 0)               = getYaw(brick_pose.pose.orientation);
+
+    if (success) {
+      for (auto &estimator : m_heading_estimators) {
+        if (std::strcmp(estimator.first.c_str(), "BRICK") == 0) {
+          success &= estimator.second->reset(hdg_states);
+        }
+      }
+    }
+    if (success) {
+      ROS_INFO("[Odometry]: BRICK estimator reset finished. New position: x: %f y: %f, yaw: %f", states(0, 0), states(0, 1), hdg_states(0, 0));
+      estimator_iteration_++;
+    } else {
+      ROS_INFO("[Odometry]: Resetting BRICK estimator failed.");
+    }
+    ROS_INFO("[Odometry]: This msg triggered BRICK estimator reset. Not fusing brick pose this msg.");
+    return;
   }
-  }
-  if (success) {
-    ROS_INFO("[Odometry]: BRICK estimator reset finished. New position: x: %f y: %f, yaw: %f", states(0,0), states(0,1), hdg_states(0,0));
-    estimator_iteration_++;
-  } else {
-    ROS_INFO("[Odometry]: Resetting BRICK estimator failed.");
-  }
-  ROS_INFO("[Odometry]: This msg triggered BRICK estimator reset. Not fusing brick pose this msg.");
-  return;
-  }
-  
+
   //}
-  
+
 
   double r_tmp, p_tmp, yaw_tmp;
   {
@@ -7156,18 +7156,18 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   /* } */
 
   if (std::isfinite(yaw_brick_sat)) {
-  // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
+    // Apply correction step to all heading estimators
+    headingEstimatorsCorrection(yaw_brick_sat, "yaw_brick");
 
-  yaw_brick_sat = mrs_odometry::wrapAngle(yaw_brick_sat);
+    yaw_brick_sat = mrs_odometry::wrapAngle(yaw_brick_sat);
 
-  mrs_msgs::Float64Stamped brick_yaw_out;
-  brick_yaw_out.header.stamp    = ros::Time::now();
-  brick_yaw_out.header.frame_id = local_origin_frame_id_;
-  brick_yaw_out.value           = yaw_brick_sat;
-  pub_brick_yaw_.publish(brick_yaw_out);
+    mrs_msgs::Float64Stamped brick_yaw_out;
+    brick_yaw_out.header.stamp    = ros::Time::now();
+    brick_yaw_out.header.frame_id = local_origin_frame_id_;
+    brick_yaw_out.value           = yaw_brick_sat;
+    pub_brick_yaw_.publish(brick_yaw_out);
   } else {
-  ROS_WARN("[Odometry]: NaN in brick yaw");
+    ROS_WARN("[Odometry]: NaN in brick yaw");
   }
 
   ROS_WARN_ONCE("[Odometry]: Fusing yaw from brick pose");
@@ -7523,67 +7523,6 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     std::scoped_lock lock(mutex_hector);
 
     if (got_hector_pose) {
-      if (hector_reliable) {
-        // Detect jump since previous pose
-        if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
-            std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
-          ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
-
-          Vec2 pos_vec, vel_vec;
-          for (auto &estimator : m_state_estimators) {
-            if (isEqual(estimator.first.c_str(), "HECTOR")) {
-              estimator.second->getState(0, pos_vec);
-              estimator.second->getState(1, vel_vec);
-            }
-          }
-
-          /* for (auto &estimator : m_heading_estimators) { */
-          /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-          /*     Eigen::VectorXd tmp_hdg_offset(1); */
-          /*     estimator.second->getState(0, tmp_hdg_offset); */
-          /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
-          /*   } */
-          /* } */
-
-          /* Vec2 new_offset; */
-          /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
-          /* hector_offset_ += pos_vec; */
-          /* hector_vel_state_ = vel_vec; */
-          /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
-          hector_reliable = false;
-        }
-
-        if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
-          Vec2 vel_vec;
-          current_estimator->getState(1, vel_vec);
-          if (vel_vec(0) > 5 || vel_vec(1) > 5) {
-            ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
-
-            /* Vec2 pos_vec, vel_vec; */
-            /* for (auto &estimator : m_state_estimators) { */
-            /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-            /*     estimator.second->getState(0, pos_vec); */
-            /*     estimator.second->getState(1, vel_vec); */
-            /*   } */
-            /* } */
-
-            /* for (auto &estimator : m_heading_estimators) { */
-            /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-            /*   Eigen::VectorXd tmp_hdg_offset(1); */
-            /*   estimator.second->getState(0, tmp_hdg_offset); */
-            /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
-            /* } */
-            /* } */
-
-            /* Vec2 new_offset; */
-            /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
-            /* hector_offset_ += pos_vec; */
-            /* hector_vel_state_ =vel_vec; */
-            /* hector_offset_hdg_ += hector_yaw_previous; */
-            hector_reliable = false;
-          }
-        }
-      }
 
       hector_pose_previous = hector_pose;
       hector_pose          = *msg;
@@ -7597,6 +7536,71 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       got_hector_pose = true;
       return;
     }
+
+    if (hector_reliable) {
+      // Detect jump since previous pose
+      if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
+          std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
+        ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
+
+        hector_reliable = false;
+
+        Vec2 pos_vec, vel_vec;
+        for (auto &estimator : m_state_estimators) {
+          if (isEqual(estimator.first.c_str(), "HECTOR")) {
+            estimator.second->getState(0, pos_vec);
+            estimator.second->getState(1, vel_vec);
+          }
+        }
+
+        /* for (auto &estimator : m_heading_estimators) { */
+        /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+        /*     Eigen::VectorXd tmp_hdg_offset(1); */
+        /*     estimator.second->getState(0, tmp_hdg_offset); */
+        /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
+        /*   } */
+        /* } */
+
+        /* Vec2 new_offset; */
+        /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
+        /* hector_offset_ += pos_vec; */
+        /* hector_vel_state_ = vel_vec; */
+        /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
+        hector_reliable = false;
+      }
+
+      if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
+        Vec2 vel_vec;
+        current_estimator->getState(1, vel_vec);
+        if (vel_vec(0) > 5 || vel_vec(1) > 5) {
+          ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
+
+          /* Vec2 pos_vec, vel_vec; */
+          /* for (auto &estimator : m_state_estimators) { */
+          /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+          /*     estimator.second->getState(0, pos_vec); */
+          /*     estimator.second->getState(1, vel_vec); */
+          /*   } */
+          /* } */
+
+          /* for (auto &estimator : m_heading_estimators) { */
+          /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+          /*   Eigen::VectorXd tmp_hdg_offset(1); */
+          /*   estimator.second->getState(0, tmp_hdg_offset); */
+          /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
+          /* } */
+          /* } */
+
+          /* Vec2 new_offset; */
+          /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
+          /* hector_offset_ += pos_vec; */
+          /* hector_vel_state_ =vel_vec; */
+          /* hector_offset_hdg_ += hector_yaw_previous; */
+          hector_reliable = false;
+        }
+      }
+    }
+
 
     if (c_hector_msg_ < 100) {
       c_hector_msg_++;
