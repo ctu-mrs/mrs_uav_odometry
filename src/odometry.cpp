@@ -2795,7 +2795,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       } else if (gps_reliable && got_odom_pixhawk) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
         desired_estimator.name = _heading_estimators_names[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to PIXHAWK type.");
@@ -7500,67 +7500,6 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     std::scoped_lock lock(mutex_hector);
 
     if (got_hector_pose) {
-      if (hector_reliable) {
-        // Detect jump since previous pose
-        if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
-            std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
-          ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
-
-          Vec2 pos_vec, vel_vec;
-          for (auto &estimator : m_state_estimators) {
-            if (isEqual(estimator.first.c_str(), "HECTOR")) {
-              estimator.second->getState(0, pos_vec);
-              estimator.second->getState(1, vel_vec);
-            }
-          }
-
-          /* for (auto &estimator : m_heading_estimators) { */
-          /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-          /*     Eigen::VectorXd tmp_hdg_offset(1); */
-          /*     estimator.second->getState(0, tmp_hdg_offset); */
-          /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
-          /*   } */
-          /* } */
-
-          /* Vec2 new_offset; */
-          /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
-          /* hector_offset_ += pos_vec; */
-          /* hector_vel_state_ = vel_vec; */
-          /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
-          hector_reliable = false;
-        }
-
-        if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
-          Vec2 vel_vec;
-          current_estimator->getState(1, vel_vec);
-          if (vel_vec(0) > 5 || vel_vec(1) > 5) {
-            ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
-
-            /* Vec2 pos_vec, vel_vec; */
-            /* for (auto &estimator : m_state_estimators) { */
-            /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-            /*     estimator.second->getState(0, pos_vec); */
-            /*     estimator.second->getState(1, vel_vec); */
-            /*   } */
-            /* } */
-
-            /* for (auto &estimator : m_heading_estimators) { */
-            /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
-            /*   Eigen::VectorXd tmp_hdg_offset(1); */
-            /*   estimator.second->getState(0, tmp_hdg_offset); */
-            /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
-            /* } */
-            /* } */
-
-            /* Vec2 new_offset; */
-            /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
-            /* hector_offset_ += pos_vec; */
-            /* hector_vel_state_ =vel_vec; */
-            /* hector_offset_hdg_ += hector_yaw_previous; */
-            hector_reliable = false;
-          }
-        }
-      }
 
       hector_pose_previous = hector_pose;
       hector_pose          = *msg;
@@ -7574,6 +7513,71 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       got_hector_pose = true;
       return;
     }
+
+    if (hector_reliable) {
+      // Detect jump since previous pose
+      if (std::pow(hector_pose.pose.position.x - hector_pose_previous.pose.position.x, 2) > 4 ||
+          std::pow(hector_pose.pose.position.y - hector_pose_previous.pose.position.y, 2) > 4) {
+        ROS_WARN("[Odometry]: Jump detected in Hector Slam pose. Not reliable");
+
+        hector_reliable = false;
+
+        Vec2 pos_vec, vel_vec;
+        for (auto &estimator : m_state_estimators) {
+          if (isEqual(estimator.first.c_str(), "HECTOR")) {
+            estimator.second->getState(0, pos_vec);
+            estimator.second->getState(1, vel_vec);
+          }
+        }
+
+        /* for (auto &estimator : m_heading_estimators) { */
+        /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+        /*     Eigen::VectorXd tmp_hdg_offset(1); */
+        /*     estimator.second->getState(0, tmp_hdg_offset); */
+        /*     hector_offset_hdg_ += tmp_hdg_offset(0); */
+        /*   } */
+        /* } */
+
+        /* Vec2 new_offset; */
+        /* /1* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; *1/ */
+        /* hector_offset_ += pos_vec; */
+        /* hector_vel_state_ = vel_vec; */
+        /* /1* hector_offset_hdg_ += hector_yaw_previous; *1/ */
+        hector_reliable = false;
+      }
+
+      if (isEqual(current_estimator->getName().c_str(), "HECTOR")) {
+        Vec2 vel_vec;
+        current_estimator->getState(1, vel_vec);
+        if (vel_vec(0) > 5 || vel_vec(1) > 5) {
+          ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
+
+          /* Vec2 pos_vec, vel_vec; */
+          /* for (auto &estimator : m_state_estimators) { */
+          /*   if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+          /*     estimator.second->getState(0, pos_vec); */
+          /*     estimator.second->getState(1, vel_vec); */
+          /*   } */
+          /* } */
+
+          /* for (auto &estimator : m_heading_estimators) { */
+          /* if (isEqual(estimator.first.c_str(), "HECTOR")) { */
+          /*   Eigen::VectorXd tmp_hdg_offset(1); */
+          /*   estimator.second->getState(0, tmp_hdg_offset); */
+          /*   hector_offset_hdg_ += tmp_hdg_offset(0); */
+          /* } */
+          /* } */
+
+          /* Vec2 new_offset; */
+          /* new_offset << hector_pose_previous.pose.position.x, hector_pose_previous.pose.position.y; */
+          /* hector_offset_ += pos_vec; */
+          /* hector_vel_state_ =vel_vec; */
+          /* hector_offset_hdg_ += hector_yaw_previous; */
+          hector_reliable = false;
+        }
+      }
+    }
+
 
     if (c_hector_msg_ < 100) {
       c_hector_msg_++;
