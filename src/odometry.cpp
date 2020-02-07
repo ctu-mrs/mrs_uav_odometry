@@ -613,7 +613,6 @@ private:
   double                        garmin_max_valid_altitude;
   double                        garmin_filter_max_difference;
   ros::Time                     garmin_last_update;
-  bool                          excessive_tilt               = false;
   bool                          saturate_garmin_corrections_ = false;
   bool                          callbacks_enabled_           = false;
   bool                          baro_corrected_              = false;
@@ -798,7 +797,7 @@ private:
   bool                                                      is_altitude_estimator_initialized = false;
   bool                                                      is_lateral_estimator_initialized  = false;
   int                                                       counter_altitude                  = 0;
-  double                                                    _excessive_tilt;
+  double                                                    _excessive_tilt_sq_;
   int                                                       current_altitude_type;
 
   // State estimation
@@ -1214,7 +1213,9 @@ void Odometry::onInit() {
   param_loader.load_param("altitude_estimators/measurements", _alt_measurement_names);
   param_loader.load_param("altitude_estimators/altitude_estimators", _altitude_estimators_names);
 
-  param_loader.load_param("altitude/excessive_tilt", _excessive_tilt);
+  double excessive_tilt_tmp;
+  param_loader.load_param("altitude/excessive_tilt", excessive_tilt_tmp);
+  _excessive_tilt_sq_ = std::pow(excessive_tilt_tmp, 2);
 
   param_loader.load_param("altitude_estimator", altitude_estimator_name);
   size_t pos_alt = std::distance(_altitude_type_names.begin(), find(_altitude_type_names.begin(), _altitude_type_names.end(), altitude_estimator_name));
@@ -3469,15 +3470,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (pass_rtk_as_odom) {
 
-        auto rtk_local_odom_tmp = mrs_lib::get_mutexed(mutex_rtk_local_odom, rtk_local_odom);
+      auto rtk_local_odom_tmp = mrs_lib::get_mutexed(mutex_rtk_local_odom, rtk_local_odom);
 
-        odom_main                 = rtk_local_odom_tmp;
-        odom_main.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
-        odom_main.child_frame_id  = fcu_frame_id_;             // TODO does this not cause problems?
-        /* uav_state.header.frame_id = rtk_local_odom.header.frame_id; */
-        uav_state.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
-        uav_state.pose            = rtk_local_odom_tmp.pose.pose;
-        uav_state.velocity        = rtk_local_odom_tmp.twist.twist;
+      odom_main                 = rtk_local_odom_tmp;
+      odom_main.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
+      odom_main.child_frame_id  = fcu_frame_id_;             // TODO does this not cause problems?
+      /* uav_state.header.frame_id = rtk_local_odom.header.frame_id; */
+      uav_state.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
+      uav_state.pose            = rtk_local_odom_tmp.pose.pose;
+      uav_state.velocity        = rtk_local_odom_tmp.twist.twist;
     }
 
     //}
@@ -3715,7 +3716,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (isEqual(estimator.second->getName(), "RTK") && pass_rtk_as_odom) {
 
       mrs_lib::set_mutexed(mutex_rtk_local_odom, rtk_local_odom.pose.pose.position.z, odom_aux->second.pose.pose.position.z);
-
     }
 
     if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
@@ -4959,12 +4959,11 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         altitude        = 0.0;
         baro_corrected_ = false;
       } else if (!baro_corrected_) {
-        {
-          std::scoped_lock lock(mutex_range_garmin, mutex_odom_pixhawk);
 
-          baro_offset_ = odom_pixhawk.pose.pose.position.z - range_garmin.range;
-        }
-        baro_corrected_ = true;
+        auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+        auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
+        baro_offset_          = odom_pixhawk_tmp.pose.pose.position.z - range_garmin_tmp.range;
+        baro_corrected_       = true;
       }
 
 
@@ -8029,10 +8028,12 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   if (!got_odom_pixhawk) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: callbackGarmin(): No odom_pixhawk -> cannot untilt range measurement. Returning.");
     return;
   }
 
   if (!garmin_enabled) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin disabled. Returning.");
     return;
   }
 
@@ -8046,32 +8047,32 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
-  if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
+  double excessive_tilt = false;
+  if (std::pow(roll, 2) > _excessive_tilt_sq_ || std::pow(pitch, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
     excessive_tilt = false;
   }
 
 
+  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
+
   double range_fcu = 0;
-  {
-    std::scoped_lock lock(mutex_range_garmin);
-    try {
-      const ros::Duration             timeout(1.0 / 100.0);
-      geometry_msgs::TransformStamped tf_fcu2garmin =
-          m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin.header.frame_id, range_garmin.header.stamp, timeout);
-      range_fcu = range_garmin.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
-                  tf_fcu2garmin.transform.translation.y * tan(roll);
-    }
-    catch (tf2::TransformException &ex) {
-      ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                        range_garmin.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
-      range_fcu = range_garmin.range + garmin_z_offset_;
-    }
+  try {
+    const ros::Duration             timeout(1.0 / 100.0);
+    geometry_msgs::TransformStamped tf_fcu2garmin =
+        m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, range_garmin_tmp.header.stamp, timeout);
+    range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
+                tf_fcu2garmin.transform.translation.y * tan(roll);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
+                      range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
+    range_fcu = range_garmin_tmp.range + garmin_z_offset_;
   }
 
-  // calculate the vertical component of range measurement
-  double measurement = range_fcu * cos(roll) * cos(pitch);
+  double measurement;
+  measurement = range_fcu * cos(roll) * cos(pitch);
 
   if (!std::isfinite(measurement)) {
 
@@ -8126,7 +8127,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-
   // Fuse garmin measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
     Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
@@ -8139,7 +8139,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     double correction;
     correction = measurement - current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
 
-    // saturate the correction
+    // saturate the correction only after switching garmin back on
     if (!std::isfinite(correction)) {
       correction = 0;
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
@@ -8163,14 +8163,14 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     {
       std::scoped_lock lock(mutex_altitude_estimator);
       altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
-      if (fabs(height_range) > 100) {
+      if (std::pow(height_range, 2) > 10000) {
         ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
       }
       estimator.second->getStates(current_altitude);
-      if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
-        /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
-        /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
-      }
+      /* if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) { */
+      /* ROS_WARN_THROTTLE(1.0, "Garmin altitude correction: %f", height_range); */
+      /* ROS_WARN_THROTTLE(1.0, "Height after correction: %f", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT)); */
+      /* } */
     }
   }
 
@@ -8226,7 +8226,8 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   // we do not want to fuse sonar with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
-  if (std::fabs(roll) > _excessive_tilt || std::fabs(pitch) > _excessive_tilt) {
+  double excessive_tilt = false;
+  if (std::pow(roll, 2) > _excessive_tilt_sq_ || std::pow(pitch, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
     excessive_tilt = false;
@@ -8292,7 +8293,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   if (excessive_tilt) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing sonar.", roll, pitch);
     return;
   }
 
