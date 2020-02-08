@@ -141,6 +141,7 @@ lateral:
   max_t265_vel: 10.0
   rtk_fuse_sps: true
   max_safe_brick_jump: 0.5
+  max_safe_brick_yaw_jump: deg(20)
 
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 1
