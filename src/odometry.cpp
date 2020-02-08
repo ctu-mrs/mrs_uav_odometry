@@ -3929,7 +3929,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   ros::Time t_end          = ros::Time::now();
   double    dur_main_timer = (t_end - t_start).toSec();
   if (dur_main_timer > 0.03) {
-    ROS_DEBUG("[Odometry]: mainTimer took: %.6f s.", dur_main_timer);
+    ROS_WARN("[Odometry]: Hiccup detected! mainTimer took: %.6f s.", dur_main_timer);
   }
 }
 
