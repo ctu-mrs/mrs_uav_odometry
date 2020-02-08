@@ -3926,8 +3926,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   //}
 
-  ros::Time t_end = ros::Time::now();
-  ROS_DEBUG("[Odometry]: mainTimer took: %.6f s.", (t_end - t_start).toSec());
+  ros::Time t_end          = ros::Time::now();
+  double    dur_main_timer = (t_end - t_start).toSec();
+  if (dur_main_timer > 0.03) {
+    ROS_DEBUG("[Odometry]: mainTimer took: %.6f s.", dur_main_timer);
+  }
 }
 
 //}
@@ -5670,23 +5673,6 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     twist_q_y_prev = twist_q_y;
   }
 
-  /* double hdg = getCurrentHeading(); */
-
-  /* double cy = cos(hdg); */
-  /* double sy = sin(hdg); */
-
-  /* double optflow_vel_x, optflow_vel_y; */
-  /* { */
-  /*   std::scoped_lock lock(mutex_optflow); */
-
-  /*   // Velocities are already in the body frame (not ROS convention) */
-  /*   /1* optflow_vel_x = optflow_twist.twist.twist.linear.x; *1/ */
-  /*   /1* optflow_vel_y = optflow_twist.twist.twist.linear.y; *1/ */
-
-  /*   // Rotate body frame velocity to global frame */
-  /*   optflow_vel_x = optflow_twist.twist.twist.linear.x * cy - optflow_twist.twist.twist.linear.y * sy; */
-  /*   optflow_vel_y = optflow_twist.twist.twist.linear.x * sy + optflow_twist.twist.twist.linear.y * cy; */
-  /* } */
   double optflow_vel_x = optflow_twist.twist.twist.linear.x;
   double optflow_vel_y = optflow_twist.twist.twist.linear.y;
 
@@ -5714,6 +5700,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_debug_optflow_filter.getTopic().c_str());
   }
+
   // Set innoation variable if ccurnet estimator is OPTFLOW
   if (mrs_odometry::isEqual(current_estimator->getName().c_str(), "OPTFLOW")) {
     Vec2 vel_vec, innovation;
