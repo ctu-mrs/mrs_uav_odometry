@@ -8403,7 +8403,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   garmin_last_update = ros::Time::now();
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t1: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t1: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
@@ -8440,7 +8440,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t2: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t2: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
@@ -8460,7 +8460,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t3: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t3: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   double measurement;
@@ -8491,7 +8491,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t4: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t4: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   // fuse height estimate
@@ -8504,7 +8504,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t5: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t5: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   // deside on measurement's covariance
@@ -8522,7 +8522,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t6: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t6: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
   //////////////////// Fuse main altitude kalman ////////////////////
@@ -8579,7 +8579,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t7: %f s", (t2-t1).toSec());
+  ROS_DEBUG("[Odometry]: t7: %ld ns", (t2-t1).toNSec());
   t1 = ros::Time::now();
 
 
