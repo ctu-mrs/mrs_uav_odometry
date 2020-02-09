@@ -168,6 +168,7 @@ private:
   ros::Publisher pub_alt_cov_;
   ros::Publisher pub_hector_reset_;
   ros::Publisher pub_imu_untilted_;
+  ros::Publisher pub_brick_diag_;
 
   ros::Publisher pub_debug_optflow_filter;
   ros::Publisher pub_debug_icp_twist_filter;
@@ -294,6 +295,10 @@ private:
   nav_msgs::Odometry odom_brick_previous;
   ros::Time          odom_brick_last_update;
   int                counter_odom_brick;
+  int                c_failed_brick_x_       = 0;
+  int                c_failed_brick_y_       = 0;
+  int                c_failed_brick_timeout_ = 0;
+  int                c_failed_brick_yaw_     = 0;
 
   // IMU msgs
   sensor_msgs::Imu pixhawk_imu;
@@ -1771,7 +1776,7 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
   double max_safe_brick_jump_tmp = 0.0;
   param_loader.load_param("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
-  max_safe_brick_jump_sq_ = std::pow(max_safe_brick_jump_tmp, 2);
+  max_safe_brick_jump_sq_            = std::pow(max_safe_brick_jump_tmp, 2);
   double max_safe_brick_yaw_jump_tmp = 0.0;
   param_loader.load_param("lateral/max_safe_brick_yaw_jump", max_safe_brick_yaw_jump_tmp);
   max_safe_brick_yaw_jump_sq_ = std::pow(max_safe_brick_yaw_jump_tmp, 2);
@@ -1834,6 +1839,7 @@ void Odometry::onInit() {
   pub_alt_cov_             = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
   pub_debug_optflow_filter = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
   pub_imu_untilted_        = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
+  pub_brick_diag_          = nh_.advertise<mrs_msgs::ReferenceStamped>("brick_diag_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -4228,6 +4234,24 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
   }
+
+  mrs_msgs::ReferenceStamped servoing_diag_out;
+
+    servoing_diag_out.header.stamp = ros::Time::now();
+    servoing_diag_out.header.frame_id = "visual_servoing_debug";
+
+    servoing_diag_out.reference.position.x = c_failed_brick_x_;
+    servoing_diag_out.reference.position.y = c_failed_brick_y_;
+    servoing_diag_out.reference.position.z = c_failed_brick_timeout_;
+    servoing_diag_out.reference.yaw = c_failed_brick_yaw_;
+
+  try {
+    pub_brick_diag_.publish(servoing_diag_out);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_brick_diag_.getTopic().c_str());
+  }
+
 }
 
 //}
@@ -6961,12 +6985,18 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
   if (diff_x > max_safe_brick_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_x), std::sqrt(max_safe_brick_jump_sq_));
+    if (brick_reliable) {
+      c_failed_brick_x_++;
+    }
     brick_reliable = false;
     return;
   }
   double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
   if (diff_y > max_safe_brick_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_y), std::sqrt(max_safe_brick_jump_sq_));
+    if (brick_reliable) {
+      c_failed_brick_y_++;
+    }
     brick_reliable = false;
     return;
   }
@@ -6983,6 +7013,9 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     if ((ros::Time::now() - brick_pose.header.stamp).toSec() > _brick_timeout_) {
 
       ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out, not reliable");
+      if (brick_reliable) {
+        c_failed_brick_timeout_++;
+      }
       brick_reliable      = false;
       brick_semi_reliable = false;
 
@@ -7098,6 +7131,9 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double diff_yaw = std::pow(yaw_brick - brick_yaw_previous, 2);
   if (diff_yaw > max_safe_brick_yaw_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump yaw: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_yaw), std::sqrt(max_safe_brick_yaw_jump_sq_));
+    if (brick_reliable) {
+      c_failed_brick_yaw_++;
+    }
     brick_reliable = false;
     return;
   }

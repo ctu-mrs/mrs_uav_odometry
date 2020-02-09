@@ -154,6 +154,7 @@
       <remap from="~orientation_mavros_out" to="~orientation_mavros" />
       <remap from="~orientation_target_out" to="~orientation_target" />
       <remap from="~compass_yaw_out" to="~compass_yaw" />
+      <remap from="~brick_diag_out" to="~brick_diag" />
       <remap from="~imu_untilted_out" to="~imu_untilted" />
       <remap from="~profiler" to="profiler" />
 
