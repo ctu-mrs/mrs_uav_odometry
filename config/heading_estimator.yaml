@@ -17,6 +17,7 @@ heading_estimators:
     "ICP",
     "BRICKFLOW",
     "ALOAM",
+    "TOWER",
   ] 
 
   # The measured states of the model
@@ -38,6 +39,7 @@ heading_estimators:
     "yaw_lidar",
     "rate_icp",
     "yaw_aloam",
+    "yaw_tower",
   ]
 
   # The fused measurements for each state estimator
@@ -54,7 +56,7 @@ heading_estimators:
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "yaw_brick"]
     ALOAM: ["rate_gyro", "yaw_aloam"]
-    # BRICK: ["yaw_brick"]
+    TOWER: ["rate_gyro", "yaw_tower"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -68,6 +70,7 @@ heading_estimators:
     yaw_lidar: YAW
     rate_icp: YAW_RATE
     yaw_aloam: YAW
+    yaw_tower: YAW
 
   # Mapping states to model
   state_mapping:

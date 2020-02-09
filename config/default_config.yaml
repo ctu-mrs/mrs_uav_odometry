@@ -1,6 +1,6 @@
 # Estimators used during takeoff
 # Lateral state estimator:
-# OPTFLOW, GPS, OPTFLOWGPS, RTK, LIDAR, VIO, VSLAM,  HECTOR
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, LIDAR, VIO, VSLAM,  HECTOR, TOWER
 lateral_estimator: "GPS"
 
 # Altitude state estimator:
@@ -8,15 +8,15 @@ lateral_estimator: "GPS"
 altitude_estimator: "HEIGHT"
 
 # Heading state estimator:
-# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam, TOWER - gyro, tower slam
 heading_estimator: "PIXHAWK" 
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "LIDAR", "ICP", "ALOAM"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "TOWER", "LIDAR", "ICP", "ALOAM"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "TOWER", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
 # Available localization methods
 gps_available: true
@@ -166,6 +166,11 @@ lateral:
   hector_pos_filter_max_valid: 8.0
   hector_pos_filter_max_diff: 3.0
   
+  tower_pos_median_filter: true
+  tower_pos_filter_buffer_size: 50
+  tower_pos_filter_max_valid: 8.0
+  tower_pos_filter_max_diff: 3.0
+  
   aloam_pos_median_filter: false
   aloam_pos_filter_buffer_size: 50
   aloam_pos_filter_max_valid: 8.0
@@ -196,6 +201,7 @@ lateral:
     pos_brick: [100]
     vel_brick: [100]
     pos_hector: [1000]
+    pos_tower: [1000]
     pos_aloam: [10]
     vel_icp: [1000]
 
@@ -272,6 +278,10 @@ heading:
   hector_yaw_filter_buffer_size: 100
   hector_yaw_filter_max_diff: deg(10)
   
+  tower_yaw_median_filter: true
+  tower_yaw_filter_buffer_size: 100
+  tower_yaw_filter_max_diff: deg(10)
+  
   aloam_yaw_median_filter: true
   aloam_yaw_filter_buffer_size: 100
   aloam_yaw_filter_max_diff: deg(10)
@@ -305,6 +315,7 @@ heading:
   Q:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
+    yaw_tower: [0.01]
     yaw_aloam: [0.1]
     yaw_brick: [10]
     yaw_vio: [100] #100

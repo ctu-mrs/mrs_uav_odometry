@@ -18,6 +18,7 @@ state_estimators:
     "VSLAM",
     "ICP",
     "ALOAM",
+    "TOWER",
   ] 
 
   # The measured states of the model
@@ -45,6 +46,7 @@ state_estimators:
     "pos_vslam",
     "vel_icp",
     "pos_aloam",
+    "pos_tower",
   ]
 
   # The fused measurements for each state estimator
@@ -66,6 +68,7 @@ state_estimators:
     T265: []
     ICP: ["tilt_mavros", "vel_icp"]
     ALOAM: ["tilt_mavros", "pos_aloam"]
+    TOWER: ["tilt_mavros", "pos_tower"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -85,6 +88,7 @@ state_estimators:
     pos_vslam: POSITION
     vel_icp: VELOCITY
     pos_aloam: POSITION
+    pos_tower: POSITION
 
   # Mapping states to model
   state_mapping:
