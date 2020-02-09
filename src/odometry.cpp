@@ -7124,7 +7124,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double diff_x = std::pow(brick_pose.pose.position.x - brick_pose_previous.pose.position.x, 2);
   if (diff_x > max_safe_brick_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump x: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_x), std::sqrt(max_safe_brick_jump_sq_));
-    if (brick_reliable) {
+    if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
       c_failed_brick_x_++;
     }
     brick_reliable = false;
@@ -7133,7 +7133,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double diff_y = std::pow(brick_pose.pose.position.y - brick_pose_previous.pose.position.y, 2);
   if (diff_y > max_safe_brick_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump y: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_y), std::sqrt(max_safe_brick_jump_sq_));
-    if (brick_reliable) {
+    if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
       c_failed_brick_y_++;
     }
     brick_reliable = false;
@@ -7152,7 +7152,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     if ((ros::Time::now() - brick_pose.header.stamp).toSec() > _brick_timeout_) {
 
       ROS_WARN_THROTTLE(1.0, "[Odometry]: brick timed out, not reliable");
-      if (brick_reliable) {
+    if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
         c_failed_brick_timeout_++;
       }
       brick_reliable      = false;
@@ -7270,7 +7270,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double diff_yaw = std::pow(yaw_brick - brick_yaw_previous, 2);
   if (diff_yaw > max_safe_brick_yaw_jump_sq_) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Jump yaw: %f > %f detected in BRICK pose. Not reliable.", std::sqrt(diff_yaw), std::sqrt(max_safe_brick_yaw_jump_sq_));
-    if (brick_reliable) {
+    if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
       c_failed_brick_yaw_++;
     }
     brick_reliable = false;
@@ -8447,7 +8447,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   double range_fcu = 0;
   try {
-    const ros::Duration             timeout(1.0 / 100.0);
+    const ros::Duration             timeout(1.0 / 1000.0);
     geometry_msgs::TransformStamped tf_fcu2garmin =
         m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, range_garmin_tmp.header.stamp, timeout);
     range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
@@ -8647,7 +8647,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_range_sonar);
     try {
-      const ros::Duration             timeout(1.0 / 100.0);
+      const ros::Duration             timeout(1.0 / 1000.0);
       geometry_msgs::TransformStamped tf_fcu2sonar = m_tf_buffer.lookupTransform(fcu_frame_id_, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
       range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
                   tf_fcu2sonar.transform.translation.y * tan(roll);
