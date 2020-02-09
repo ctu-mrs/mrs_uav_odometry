@@ -8379,9 +8379,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized)
     return;
 
-  ros::Time t1, t2;
-
-  t1 = ros::Time::now();
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
 
   if (got_range) {
@@ -8401,10 +8398,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   height_available_  = true;
   garmin_last_update = ros::Time::now();
-
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t1: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
 
   if (!isTimestampOK(range_garmin.header.stamp.toSec(), range_garmin_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Garmin range timestamp not OK, not fusing correction.");
@@ -8439,29 +8432,20 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
 
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t2: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
-
   auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
 
   double range_fcu = 0;
   try {
-    const ros::Duration             timeout(1.0 / 1000.0);
     geometry_msgs::TransformStamped tf_fcu2garmin =
-        m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, range_garmin_tmp.header.stamp, timeout);
+        m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, ros::Time(0));
     range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
                 tf_fcu2garmin.transform.translation.y * tan(roll);
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
+    ROS_WARN_THROTTLE(1.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
                       range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
     range_fcu = range_garmin_tmp.range + garmin_z_offset_;
   }
-
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t3: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
 
   double measurement;
   measurement = range_fcu * cos(roll) * cos(pitch);
@@ -8490,10 +8474,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t4: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
-
   // fuse height estimate
   lkf_height_t::z_t z;
   z << measurement;
@@ -8502,10 +8482,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     sc_height_ = estimator_height_->correct(sc_height_, z, R_height_);
   }
-
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t5: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
 
   // deside on measurement's covariance
   Eigen::MatrixXd mesCov;
@@ -8520,10 +8496,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       return;
     }
   }
-
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t6: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
 
   //////////////////// Fuse main altitude kalman ////////////////////
   if (!garmin_enabled) {
@@ -8577,11 +8549,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       /* } */
     }
   }
-
-  t2 = ros::Time::now();
-  ROS_DEBUG("[Odometry]: t7: %ld ns", (t2-t1).toNSec());
-  t1 = ros::Time::now();
-
 
   ROS_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
 }
