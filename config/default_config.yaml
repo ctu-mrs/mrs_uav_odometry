@@ -18,6 +18,9 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "TOWER", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
+# MBZIRC SPECIFIC CONFIGS
+  mbzirc_challenge: 2 # 0 - no challenge, 1 - ball_challenge, 2 - wall_challenge, 3 - fire challenge
+
 # Available localization methods
 gps_available: true
 optflow_available: true

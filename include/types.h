@@ -19,6 +19,17 @@ typedef Eigen::Matrix<double, 2, 1> Vec2;
 typedef Eigen::Matrix<double, N_MEASUREMENTS, 1> LatVecMes;
 /* typedef Eigen::Matrix<double, N_STATES, N_MEASUREMENTS> LatMesMap; */
 
+typedef enum
+{
+
+  NORMAL,
+  ABOVE_WALL,
+  ABOVE_BRICK,
+  ABOVE_UGV
+
+} HeightState_t;
+
 //}
+
 
 #endif
