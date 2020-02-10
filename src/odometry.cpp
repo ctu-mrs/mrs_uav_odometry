@@ -2748,7 +2748,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fallback from PLANE
   if (current_alt_estimator_name == "PLANE") {
-    if (!plane_reliable && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > plane_max_valid_altitude) {
+    if (!plane_reliable) {
       ROS_WARN("[Odometry]: PLANE not reliable. Switching to HEIGHT type.");
       mrs_msgs::AltitudeType altitude_type;
       altitude_type.type = mrs_msgs::AltitudeType::HEIGHT;
@@ -8840,8 +8840,8 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  if (measurement > plane_max_valid_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not reliable.", measurement, plane_max_valid_altitude);
+  if (measurement > _max_plane_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not reliable.", measurement, _max_plane_altitude);
     plane_reliable = false;
     return;
   }
