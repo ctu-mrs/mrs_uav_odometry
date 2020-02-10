@@ -4417,6 +4417,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   odometry_diag.optflow_available = _optflow_available;
   odometry_diag.rtk_available     = _rtk_available;
   odometry_diag.lidar_available   = _lidar_available;
+  odometry_diag.aloam_available   = _aloam_available;
   odometry_diag.height_available  = height_available_;
 
 
