@@ -5,7 +5,7 @@ UAV_NAME=$SESSION_NAME
 ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
-WORLD='$(find simulation)/worlds/grass_plane.world'
+WORLD='worlds/grass_plane.world'
 
 if [ "$#" == 0 ]; then
   ESTIMATOR=gps
@@ -47,7 +47,7 @@ input=(
 "
   'Localization' "waitForOdometry; $LAUNCH_NODES
 "
-  "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
+  "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
   'ChangeEstimator' "rosservice call /$UAV_NAME/odometry/change_estimator_type_string GPS"
   'ChangeHdgEstimator' "rosservice call /$UAV_NAME/odometry/change_hdg_estimator_type_string GPS"
