@@ -7300,8 +7300,11 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       }
     }
     if (success) {
-      ROS_INFO("[Odometry]: BRICK estimator reset finished. New position: x: %f y: %f, yaw: %f", states(0, 0), states(0, 1), hdg_states(0, 0));
-      estimator_iteration_++;
+      ROS_INFO("[Odometry]: BRICK estimator reset finished. New brick position: x: %f y: %f, yaw: %f", states(0, 0), states(0, 1), hdg_states(0, 0));
+      if (current_estimator_name == "BRICK") {
+        ROS_INFO("[Odometry]: Triggering control state update.");
+        estimator_iteration_++;
+      }
     } else {
       ROS_INFO("[Odometry]: Resetting BRICK estimator failed.");
     }
