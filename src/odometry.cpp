@@ -9535,24 +9535,30 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   desired_hdg_estimator.name = _heading_estimators_names[desired_hdg_estimator.type];
 
   bool success_hdg = false;
-  {
+
+  if (desired_hdg_estimator.name == current_hdg_estimator_name) {
+
+    success_hdg = true;
+    ROS_INFO("[Odometry]: Heading estimator %s already active.", desired_hdg_estimator.name.c_str());
+
+  } else {
+
     std::scoped_lock lock(mutex_hdg_estimator_type);
 
     success_hdg = changeCurrentHeadingEstimator(desired_hdg_estimator);
   }
 
-  // Check whether a valid type was requested
-  if (!isValidType(desired_estimator)) {
-    ROS_ERROR("[Odometry]: %d is not a valid odometry type", desired_estimator.type);
-    res.success = false;
-    res.message = ("Not a valid odometry type");
-    return true;
-  }
-
   desired_estimator.name = _state_estimators_names[desired_estimator.type];
 
   bool success = false;
-  {
+
+  if (desired_estimator.name == current_estimator_name) {
+
+    success = true;
+    ROS_INFO("[Odometry]: Lateral estimator %s already active.", desired_estimator.name.c_str());
+
+  } else {
+
     std::scoped_lock lock(mutex_estimator_type);
 
     success = changeCurrentEstimator(desired_estimator);
@@ -9569,11 +9575,17 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   desired_alt_estimator.name = _altitude_estimators_names[desired_alt_estimator.type];
 
   bool success_alt = false;
-  {
+  if (desired_alt_estimator.name == current_alt_estimator_name) {
+
+    success_alt = true;
+    ROS_INFO("[Odometry]: Altitude estimator %s already active.", desired_estimator.name.c_str());
+
+  } else {
     std::scoped_lock lock(mutex_alt_estimator_type);
 
     success_alt = changeCurrentAltitudeEstimator(desired_alt_estimator);
   }
+
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
 
   res.success = success_alt && success_hdg && success;
