@@ -7,7 +7,7 @@ altitude:
       0]
 
   # Process covariance
-  R: [0.1, 0.1, 0,
+  R: [0.1, 0, 0,
       0, 1, 0,
       0, 0, 0.1]
 
@@ -48,15 +48,6 @@ lateral:
     pos_hector: [1.0]
     vel_icp: [1000]
 
-
-  # Faster integration of disturbances should mitigate velocity error caused by integrating body disturbances in world frame !may become unstable!
-  R: [1, 1, 1, 0, 0, 0,
-      0, 1, 1, 0, 0, 0,
-      0, 0, 0, 0.0001, 0.0001, 0,
-      0, 0, 0, 0, 0, 1,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 1000]
-
 heading:
 
   # The system matrix 
@@ -71,7 +62,7 @@ heading:
 
   # Process covariance
   R: [0.1, 0, 0,
-      0, 0.1, 0.1,
+      0, 0.1, 0,
       0, 0, 0.00001]
 
   # Covariances of measurements
