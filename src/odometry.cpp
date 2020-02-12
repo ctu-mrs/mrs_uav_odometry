@@ -317,6 +317,7 @@ private:
   sensor_msgs::Imu control_accel_previous;
   std::mutex       mutex_control_accel;
   ros::Time	control_accel_last_update;
+  geometry_msgs::Vector3 acc_global_prev_;
 
   // Compass msgs
   std_msgs::Float64 compass_hdg;
@@ -1057,6 +1058,10 @@ void Odometry::onInit() {
 
   aloam_offset_ << 0, 0;
   aloam_offset_hdg_ = 0;
+
+  acc_global_prev_.x = 0.0;
+  acc_global_prev_.y = 0.0;
+  acc_global_prev_.z = 0.0;
 
   _is_estimator_tmp = false;
   got_rtk_counter   = 0;
@@ -2235,6 +2240,9 @@ void Odometry::onInit() {
     current_estimator->getR(last_drs_config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     current_estimator->getR(last_drs_config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
 
+    // Lateral imu accelerations measurement covariances
+    current_estimator->getR(last_drs_config.R_acc_imu_lat, map_measurement_name_id.find("acc_imu")->second);
+
     // Lateral process covariances
     current_estimator->getQ(last_drs_config.Q_pos, Eigen::Vector2i(0, 0));
     current_estimator->getQ(last_drs_config.Q_vel, Eigen::Vector2i(1, 1));
@@ -2539,6 +2547,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (isUavFlying()) {
       stateEstimatorsPrediction(des_acc, dt);
     } else {
+      des_acc.x = 0.0;
+      des_acc.y = 0.0;
+      des_acc.z = 0.0;
       stateEstimatorsPrediction(des_acc, dt);
     }
 
@@ -5489,6 +5500,20 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   auto response_acc	    = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
   if (response_acc) {
     acc_untilted = response_acc.value();
+    
+    if (!std::isfinite(acc_untilted.vector.x)) {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"acc_untilted.x\"!!!");
+      return;
+    }
+
+    if (!std::isfinite(acc_untilted.vector.y)) {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"acc_untilted.y\"!!!");
+      return;
+    }
+    stateEstimatorsCorrection(acc_untilted.vector.x, acc_untilted.vector.y, "acc_imu");
+
+    ROS_WARN_ONCE("[Odometry]: Fusing untilted accelerations");
+
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
   }
@@ -10250,8 +10275,11 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "R_vel_optflow: %f\n"
       "R_vel_rtk: %f\n",
 
+      "\nAcceleration:\n"
+      "R_acc_imu: %f\n",
+
       config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
-      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk);
+      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
@@ -10267,8 +10295,10 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
     estimator.second->setR(config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     estimator.second->setR(config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
     estimator.second->setR(config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
-    estimator.second->setR(config.R_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
+    estimator.second->setR(config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     estimator.second->setR(config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+
+    estimator.second->setR(config.R_acc_imu_lat, map_measurement_name_id.find("acc_imu")->second);
 
     ROS_INFO(
 	"Lateral process covariance:\n"
@@ -10411,8 +10441,12 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3& acc_in, d
     /* double input_x, input_y; */
     /* input_x = rot_x * cos(current_yaw(0)) - rot_y * sin(current_yaw(0)); */
     /* input_y = rot_x * sin(current_yaw(0)) + rot_y * cos(current_yaw(0)); */
+    /* input(0) = (acc_global.x - acc_global_prev_.x)/dt; */
+    /* input(1) = (acc_global.y - acc_global_prev_.y)/dt; */
+    /* acc_global_prev_ = acc_global; */
     input(0) = acc_global.x;
     input(1) = acc_global.y;
+
 
 
     estimator.second->doPrediction(input, dt);
@@ -10458,7 +10492,7 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     mes(1) = y;
 
     // Rotate body frame measurements into estimator frame
-    if (isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp")) {
+    if (isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp") || isEqual(measurement_name, "acc_imu")) {
 
       Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
       for (auto &hdg_estimator : m_heading_estimators) {

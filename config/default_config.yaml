@@ -202,7 +202,7 @@ lateral:
 
   # Covariances of measurements
   Q:
-    vel_optflow: [1]
+    vel_optflow: [0.01]
     pos_mavros: [0.01]
     vel_mavros: [0.1]
     tilt_mavros: [100]
@@ -217,25 +217,26 @@ lateral:
     vel_object: [10000]
     pos_brick: [100]
     vel_brick: [100]
-    pos_hector: [1000]
+    pos_hector: [1]
     pos_tower: [1000]
     pos_aloam: [10]
     vel_icp: [1000]
+    acc_imu: [10000]
 
   # The system matrix
   # pos, vel, acc
   A: [1, 0.01, 0.0002,
       0, 1, 0.01,
-      0, 0, 0.9]
+      0, 0, 1]
 
   # The input matrix
   B: [0,
       0,
-      0.1]
+      0.01]
 
   R: [0.1, 0, 0,
-      0, 0.1, 0,
-      0, 0, 0.1]
+      0, 1, 0,
+      0, 0, 10]
 
   # RTK estimator must have a different model
   rtk:
