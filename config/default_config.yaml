@@ -1,3 +1,5 @@
+version: "0.0.3.0"
+
 # Estimators used during takeoff
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, LIDAR, VIO, VSLAM,  HECTOR, TOWER

@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -110,6 +112,7 @@ namespace mrs_odometry
 class Odometry : public nodelet::Nodelet {
 
 public:
+  std::string _version_;
   virtual void onInit();
 
 public:
@@ -1012,6 +1015,14 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: initializing");
 
   mrs_lib::ParamLoader param_loader(nh_, "Odometry");
+
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[Odometry]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -2298,7 +2309,7 @@ void Odometry::onInit() {
 
   is_initialized = true;
 
-  ROS_INFO("[Odometry]: initialized");
+  ROS_INFO("[Odometry]: initialized, version %s", VERSION);
 }
 
 //}
