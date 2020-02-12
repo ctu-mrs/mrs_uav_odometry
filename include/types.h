@@ -4,7 +4,7 @@
 
 #include <Eigen/Eigen>
 
-#define N_STATES 6
+#define N_STATES 3
 #define N_MEASUREMENTS 14
 
 /* typedefs //{ */

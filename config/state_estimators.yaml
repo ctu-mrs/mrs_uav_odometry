@@ -1,7 +1,7 @@
 state_estimators:
 
   # The number of model states
-  n_model_states: 6
+  n_model_states: 3
 
   # The available state estimators
   state_estimators: [
@@ -25,7 +25,6 @@ state_estimators:
   model_states: [
     "POSITION", 
     "VELOCITY", 
-    "TILT"
   ] 
 
   # The available measurements
@@ -33,7 +32,6 @@ state_estimators:
     "vel_optflow",
     "pos_mavros",
     "vel_mavros",
-    "tilt_mavros",
     "pos_rtk",
     "vel_rtk",
     "pos_lidar",
@@ -51,31 +49,26 @@ state_estimators:
 
   # The fused measurements for each state estimator
   fused_measurements:
-    OPTFLOW: ["vel_optflow", "tilt_mavros"]
-    GPS: ["pos_mavros", "vel_mavros", "tilt_mavros"]
-    OPTFLOWGPS: ["vel_optflow", "pos_mavros", "tilt_mavros"]
-    RTK: ["pos_mavros", "vel_mavros", "tilt_mavros", "pos_rtk"]
-    # RTK: ["pos_rtk", "vel_rtk", "tilt_mavros"]
-    # RTK: ["pos_rtk", "tilt_mavros"]
-    # ICP: ["tilt_mavros", "pos_icp", "vel_icp"]
-    LIDAR: ["tilt_mavros", "pos_lidar"]
-    HECTOR: ["tilt_mavros", "pos_hector"]
-    VIO: ["tilt_mavros", "pos_vio", "vel_vio"]
-    VSLAM: ["tilt_mavros", "pos_vslam"]
-    # BRICK: ["pos_brick"]
-    BRICK: ["tilt_mavros", "pos_brick"]
-    BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
+    OPTFLOW: ["vel_optflow"]
+    GPS: ["pos_mavros", "vel_mavros"]
+    OPTFLOWGPS: ["vel_optflow", "pos_mavros"]
+    RTK: ["pos_mavros", "vel_mavros", "pos_rtk"]
+    LIDAR: ["pos_lidar"]
+    HECTOR: ["pos_hector"]
+    VIO: ["pos_vio", "vel_vio"]
+    VSLAM: ["pos_vslam"]
+    BRICK: ["pos_brick"]
+    BRICKFLOW: ["vel_optflow", "pos_brick"]
     T265: []
-    ICP: ["tilt_mavros", "vel_icp"]
-    ALOAM: ["tilt_mavros", "pos_aloam"]
-    TOWER: ["tilt_mavros", "pos_tower"]
+    ICP: ["vel_icp"]
+    ALOAM: ["pos_aloam"]
+    TOWER: ["pos_tower"]
 
   # Mapping of measurements to states
   measurement_states:
     vel_optflow: VELOCITY
     pos_mavros: POSITION
     vel_mavros: VELOCITY
-    tilt_mavros: TILT
     pos_rtk: POSITION
     vel_rtk: VELOCITY
     pos_lidar: POSITION
@@ -92,6 +85,5 @@ state_estimators:
 
   # Mapping states to model
   state_mapping:
-    POSITION: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    VELOCITY: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-    TILT: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    POSITION: [1.0, 0.0, 0.0]
+    VELOCITY: [0.0, 1.0, 0.0]

@@ -546,6 +546,7 @@ private:
   std::string last_local_name_;
   std::string first_frame_;
 
+  bool got_fcu_untilted_ = false;
   bool   got_init_heading = false;
   double m_init_heading;
 
@@ -574,7 +575,6 @@ private:
   void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void callbackVioState(const std_msgs::Bool &msg);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
-  void callbackControlAccel(const sensor_msgs::ImuConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
 
@@ -597,9 +597,8 @@ private:
 
   // | --------------------- helper methods --------------------- |
   bool isReadyToTakeoff();
-  void stateEstimatorsPrediction(const geometry_msgs::Quaternion &q, double dt);
+  void stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt);
   void stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
-  void stateEstimatorsCorrection(const geometry_msgs::Quaternion &q, const std::string &measurement_name);
   bool changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
 
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name);
@@ -613,6 +612,7 @@ private:
   void		     getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
   double	     getGlobalZAcceleration(const geometry_msgs::Quaternion &q_msg, const double &acc_z_in);
   void		     getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const double &yaw, double &rx, double &ry);
+  void         getRotatedVector(const geometry_msgs::Vector3 &acc_in, double yaw_in,  geometry_msgs::Vector3& acc_out);
   void		     rotateLateralStates(const double yaw_new, const double yaw_old);
   double	     getCurrentHeading();
   bool		     isValidType(const mrs_msgs::EstimatorType &type);
@@ -1973,9 +1973,6 @@ void Odometry::onInit() {
   // subscriber to mavros odometry
   sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
-  // subscribe to control input acceleration
-  sub_control_accel_ = nh_.subscribe("control_acc_in", 1, &Odometry::callbackControlAccel, this, ros::TransportHints().tcpNoDelay());
-
   // subscriber to t265 odometry
   if (_t265_available) {
     sub_t265_odom_ = nh_.subscribe("t265_odom_in", 1, &Odometry::callbackT265Odometry, this, ros::TransportHints().tcpNoDelay());
@@ -2238,16 +2235,10 @@ void Odometry::onInit() {
     current_estimator->getR(last_drs_config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     current_estimator->getR(last_drs_config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
 
-    // Lateral angle measurement covariance
-    current_estimator->getR(last_drs_config.R_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-
     // Lateral process covariances
     current_estimator->getQ(last_drs_config.Q_pos, Eigen::Vector2i(0, 0));
     current_estimator->getQ(last_drs_config.Q_vel, Eigen::Vector2i(1, 1));
-    current_estimator->getQ(last_drs_config.Q_acc, Eigen::Vector2i(2, 3));
-    current_estimator->getQ(last_drs_config.Q_acc_d, Eigen::Vector2i(4, 4));
-    current_estimator->getQ(last_drs_config.Q_acc_i, Eigen::Vector2i(3, 5));
-    current_estimator->getQ(last_drs_config.Q_tilt, Eigen::Vector2i(5, 5));
+    current_estimator->getQ(last_drs_config.Q_acc, Eigen::Vector2i(2, 2));
   }
 
   {
@@ -2517,7 +2508,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   double		    des_yaw;
   double		    des_yaw_rate;
-  geometry_msgs::Quaternion des_attitude;
 
   // set target attitude input to zero when not receiving target attitude msgs
   if (got_attitude_command) {
@@ -2525,11 +2515,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     des_yaw      = des_yaw_;
     des_yaw_rate = des_yaw_rate_;
-    des_attitude = des_attitude_;
   } else {
-    des_yaw      = init_pose_yaw;
+    des_yaw      = 0.0;
     des_yaw_rate = 0.0;
-    setRPY(0, 0, init_pose_yaw, des_attitude);
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Not receiving target attitude.");
   }
 
@@ -2540,13 +2528,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* lateral estimator prediction //{ */
 
+  geometry_msgs::Point des_acc_point = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_.desired_acceleration);
+  geometry_msgs::Vector3 des_acc;
+  des_acc.x = des_acc_point.x;
+  des_acc.y = des_acc_point.y;
+  des_acc.z = des_acc_point.z;
+
   if (!is_updating_state_) {
 
     if (isUavFlying()) {
-      stateEstimatorsPrediction(des_attitude, dt);
+      stateEstimatorsPrediction(des_acc, dt);
     } else {
-      setRPY(0, 0, init_pose_yaw, des_attitude);
-      stateEstimatorsPrediction(des_attitude, dt);
+      stateEstimatorsPrediction(des_acc, dt);
     }
 
     // correction step for hector (effectively ZOH for low rate measurements)
@@ -3561,14 +3554,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* get lateral states from current filter //{ */
 
-    Vec2 pos_vec, vel_vec, acc_vec, acc_d_vec;
+    Vec2 pos_vec, vel_vec, acc_vec;
     {
       std::scoped_lock lock(mutex_current_estimator);
 
       current_estimator->getState(0, pos_vec);
       current_estimator->getState(1, vel_vec);
       current_estimator->getState(2, acc_vec);
-      current_estimator->getState(4, acc_d_vec);
     }
 
     //}
@@ -3650,21 +3642,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     uav_state.acceleration.linear.x = acc_vec(0);
     uav_state.acceleration.linear.y = acc_vec(1);
-
-    uav_state.acceleration_disturbance.linear.x = acc_d_vec(0);
-    uav_state.acceleration_disturbance.linear.y = acc_d_vec(1);
-
-    //}
-
-    /* calculate disturbance forces //{ */
-
-    auto uav_mass_estimate_local = mrs_lib::get_mutexed(mutex_uav_mass_estimate, uav_mass_estimate);
-
-    double fx, fy;
-    fx = acc_d_vec(0) * uav_mass_estimate_local;
-    fy = acc_d_vec(1) * uav_mass_estimate_local;
-
-    ROS_INFO_THROTTLE(10.0, "[Odometry]: Disturbance force [N]: x %f, y %f", fx, fy);
 
     //}
 
@@ -4474,17 +4451,11 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   lkf_states_x.pos	  = states_mat(0, 0);
   lkf_states_x.vel	  = states_mat(1, 0);
   lkf_states_x.acc	  = states_mat(2, 0);
-  lkf_states_x.acc_i	= states_mat(3, 0);
-  lkf_states_x.acc_d	= states_mat(4, 0);
-  lkf_states_x.tilt	 = states_mat(5, 0);
 
   lkf_states_y.header.stamp = ros::Time::now();
   lkf_states_y.pos	  = states_mat(0, 1);
   lkf_states_y.vel	  = states_mat(1, 1);
   lkf_states_y.acc	  = states_mat(2, 1);
-  lkf_states_y.acc_i	= states_mat(3, 1);
-  lkf_states_y.acc_d	= states_mat(4, 1);
-  lkf_states_y.tilt	 = states_mat(5, 1);
 
   try {
     pub_lkf_states_x_.publish(lkf_states_x);
@@ -4954,6 +4925,26 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     }
   }
 
+  geometry_msgs::Quaternion q_body;
+  {
+    std::scoped_lock lock(mutex_odom_pixhawk);
+    q_body = odom_pixhawk.pose.pose.orientation;
+  }
+  double mes;
+  {
+    std::scoped_lock lock(mutex_attitude_command_);
+    mes = attitude_command_.desired_acceleration.z;
+  }
+
+  mes = getGlobalZAcceleration(q_body, mes);
+  mes -= 9.8;
+  Eigen::VectorXd input(1);
+  input(0) = mes;
+
+  for (auto &estimator : m_altitude_estimators) {
+    /* estimator.second->doPrediction(input, dt); */
+    estimator.second->doPrediction(input);
+  }
   /* // Apply prediction step to all heading estimators */
   /* headingEstimatorsPrediction(des_yaw, des_yaw_rate, dt); */
 
@@ -5066,6 +5057,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (noNans(tf)) {
     try {
       broadcaster_->sendTransform(tf);
+      got_fcu_untilted_ = true;
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
@@ -5267,18 +5259,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing mavros odom. Waiting for other sensors.");
     return;
   }
-
-  /* //{ fuse mavros tilts */
-
-  // Apply correction step to all state estimators
-  if (isUavFlying()) {
-    stateEstimatorsCorrection(orient, "tilt_mavros");
-  } else {
-  }
-
-  ROS_WARN_ONCE("[Odometry]: Fusing mavros tilts");
-
-  //}
 
   /* //{ fuse mavros velocity */
 
@@ -5495,6 +5475,12 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     return;
   }
 
+  if (!got_fcu_untilted_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not publishing IMU. Waiting for fcu_untilted_tf");
+    return;
+  }
+
+
   // transform imu accelerations to untilted frame
   geometry_msgs::Vector3Stamped acc_untilted;
   acc_untilted.vector	  = pixhawk_imu.linear_acceleration;
@@ -5571,15 +5557,15 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     q_body = odom_pixhawk.pose.pose.orientation;
   }
 
-  double mes;
-  {
-    std::scoped_lock lock(mutex_pixhawk_imu);
-    mes = pixhawk_imu.linear_acceleration.z;
-  }
+  /* double mes; */
+  /* { */
+  /*   std::scoped_lock lock(mutex_pixhawk_imu); */
+  /*   mes = pixhawk_imu.linear_acceleration.z; */
+  /* } */
 
-  mes = getGlobalZAcceleration(q_body, mes);
-  mes -= 9.8;
-  altitudeEstimatorCorrection(mes, "acc_imu");
+  /* mes = getGlobalZAcceleration(q_body, mes); */
+  /* mes -= 9.8; */
+  /* altitudeEstimatorCorrection(mes, "acc_imu"); */
 }
 
 //}
@@ -5696,73 +5682,6 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   } else {
 
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"yaw\", not fusing!!!");
-  }
-}
-
-//}
-
-/* //{ callbackControlAccel() */
-
-void Odometry::callbackControlAccel(const sensor_msgs::ImuConstPtr &msg) {
-
-  if (!is_initialized)
-    return;
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackControlAccel");
-
-  control_accel_last_update = ros::Time::now();
-
-  /* double dt; */
-
-  {
-    std::scoped_lock lock(mutex_control_accel);
-
-    if (got_control_accel) {
-
-      control_accel_previous = control_accel;
-      control_accel	  = *msg;
-
-    } else {
-
-      control_accel_previous = *msg;
-      control_accel	  = *msg;
-      got_control_accel      = true;
-
-      return;
-    }
-
-    /* dt = (control_accel.header.stamp - control_accel_previous.header.stamp).toSec(); */
-  }
-
-
-  // --------------------------------------------------------------
-  // |                        callback body                       |
-  // --------------------------------------------------------------
-
-  if (!isTimestampOK(control_accel.header.stamp.toSec(), control_accel_previous.header.stamp.toSec())) {
-    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Control acceleration timestamp not OK, not fusing correction.");
-    return;
-  }
-
-  geometry_msgs::Quaternion q_body;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    q_body = odom_pixhawk.pose.pose.orientation;
-  }
-  double mes;
-  {
-    std::scoped_lock lock(mutex_control_accel);
-    mes = control_accel.linear_acceleration.z;
-  }
-
-  mes = getGlobalZAcceleration(q_body, mes);
-  mes -= 9.8;
-  Eigen::VectorXd input(1);
-  input(0) = mes;
-
-  for (auto &estimator : m_altitude_estimators) {
-    /* estimator.second->doPrediction(input, dt); */
-    estimator.second->doPrediction(input);
   }
 }
 
@@ -10124,14 +10043,8 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
   states(1, 0) = 0.0;
   states(2, 0) = 0.0;
-  states(3, 0) = 0.0;
-  states(4, 0) = 0.0;
-  states(5, 0) = 0.0;
   states(1, 1) = 0.0;
   states(2, 1) = 0.0;
-  states(3, 1) = 0.0;
-  states(4, 1) = 0.0;
-  states(5, 1) = 0.0;
 
   {
     std::scoped_lock lock(mutex_current_estimator);
@@ -10335,12 +10248,10 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "R_vel_vio: %f\n"
       "R_vel_lidar: %f\n"
       "R_vel_optflow: %f\n"
-      "R_vel_rtk: %f\n"
+      "R_vel_rtk: %f\n",
 
-      "\nTilt:\n"
-      "R_tilt: %f\n",
       config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
-      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_tilt);
+      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
@@ -10359,26 +10270,16 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
     estimator.second->setR(config.R_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
     estimator.second->setR(config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
 
-    estimator.second->setR(config.R_tilt, map_measurement_name_id.find("tilt_mavros")->second);
-
     ROS_INFO(
 	"Lateral process covariance:\n"
 	"Position (0,0): %f\n"
 	"Velocity (1,1): %f\n"
-	"Input Acceleration -> Acceleration (2,3): %f\n"
-	"Disturbance Acceleration -> Acceleration (2,4): %f\n"
-	"Disturbance acceleration (4,4): %f\n"
-	"Tilt -> Input Acceleration (3,5): %f\n"
-	"Tilt (5,5): %f\n",
-	config.Q_pos, config.Q_vel, config.Q_acc, config.Q_acc, config.Q_acc_d, config.Q_acc_i, config.Q_tilt);
+	"Acceleration (2,2): %f\n",
+	config.Q_pos, config.Q_vel, config.Q_acc);
 
     estimator.second->setQ(config.Q_pos, Eigen::Vector2i(0, 0));
     estimator.second->setQ(config.Q_vel, Eigen::Vector2i(1, 1));
-    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 3));
-    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 4));
-    estimator.second->setQ(config.Q_acc_d, Eigen::Vector2i(4, 4));
-    estimator.second->setQ(config.Q_acc_i, Eigen::Vector2i(3, 5));
-    estimator.second->setQ(config.Q_tilt, Eigen::Vector2i(5, 5));
+    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 2));
   }
 
   ROS_INFO(
@@ -10436,7 +10337,16 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
 
 /*  //{ stateEstimatorsPrediction() */
 
-void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitude, double dt) {
+void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3& acc_in, double dt) {
+
+  if (!is_initialized)
+    return;
+
+  if (!got_fcu_untilted_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Lateral prediction not running. Waiting for fcu_untilted tf.");
+    return;
+  }
+
 
   if (dt <= 0.0) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
@@ -10473,49 +10383,36 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Quaternion &attitu
       continue;
     }
 
-    double rot_x, rot_y;
+  // transform control accelerations to untilted frame
+  geometry_msgs::Vector3Stamped acc_untilted;
+  acc_untilted.vector	  = acc_in;
+  acc_untilted.header.frame_id = fcu_frame_id_;
+  acc_untilted.header.stamp = ros::Time::now();
+  auto response_acc	    = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+  if (response_acc) {
+    acc_untilted = response_acc.value();
+  } else {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", acc_untilted.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
+  }
 
-    getRotatedTilt(attitude, current_yaw(0), rot_x, rot_y);
+    geometry_msgs::Vector3 acc_global;
+    getRotatedVector(acc_untilted.vector, current_yaw(0), acc_global);
 
-    if (!std::isfinite(rot_x)) {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x\" (stateEstimatorsPrediction) !!!");
+    if (!std::isfinite(acc_global.x)) {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"acc_x\" (stateEstimatorsPrediction) !!!");
       return;
     }
 
-    if (!std::isfinite(rot_y)) {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y\" (stateEstimatorsPrediction) !!!");
+    if (!std::isfinite(acc_global.y)) {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"acc_y\" (stateEstimatorsPrediction) !!!");
       return;
-    }
-
-    if (!std::isfinite(rot_x)) {
-      rot_x = 0;
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in target attitude variable \"rot_x\", setting it to 0!!!");
-      return;
-    } else if (rot_x > 1.57) {
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_x: %2.2f", rot_x);
-      rot_x = 1.57;
-    } else if (rot_x < -1.57) {
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_x: %2.2f", rot_x);
-      rot_x = -1.57;
-    }
-
-    if (!std::isfinite(rot_y)) {
-      rot_y = 0;
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in target attitude variable \"rot_y\", setting it to 0!!!");
-      return;
-    } else if (rot_y > 1.57) {
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_y: %2.2f", rot_y);
-      rot_y = 1.57;
-    } else if (rot_y < -1.57) {
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: saturating excessive target attitude rot_y: %2.2f", rot_y);
-      rot_y = -1.57;
     }
 
     /* double input_x, input_y; */
     /* input_x = rot_x * cos(current_yaw(0)) - rot_y * sin(current_yaw(0)); */
     /* input_y = rot_x * sin(current_yaw(0)) + rot_y * cos(current_yaw(0)); */
-    input(0) = rot_y;
-    input(1) = rot_x;
+    input(0) = acc_global.x;
+    input(1) = acc_global.y;
 
 
     estimator.second->doPrediction(input, dt);
@@ -10561,7 +10458,7 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     mes(1) = y;
 
     // Rotate body frame measurements into estimator frame
-    if (isEqual(measurement_name, "tilt_mavros") || isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp")) {
+    if (isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp")) {
 
       Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
       for (auto &hdg_estimator : m_heading_estimators) {
@@ -10587,56 +10484,6 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
       mes_y  = mes(0) * sin(current_yaw(0)) + mes(1) * cos(current_yaw(0));
       mes(0) = mes_x;
       mes(1) = mes_y;
-    }
-
-    estimator.second->doCorrection(mes, it_measurement_id->second);
-    /* Eigen::VectorXd pos_vec(2); */
-    /* estimator.second->getState(0, pos_vec); */
-    /* ROS_INFO("[Odometry]: %s after %s correction: %f, x: %f", estimator.second->getName().c_str(), measurement_name.c_str(), mes(0), pos_vec(0)); */
-  }
-}
-
-//}
-
-/*  //{ stateEstimatorsCorrection() */
-
-void Odometry::stateEstimatorsCorrection(const geometry_msgs::Quaternion &q, const std::string &measurement_name) {
-
-  std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id.find(measurement_name);
-  if (it_measurement_id == map_measurement_name_id.end()) {
-    ROS_ERROR("[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
-    return;
-  }
-
-  for (auto &estimator : m_state_estimators) {
-    Vec2	    mes;
-    Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
-
-    // Rotate body frame measurements into estimator frame
-    if (isEqual(measurement_name, "tilt_mavros") || isEqual(measurement_name, "vel_optflow") || isEqual(measurement_name, "vel_icp")) {
-
-      for (auto &hdg_estimator : m_heading_estimators) {
-	if (isEqual(estimator.first, "GPS") || isEqual(estimator.first, "RTK")) {
-	  /* if (isEqual("PIXHAWK", hdg_estimator.first)) { */
-	  {
-	    std::scoped_lock lock(mutex_odom_pixhawk);
-
-	    current_yaw(0) = mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation);
-	  }
-	  /* hdg_estimator.second->getState(0, current_yaw); */
-	  break;
-	  /* } */
-	} else {
-	  if (isEqual(estimator.first, hdg_estimator.first)) {
-	    hdg_estimator.second->getState(0, current_yaw);
-	    break;
-	  }
-	}
-      }
-      double mes_x, mes_y;
-      getRotatedTilt(q, current_yaw(0), mes_x, mes_y);
-      mes(0) = mes_y;
-      mes(1) = mes_x;
     }
 
     estimator.second->doCorrection(mes, it_measurement_id->second);
@@ -10831,6 +10678,22 @@ void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const doub
   // Get roll and pitch angles in world frame
   ry = std::atan2(body_axis.getX(), body_axis.getZ());
   rx = std::atan2(body_axis.getY(), body_axis.getZ());
+}
+//}
+
+/* //{ getRotatedVector() */
+void Odometry::getRotatedVector(const geometry_msgs::Vector3 &acc_in, double yaw_in,  geometry_msgs::Vector3& acc_out) {
+
+  tf2::Quaternion q_yaw;
+  q_yaw.setRPY(0, 0, yaw_in);
+
+  tf2::Vector3 acc_tf2(acc_in.x, acc_in.y, acc_in.z);
+
+  acc_tf2 = quatRotate(q_yaw, acc_tf2);
+  acc_out.x = acc_tf2.getX();
+  acc_out.y = acc_tf2.getY();
+  acc_out.z = acc_tf2.getZ();
+
 }
 //}
 

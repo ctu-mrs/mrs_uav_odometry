@@ -5,8 +5,8 @@ UAV_NAME=$SESSION_NAME
 ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
-# WORLD='worlds/grass_plane.world'
-WORLD='worlds/cathedral.world'
+WORLD='worlds/grass_plane.world'
+# WORLD='worlds/cathedral.world'
 
 if [ "$#" == 0 ]; then
   ESTIMATOR=gps
@@ -16,10 +16,10 @@ if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow optic_flow.launch'
   WORLD='worlds/grass_plane.world'
-elif [ "$ESTIMATOR" == "gps" ]; then
-  SENSORS="$SENSORS --enable-rplidar"
-  LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
-  WORLD='worlds/cathedral.world'
+# elif [ "$ESTIMATOR" == "gps" ]; then
+#   SENSORS="$SENSORS --enable-rplidar"
+#   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
+#   WORLD='worlds/cathedral.world'
 elif [ "$ESTIMATOR" == "hector" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'

@@ -12,7 +12,7 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["GPS", "HECTOR"]
+  active: ["GPS"]
 
 heading_estimators:
-  active: ["PIXHAWK", "HECTOR"]
+  active: ["PIXHAWK"]
