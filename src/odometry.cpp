@@ -10171,26 +10171,43 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
     return true;
   }
 
-  LatState2D states;
-
-  // obtain the states of the current estimator
-  LatState2D old_state;
-  if (!current_estimator->getStates(old_state)) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Could not read current state. Hector estimator cannot be reset.");
+  if (current_estimator_name == "HECTOR" || current_hdg_estimator_name == "HECTOR") {
     res.success = false;
-    res.message = "Reset of lateral kalman failed";
+    res.message = ("Cannot reset when HECTOR in feedback");
+    ROS_WARN("[Odometry]: Cannot switch to HECTOR, when HECTOR is in feedback.");
     return true;
   }
 
-  // position of odom_local should contain less drift
-  {
-    std::scoped_lock lock(mutex_odom_local);
-    old_state(0, 0) = odom_local.pose.pose.position.x;
-    old_state(0, 1) = odom_local.pose.pose.position.y;
-    for (auto &estimator : m_state_estimators) {
-      if (mrs_odometry::isEqual(estimator.first, "HECTOR")) {
-	estimator.second->setStates(old_state);
-      }
+  // Reset HECTOR map
+  ROS_INFO("[Odometry]: Calling Hector map reset.");
+  std_msgs::String reset_msg;
+  reset_msg.data = "reset";
+  try {
+    pub_hector_reset_.publish(reset_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
+  }
+  hector_reset_called_ = true;
+  ROS_INFO("[Odometry]: Hector map reset called.");
+
+  // Reset HECTOR heading
+  for (auto &estimator : m_heading_estimators) {
+    if (isEqual(estimator.first.c_str(), "HECTOR")) {
+      Eigen::VectorXd hdg(1);
+      hdg << 0;
+      estimator.second->setState(0, hdg);
+    }
+  }
+
+  // Reset HECTOR position
+  for (auto &estimator : m_state_estimators) {
+    if (isEqual(estimator.first.c_str(), "HECTOR")) {
+      Vec2 pos_vec, vel_vec;
+      pos_vec << 0, 0;
+      vel_vec << 0, 0;
+      estimator.second->setState(0, pos_vec);
+      estimator.second->setState(1, vel_vec);
     }
   }
 
