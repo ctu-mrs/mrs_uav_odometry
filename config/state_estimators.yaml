@@ -67,7 +67,7 @@ state_estimators:
     BRICKFLOW: ["tilt_mavros", "vel_optflow", "pos_brick"]
     T265: []
     ICP: ["tilt_mavros", "vel_icp"]
-    ALOAM: ["tilt_mavros", "pos_aloam"]
+    ALOAM: ["tilt_mavros", "pos_aloam", "vel_icp"]
     TOWER: ["tilt_mavros", "pos_tower"]
 
   # Mapping of measurements to states

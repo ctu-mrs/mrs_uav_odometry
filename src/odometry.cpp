@@ -2258,6 +2258,7 @@ void Odometry::onInit() {
     current_alt_estimator->getR(last_drs_config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
     current_alt_estimator->getR(last_drs_config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
     current_alt_estimator->getR(last_drs_config.R_height_vio, map_alt_measurement_name_id.find("height_vio")->second);
+    current_alt_estimator->getR(last_drs_config.R_height_aloam, map_alt_measurement_name_id.find("height_aloam")->second);
     current_alt_estimator->getR(last_drs_config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
 
     // Altitude velocity measurement covariances
@@ -10333,6 +10334,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "\nVelocity:\n"
       "R_vel_mavros: %f\n"
       "R_vel_vio: %f\n"
+      "R_vel_icp: %f\n"
       "R_vel_lidar: %f\n"
       "R_vel_optflow: %f\n"
       "R_vel_rtk: %f\n"
@@ -10340,7 +10342,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "\nTilt:\n"
       "R_tilt: %f\n",
       config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
-      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_tilt);
+      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_tilt);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
@@ -10355,6 +10357,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
 
     estimator.second->setR(config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     estimator.second->setR(config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
+    estimator.second->setR(config.R_vel_icp, map_measurement_name_id.find("vel_icp")->second);
     estimator.second->setR(config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
     estimator.second->setR(config.R_vel_optflow * 1000, map_measurement_name_id.find("vel_optflow")->second);
     estimator.second->setR(config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
@@ -10386,14 +10389,18 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "R_height_range: %f\n"
       "R_height_plane: %f\n"
       "R_height_brick: %f\n"
+      "R_height_aloam: %f\n"
+      "R_height_baro: %f\n"
       "R_vel_baro: %f\n"
       "R_acc_imu: %f\n",
-      config.R_height_range, config.R_height_plane, config.R_height_brick, config.R_vel_baro, config.R_acc_imu);
+      config.R_height_range, config.R_height_plane, config.R_height_brick, config.R_height_aloam, config.R_height_baro, config.R_vel_baro, config.R_acc_imu);
 
   for (auto &estimator : m_altitude_estimators) {
     estimator.second->setR(config.R_height_range, map_alt_measurement_name_id.find("height_range")->second);
     estimator.second->setR(config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
     estimator.second->setR(config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
+    estimator.second->setR(config.R_height_aloam, map_alt_measurement_name_id.find("height_aloam")->second);
+    estimator.second->setR(config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
     estimator.second->setR(config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
     estimator.second->setR(config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
   }
