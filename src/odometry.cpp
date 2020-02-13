@@ -10256,26 +10256,26 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
   }
 
   ROS_INFO(
-      "Reconfigure Request:\n",
-      "Lateral measurement covariance:\n",
-      "\nPosition:\n",
-      "R_pos_mavros: %f\n",
-      "R_pos_vio: %f\n",
-      "R_pos_vslam: %f\n",
-      "R_pos_lidar: %f\n",
-      "R_pos_rtk: %f\n",
-      "R_pos_brick: %f\n",
-      "R_pos_hector: %f\n",
-      "R_pos_tower: %f\n",
+      "Reconfigure Request:\n"
+      "Lateral measurement covariance:\n"
+      "\nPosition:\n"
+      "R_pos_mavros: %f\n"
+      "R_pos_vio: %f\n"
+      "R_pos_vslam: %f\n"
+      "R_pos_lidar: %f\n"
+      "R_pos_rtk: %f\n"
+      "R_pos_brick: %f\n"
+      "R_pos_hector: %f\n"
+      "R_pos_tower: %f\n"
 
-      "\nVelocity:\n",
-      "R_vel_mavros: %f\n",
-      "R_vel_vio: %f\n",
-      "R_vel_lidar: %f\n",
-      "R_vel_optflow: %f\n",
-      "R_vel_rtk: %f\n",
+      "\nVelocity:\n"
+      "R_vel_mavros: %f\n"
+      "R_vel_vio: %f\n"
+      "R_vel_lidar: %f\n"
+      "R_vel_optflow: %f\n"
+      "R_vel_rtk: %f\n"
 
-      "\nAcceleration:\n",
+      "\nAcceleration:\n"
       "R_acc_imu: %f\n",
 
       config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
