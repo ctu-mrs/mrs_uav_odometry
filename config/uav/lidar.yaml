@@ -26,8 +26,3 @@ rtk_available: false
 lidar_available: true
 brick_available: false
 t265_available: false
-
-lateral:
-
-  Q:
-    tilt_mavros: [100]

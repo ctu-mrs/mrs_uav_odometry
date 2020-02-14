@@ -31,22 +31,6 @@ lateral:
   # Covariances of measurements
   Q:
     vel_optflow: [1]
-    pos_mavros: [0.01]
-    vel_mavros: [0.1]
-    tilt_mavros: [100]
-    pos_rtk: [10]
-    vel_rtk: [1000]
-    pos_lidar: [1]
-    vel_lidar: [10]
-    pos_vslam: [1000]
-    pos_vio: [100]
-    vel_vio: [10000]
-    pos_object: [100]
-    vel_object: [10000]
-    pos_brick: [100]
-    vel_brick: [10000]
-    pos_hector: [1.0]
-    vel_icp: [1000]
 
 heading:
 
