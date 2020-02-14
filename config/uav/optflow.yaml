@@ -31,4 +31,3 @@ lateral:
 
   Q:
     vel_optflow: [1]
-    tilt_mavros: [100]

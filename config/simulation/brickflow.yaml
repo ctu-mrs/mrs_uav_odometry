@@ -18,11 +18,4 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "OPTFLOW", "BRICKFLOW", "BRICK"]
 
-lateral:
-  # Covariances of measurements
-  Q:
-    pos_brick: [10]
-    vel_optflow: [10]
-    tilt_mavros: [100]
-
 
