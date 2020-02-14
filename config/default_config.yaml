@@ -146,7 +146,7 @@ altitude:
 
 lateral:
 
-  numberOfVariables: 6
+  numberOfVariables: 3
   numberOfInputs: 1
   numberOfMeasurements: 1
 
@@ -206,7 +206,7 @@ lateral:
   Q:
     vel_optflow: [1]
     pos_mavros: [0.01]
-    vel_mavros: [0.1]
+    vel_mavros: [100]
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
@@ -217,50 +217,29 @@ lateral:
     vel_vio: [10] #10
     pos_object: [100]
     vel_object: [10000]
-    pos_brick: [100]
+    # pos_brick: [100]
+    pos_brick: [0.01]
     vel_brick: [100]
-    pos_hector: [1000]
+    pos_hector: [1]
     pos_tower: [1000]
     pos_aloam: [10]
     vel_icp: [1000]
+    acc_imu: [1000000000] # turned off in estimators
 
   # The system matrix
-  # pos, vel, acc, acc_in, acc_dist, tilt
-  A: [1, 0.02, 0.0004, 0, 0, 0,
-      0, 1, 0.02, 0, 0, 0,
-      0, 0, 0, 1, 1, 0,
-      0, 0, 0, 0, 0, 6.3512,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 0.9030]
-  # no disturbance estimation
-  # A: [1, 0.02, 0.0004, 0, 0, 0,
-  #     0, 1, 0.02, 0, 0, 0,
-  #     0, 0, 0, 1, 0, 0,
-  #     0, 0, 0, 0, 0, 6.3512,
-  #     0, 0, 0, 0, 0, 0,
-  #     0, 0, 0, 0, 0, 0.9030]
+  # pos, vel, acc
+  A: [1, 0.01, 0.0002,
+      0, 1, 0.01,
+      0, 0, 1]
 
   # The input matrix
   B: [0,
       0,
-      0,
-      0,
-      0,
-      0.0970]
+      0.01]
 
-  # Process covariance
-  # R: [0.1, 1, 0, 0, 0, 0,
-  #     0, 0.1, 1000, 0, 0, 0,
-  #     0, 0, 0, 0.0001, 0.0001, 0,
-  #     0, 0, 0, 0, 0, 0.0001,
-  #     0, 0, 0, 0, 0.1, 0,
-  #     0, 0, 0, 0, 0, 1000]
-  R: [0.1, 0, 0, 0, 0, 0,
-      0, 0.1, 0, 0, 0, 0,
-      0, 0, 0.1, 0, 0, 0,
-      0, 0, 0, 0.1, 0, 0,
-      0, 0, 0, 0, 0.1, 0,
-      0, 0, 0, 0, 0, 0.1]
+  R: [0.001, 0, 0,
+      0, 0.01, 0,
+      0, 0, 0.01]
 
   # RTK estimator must have a different model
   rtk:
