@@ -7284,6 +7284,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       c_failed_brick_yaw_++;
     }
     brick_reliable = false;
+    brick_yaw_previous = yaw_brick;
     return;
   }
 
