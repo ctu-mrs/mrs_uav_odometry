@@ -52,10 +52,9 @@ state_estimators:
   # The fused measurements for each state estimator
   fused_measurements:
     OPTFLOW: ["vel_optflow"]
-    # GPS: ["pos_mavros", "vel_mavros", "acc_imu"]
-    GPS: ["pos_mavros", "acc_imu"]
+    GPS: ["pos_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros"]
-    RTK: ["pos_mavros", "vel_mavros", "pos_rtk"]
+    RTK: ["pos_mavros", "pos_rtk"]
     LIDAR: ["pos_lidar"]
     HECTOR: ["pos_hector"]
     VIO: ["pos_vio", "vel_vio"]

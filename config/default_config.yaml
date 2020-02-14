@@ -215,13 +215,14 @@ lateral:
     vel_vio: [10] #10
     pos_object: [100]
     vel_object: [10000]
-    pos_brick: [100]
+    # pos_brick: [100]
+    pos_brick: [0.01]
     vel_brick: [100]
     pos_hector: [1]
     pos_tower: [1000]
     pos_aloam: [10]
     vel_icp: [1000]
-    acc_imu: [10000]
+    acc_imu: [1000000000]
 
   # The system matrix
   # pos, vel, acc
@@ -234,9 +235,9 @@ lateral:
       0,
       0.01]
 
-  R: [0.1, 0, 0,
-      0, 1, 0,
-      0, 0, 10]
+  R: [0.001, 0, 0,
+      0, 0.001, 0,
+      0, 0, 0.01]
 
   # RTK estimator must have a different model
   rtk:
