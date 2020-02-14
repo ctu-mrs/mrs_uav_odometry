@@ -999,7 +999,6 @@ private:
   typedef mrs_odometry::odometry_dynparamConfig Config;
   typedef dynamic_reconfigure::Server<Config>   ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>		reconfigure_server_;
-  void						drs_callback(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
   mrs_odometry::odometry_dynparamConfig		last_drs_config;
 };
 
@@ -1901,13 +1900,6 @@ void Odometry::onInit() {
   m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
   transformer_      = mrs_lib::Transformer("Odometry", uav_name);
 
-  // --------------------------------------------------------------
-  // |                     dynamic reconfigure                    |
-  // --------------------------------------------------------------
-
-  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
-  ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
-  reconfigure_server_->setCallback(f);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -2228,6 +2220,10 @@ void Odometry::onInit() {
 
   //}
 
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+
   /* pass current covariances to dynamic reconfigure //{ */
   {
     std::scoped_lock lock(mutex_current_estimator);
@@ -2296,7 +2292,10 @@ void Odometry::onInit() {
     current_hdg_estimator->getR(last_drs_config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
   }
 
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
   reconfigure_server_->updateConfig(last_drs_config);
+  ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
+  reconfigure_server_->setCallback(f);
 
   //}
 
