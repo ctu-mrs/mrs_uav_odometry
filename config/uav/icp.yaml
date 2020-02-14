@@ -1,0 +1,58 @@
+# Estimators used during takeoff
+# Lateral state estimator:
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
+lateral_estimator: "ICP"
+
+# Altitude state estimator:
+# HEIGHT - rangefinder
+altitude_estimator: "HEIGHT"
+
+# Heading state estimator:
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
+heading_estimator: "ICP" 
+
+# Active estimators are started at node launch and can be switched to during flight
+state_estimators:
+  active: ["ICP"]
+
+heading_estimators:
+  active: ["ICP", "GYRO"]
+
+# Available localization methods
+gps_available: false
+optflow_available: false
+vio_available: false
+rtk_available: false
+lidar_available: true
+brick_available: false
+t265_available: false
+icp_available: true
+
+heading:
+
+  # The system matrix 
+  A: [1, 0.01, 0,  # yaw
+      0, 1.0, 1,     # yaw rate
+      0, 0, 1]     # gyro bias
+
+  # The input matrix (yaw rate or yaw + yaw rate?)
+  B: [0, 0,
+      0, 0.0,
+      0, 0]
+
+  # Process covariance
+  R: [0.001, 0, 0,
+      0, 0.001, 0,
+      0, 0, 0.00001]
+
+  # Covariances of measurements
+  Q:
+    yaw_compass: [0.1]
+    yaw_hector: [0.01]
+    yaw_brick: [1]
+    yaw_vio: [1]
+    yaw_vslam: [1]
+    yaw_lidar: [1]
+    rate_gyro: [0.1]
+    rate_optflow: [10]
+    rate_icp: [1]
