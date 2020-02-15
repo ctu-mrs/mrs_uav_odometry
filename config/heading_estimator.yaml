@@ -55,7 +55,7 @@ heading_estimators:
     VSLAM: ["rate_gyro", "yaw_vslam"]
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "yaw_brick"]
-    ALOAM: ["rate_gyro", "yaw_aloam"]
+    ALOAM: ["rate_gyro", "yaw_aloam", "rate_icp"]
     TOWER: ["rate_gyro", "yaw_tower"]
 
   # Mapping of measurements to states
