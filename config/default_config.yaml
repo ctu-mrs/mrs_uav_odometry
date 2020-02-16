@@ -163,7 +163,7 @@ lateral:
   max_safe_brick_yaw_jump: deg(20)
 
   gps_fallback:
-    allowed: true
+    allowed: false
     fallback_estimator: "OPTFLOW"
     cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
     bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
