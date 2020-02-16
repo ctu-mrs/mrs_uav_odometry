@@ -2547,7 +2547,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // prediction step of height estimator (filtered garmin without baro)
   mrs_msgs::Float64Stamped height_msg;
-  height_msg.header.frame_id = local_origin_frame_id_;
+  height_msg.header.frame_id = fcu_untilted_frame_id_;
   height_msg.header.stamp    = ros::Time::now();
   {
     std::scoped_lock lock(mutex_estimator_height_);
