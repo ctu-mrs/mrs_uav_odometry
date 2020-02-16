@@ -57,6 +57,7 @@
 #include <mrs_msgs/EstimatedState.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/AttitudeCommand.h>
+#include <mrs_msgs/ReferenceStampedSrv.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Lkf.h>
@@ -209,6 +210,7 @@ private:
   ros::Subscriber sub_mavros_diagnostic_;
   ros::Subscriber sub_vio_state_;
   ros::Subscriber sub_uav_mass_estimate_;
+  ros::Subscriber sub_gps_covariance_;
 
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
@@ -230,6 +232,10 @@ private:
 
   ros::ServiceClient ser_client_failsafe_;
   ros::ServiceClient ser_client_hover_;
+  ros::ServiceClient ser_client_reference_;
+  ros::ServiceClient ser_client_ehover_;
+  ros::ServiceClient ser_client_tracker_;
+  ros::ServiceClient ser_client_controller_;
   ros::ServiceClient ser_client_enable_callbacks_;
 
 private:
@@ -257,8 +263,22 @@ private:
   std::mutex mutex_odom_pixhawk;
   std::mutex mutex_odom_pixhawk_shifted;
 
-  ros::Time  odom_pixhawk_last_update;
-  std::mutex mutex_gps_local_odom;
+  ros::Time   odom_pixhawk_last_update;
+  std::mutex  mutex_gps_local_odom;
+  std::mutex  mutex_gps_covariance_;
+  double      gps_covariance_                 = 0.0;
+  double      _gps_fallback_covariance_limit_ = 0.0;
+  double      _gps_fallback_covariance_ok_    = 0.0;
+  std::string _gps_fallback_estimator_        = "OPTFLOW";
+  bool        _gps_fallback_allowed_          = false;
+  bool        _gps_return_after_fallback_     = false;
+  bool        gps_in_fallback_                = false;
+  int         c_gps_cov_over_lim_             = 0;
+  int         c_gps_cov_ok_                   = 0;
+  int         _gps_fallback_bad_samples_      = 0;
+  int         _gps_fallback_good_samples_     = 0;
+  double      _gps_fallback_altitude_ = 4.0;
+  double      _gps_fallback_wait_for_altitude_time_ = 5.0;
 
   geometry_msgs::Quaternion des_attitude_;
   double                    des_yaw_rate_, des_yaw_;
@@ -581,6 +601,7 @@ private:
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
+  void callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg);
 
   // | ------------------- service callbacks ------------------- |
   bool callbackToggleTeraranger(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
@@ -627,6 +648,10 @@ private:
   bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
   nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg, const tf2::Vector3 &pos_offset, const tf2::Quaternion &rot_offset);
   void               initPoseFromFile();
+
+// | ------------------ call service routines ----------------- |
+  bool callEnableControlCallbacks();
+  bool callDisableControlCallbacks();
 
 
   // for keeping new odom
@@ -1882,6 +1907,17 @@ void Odometry::onInit() {
   param_loader.load_param("lateral/max_safe_brick_yaw_jump", max_safe_brick_yaw_jump_tmp);
   max_safe_brick_yaw_jump_sq_ = std::pow(max_safe_brick_yaw_jump_tmp, 2);
 
+  param_loader.load_param("lateral/gps_fallback/allowed", _gps_fallback_allowed_);
+  param_loader.load_param("lateral/gps_fallback/fallback_estimator", _gps_fallback_estimator_);
+  param_loader.load_param("lateral/gps_fallback/cov_limit", _gps_fallback_covariance_limit_);
+  param_loader.load_param("lateral/gps_fallback/cov_ok", _gps_fallback_covariance_ok_);
+  param_loader.load_param("lateral/gps_fallback/return_after_ok", _gps_return_after_fallback_);
+  param_loader.load_param("lateral/gps_fallback/bad_samples", _gps_fallback_bad_samples_);
+  param_loader.load_param("lateral/gps_fallback/good_samples", _gps_fallback_good_samples_);
+  param_loader.load_param("lateral/gps_fallback/altitude", _gps_fallback_altitude_);
+  param_loader.load_param("lateral/gps_fallback/altitude_wait_time", _gps_fallback_wait_for_altitude_time_);
+
+
   if (pass_rtk_as_odom && !_rtk_available) {
     ROS_ERROR("[Odometry]: cannot have pass_rtk_as_odom TRUE when rtk_available FALSE");
     ros::shutdown();
@@ -2054,6 +2090,11 @@ void Odometry::onInit() {
 
   // subscribe for uav mass estimate
   sub_uav_mass_estimate_ = nh_.subscribe("uav_mass_estimate_in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
+
+  // subscribe for gps covariance
+  if (_gps_fallback_allowed_) {
+    sub_gps_covariance_ = nh_.subscribe("gps_covariance_in", 1, &Odometry::callbackGPSCovariance, this, ros::TransportHints().tcpNoDelay());
+  }
   //}
 
   // --------------------------------------------------------------
@@ -2101,7 +2142,11 @@ void Odometry::onInit() {
 
   ser_client_failsafe_         = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
   ser_client_hover_            = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  ser_client_reference_            = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("ereference_out");
+  ser_client_ehover_           = nh_.serviceClient<std_srvs::Trigger>("ehover_out");
   ser_client_enable_callbacks_ = nh_.serviceClient<std_srvs::SetBool>("enable_callbacks_out");
+  ser_client_tracker_          = nh_.serviceClient<mrs_msgs::String>("tracker_out");
+  ser_client_controller_       = nh_.serviceClient<mrs_msgs::String>("controller_out");
   //}
 
   // --------------------------------------------------------------
@@ -7283,7 +7328,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
       c_failed_brick_yaw_++;
     }
-    brick_reliable = false;
+    brick_reliable     = false;
     brick_yaw_previous = yaw_brick;
     return;
   }
@@ -8788,11 +8833,13 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
 
   if (measurement < range_plane.min_range) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f < %f. Not fusing.", measurement, range_plane.min_range);
+    plane_reliable = false;
     return;
   }
 
   if (measurement > range_plane.max_range) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, range_plane.max_range);
+    plane_reliable = false;
     return;
   }
 
@@ -8833,6 +8880,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
       altitudeEstimatorCorrection(height_range, "height_plane", estimator.second);
       if (fabs(height_range) > 100) {
         ROS_WARN("[Odometry]: Plane height correction: %f", height_range);
+        plane_reliable = false;
       }
       estimator.second->getStates(current_altitude);
       if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
@@ -9011,6 +9059,216 @@ void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
     uav_mass_estimate = msg->data;
   }
 }
+//}
+
+/* //{ callbackGPSCovariance() */
+void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
+
+  if (!is_initialized)
+    return;
+
+  if (!_gps_fallback_allowed_)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGPSCovariance");
+
+  double cov_tmp = msg->pose.covariance.at(0);
+
+  {
+    std::scoped_lock lock(mutex_gps_covariance_);
+
+    gps_covariance_ = cov_tmp;
+  }
+
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: cov_tmp %f limit %f", cov_tmp, _gps_fallback_covariance_limit_);
+
+  // Good/bad samples count
+  if (cov_tmp > _gps_fallback_covariance_limit_ && c_gps_cov_over_lim_ < _gps_fallback_bad_samples_ + 1) {
+    c_gps_cov_over_lim_++;
+    c_gps_cov_ok_ = 0;
+  } else if (cov_tmp < _gps_fallback_covariance_ok_ &&  c_gps_cov_ok_ < _gps_fallback_good_samples_ + 1){
+    c_gps_cov_ok_++;
+    c_gps_cov_over_lim_ = 0;
+  }
+
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: c_bad %d, c_good %d", c_gps_cov_over_lim_, c_gps_cov_ok_);
+
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: fallback %d est %s coutner %d limit %d", gps_in_fallback_, current_estimator_name.c_str(), c_gps_cov_over_lim_, _gps_fallback_bad_samples_);
+
+  // Fallback when GPS covariance over threshold
+  if (!gps_in_fallback_ && isEqual(current_estimator_name, "gps") && c_gps_cov_over_lim_ > _gps_fallback_bad_samples_) {
+
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: GPS covariance %f > %f", cov_tmp, _gps_fallback_covariance_limit_);
+
+    std::transform(_gps_fallback_estimator_.begin(), _gps_fallback_estimator_.end(), _gps_fallback_estimator_.begin(), ::toupper);
+
+    // Fallback to optflow
+    if (std::strcmp(_gps_fallback_estimator_.c_str(), "OPTFLOW") == 0) {
+
+      if (_optflow_available && got_optflow) {
+        ROS_WARN_THROTTLE(1.0, "Fallback to %s initiated.", _gps_fallback_estimator_.c_str());
+
+        // Disable odometry service callbacks
+        callbacks_enabled_ = false;
+
+        // Call hover service
+        ROS_INFO("[Odometry]: Calling hover service.");
+        std_srvs::Trigger hover_srv;
+        ser_client_hover_.call(hover_srv);
+        if (hover_srv.response.success) {
+          ROS_INFO("[Odometry]: Hover service called successfully: %s", hover_srv.response.message.c_str());
+        } else {
+          ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
+        }
+
+          // Call MpcController service
+          ROS_INFO("[Odometry]: Calling MpcController service.");
+          mrs_msgs::String mpc_controller_srv;
+          mpc_controller_srv.request.value = "MpcController";
+          ser_client_controller_.call(mpc_controller_srv);
+          if (mpc_controller_srv.response.success) {
+            ROS_INFO("[Odometry]: MpcController service called successfully: %s", mpc_controller_srv.response.message.c_str());
+          } else {
+            ROS_INFO("[Odometry]: MpcController service call failed: %s", mpc_controller_srv.response.message.c_str());
+          }
+
+        // Disable control callbacks
+          callDisableControlCallbacks();
+
+        // Get current altitude
+        Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+        double have_alt = false;
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          if (current_alt_estimator->getStates(current_altitude)) {
+            have_alt = true;
+          } else {
+            ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+            have_alt = false;
+          }
+        }
+
+        if (have_alt) {
+        double target_altitude = _gps_fallback_altitude_ - current_altitude(0);
+
+        // Got to optflow altitude (check if bumper enabled?)
+        ROS_INFO_THROTTLE(1.0, "[Odometry]: Going %f m in z axis of fcu_untilted frame.", target_altitude);
+
+        ROS_INFO("[Odometry]: Calling set emergency reference service.");
+        mrs_msgs::ReferenceStampedSrv reference_srv;
+        reference_srv.request.header.frame_id = "fcu_untilted";
+        reference_srv.request.reference.position.x = 0.0;
+        reference_srv.request.reference.position.y = 0.0;
+        reference_srv.request.reference.position.z = target_altitude;
+        reference_srv.request.reference.yaw = 0.0;
+        ser_client_reference_.call(reference_srv);
+        if (reference_srv.response.success) {
+          ROS_INFO("[Odometry]: Set emergency reference service called successfully: %s", reference_srv.response.message.c_str());
+        } else {
+          ROS_INFO("[Odometry]: Set emergency reference service call failed: %s", reference_srv.response.message.c_str());
+        }
+
+        // wait for altitude
+        double t = 0;
+        double t_step = 1.0;
+        ROS_INFO("[Odometry]: Waiting for reaching the target altitude.");
+        while (t < _gps_fallback_wait_for_altitude_time_) {
+          {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          current_alt_estimator->getStates(current_altitude);
+          }
+
+            ros::Duration(t_step).sleep();
+            if (std::fabs(current_altitude(0) - target_altitude) < 1.0) {
+              break;
+            }
+          
+          t += t_step; 
+        }
+        ROS_INFO("[Odometry]: Waited %f seonds to reach the target altitude.", t);
+
+
+        {
+          std::scoped_lock lock(mutex_altitude_estimator);
+          if (current_alt_estimator->getStates(current_altitude)) {
+            ROS_INFO_THROTTLE(1.0, "[Odometry]: Descended to %f m altitude", current_altitude(0));
+          } else {
+            ROS_WARN("[Odometry]: Could not descend. Altitude estimator not initialized.");
+          }
+        }
+        }
+
+        // Change heading estimator
+        bool                  hdg_switch_success;
+        mrs_msgs::HeadingType desired_hdg_estimator;
+        desired_hdg_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+        if (changeCurrentHeadingEstimator(desired_hdg_estimator)) {
+          hdg_switch_success = true;
+          ROS_INFO_THROTTLE(1.0, "[Odometry]: Fallback from GPS to OPTFLOW heading estimator successful.");
+        } else {
+          hdg_switch_success = false;
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Fallback from GPS to OPTFLOW heading estimator failed.");
+        }
+
+        if (hdg_switch_success) {
+          // Change lateral estimator
+          mrs_msgs::EstimatorType desired_estimator;
+          desired_estimator.type = mrs_msgs::EstimatorType::OPTFLOW;
+          if (changeCurrentEstimator(desired_estimator)) {
+            gps_in_fallback_ = true;
+            gps_reliable     = false;
+            ROS_INFO_THROTTLE(1.0, "[Odometry]: Fallback from GPS to OPTFLOW lateral estimator successful.");
+          } else {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Fallback from GPS to OPTFLOW lateral estimator failed.");
+          }
+        } else {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Fallback heading switch failed. Not attempting lateral switch.");
+        }
+
+        // Enable control callbacks
+        callEnableControlCallbacks();
+
+        // Enable odometry callbacks
+        callbacks_enabled_ = true;
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Fallback to OPTFLOW not available.");
+      }
+
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Fallback from GPS allowed only to OPTFLOW.");
+      return;
+    }
+  }
+  
+
+  // Back to GPS from fallback when covariance is ok
+  if (gps_in_fallback_ && c_gps_cov_ok_ > _gps_fallback_good_samples_) {
+
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: GPS covariance returned to acceptable values %f < %f. Switching from fallback back to GPS.", cov_tmp,
+                      _gps_fallback_covariance_ok_);
+
+    mrs_msgs::HeadingType desired_hdg_estimator;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    if (changeCurrentHeadingEstimator(desired_hdg_estimator)) {
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Switching from fallback OPTFLOW to PIXHAWK heading successful.");
+    } else {
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Switching from fallback OPTFLOW to PIXHAWK heading failed.");
+    }
+
+    mrs_msgs::EstimatorType desired_estimator;
+    desired_estimator.type = mrs_msgs::EstimatorType::GPS;
+
+    if (changeCurrentEstimator(desired_estimator)) {
+      gps_in_fallback_ = false;
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Switching from fallback OPTFLOW to GPS successful.");
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Switching from fallback OPTFLOW to GPS failed.");
+    }
+    gps_reliable = true;
+  }
+
+}  
+
 //}
 
 /* callbackVioState() //{ */
@@ -11197,21 +11455,20 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     }
 
     if (isUavFlying()) {
-    // update the altitude state
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      if (!current_alt_estimator->getStates(current_altitude)) {
-        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      // update the altitude state
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (!current_alt_estimator->getStates(current_altitude)) {
+          ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+          return false;
+        }
+      }
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
+        ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.",
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_brick_altitude);
         return false;
       }
-    }
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT),
-                _max_brick_altitude);
-      return false;
-    }
-
     }
 
     max_altitude = _max_brick_altitude;
@@ -11228,24 +11485,23 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       ROS_ERROR("[Odometry]: Cannot transition to PLANE type. No new plane msgs received.");
       return false;
     }
-    
+
     if (isUavFlying()) {
-    // update the altitude state
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      if (!current_alt_estimator->getStates(current_altitude)) {
-        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      // update the altitude state
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (!current_alt_estimator->getStates(current_altitude)) {
+          ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+          return false;
+        }
+      }
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
+        ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.",
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_plane_altitude);
         return false;
       }
     }
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT),
-                _max_plane_altitude);
-      return false;
-    }
-
-  }
     max_altitude = _max_plane_altitude;
     ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
   }
@@ -11655,6 +11911,46 @@ void Odometry::initPoseFromFile() {
   } else {
     ROS_ERROR("[Odometry]: Error opening file");
   }
+}
+
+//}
+
+// | ------------------ Call service routines ----------------- |
+
+/* callEnableControlCallbacks //{ */
+
+bool Odometry::callEnableControlCallbacks() {
+        // Enable control callbacks
+        ROS_INFO("[Odometry]: Calling enable callbacks service");
+        std_srvs::SetBool enable_callbacks_srv;
+        enable_callbacks_srv.request.data = true;
+        ser_client_enable_callbacks_.call(enable_callbacks_srv);
+        if (enable_callbacks_srv.response.success) {
+          ROS_INFO("[Odometry]: Enable callbacks service called successfully: %s", enable_callbacks_srv.response.message.c_str());
+          return true;
+        } else {
+          ROS_INFO("[Odometry]: Enable callbacks service call failed: %s", enable_callbacks_srv.response.message.c_str());
+          return false;
+        }
+}
+
+//}
+
+/* callDisableControlCallbacks //{ */
+
+bool Odometry::callDisableControlCallbacks() {
+        // Disable control callbacks
+        ROS_INFO("[Odometry]: Calling disable callbacks service");
+        std_srvs::SetBool disable_callbacks_srv;
+        disable_callbacks_srv.request.data = true;
+        ser_client_enable_callbacks_.call(disable_callbacks_srv);
+        if (disable_callbacks_srv.response.success) {
+          ROS_INFO("[Odometry]: Disable callbacks service called successfully: %s", disable_callbacks_srv.response.message.c_str());
+          return true;
+        } else {
+          ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
+          return false;
+        }
 }
 
 //}

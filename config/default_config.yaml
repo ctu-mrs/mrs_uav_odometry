@@ -162,6 +162,17 @@ lateral:
   max_safe_brick_jump: 0.5
   max_safe_brick_yaw_jump: deg(20)
 
+  gps_fallback:
+    allowed: true
+    fallback_estimator: "OPTFLOW"
+    cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
+    bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
+    altitude: 4.0 # go to altitude before fallback (optflow should work up to 10 m)
+    altitude_wait_time: 5.0 # [s] timeout for reaching target altitude
+    return_after_ok: true # return to GPS when covariance is back to normal
+    cov_ok: 6.0 # threshold covariance for return from fallback
+    good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
+
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 1
 
@@ -223,7 +234,7 @@ lateral:
     pos_hector: [1]
     pos_tower: [1000]
     pos_aloam: [10]
-    vel_icp: [1]
+    vel_icp: [10]
     acc_imu: [1000000000] # turned off in estimators
 
   # The system matrix
@@ -301,9 +312,9 @@ heading:
   accum_yaw_brick_alpha: 0.1
 
   # The system matrix 
-  A: [1, 0.02, 0,  # yaw
-      0, 0.95, 1,     # yaw rate
-      0, 0, 1]     # gyro bias
+  A: [1, 0.01, 0.0002,  # yaw
+      0, 0.95, 0.01,     # yaw rate
+      0, 0, 1]     # yaw accel
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
@@ -327,4 +338,4 @@ heading:
     yaw_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
-    rate_icp: [100]
+    rate_icp: [10]

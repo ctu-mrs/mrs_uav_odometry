@@ -123,6 +123,8 @@
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />
+      <remap from="~gps_covariance_in" to="mavros_interface/converted_mavros_odom" />
+      <!-- <remap from="~gps_covariance_in" to="mavros/global_position/local" /> -->
 
       <!-- Publishers -->
       <remap from="~uav_state_out" to="~uav_state" />
@@ -177,6 +179,7 @@
 
       <remap from="~failsafe_out" to="control_manager/eland" />
       <remap from="~hover_out" to="control_manager/hover" />
+      <remap from="~ereference_out" to="control_manager/emergency_reference" />
       <remap from="~enable_callbacks_out" to="control_manager/enable_callbacks" />
       <remap from="~hector_map_reset_out" to="hector_mapping/syscommand" />
 

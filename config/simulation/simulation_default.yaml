@@ -10,3 +10,14 @@ altitude_estimator: "HEIGHT"
 # Heading state estimator:
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
 heading_estimator: "PIXHAWK" 
+
+lateral:
+  gps_fallback:
+    allowed: true
+    fallback_estimator: "OPTFLOW"
+    cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
+    bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
+    altitude: 4.0 # go to altitude before fallback (optflow should work up to 10 m)
+    return_after_ok: true # return to GPS when covariance is back to normal
+    cov_ok: 6.0 # threshold covariance for return from fallback
+    good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)

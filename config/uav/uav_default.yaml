@@ -28,6 +28,17 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
+lateral:
+  gps_fallback:
+    allowed: false
+    fallback_estimator: "OPTFLOW"
+    cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
+    bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
+    altitude: 4.0 # go to altitude before fallback (optflow should work up to 10 m)
+    return_after_ok: true # return to GPS when covariance is back to normal
+    cov_ok: 6.0 # threshold covariance for return from fallback
+    good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
+
   # Covariances of measurements
   Q:
     vel_optflow: [1]
@@ -35,18 +46,18 @@ lateral:
 heading:
 
   # The system matrix 
-  A: [1, 0.02, 0,  # yaw
-      0, 0.9, 1,     # yaw rate
+  A: [1, 0.01, 0,  # yaw
+      0, 1.0, 1,     # yaw rate
       0, 0, 1]     # gyro bias
 
   # The input matrix (yaw rate or yaw + yaw rate?)
   B: [0, 0,
-      0, 0.1,
+      0, 0.0,
       0, 0]
 
   # Process covariance
-  R: [0.1, 0, 0,
-      0, 0.1, 0,
+  R: [0.001, 0, 0,
+      0, 0.001, 0,
       0, 0, 0.00001]
 
   # Covariances of measurements
@@ -59,4 +70,4 @@ heading:
     yaw_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
-    rate_icp: [100]
+    rate_icp: [1]
