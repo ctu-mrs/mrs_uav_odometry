@@ -29,6 +29,7 @@ altitude_estimators:
     "height_vio",
     "height_aloam",
     "height_baro",
+    "vel_range",
     "vel_baro",
     "acc_imu"
   ]
@@ -39,7 +40,7 @@ altitude_estimators:
     PLANE: ["height_plane", "vel_baro"]
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_baro"]
-    ALOAM: ["height_aloam", "vel_baro"]
+    ALOAM: ["height_aloam", "height_baro", "vel_range", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
 
   # Mapping of measurements to states
@@ -51,6 +52,7 @@ altitude_estimators:
     height_vio: HEIGHT
     height_aloam: HEIGHT
     height_baro: HEIGHT
+    vel_range: VELOCITY
     vel_baro: VELOCITY
     acc_imu: ACCELERATION
 

@@ -177,6 +177,7 @@ private:
   ros::Publisher pub_hector_reset_;
   ros::Publisher pub_imu_untilted_;
   ros::Publisher pub_brick_diag_;
+  ros::Publisher pub_range_vel_;
 
   ros::Publisher pub_debug_optflow_filter;
   ros::Publisher pub_debug_icp_twist_filter;
@@ -660,6 +661,7 @@ private:
   sensor_msgs::Range            range_garmin;
   sensor_msgs::Range            range_garmin_previous;
   std::mutex                    mutex_range_garmin;
+  std::mutex                    mutex_range_vel;
   void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
   std::shared_ptr<MedianFilter> garminFilter;
   int                           garmin_filter_buffer_size;
@@ -670,6 +672,14 @@ private:
   bool                          callbacks_enabled_           = false;
   bool                          baro_corrected_              = false;
   double                        baro_offset_                 = 0.0;
+
+  //
+  double                        range_garmin_measurement_previous;
+  double                        range_vel;
+  std::shared_ptr<MedianFilter> rangeVelFilter;
+  int                           range_vel_filter_buffer_size;
+  double                        range_vel_max_valid_velocity;
+  double                        range_vel_filter_max_difference;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -719,6 +729,7 @@ private:
   bool got_odom_t265        = false;
   bool got_optflow          = false;
   bool got_range            = false;
+  bool got_range_vel        = false;
   bool got_plane            = false;
   bool got_pixhawk_utm      = false;
   bool got_rtk              = false;
@@ -1198,6 +1209,10 @@ void Odometry::onInit() {
   param_loader.load_param("aloamHeightFilterMaxValidAltitude", aloam_height_max_valid_altitude);
   param_loader.load_param("aloamHeightFilterMaxDifference", aloam_height_filter_max_difference);
 
+  param_loader.load_param("rangeVelFilterBufferSize", range_vel_filter_buffer_size);
+  param_loader.load_param("rangeVelFilterMaxValidVelocity", range_vel_max_valid_velocity);
+  param_loader.load_param("rangeVelFilterMaxDifference", range_vel_filter_max_difference);
+
   param_loader.load_param("trg_z_offset", trg_z_offset_);
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
   param_loader.load_param("sonar_z_offset", sonar_z_offset_);
@@ -1324,6 +1339,8 @@ void Odometry::onInit() {
   vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
   aloamHeightFilter = std::make_shared<MedianFilter>(aloam_height_filter_buffer_size, aloam_height_max_valid_altitude, -aloam_height_max_valid_altitude,
                                                      aloam_height_filter_max_difference);
+  rangeVelFilter    = std::make_shared<MedianFilter>(range_vel_filter_buffer_size, range_vel_max_valid_velocity, -range_vel_max_valid_velocity,
+                                                  range_vel_filter_max_difference);
 
   ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
   ROS_INFO("[Odometry]: Sonar max valid altitude: %2.2f", sonar_max_valid_altitude);
@@ -1934,6 +1951,7 @@ void Odometry::onInit() {
   pub_debug_optflow_filter = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
   pub_imu_untilted_        = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
   pub_brick_diag_          = nh_.advertise<mrs_msgs::ReferenceStamped>("brick_diag_out", 1);
+  pub_range_vel_           = nh_.advertise<mrs_msgs::Float64Stamped>("range_vel_out", 1);
 
   // republisher for rtk local
   pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
@@ -2268,6 +2286,7 @@ void Odometry::onInit() {
     current_alt_estimator->getR(last_drs_config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
 
     // Altitude velocity measurement covariances
+    current_alt_estimator->getR(last_drs_config.R_vel_range, map_alt_measurement_name_id.find("vel_range")->second);
     current_alt_estimator->getR(last_drs_config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
 
     // Altitude acceleration measurement covariances
@@ -7284,7 +7303,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     if (brick_reliable && isEqual(current_estimator_name, "BRICK")) {
       c_failed_brick_yaw_++;
     }
-    brick_reliable = false;
+    brick_reliable     = false;
     brick_yaw_previous = yaw_brick;
     return;
   }
@@ -8443,7 +8462,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     excessive_tilt = false;
   }
 
-
   auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
 
   double range_fcu = 0;
@@ -8508,6 +8526,41 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
+  // Differentiate range measurements to estimate vertical velocity
+  double dt             = range_garmin.header.stamp.toSec() - range_garmin_previous.header.stamp.toSec();
+  bool   fuse_range_vel = dt < 0.3;
+
+  if (fuse_range_vel) {
+    if (got_range_vel) {
+      {
+        std::scoped_lock lock(mutex_range_vel);
+        range_vel = (measurement - range_garmin_measurement_previous) / dt;
+      }
+    } else {
+      std::scoped_lock lock(mutex_range_vel);
+      {
+        range_vel     = 0;
+        got_range_vel = true;
+      }
+    }
+    if (!rangeVelFilter->isValid(range_vel)) {
+      /* double filtered = aloamHeightFilter->getMedian(); */
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Range velocity measurement %f declined by median filter.", measurement);
+    }
+    range_vel = rangeVelFilter->getMedian();
+
+    mrs_msgs::Float64Stamped range_vel_msg;
+    range_vel_msg.header.frame_id = fcu_frame_id_;
+    range_vel_msg.header.stamp    = range_garmin.header.stamp;
+    range_vel_msg.value           = range_vel;
+    pub_range_vel_.publish(range_vel_msg);
+
+  } else {
+    got_range_vel = false;
+  }
+
+  range_garmin_measurement_previous = measurement;
+
   //////////////////// Fuse main altitude kalman ////////////////////
   if (!garmin_enabled) {
     ROS_WARN_ONCE("[Odometry]: Garmin not enabled. Not fusing range corrections.");
@@ -8549,6 +8602,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
+      if (fuse_range_vel) {
+        altitudeEstimatorCorrection(range_vel, "vel_range");
+      }
       altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
       if (std::pow(height_range, 2) > 10000) {
         ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
@@ -10290,7 +10346,8 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "R_acc_imu: %f\n",
 
       config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
-      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
+      config.R_pos_tower, config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk,
+      config.R_acc_imu_lat);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
@@ -10331,9 +10388,11 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
       "R_height_brick: %f\n"
       "R_height_aloam: %f\n"
       "R_height_baro: %f\n"
+      "R_vel_range: %f\n"
       "R_vel_baro: %f\n"
       "R_acc_imu: %f\n",
-      config.R_height_range, config.R_height_plane, config.R_height_brick, config.R_height_aloam, config.R_height_baro, config.R_vel_baro, config.R_acc_imu);
+      config.R_height_range, config.R_height_plane, config.R_height_brick, config.R_height_aloam, config.R_height_baro, config.R_vel_range, config.R_vel_baro,
+      config.R_acc_imu);
 
   for (auto &estimator : m_altitude_estimators) {
     estimator.second->setR(config.R_height_range, map_alt_measurement_name_id.find("height_range")->second);
@@ -10341,6 +10400,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
     estimator.second->setR(config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
     estimator.second->setR(config.R_height_aloam, map_alt_measurement_name_id.find("height_aloam")->second);
     estimator.second->setR(config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
+    estimator.second->setR(config.R_vel_range, map_alt_measurement_name_id.find("vel_range")->second);
     estimator.second->setR(config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
     estimator.second->setR(config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
   }
@@ -10374,6 +10434,12 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
     estimator.second->setR(config.R_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
     estimator.second->setR(config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
   }
+
+  range_vel_filter_buffer_size    = config.buf_size;
+  range_vel_max_valid_velocity    = config.max_valid;
+  range_vel_filter_max_difference = config.max_diff;
+  rangeVelFilter    = std::make_shared<MedianFilter>(range_vel_filter_buffer_size, range_vel_max_valid_velocity, -range_vel_max_valid_velocity,
+                                                  range_vel_filter_max_difference);
 }
 //}
 
@@ -11204,21 +11270,20 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     }
 
     if (isUavFlying()) {
-    // update the altitude state
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      if (!current_alt_estimator->getStates(current_altitude)) {
-        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      // update the altitude state
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (!current_alt_estimator->getStates(current_altitude)) {
+          ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+          return false;
+        }
+      }
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
+        ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.",
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_brick_altitude);
         return false;
       }
-    }
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT),
-                _max_brick_altitude);
-      return false;
-    }
-
     }
 
     max_altitude = _max_brick_altitude;
@@ -11235,24 +11300,23 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       ROS_ERROR("[Odometry]: Cannot transition to PLANE type. No new plane msgs received.");
       return false;
     }
-    
+
     if (isUavFlying()) {
-    // update the altitude state
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
-    {
-      std::scoped_lock lock(mutex_altitude_estimator);
-      if (!current_alt_estimator->getStates(current_altitude)) {
-        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      // update the altitude state
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      {
+        std::scoped_lock lock(mutex_altitude_estimator);
+        if (!current_alt_estimator->getStates(current_altitude)) {
+          ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+          return false;
+        }
+      }
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
+        ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.",
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_plane_altitude);
         return false;
       }
     }
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.", current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT),
-                _max_plane_altitude);
-      return false;
-    }
-
-  }
     max_altitude = _max_plane_altitude;
     ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
   }
