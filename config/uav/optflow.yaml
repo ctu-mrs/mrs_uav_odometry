@@ -30,4 +30,4 @@ t265_available: false
 lateral:
 
   Q:
-    vel_optflow: [1]
+    vel_optflow: [0.1]

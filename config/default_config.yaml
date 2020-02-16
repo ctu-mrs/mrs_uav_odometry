@@ -81,7 +81,7 @@ trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
 
-garminFilterBufferSize: 200
+garminFilterBufferSize: 100
 garminFilterMaxValidAltitude: 40.0
 garminFilterMaxDifference: 1.0
 
@@ -89,7 +89,7 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 2.0
 
-planeFilterBufferSize: 200
+planeFilterBufferSize: 100
 planeFilterMaxValidAltitude: 40.0
 planeFilterMaxDifference: 2.0
 
@@ -135,7 +135,7 @@ altitude:
   Q:
     height_range: [100] # 0.04 stddev in simulation
     height_sonar: [1]
-    height_plane: [100] 
+    height_plane: [10] 
     height_brick: [10] 
     height_vio: [1] 
     height_aloam: [1] 
