@@ -924,29 +924,30 @@ private:
   std::mutex                  mutex_mavros_diag;
 
   // reliability of gps
-  double max_altitude       = 10;
-  bool   gps_reliable       = false;
-  bool   hector_reliable    = false;
-  bool   tower_reliable     = false;
-  bool   aloam_reliable     = false;
-  bool   _gps_available     = false;
-  bool   _vio_available     = false;
-  bool   vio_reliable       = true;
-  bool   _vslam_available   = false;
-  bool   vslam_reliable     = true;
-  bool   optflow_reliable   = false;
-  bool   _optflow_available = false;
-  bool   _rtk_available     = false;
-  bool   rtk_reliable       = false;
-  bool   _t265_available    = false;
-  bool   t265_reliable      = false;
-  bool   _lidar_available   = false;
-  bool   _aloam_available   = false;
-  bool   _brick_available   = false;
-  bool   brick_reliable     = false;
-  bool   height_available_  = false;
-  bool   icp_reliable       = false;
-  bool   plane_reliable     = false;
+  double     max_altitude_ = 10;
+  std::mutex mutex_max_altitude_;
+  bool       gps_reliable       = false;
+  bool       hector_reliable    = false;
+  bool       tower_reliable     = false;
+  bool       aloam_reliable     = false;
+  bool       _gps_available     = false;
+  bool       _vio_available     = false;
+  bool       vio_reliable       = true;
+  bool       _vslam_available   = false;
+  bool       vslam_reliable     = true;
+  bool       optflow_reliable   = false;
+  bool       _optflow_available = false;
+  bool       _rtk_available     = false;
+  bool       rtk_reliable       = false;
+  bool       _t265_available    = false;
+  bool       t265_reliable      = false;
+  bool       _lidar_available   = false;
+  bool       _aloam_available   = false;
+  bool       _brick_available   = false;
+  bool       brick_reliable     = false;
+  bool       height_available_  = false;
+  bool       icp_reliable       = false;
+  bool       plane_reliable     = false;
 
   bool      brick_semi_reliable = false;
   ros::Time brick_semi_reliable_started;
@@ -1253,7 +1254,7 @@ void Odometry::onInit() {
   param_loader.load_param("max_brick_altitude", _max_brick_altitude);
   param_loader.load_param("max_plane_altitude", _max_plane_altitude);
   param_loader.load_param("max_default_altitude", _max_default_altitude);
-  max_altitude = _max_default_altitude;
+  max_altitude_ = _max_default_altitude;
   param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
   param_loader.load_param("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
   optflow_stddev.x = 1.0;
@@ -4453,7 +4454,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.estimator_type = _estimator_type;
 
-  odometry_diag.max_altitude      = max_altitude;
+  odometry_diag.max_altitude      = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
   odometry_diag.gps_reliable      = gps_reliable;
   odometry_diag.gps_available     = _gps_available;
   odometry_diag.optflow_available = _optflow_available;
@@ -4583,7 +4584,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   max_altitude_msg.header.frame_id = uav_name + "/" + current_estimator_name + "_origin";
   max_altitude_msg.header.stamp    = ros::Time::now();
 
-  max_altitude_msg.value = max_altitude;
+  max_altitude_msg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
   try {
     pub_max_altitude_.publish(max_altitude_msg);
@@ -9009,21 +9010,23 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
   }
 
   // Change the maximum altitude back to default if the current estimator is not OPTFLOW
+  auto max_alt_tmp = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
   if (_estimator_type.type != mrs_msgs::EstimatorType::OPTFLOW && _estimator_type.type != mrs_msgs::EstimatorType::BRICKFLOW) {
-    if (max_altitude != _max_default_altitude) {
-      max_altitude = _max_default_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    if (max_alt_tmp != _max_default_altitude) {
+      mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude_);
     }
   } else {
-    if (max_altitude != _max_optflow_altitude) {
-      max_altitude = _max_optflow_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    if (max_alt_tmp != _max_optflow_altitude) {
+      mrs_lib::set_mutexed(mutex_max_altitude_, _max_optflow_altitude, max_altitude_);
+      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude_);
     }
   }
-  ROS_INFO_THROTTLE(
-      10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f",
-      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
-      max_altitude);
+
+  auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
+  ROS_INFO_THROTTLE(10.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f",
+                    (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                    toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp);
 }
 //}
 
@@ -9057,11 +9060,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
 
   double cov_tmp = msg->pose.covariance.at(0);
 
-  {
-    std::scoped_lock lock(mutex_gps_covariance_);
-
-    gps_covariance_ = cov_tmp;
-  }
+  mrs_lib::set_mutexed(mutex_gps_covariance_, cov_tmp, gps_covariance_);
 
   // Good/bad samples count
   if (cov_tmp > _gps_fallback_covariance_limit_ && c_gps_cov_over_lim_ < _gps_fallback_bad_samples_ + 1) {
@@ -11125,8 +11124,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_optflow_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_optflow_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_optflow_altitude);
 
     // Mavros GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::GPS) {
@@ -11141,8 +11140,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // Optic flow + Mavros GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
@@ -11173,8 +11172,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // RTK GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::RTK) {
@@ -11199,8 +11198,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // T265 type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::T265) {
@@ -11220,8 +11219,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // LIDAR localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::LIDAR) {
@@ -11236,8 +11235,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // Hector SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::HECTOR) {
@@ -11254,8 +11253,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     hector_reliable = true;
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // TOWER localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::TOWER) {
@@ -11272,8 +11271,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     tower_reliable = true;
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // ALOAM SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAM) {
@@ -11290,8 +11289,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     aloam_reliable = true;
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // ICP localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
@@ -11306,8 +11305,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_default_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // Vio localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
@@ -11322,13 +11321,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!_gps_available) {
-      max_altitude = _max_optflow_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    } else {
-      max_altitude = _max_default_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    }
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // VSLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VSLAM) {
@@ -11343,13 +11337,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!_gps_available) {
-      max_altitude = _max_optflow_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    } else {
-      max_altitude = _max_default_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    }
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // brick localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
@@ -11376,13 +11365,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
     }
 
-    if (!_gps_available) {
-      max_altitude = _max_optflow_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    } else {
-      max_altitude = _max_default_altitude;
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
-    }
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // Brick flow type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICKFLOW) {
@@ -11402,8 +11386,8 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    max_altitude = _max_optflow_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
 
     // Mavros GPS type
   } else {
@@ -11491,8 +11475,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       }
     }
 
-    max_altitude = _max_brick_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_brick_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_brick_altitude);
   }
 
   //}
@@ -11522,8 +11506,9 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
         return false;
       }
     }
-    max_altitude = _max_plane_altitude;
-    ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude);
+
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_plane_altitude, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_plane_altitude);
   }
 
   //}
