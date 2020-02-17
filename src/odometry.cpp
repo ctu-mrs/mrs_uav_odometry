@@ -139,7 +139,6 @@ private:
   double _max_brick_altitude;
   double _max_plane_altitude;
   double _max_default_altitude;
-  int    _min_satellites;
 
   ros::NodeHandle nh_;
 
@@ -1262,7 +1261,6 @@ void Odometry::onInit() {
   optflow_stddev.z = 1.0;
 
   // Localization sources availability
-  param_loader.load_param("min_satellites", _min_satellites);
   param_loader.load_param("gps_available", _gps_available);
   param_loader.load_param("vio_available", _vio_available);
   param_loader.load_param("vslam_available", _vslam_available);
@@ -8834,19 +8832,19 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
 
   if (measurement < range_plane.min_range) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f < %f. Not fusing.", measurement, range_plane.min_range);
-    plane_reliable = false;
+    /* plane_reliable = false; */
     return;
   }
 
   if (measurement > range_plane.max_range) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not fusing.", measurement, range_plane.max_range);
-    plane_reliable = false;
+    /* plane_reliable = false; */
     return;
   }
 
   if (measurement > _max_plane_altitude) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not reliable.", measurement, _max_plane_altitude);
-    plane_reliable = false;
+    /* plane_reliable = false; */
     return;
   }
 
@@ -8881,7 +8879,8 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
       altitudeEstimatorCorrection(height_range, "height_plane", estimator.second);
       if (fabs(height_range) > 100) {
         ROS_WARN("[Odometry]: Plane height correction: %f", height_range);
-        plane_reliable = false;
+        /* plane_reliable = false; */
+        return;
       }
       estimator.second->getStates(current_altitude);
       if (std::strcmp(estimator.second->getName().c_str(), "HEIGHT") == 0) {
@@ -9009,23 +9008,6 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
     mavros_diag.gps.satellites_visible = msg->gps.satellites_visible;
   }
 
-  if (gps_reliable && mavros_diag.gps.satellites_visible < _min_satellites) {
-
-    gps_reliable = false;
-    ROS_WARN("[Odometry]: GPS unreliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
-
-    // If optflow is available, prepare to switching to OPTFLOW estimator by decreasing the max altitude
-    /* if (_optflow_available) { */
-    /*   max_altitude = _max_optflow_altitude; */
-    /*   ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude); */
-    /* } */
-
-  } else if (_gps_available && !gps_reliable && mavros_diag.gps.satellites_visible >= _min_satellites) {
-
-    gps_reliable = true;
-    ROS_WARN("[Odometry]: GPS reliable. %d satellites visible.", mavros_diag.gps.satellites_visible);
-  }
-
   // Change the maximum altitude back to default if the current estimator is not OPTFLOW
   if (_estimator_type.type != mrs_msgs::EstimatorType::OPTFLOW && _estimator_type.type != mrs_msgs::EstimatorType::BRICKFLOW) {
     if (max_altitude != _max_default_altitude) {
@@ -9039,9 +9021,9 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
     }
   }
   ROS_INFO_THROTTLE(
-      10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f, Satellites: %d",
+      10.0, "[Odometry]: Running for %.2f seconds. Lateral estimator: %s, Altitude estimator: %s, Heading estimator: %s, Max altitude: %f",
       (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), current_alt_estimator_name.c_str(), current_hdg_estimator_name.c_str(),
-      max_altitude, mavros_diag.gps.satellites_visible);
+      max_altitude);
 }
 //}
 
@@ -11155,7 +11137,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to GPS type. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to GPS type. GPS not reliable.");
       return false;
     }
 
@@ -11187,8 +11169,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible,
-                _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Not reliable.");
       return false;
     }
 
@@ -11214,7 +11195,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     if (!gps_reliable) {
-      ROS_ERROR("[Odometry]: Cannot transition to RTK type. Not enough satellites: %d. Required %d.", mavros_diag.gps.satellites_visible, _min_satellites);
+      ROS_ERROR("[Odometry]: Cannot transition to RTK type.");
       return false;
     }
 
