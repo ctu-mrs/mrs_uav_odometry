@@ -109,6 +109,8 @@ reset_hector_after_takeoff: false # Gets rid of map clutter accumulated during t
 
 perform_hector_reset_routine: false # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
+hiccup_time_threshold: 0.03 # [s] Time between mainTimer ticks to be considered as hiccup
+
 null_tracker: "NullTracker"
 
 altitude:
