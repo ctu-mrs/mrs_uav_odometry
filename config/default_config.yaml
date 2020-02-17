@@ -89,7 +89,7 @@ sonarFilterBufferSize: 200
 sonarFilterMaxValidAltitude: 40.0
 sonarFilterMaxDifference: 2.0
 
-planeFilterBufferSize: 100
+planeFilterBufferSize: 40 # measurements coming at 20 Hz -> 2 s buffer 
 planeFilterMaxValidAltitude: 40.0
 planeFilterMaxDifference: 2.0
 
