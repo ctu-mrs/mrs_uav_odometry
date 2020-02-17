@@ -15,7 +15,7 @@ altitude:
   Q:
     height_range: [10] # 0.04 stddev in simulation
     height_sonar: [1000] # 0.04 stddev in simulation
-    height_plane: [100] 
+    height_plane: [10] 
     height_brick: [1] 
     height_vio: [1] 
     vel_baro: [1]
