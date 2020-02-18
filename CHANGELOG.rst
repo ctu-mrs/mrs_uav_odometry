@@ -2,8 +2,8 @@
 Changelog for package mrs_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.4 (2020-02-18)
+------------------
 * shorter median filter
 * plane cov 100->10 pls keep this value, higher breaks height estimator
 * hiccup and failed servoing printing
