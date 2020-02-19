@@ -10408,6 +10408,13 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
     return true;
   }
 
+  if (!got_hector_pose) {
+    res.success = false;
+    res.message = ("Cannot reset when HECTOR is not running");
+    ROS_WARN("[Odometry]: Cannot switch to HECTOR when HECTOR is not running.");
+    return true;
+  }
+
   // Reset HECTOR map
   ROS_INFO("[Odometry]: Calling Hector map reset.");
   std_msgs::String reset_msg;
