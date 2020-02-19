@@ -11621,6 +11621,19 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
     fallback_brick_hdg_estimator_type = _hdg_estimator_type;
     ROS_INFO("[Odometry]: Fallback from BRICK heading estimator: %s", _hdg_estimator_type.name.c_str());
+
+    // Hector SLAM localization type
+  } else if (target_estimator.type == mrs_msgs::HeadingType::HECTOR) {
+
+    if (!_lidar_available) {
+      ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. Lidar localization not available in this world.");
+      return false;
+    }
+
+    if (!got_hector_pose && is_ready_to_takeoff) {
+      ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
+      return false;
+    }
   }
   is_updating_state_ = true;
   if (stringInVector(target_estimator.name, _active_heading_estimators_names)) {
