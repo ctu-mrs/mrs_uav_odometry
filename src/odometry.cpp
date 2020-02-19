@@ -576,8 +576,8 @@ private:
   bool is_updating_state_     = false;
   bool finished_state_update_ = false;
 
-  double _hiccup_thr_ = 0.03;
-  int c_hiccup_ = 0;
+  double     _hiccup_thr_ = 0.03;
+  int        c_hiccup_    = 0;
   std::mutex mutex_c_hiccup_;
 
   // | -------------------- message callbacks ------------------- |
@@ -9034,20 +9034,22 @@ void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg
 
   auto c_hiccup_tmp = mrs_lib::get_mutexed(mutex_c_hiccup_, c_hiccup_);
   if (_gps_available && !_brick_available) {
-  auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
-  ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d",
-                    (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-                    toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
-  } if (_gps_available && _brick_available) {
-  auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
-  ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d. Failed servoing: %d",
-                    (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-                    toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp, (c_failed_brick_x_+c_failed_brick_y_+c_failed_brick_yaw_+c_failed_brick_timeout_));
+    auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
+    ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d",
+                      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                      toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
+  }
+  if (_gps_available && _brick_available) {
+    auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
+    ROS_INFO_THROTTLE(
+        5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d. Failed servoing: %d",
+        (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+        toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp,
+        (c_failed_brick_x_ + c_failed_brick_y_ + c_failed_brick_yaw_ + c_failed_brick_timeout_));
   } else {
-  ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. Max alt: %.2f. Hiccups > %.2f: %d",
-                    (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-                    toUppercase(current_hdg_estimator_name).c_str(), max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
-
+    ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. Max alt: %.2f. Hiccups > %.2f: %d",
+                      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                      toUppercase(current_hdg_estimator_name).c_str(), max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
   }
 }
 //}
@@ -10423,19 +10425,27 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
   for (auto &estimator : m_heading_estimators) {
     if (isEqual(estimator.first.c_str(), "HECTOR")) {
       Eigen::VectorXd hdg(1);
+      Eigen::VectorXd hdg_rate(1);
+      Eigen::VectorXd hdg_acc(1);
       hdg << 0;
+      hdg_rate << 0;
+      hdg_acc << 0;
       estimator.second->setState(0, hdg);
+      estimator.second->setState(1, hdg_rate);
+      estimator.second->setState(2, hdg_acc);
     }
   }
 
   // Reset HECTOR position
   for (auto &estimator : m_state_estimators) {
     if (isEqual(estimator.first.c_str(), "HECTOR")) {
-      Vec2 pos_vec, vel_vec;
+      Vec2 pos_vec, vel_vec, acc_vec;
       pos_vec << 0, 0;
       vel_vec << 0, 0;
+      acc_vec << 0, 0;
       estimator.second->setState(0, pos_vec);
       estimator.second->setState(1, vel_vec);
+      estimator.second->setState(2, acc_vec);
     }
   }
 
