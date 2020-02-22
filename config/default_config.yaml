@@ -80,6 +80,8 @@ fcu_height: 0.2 # [m]
 garmin:
   use_inno_gate: false # innovation gate (declining large difference between state and measurement)
   inno_gate_value: 5.0 # [m]
+  min_valid_altitude: 0.05 # [m]
+  max_valid_altitude: 20 # [m]
 
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0

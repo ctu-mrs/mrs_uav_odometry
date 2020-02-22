@@ -698,6 +698,8 @@ private:
   bool                          saturate_garmin_corrections_ = false;
   double                        _garmin_inno_gate_value_sq_;
   bool                          _use_garmin_inno_gate_;
+  double                        garmin_min_altitude;
+  double                        garmin_max_altitude;
 
 
   bool   callbacks_enabled_ = false;
@@ -1241,6 +1243,8 @@ void Odometry::onInit() {
   param_loader.load_param("garmin/use_inno_gate", _use_garmin_inno_gate_);
   param_loader.load_param("garmin/inno_gate_value", garmin_inno_gate_value_tmp);
   _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
+  param_loader.load_param("garmin/min_valid_altitude", garmin_min_altitude);
+  param_loader.load_param("garmin/max_valid_altitude", garmin_max_altitude);
 
 
   /* MBZIRC SPECIFIC PARAMS //{ */
@@ -8503,28 +8507,28 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
   // non-positive measurements check
-  if (range_garmin_tmp.range < 0.01) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", range_garmin_tmp.range, 0.01);
+  if (range_garmin_tmp.range < garmin_min_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", range_garmin_tmp.range, garmin_min_altitude);
     return;
   }
 
   // max value of measurements check
-  if (range_garmin_tmp.range > garmin_max_valid_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_valid_altitude: %f. Not fusing.", range_garmin_tmp.range, garmin_max_valid_altitude);
+  if (range_garmin_tmp.range > garmin_max_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_altitude: %f. Not fusing.", range_garmin_tmp.range, garmin_max_altitude);
     return;
   }
 
-  // min range measurements check
-  if (range_garmin_tmp.range < range_garmin_tmp.min_range) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < min_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.min_range);
-    return;
-  }
+  /* // min range measurements check */
+  /* if (range_garmin_tmp.range < range_garmin_tmp.min_range) { */
+  /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < min_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.min_range); */
+  /*   return; */
+  /* } */
 
-  // max range measurements check
-  if (range_garmin_tmp.range > range_garmin_tmp.max_range) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.max_range);
-    return;
-  }
+  /* // max range measurements check */
+  /* if (range_garmin_tmp.range > range_garmin_tmp.max_range) { */
+  /*   ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.max_range); */
+  /*   return; */
+  /* } */
 
   // innovation gate check
   if (_use_garmin_inno_gate_) {
