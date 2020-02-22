@@ -696,9 +696,13 @@ private:
   double                        garmin_filter_max_difference;
   ros::Time                     garmin_last_update;
   bool                          saturate_garmin_corrections_ = false;
-  bool                          callbacks_enabled_           = false;
-  bool                          baro_corrected_              = false;
-  double                        baro_offset_                 = 0.0;
+  double                        _garmin_inno_gate_value_sq_;
+  bool                          _use_garmin_inno_gate_;
+
+
+  bool   callbacks_enabled_ = false;
+  bool   baro_corrected_    = false;
+  double baro_offset_       = 0.0;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -1232,6 +1236,12 @@ void Odometry::onInit() {
   param_loader.load_param("garmin_z_offset", garmin_z_offset_);
   param_loader.load_param("sonar_z_offset", sonar_z_offset_);
   param_loader.load_param("fcu_height", fcu_height_);
+
+  double garmin_inno_gate_value_tmp;
+  param_loader.load_param("garmin/use_inno_gate", _use_garmin_inno_gate_);
+  param_loader.load_param("garmin/inno_gate_value", garmin_inno_gate_value_tmp);
+  _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
+
 
   /* MBZIRC SPECIFIC PARAMS //{ */
 
@@ -8464,6 +8474,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     got_range = true;
   }
 
+  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
+
   height_available_  = true;
   garmin_last_update = ros::Time::now();
 
@@ -8482,12 +8494,62 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
+  got_range = true;
+
+  if (!std::isfinite(range_garmin_tmp.range)) {
+
+    ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Garmin variable \"measurement\" (garmin)!!!");
+
+    return;
+  }
+  // non-positive measurements check
+  if (range_garmin_tmp.range < 0.01) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", range_garmin_tmp.range, 0.01);
+    return;
+  }
+
+  // max value of measurements check
+  if (range_garmin_tmp.range > garmin_max_valid_altitude) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_valid_altitude: %f. Not fusing.", range_garmin_tmp.range, garmin_max_valid_altitude);
+    return;
+  }
+
+  // min range measurements check
+  if (range_garmin_tmp.range < range_garmin_tmp.min_range) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < min_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.min_range);
+    return;
+  }
+
+  // max range measurements check
+  if (range_garmin_tmp.range > range_garmin_tmp.max_range) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_range: %f. Not fusing.", range_garmin_tmp.range, range_garmin_tmp.max_range);
+    return;
+  }
+
+  // innovation gate check
+  if (_use_garmin_inno_gate_) {
+    for (auto &alt_estimator : m_altitude_estimators) {
+      if (isEqual(alt_estimator.first, "HEIGHT")) {
+        Eigen::VectorXd alt(1);
+        if (!alt_estimator.second->getState(0, alt)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+          return;
+        }
+        if (std::pow(range_garmin_tmp.range - alt(0), 2) > _garmin_inno_gate_value_sq_) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by innovation gate. State value: %f. Not fusing.", range_garmin_tmp.range, alt(0));
+          return;
+        }
+      }
+    }
+  }
+
   double                    roll, pitch, yaw;
   geometry_msgs::Quaternion quat;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
     mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
   }
+
 
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
@@ -8499,8 +8561,11 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     excessive_tilt = false;
   }
 
+  if (excessive_tilt) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    return;
+  }
 
-  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin, range_garmin);
 
   double range_fcu = 0;
   try {
@@ -8524,22 +8589,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  got_range = true;
-
-  if (measurement < 0.01) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", measurement, 0.01);
-    return;
-  }
-
-  if (measurement > garmin_max_valid_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > %f. Not fusing.", measurement, garmin_max_valid_altitude);
-    return;
-  }
-
-  if (excessive_tilt) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
-    return;
-  }
 
   // fuse height estimate
   lkf_height_t::z_t z;

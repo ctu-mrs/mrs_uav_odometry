@@ -77,6 +77,10 @@ sonar_z_offset: 0.0 # [m]
 # mobius_z_offset: 0.06 # [m]
 fcu_height: 0.2 # [m]
 
+garmin:
+  use_inno_gate: false # innovation gate (declining large difference between state and measurement)
+  inno_gate_value: 5.0 # [m]
+
 trgFilterBufferSize: 100
 trgFilterMaxValidAltitude: 8.0
 trgFilterMaxDifference: 3.0
