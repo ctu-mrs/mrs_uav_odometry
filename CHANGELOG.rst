@@ -2,8 +2,8 @@
 Changelog for package mrs_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.5 (2020-02-26)
+------------------
 * updated declinging invalid garmin measurement
 * declining invladi garmin measurements
 * service call routines, waiting for map reset before estimator reset
