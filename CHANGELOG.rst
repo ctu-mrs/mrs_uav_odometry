@@ -2,6 +2,16 @@
 Changelog for package mrs_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* updated declinging invalid garmin measurement
+* declining invladi garmin measurements
+* service call routines, waiting for map reset before estimator reset
+* checking if hector is running when switching to hector hdg
+* reset hector service returns false when hector not running
+* resetting acc state when reset hector
+* Contributors: Matej Petrlik
+
 0.0.4 (2020-02-18)
 ------------------
 * shorter median filter
