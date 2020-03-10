@@ -2546,7 +2546,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.004, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.01, event);
 
   ros::Time t_start = ros::Time::now();
 
