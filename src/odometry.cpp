@@ -4926,17 +4926,34 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
-  [[maybe_unused]] double   rot_x, rot_y, rot_z;
-  double                    dt;
-  geometry_msgs::Quaternion attitude;
+  double dt;
 
-  {
+  // extract the desired attitude from the attitude command
+  {  // TODO the attitude is not currently used, does this have to be here?
     std::scoped_lock lock(mutex_attitude_command_);
 
-    des_attitude_ = attitude_command_.quater_attitude;
+    if (attitude_command_.quater_attitude_set) {
 
-    dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
+      des_attitude_ = attitude_command_.quater_attitude;
+
+    } else if (attitude_command_.euler_attitude_set) {
+
+      tf::Quaternion attitude_cmd_quaternion =
+          tf::createQuaternionFromRPY(attitude_command_.euler_attitude.x, attitude_command_.euler_attitude.y, attitude_command_.euler_attitude.z);
+
+      des_attitude_.x = attitude_cmd_quaternion.x();
+      des_attitude_.y = attitude_cmd_quaternion.y();
+      des_attitude_.z = attitude_cmd_quaternion.z();
+      des_attitude_.w = attitude_cmd_quaternion.w();
+
+    } else {
+
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: the attitude command does not containt desired attitude!");
+      // return; // TODO what should we do? no need to return, since the attitude is not currently used?
+    }
   }
+
+  dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
 
   if (!std::isfinite(des_attitude_.x) || !std::isfinite(des_attitude_.y) || !std::isfinite(des_attitude_.z) || !std::isfinite(des_attitude_.w)) {
     ROS_WARN_THROTTLE(1.0, "NaN detected in variable \"des_attitude_\"!!!");
@@ -4947,6 +4964,9 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Uninitialized quaternion in attitude command. Returning.");
     return;
   }
+
+  /* [[maybe_unused]] double   rot_x, rot_y, rot_z; */
+  /* geometry_msgs::Quaternion attitude; */
 
   /* getGlobalRot(attitude_command.orientation, rot_x, rot_y, rot_z); */
 
