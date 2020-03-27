@@ -797,14 +797,14 @@ private:
   std::mutex mutex_pixhawk_utm_position;
 
   // subscribing to tracker status
-  mrs_msgs::TrackerStatus tracker_status;
-  std::mutex              mutex_tracker_status;
-  void                    callbackTrackerStatus(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg);
-  bool                    got_tracker_status = false;
-  bool                    isUavFlying();
-  bool                    isUavLandoff();
-  bool                    uav_in_the_air = false;
-  std::string             null_tracker_;
+  mrs_msgs::ControlManagerDiagnostics control_manager_diag_;
+  std::mutex                          mutex_control_manager_diag_;
+  void                                callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg);
+  bool                                got_control_manager_diag_ = false;
+  bool                                isUavFlying();
+  bool                                isUavLandoff();
+  bool                                uav_in_the_air = false;
+  std::string                         null_tracker_;
 
   // recording the position during landing
 
@@ -1074,23 +1074,23 @@ void Odometry::onInit() {
   param_loader.load_param("uav_mass", uav_mass_estimate);
   param_loader.load_param("null_tracker", null_tracker_);
 
-  odometry_published    = false;
-  got_odom_pixhawk      = false;
-  got_optflow           = false;
-  got_vio               = false;
-  got_vslam             = false;
-  got_brick_pose        = false;
-  got_rtk               = false;
-  got_odom_t265         = false;
-  got_rtk_fix           = false;
-  got_pixhawk_utm       = false;
-  got_tracker_status    = false;
-  got_home_position_fix = false;
-  got_altitude_sensors  = false;
-  got_lateral_sensors   = false;
-  got_pixhawk_imu       = false;
-  got_compass_hdg       = false;
-  got_icp_twist         = false;
+  odometry_published        = false;
+  got_odom_pixhawk          = false;
+  got_optflow               = false;
+  got_vio                   = false;
+  got_vslam                 = false;
+  got_brick_pose            = false;
+  got_rtk                   = false;
+  got_odom_t265             = false;
+  got_rtk_fix               = false;
+  got_pixhawk_utm           = false;
+  got_control_manager_diag_ = false;
+  got_home_position_fix     = false;
+  got_altitude_sensors      = false;
+  got_lateral_sensors       = false;
+  got_pixhawk_imu           = false;
+  got_compass_hdg           = false;
+  got_icp_twist             = false;
 
   failsafe_called               = false;
   hector_reset_called_          = false;
@@ -2103,7 +2103,7 @@ void Odometry::onInit() {
   sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackPixhawkUtm, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for tracker status
-  sub_tracker_status_ = nh_.subscribe("tracker_status_in", 1, &Odometry::callbackTrackerStatus, this, ros::TransportHints().tcpNoDelay());
+  sub_tracker_status_ = nh_.subscribe("tracker_status_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for mavros diagnostic
   sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());
@@ -2490,11 +2490,11 @@ bool Odometry::isReadyToTakeoff() {
 
 bool Odometry::isUavFlying() {
 
-  std::scoped_lock lock(mutex_tracker_status);
+  auto control_manager_diag = mrs_lib::get_mutexed(mutex_control_manager_diag_, control_manager_diag_);
 
-  if (got_tracker_status) {
+  if (got_control_manager_diag_) {
 
-    if (std::string(tracker_status.tracker).compare(null_tracker_) == STRING_EQUAL) {
+    if (control_manager_diag.active_tracker == null_tracker_) {
 
       return false;
     } else {
@@ -2503,7 +2503,7 @@ bool Odometry::isUavFlying() {
     }
 
   } else {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Tracker status not available");
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: control manager diagnostics not available");
     return false;
   }
 }
@@ -2514,11 +2514,11 @@ bool Odometry::isUavFlying() {
 
 bool Odometry::isUavLandoff() {
 
-  std::scoped_lock lock(mutex_tracker_status);
+  auto control_manager_diag = mrs_lib::get_mutexed(mutex_control_manager_diag_, control_manager_diag_);
 
-  if (got_tracker_status) {
+  if (got_control_manager_diag_) {
 
-    if (std::string(tracker_status.tracker).compare("LandoffTracker") == STRING_EQUAL) {
+    if (control_manager_diag_.active_tracker == "LandoffTracker") {
 
       return true;
     } else {
@@ -2528,7 +2528,7 @@ bool Odometry::isUavLandoff() {
 
   } else {
 
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Tracker status not available");
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: control manager diagnostics not available");
     return false;
   }
 }
@@ -9045,21 +9045,21 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
 //}
 
-/* //{ callbackTrackerStatus() */
+/* //{ callbackControlManagerDiag() */
 
-void Odometry::callbackTrackerStatus(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg) {
+void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg) {
 
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTrackerStatus");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackControlManagerDiag");
 
-  std::scoped_lock lock(mutex_tracker_status);
+  auto control_manager_diag = mrs_lib::get_mutexed(mutex_control_manager_diag_, control_manager_diag_);
 
-  tracker_status     = msg->tracker_status;
-  got_tracker_status = true;
+  control_manager_diag_     = *msg;
+  got_control_manager_diag_ = true;
 
-  if (uav_in_the_air && tracker_status.tracker.compare(null_tracker_) == STRING_EQUAL) {
+  if (uav_in_the_air && control_manager_diag.active_tracker == null_tracker_) {
 
     // save the current position
     // TODO this might be too simple solution
@@ -9070,7 +9070,7 @@ void Odometry::callbackTrackerStatus(const mrs_msgs::ControlManagerDiagnosticsCo
     land_position_set = true;
 
     uav_in_the_air = false;
-  } else if (!uav_in_the_air && tracker_status.tracker.compare(null_tracker_) != STRING_EQUAL) {
+  } else if (!uav_in_the_air && control_manager_diag.active_tracker != null_tracker_) {
     uav_in_the_air = true;
   }
 }
