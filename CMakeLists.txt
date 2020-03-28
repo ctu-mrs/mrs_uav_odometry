@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(mavros_msgs 0.30.0 EXACT REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -O0 -g")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)

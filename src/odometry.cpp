@@ -183,7 +183,7 @@ private:
 
 private:
   ros::Subscriber sub_global_position_;
-  ros::Subscriber sub_tracker_status_;
+  ros::Subscriber sub_control_manager_diag_;
 
   // Pixhawk odometry subscriber and callback
   ros::Subscriber sub_pixhawk_;
@@ -2102,8 +2102,8 @@ void Odometry::onInit() {
   // subscribe for utm coordinates
   sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackPixhawkUtm, this, ros::TransportHints().tcpNoDelay());
 
-  // subscribe for tracker status
-  sub_tracker_status_ = nh_.subscribe("tracker_status_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
+  // subscribe for control manager diagnostics
+  sub_control_manager_diag_ = nh_.subscribe("control_manager_diag_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for mavros diagnostic
   sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());

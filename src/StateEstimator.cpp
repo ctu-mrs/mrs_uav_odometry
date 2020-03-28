@@ -73,7 +73,8 @@ StateEstimator::StateEstimator(
   for (size_t i = 0; i < m_R_arr.size(); i++) {
     if (m_R_arr[i].rows() != 1 || m_R_arr[i].cols() != m_n_states) {
       std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-                << "): wrong size of \"m_R_arr[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_R_arr[i].rows() << ", " << m_R_arr[i].cols() << ")" << std::endl;
+                << "): wrong size of \"m_R_arr[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_R_arr[i].rows() << ", " << m_R_arr[i].cols()
+                << ")" << std::endl;
       return;
     }
   }
@@ -87,10 +88,10 @@ StateEstimator::StateEstimator(
   mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
   mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
 
-  sc_x.x = sc_x.x.Ones()*0;
-  sc_x.P = sc_x.P.Identity()*0;
-  sc_y.x = sc_y.x.Ones()*0;
-  sc_y.P = sc_y.P.Identity()*0;
+  sc_x.x = sc_x.x.Ones() * 0;
+  sc_x.P = sc_x.P.Identity() * 0;
+  sc_y.x = sc_y.x.Ones() * 0;
+  sc_y.P = sc_y.P.Identity() * 0;
 
 
   std::cout << "[StateEstimator]: New StateEstimator initialized " << std::endl;
@@ -180,18 +181,16 @@ bool StateEstimator::doPrediction(const Vec2 &input, double dt) {
     /* mp_lkf_y->setA(newA); */
     /* mp_lkf_y->setInput(input_vec_y); */
     /* mp_lkf_y->iterateWithoutCorrection(); */
-try
-    {
-    // Apply the prediction step
-    sc_x = mp_lkf_x->predict(sc_x, u_x, m_Q, dt);
-    sc_y = mp_lkf_y->predict(sc_y, u_y, m_Q, dt);
-  } catch (const std::exception& e)
-    {
+    try {
+      // Apply the prediction step
+      sc_x = mp_lkf_x->predict(sc_x, u_x, m_Q, dt);
+      sc_y = mp_lkf_y->predict(sc_y, u_y, m_Q, dt);
+    }
+    catch (const std::exception &e) {
       // In case of error, alert the user
       ROS_ERROR("[Odometry]: LKF prediction step failed: %s", e.what());
     }
-
-}
+  }
 
   /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: prediction step" << std::endl); */
   /* ROS_INFO_STREAM_THROTTLE(1.0,  "[StateEstimator]: input  x:" << u_x << std::endl << "y: " << u_y << std::endl << std::endl); */
@@ -259,7 +258,9 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
 
   z_x << measurement(0);
   z_y << measurement(1);
+  ROS_INFO("[%s]: pes", ros::this_node::getName().c_str());
   R << m_R_arr[measurement_type];
+  ROS_INFO("[%s]: kocka", ros::this_node::getName().c_str());
 
   {
     std::scoped_lock lock(mutex_lkf);
@@ -272,10 +273,10 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
     /* mp_lkf_y->doCorrection(); */
 
     try {
-    sc_x = mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
-    sc_y = mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
-  } catch (const std::exception& e)
-    {
+      sc_x = mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
+      sc_y = mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
+    }
+    catch (const std::exception &e) {
       // In case of error, alert the user
       ROS_ERROR("[Odometry]: LKF correction step failed: %s", e.what());
     }
@@ -429,14 +430,12 @@ bool StateEstimator::setStates(LatState2D &states) {
     std::cerr << "[StateEstimator]: " << m_estimator_name << ".setStates()"
               << ": wrong size of \"states\". Should be: " << m_n_states << " is: " << states.cols() << std::endl;
     return false;
-
   }
 
   if (states.cols() != 2) {
     std::cerr << "[StateEstimator]: " << m_estimator_name << ".setStates()"
               << ": wrong size of \"states\". Should be: " << 2 << " is:" << states.rows() << std::endl;
     return false;
-
   }
   //}
 
@@ -537,7 +536,7 @@ bool StateEstimator::getR(double &cov, int measurement_type) {
 
 /*  //{ getQ() */
 
-bool StateEstimator::getQ(double& cov, const Eigen::Vector2i& idx) {
+bool StateEstimator::getQ(double &cov, const Eigen::Vector2i &idx) {
 
   /*  //{ sanity checks */
 
@@ -566,7 +565,7 @@ bool StateEstimator::getQ(double& cov, const Eigen::Vector2i& idx) {
 
 /*  //{ setQ() */
 
-bool StateEstimator::setQ(double cov, const Eigen::Vector2i& idx) {
+bool StateEstimator::setQ(double cov, const Eigen::Vector2i &idx) {
 
   /*  //{ sanity checks */
 
@@ -599,7 +598,7 @@ bool StateEstimator::setQ(double cov, const Eigen::Vector2i& idx) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-      m_Q(idx(0), idx(1)) = cov;
+    m_Q(idx(0), idx(1)) = cov;
   }
 
   /* std::cout << "[StateEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")" */
