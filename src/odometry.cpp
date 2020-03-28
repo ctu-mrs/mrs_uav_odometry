@@ -66,6 +66,7 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/transformer.h>
+#include <mrs_lib/geometry_utils.h>
 
 #include <types.h>
 #include <support.h>
@@ -4932,25 +4933,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   {  // TODO the attitude is not currently used, does this have to be here?
     std::scoped_lock lock(mutex_attitude_command_);
 
-    if (attitude_command_.quater_attitude_set) {
-
-      des_attitude_ = attitude_command_.quater_attitude;
-
-    } else if (attitude_command_.euler_attitude_set) {
-
-      tf::Quaternion attitude_cmd_quaternion =
-          tf::createQuaternionFromRPY(attitude_command_.euler_attitude.x, attitude_command_.euler_attitude.y, attitude_command_.euler_attitude.z);
-
-      des_attitude_.x = attitude_cmd_quaternion.x();
-      des_attitude_.y = attitude_cmd_quaternion.y();
-      des_attitude_.z = attitude_cmd_quaternion.z();
-      des_attitude_.w = attitude_cmd_quaternion.w();
-
-    } else {
-
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: the attitude command does not containt desired attitude!");
-      // return; // TODO what should we do? no need to return, since the attitude is not currently used?
-    }
+    des_attitude_ = attitude_command_.attitude;
   }
 
   dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
@@ -5025,7 +5008,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   {
     std::scoped_lock lock(mutex_attitude_command_);
     des_yaw_rate_ = attitude_command_.attitude_rate.z;
-    des_yaw_      = mrs_odometry::getYaw(attitude_command_.quater_attitude);
+    des_yaw_      = mrs_lib::AttitudeConvertor(attitude_command_.attitude).getYaw();
 
     if (!std::isfinite(des_yaw_rate_)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
