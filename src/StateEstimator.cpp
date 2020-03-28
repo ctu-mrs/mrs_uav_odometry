@@ -258,9 +258,7 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
 
   z_x << measurement(0);
   z_y << measurement(1);
-  ROS_INFO("[%s]: pes", ros::this_node::getName().c_str());
   R << m_R_arr[measurement_type];
-  ROS_INFO("[%s]: kocka", ros::this_node::getName().c_str());
 
   {
     std::scoped_lock lock(mutex_lkf);
