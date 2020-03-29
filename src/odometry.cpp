@@ -67,6 +67,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 
 #include <types.h>
 #include <support.h>
@@ -5008,7 +5009,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   {
     std::scoped_lock lock(mutex_attitude_command_);
     des_yaw_rate_ = attitude_command_.attitude_rate.z;
-    des_yaw_      = mrs_lib::AttitudeConvertor(attitude_command_.attitude).getYaw();
+    des_yaw_      = mrs_lib::AttitudeConverter(attitude_command_.attitude).getYaw();
 
     if (!std::isfinite(des_yaw_rate_)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Mavros variable \"des_yaw_rate_\", prediction with zero input!!!");
@@ -5327,9 +5328,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   [[maybe_unused]] double hdg = getCurrentHeading();
 
   // Rotate the tilt into the current estimation frame
-  double rot_x, rot_y, rot_z;
-  /* getRotatedTilt(orient, hdg, rot_x, rot_y); */
-  mrs_odometry::getRPY(orient, rot_x, rot_y, rot_z);
+  auto [rot_x, rot_y, rot_z] = mrs_lib::AttitudeConverter(orient);
 
   /* { */
   /*   std::scoped_lock lock(mutex_odom_pixhawk_shifted); */
@@ -7342,14 +7341,11 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   //}
 
-
-  double r_tmp, p_tmp, yaw_tmp;
-  mrs_odometry::getRPY(brick_pose.pose.orientation, r_tmp, p_tmp, yaw_tmp);
+  double yaw_tmp = mrs_lib::AttitudeConverter(brick_pose.pose.orientation).getYaw();
 
   /* yaw_brick = -yaw_brick; */
 
-
-  double yaw_brick = mrs_odometry::unwrapAngle(yaw_tmp, brick_yaw_previous);
+  double yaw_brick = mrs_lib::unwrapAngle(yaw_tmp, brick_yaw_previous);
 
   double diff_yaw = std::pow(yaw_brick - brick_yaw_previous, 2);
   if (diff_yaw > max_safe_brick_yaw_jump_sq_) {
@@ -8383,11 +8379,10 @@ void Odometry::callbackTeraranger(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   // getting roll, pitch, yaw
-  double roll, pitch, yaw;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
-  }
+  auto odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+  auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
+
+  std::ignore = yaw;  // stops the compiler from yelling about not using this variable
 
   // compensate for tilting of the sensor
   double measurement = range_terarangerone_.range * cos(roll) * cos(pitch) + trg_z_offset_;
@@ -8550,13 +8545,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  double                    roll, pitch, yaw;
-  geometry_msgs::Quaternion quat;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
-  }
+  auto odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+  auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
 
+  std::ignore = yaw;  // stops the compiler from yelling about not using this variable
 
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
@@ -8715,12 +8707,10 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  double                    roll, pitch, yaw;
-  geometry_msgs::Quaternion quat;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    mrs_odometry::getRPY(odom_pixhawk.pose.pose.orientation, roll, pitch, yaw);
-  }
+  auto odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+  auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
+
+  std::ignore = yaw;  // stops the compiler from yelling about not using this variable
 
   // Check for excessive tilts
   // we do not want to fuse sonar with large tilts as the range will be too unreliable
@@ -9437,11 +9427,9 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
 
   if (!got_init_heading) {
 
-    double roll, pitch;
-    {
-      std::scoped_lock lock(mutex_odom_t265);
-      mrs_odometry::getRPY(odom_t265.pose.pose.orientation, roll, pitch, m_init_heading);
-    }
+    auto odom_t265_local = mrs_lib::get_mutexed(mutex_odom_t265, odom_t265);
+    m_init_heading       = mrs_lib::AttitudeConverter(odom_t265_local.pose.pose.orientation).getYaw();
+
     got_init_heading = true;
   }
 
@@ -11053,8 +11041,9 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
 void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
 
   // Get roll, pitch, yaw in body frame
-  double r, p, y, r_new, p_new;
-  mrs_odometry::getRPY(q_msg, r, p, y);
+  double r_new, p_new;
+
+  auto [r, p, y] = mrs_lib::AttitudeConverter(q_msg);
 
   p_new = p * cos(-y) - r * sin(-y);
   r_new = r * cos(-y) + p * sin(-y);
@@ -11072,8 +11061,7 @@ void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const doub
   tf2::fromMsg(q_msg, q_body);
   mrs_odometry::setYaw(q_body, 0);
 
-  tf2::Quaternion q_yaw;
-  q_yaw.setRPY(0, 0, yaw);
+  tf2::Quaternion q_yaw = mrs_lib::AttitudeConverter(0, 0, yaw);
 
   // Get axis pointing upward from the body frame
   tf2::Vector3 body_axis;
@@ -11092,8 +11080,7 @@ void Odometry::getRotatedTilt(const geometry_msgs::Quaternion &q_msg, const doub
 /* //{ getRotatedVector() */
 void Odometry::getRotatedVector(const geometry_msgs::Vector3 &acc_in, double yaw_in, geometry_msgs::Vector3 &acc_out) {
 
-  tf2::Quaternion q_yaw;
-  q_yaw.setRPY(0, 0, yaw_in);
+  tf2::Quaternion q_yaw = mrs_lib::AttitudeConverter(0, 0, yaw_in);
 
   tf2::Vector3 acc_tf2(acc_in.x, acc_in.y, acc_in.z);
 
