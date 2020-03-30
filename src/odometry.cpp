@@ -4505,7 +4505,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   servoing_diag_out.reference.position.x = c_failed_brick_x_;
   servoing_diag_out.reference.position.y = c_failed_brick_y_;
   servoing_diag_out.reference.position.z = c_failed_brick_timeout_;
-  servoing_diag_out.reference.yaw        = c_failed_brick_yaw_;
+  servoing_diag_out.reference.heading    = c_failed_brick_yaw_;
 
   try {
     pub_brick_diag_.publish(servoing_diag_out);
@@ -9196,7 +9196,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
           reference_srv.request.reference.position.x = 0.0;
           reference_srv.request.reference.position.y = 0.0;
           reference_srv.request.reference.position.z = target_altitude;
-          reference_srv.request.reference.yaw        = 0.0;
+          reference_srv.request.reference.heading    = 0.0;
           ser_client_reference_.call(reference_srv);
           if (reference_srv.response.success) {
             ROS_INFO("[Odometry]: Set emergency reference service called successfully: %s", reference_srv.response.message.c_str());
