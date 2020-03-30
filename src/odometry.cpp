@@ -99,7 +99,6 @@
 
 //}
 
-#define STRING_EQUAL 0
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
 
@@ -2741,7 +2740,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /* initialize heading estimators //{ */
 
   // wait for initial averaging of compass heading
-  if (!init_hdg_avg_done && std::strcmp(current_hdg_estimator_name.c_str(), "COMPASS") == STRING_EQUAL) {
+  if (!init_hdg_avg_done && current_hdg_estimator_name == "COMPASS") {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Waiting for averaging of initial heading.");
     return;
   }
@@ -4574,7 +4573,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   mrs_msgs::EstimatedState hdg_state_msg;
   hdg_state_msg.header.stamp = ros::Time::now();
 
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
     hdg_state_msg.state.push_back(mrs_odometry::getYaw(odom_pixhawk.pose.pose.orientation));
@@ -6377,7 +6376,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
   mrs_msgs::RtkGps rtk_utm;
 
-  if (msg->header.frame_id.compare("gps") == STRING_EQUAL) {
+  if (msg->header.frame_id == "gps") {
 
     if (!std::isfinite(msg->gps.latitude)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry] NaN detected in RTK variable \"msg->latitude\"!!!");
@@ -6399,7 +6398,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_utm.fix_type = msg->fix_type;
     rtk_utm.status   = msg->status;
 
-  } else if (msg->header.frame_id.compare("utm") == STRING_EQUAL) {
+  } else if (msg->header.frame_id == "utm") {
 
     rtk_utm = *msg;
 
@@ -7682,7 +7681,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
   // Current orientation
   Eigen::VectorXd hdg_state(1);
 
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
     hdg_state(0) = orientation_mavros.vector.z;
@@ -7891,7 +7890,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   // Current orientation
   Eigen::VectorXd hdg_state(1);
 
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
     hdg_state(0) = orientation_mavros.vector.z;
@@ -8092,7 +8091,7 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // Current orientation
   Eigen::VectorXd hdg_state(1);
 
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
     hdg_state(0) = orientation_mavros.vector.z;
@@ -8280,7 +8279,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   // Current orientation
   Eigen::VectorXd hdg_state(1);
 
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
     hdg_state(0) = orientation_mavros.vector.z;
@@ -9486,7 +9485,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* republish t265 odometry //{ */
 
-  if (std::strcmp(current_estimator_name.c_str(), "T265") == STRING_EQUAL) {
+  if (current_estimator_name == "T265") {
 
     /* publish t265 altitude //{ */
     mrs_msgs::Float64Stamped new_altitude;
@@ -10976,7 +10975,7 @@ void Odometry::headingEstimatorsPrediction(const double yaw, const double yaw_ra
     /* ROS_INFO("[Odometry]: Unwrapping %f with state %f", input(0), current_yaw(0)); */
     input(0) = mrs_odometry::unwrapAngle(input(0), current_yaw(0));
     /* ROS_INFO("[Odometry]: After unwrap: %f", input(0)); */
-    if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
+    if (estimator.second->getName() == "COMPASS") {
       /* ROS_INFO("[Odometry]: %s: input: %f state: %f", estimator.second->getName().c_str(), input(0), current_yaw(0)); */
     }
     estimator.second->doPrediction(input, dt);
@@ -11014,12 +11013,12 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
     Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
     mes << value;
 
-    if (std::strcmp(measurement_name.c_str(), "yaw_compass") == STRING_EQUAL) {
+    if (measurement_name == "yaw_compass") {  // TODO: should this be lower case?
       Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
       estimator.second->getState(0, current_yaw);
 
       mes(0) = mrs_odometry::unwrapAngle(mes(0), current_yaw(0));
-      if (std::strcmp(estimator.second->getName().c_str(), "COMPASS") == STRING_EQUAL) {
+      if (estimator.second->getName() == "COMPASS") {
         /* ROS_INFO("[Odometry]: %s: measurement: %f state: %f", estimator.second->getName().c_str(), mes(0), current_yaw(0)); */
       }
     }
@@ -11130,7 +11129,7 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
 double Odometry::getCurrentHeading() {
 
   double hdg;
-  if (std::strcmp(current_hdg_estimator->getName().c_str(), "PIXHAWK") == STRING_EQUAL) {
+  if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
