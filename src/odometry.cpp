@@ -93,10 +93,6 @@
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
 
-#define BALL_CHALLENGE 1
-#define WALL_CHALLENGE 2
-#define FIRE_CHALLENGE 3
-
 namespace mrs_odometry
 {
 
@@ -441,17 +437,6 @@ private:
   ros::Time        rtk_last_update;
   bool             _rtk_fuse_sps;
 
-  // MBZIRC specific configs
-  int    _mbzirc_challenge_ = 0;
-  bool   _reject_wall_      = false;
-  bool   _reject_brick_     = false;
-  bool   _reject_ugv_       = false;
-  double _wall_height_      = 0.0;
-  double _wall_margin_      = 0.0;
-  double _brick_height_     = 0.0;
-  double _brick_margin_     = 0.0;
-  double _ugv_height_       = 0.0;
-  double _ugv_margin_       = 0.0;
 
 
   // LIDAR messages
@@ -1236,27 +1221,6 @@ void Odometry::onInit() {
   _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
   param_loader.load_param("garmin/min_valid_altitude", garmin_min_altitude);
   param_loader.load_param("garmin/max_valid_altitude", garmin_max_altitude);
-
-
-  /* MBZIRC SPECIFIC PARAMS //{ */
-
-  param_loader.load_param("mbzirc/challenge", _mbzirc_challenge_);
-
-  if (_mbzirc_challenge_ == WALL_CHALLENGE) {
-    param_loader.load_param("mbzirc/reject_wall", _reject_wall_);
-    param_loader.load_param("mbzirc/wall_height", _wall_height_);
-    param_loader.load_param("mbzirc/wall_margin", _wall_margin_);
-
-    param_loader.load_param("mbzirc/reject_brick", _reject_brick_);
-    param_loader.load_param("mbzirc/brick_height", _brick_height_);
-    param_loader.load_param("mbzirc/brick_margin", _brick_margin_);
-
-    param_loader.load_param("mbzirc/reject_ugv", _reject_ugv_);
-    param_loader.load_param("mbzirc/ugv_height", _ugv_height_);
-    param_loader.load_param("mbzirc/ugv_margin", _ugv_margin_);
-  }
-
-  //}
 
   // Optic flow
   param_loader.load_param("use_optflow_low", _use_optflow_low_);
@@ -10987,7 +10951,6 @@ double Odometry::getCurrentHeading() {
 double Odometry::getGlobalZAcceleration(const geometry_msgs::Quaternion &q_msg, const double &acc_z_in) {
 
   tf2::Quaternion q_body = mrs_lib::AttitudeConverter(q_msg);
-  ;
 
   // Get acceleration pointing upward from the body frame
   tf2::Vector3 acc_z(0, 0, acc_z_in);

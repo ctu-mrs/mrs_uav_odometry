@@ -20,23 +20,6 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "TOWER", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
-# MBZIRC SPECIFIC CONFIGS
-mbzirc:
-
-  challenge: 2 # 0 - no challenge, 1 - ball_challenge, 2 - wall_challenge, 3 - fire challenge
-
-  reject_wall: false
-  wall_height: 1.5 # [m]
-  wall_margin: 0.1 # [m]
-
-  reject_brick: false
-  brick_height: 0.3 # [m]
-  brick_margin: 0.05 # [m]
-
-  reject_ugv: false
-  ugv_height: 1.0 # [m]
-  ugv_margin: 0.20 # [m]
-
 # Available localization methods
 gps_available: true
 optflow_available: true
