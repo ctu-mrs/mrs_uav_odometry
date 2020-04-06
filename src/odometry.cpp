@@ -267,7 +267,7 @@ private:
   double      _gps_fallback_altitude_               = 4.0;
   double      _gps_fallback_wait_for_altitude_time_ = 5.0;
 
-  double                    des_yaw_rate_, des_yaw_;
+  double des_yaw_rate_, des_yaw_;
 
   std::vector<nav_msgs::Odometry> vec_odom_aux;
 
@@ -436,7 +436,6 @@ private:
   mrs_msgs::RtkGps rtk_odom;
   ros::Time        rtk_last_update;
   bool             _rtk_fuse_sps;
-
 
 
   // LIDAR messages
@@ -935,6 +934,7 @@ private:
   bool       height_available_  = false;
   bool       icp_reliable       = false;
   bool       plane_reliable     = false;
+  bool       gps_active_        = true;
 
   bool      brick_semi_reliable = false;
   ros::Time brick_semi_reliable_started;
@@ -1571,6 +1571,12 @@ void Odometry::onInit() {
   brick_pos_filter_y =
       std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size, _brick_pos_filter_max_valid, -_brick_pos_filter_max_valid, _brick_pos_filter_max_diff);
 
+  // Check whether GPS is active
+  if (!stringInVector("GPS", _active_state_estimators_names)) {
+    gps_active_ = false;
+    ROS_INFO("[Odometry]: GPS is not in the list of active estimators.");
+  }
+
   // Load the measurements fused by each state estimator
   for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
 
@@ -1743,8 +1749,22 @@ void Odometry::onInit() {
   _hdg_estimator_type_takeoff.name = heading_estimator_name;
   _hdg_estimator_type_takeoff.type = (int)pos_hdg;
 
+  // Check whether PIXHAWK is active
+  if (!stringInVector("PIXHAWK", _active_heading_estimators_names)) {
+    gps_active_ = false;
+    ROS_INFO("[Odometry]: PIXHAWK is not in the list of active heading estimators.");
+  }
+
   // Load the measurements fused by each heading estimator
   for (std::vector<std::string>::iterator it = _active_heading_estimators_names.begin(); it != _active_heading_estimators_names.end(); ++it) {
+
+    if (!stringInVector(*it, _heading_estimators_names)) {
+      ROS_ERROR("[Odometry]: %s in the list of active heading estimators is not a valid heading estimator.", it->c_str());
+      if (*it == "GPS") {
+        ROS_ERROR("[Odometry]: You probably want PIXHAWK heading estimator.");
+      }
+      ros::shutdown();
+    }
 
     std::vector<std::string> temp_vector;
     param_loader.load_param("heading_estimators/fused_measurements/" + *it, temp_vector);
@@ -3689,7 +3709,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       odom_main                 = rtk_local_odom_tmp;
       odom_main.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
-      odom_main.child_frame_id  = fcu_frame_id_;           
+      odom_main.child_frame_id  = fcu_frame_id_;
 
       uav_state.header.frame_id = uav_name + "/rtk_origin";
       uav_state.pose            = rtk_local_odom_tmp.pose.pose;
@@ -3773,7 +3793,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     //}
-
   }
 
   mrs_lib::set_mutexed(mutex_shared_odometry, odom_main, shared_odom);
@@ -3978,7 +3997,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // publish the static transform between utm and local gps origin
-  if (gps_reliable) {
+  if (gps_active_) {
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -5210,7 +5229,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous_shifted.pose.pose.position.x) / dt;
       vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous_shifted.pose.pose.position.y) / dt;
-
     }
 
     // Apply correction step to all state estimators
@@ -7814,7 +7832,7 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
         Vec2 pos_vec, vel_vec;
         for (auto &estimator : m_state_estimators) {
-          if (estimator.first == "TOWER") { 
+          if (estimator.first == "TOWER") {
             estimator.second->getState(0, pos_vec);
             estimator.second->getState(1, vel_vec);
           }
@@ -7823,7 +7841,7 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
         tower_reliable = false;
       }
 
-      if (current_estimator->getName() == "TOWER") {  
+      if (current_estimator->getName() == "TOWER") {
         Vec2 vel_vec;
         current_estimator->getState(1, vel_vec);
         if (vel_vec(0) > 5 || vel_vec(1) > 5) {
@@ -8372,7 +8390,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN_ONCE("Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                      range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
+                  range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
     range_fcu = range_garmin_tmp.range + garmin_z_offset_;
   }
 
