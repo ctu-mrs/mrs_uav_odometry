@@ -65,14 +65,6 @@
 
   </include>
 
-  <include file="$(find mrs_mavros_interface)/launch/mavros_diagnostics.launch">
-
-    <arg name="UAV_NAME" value="$(arg UAV_NAME)" />
-    <arg name="PROFILER" value="$(arg PROFILER)" />
-    <arg name="standalone" value="$(arg standalone)" />
-
-  </include>
-
   <group ns="$(arg UAV_NAME)">
 
     <node pkg="nodelet" type="nodelet" name="odometry" args="$(arg nodelet) mrs_odometry/Odometry $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
@@ -101,7 +93,7 @@
       <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
       <remap from="~control_acc_in" to="/imu/data" />
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
-      <remap from="~pixhawk_odom_in" to="mavros_interface/converted_mavros_odom" />
+      <remap from="~pixhawk_odom_in" to="mavros/local_position/odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_low_in" to="optic_flow/velocity_longrange" />
       <remap from="~optflow_stddev_in" to="optic_flow/velocity_stddev" />
@@ -123,10 +115,8 @@
       <remap from="~lidar_odom_in" to="aloam_odometry/laser_odom_to_init" />
       <remap from="~icp_twist_in" to="mrs_icp2d/twist_body" />
       <remap from="~ground_truth_in" to="ground_truth" />
-      <remap from="~mavros_diagnostic_in" to="mavros_interface/diagnostics" />
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />
-      <remap from="~gps_covariance_in" to="mavros_interface/converted_mavros_odom" />
-      <!-- <remap from="~gps_covariance_in" to="mavros/global_position/local" /> -->
+      <remap from="~gps_covariance_in" to="mavros/global_position/local" />
 
       <!-- Publishers -->
       <remap from="~uav_state_out" to="~uav_state" />
@@ -136,6 +126,7 @@
       <remap from="~odom_stable_out" to="~odom_stable" />
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
+      <remap from="~odom_hector_out" to="~odom_hector" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~odom_object_out" to="~odom_object" />
       <remap from="~odom_brick_out" to="~odom_brick" />

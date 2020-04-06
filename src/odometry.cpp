@@ -45,7 +45,6 @@
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/LkfStates.h>
-#include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/OffsetOdom.h>
 #include <mrs_msgs/Altitude.h>
@@ -194,7 +193,6 @@ private:
   ros::Subscriber sub_brick_pose_;
   ros::Subscriber sub_attitude_command_;
   ros::Subscriber sub_ground_truth_;
-  ros::Subscriber sub_mavros_diagnostic_;
   ros::Subscriber sub_vio_state_;
   ros::Subscriber sub_uav_mass_estimate_;
   ros::Subscriber sub_gps_covariance_;
@@ -574,7 +572,6 @@ private:
   void callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
-  void callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg);
   void callbackVioState(const std_msgs::Bool &msg);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
@@ -905,9 +902,6 @@ private:
   bool calculatePixhawkOdomOffset(void);
 
   bool odometry_published;
-
-  mrs_msgs::MavrosDiagnostics mavros_diag;
-  std::mutex                  mutex_mavros_diag;
 
   // reliability of gps
   double     max_altitude_ = 10;
@@ -2077,9 +2071,6 @@ void Odometry::onInit() {
 
   // subscribe for control manager diagnostics
   sub_control_manager_diag_ = nh_.subscribe("control_manager_diag_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
-
-  // subscribe for mavros diagnostic
-  sub_mavros_diagnostic_ = nh_.subscribe("mavros_diagnostic_in", 1, &Odometry::callbackMavrosDiag, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for uav mass estimate
   sub_uav_mass_estimate_ = nh_.subscribe("uav_mass_estimate_in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
@@ -3623,8 +3614,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (response) {
       body_vel = response.value();
     } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_aux.", global_vel.header.frame_id.c_str(),
-                        fcu_frame_id_.c_str());
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_aux.", global_vel.header.frame_id.c_str(), fcu_frame_id_.c_str());
       return;  // TODO how to handle better? With GPS velocity directly from pixhawk can be used, similarly for optflow?
     }
 
@@ -3641,7 +3631,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
     }
-
   }
 
   // publish the static transform between utm and local gps origin
@@ -3707,7 +3696,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   ROS_INFO_ONCE("[Odometry]: Publishing auxiliary odometry");
 
   //}
-  
+
   /* publish fused odometry //{ */
 
   // blocking/returning when cannot calculate utm_origin_offset
@@ -4438,8 +4427,33 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-
   mrs_lib::Routine profiler_routine = profiler->createRoutine("diagTimer", diag_rate_, 0.01, event);
+
+  static ros::Time t_start = ros::Time::now();
+
+  auto c_hiccup_tmp = mrs_lib::get_mutexed(mutex_c_hiccup_, c_hiccup_);
+  if (gps_active_) {
+    auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
+    if (c_hiccup_tmp > 0) {
+      ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d",
+                        (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                        toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_altitude_, _hiccup_thr_, c_hiccup_tmp);
+    } else {
+      ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f.",
+                        (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                        toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_altitude_);
+    }
+  } else {
+    if (c_hiccup_tmp > 0) {
+      ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. Max alt: %.2f. Hiccups > %.2f: %d",
+                        (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                        toUppercase(current_hdg_estimator_name).c_str(), max_altitude_, _hiccup_thr_, c_hiccup_tmp);
+    } else {
+      ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. Max alt: %.2f.", (ros::Time::now() - t_start).toSec(),
+                        toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
+                        toUppercase(current_hdg_estimator_name).c_str(), max_altitude_);
+    }
+  }
 
   mrs_msgs::OdometryDiag odometry_diag;
 
@@ -8904,59 +8918,6 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
 }
 //}
 
-/* //{ callbackMavrosDiag() */
-void Odometry::callbackMavrosDiag(const mrs_msgs::MavrosDiagnosticsConstPtr &msg) {
-
-  if (!is_initialized)
-    return;
-
-  static ros::Time t_start = ros::Time::now();
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackMavrosDiag");
-
-  /* max_altitude = _max_default_altitude; */
-
-  {
-    std::scoped_lock lock(mutex_mavros_diag);
-
-    mavros_diag.gps.satellites_visible = msg->gps.satellites_visible;
-  }
-
-  // Change the maximum altitude back to default if the current estimator is not OPTFLOW
-  auto max_alt_tmp = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
-  if (_estimator_type.type != mrs_msgs::EstimatorType::OPTFLOW && _estimator_type.type != mrs_msgs::EstimatorType::BRICKFLOW) {
-    if (max_alt_tmp != _max_default_altitude) {
-      mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude_);
-    }
-  } else {
-    if (max_alt_tmp != _max_optflow_altitude) {
-      mrs_lib::set_mutexed(mutex_max_altitude_, _max_optflow_altitude, max_altitude_);
-      ROS_WARN("[Odometry]: Setting max_altitude to %f", max_altitude_);
-    }
-  }
-
-  auto c_hiccup_tmp = mrs_lib::get_mutexed(mutex_c_hiccup_, c_hiccup_);
-  if (_gps_available && !_brick_available) {
-    auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
-    ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d",
-                      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-                      toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
-  }
-  if (_gps_available && _brick_available) {
-    auto gps_cov_tmp = mrs_lib::get_mutexed(mutex_gps_covariance_, gps_covariance_);
-    ROS_INFO_THROTTLE(
-        5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. GPS Cov: %.2f. Max alt: %.2f. Hiccups > %.2f: %d. Failed servoing: %d",
-        (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-        toUppercase(current_hdg_estimator_name).c_str(), gps_cov_tmp, max_alt_tmp, _hiccup_thr_, c_hiccup_tmp,
-        (c_failed_brick_x_ + c_failed_brick_y_ + c_failed_brick_yaw_ + c_failed_brick_timeout_));
-  } else {
-    ROS_INFO_THROTTLE(5.0, "[Odometry]: Running for %.2f s. Estimators: Lat: %s, Alt: %s, Hdg: %s. Max alt: %.2f. Hiccups > %.2f: %d",
-                      (ros::Time::now() - t_start).toSec(), toUppercase(current_estimator_name).c_str(), toUppercase(current_alt_estimator_name).c_str(),
-                      toUppercase(current_hdg_estimator_name).c_str(), max_alt_tmp, _hiccup_thr_, c_hiccup_tmp);
-  }
-}
-//}
 
 /* //{ callbackUavMassEstimate() */
 void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
