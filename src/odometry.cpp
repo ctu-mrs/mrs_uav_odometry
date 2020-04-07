@@ -3459,6 +3459,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom.find(estimator.first);
 
+    // Initialize odom_aux with pixhawk_odom to obtain attitude and attitude_rate which are not estimated by us
     mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted, odom_aux->second);
 
     std::string estimator_name = estimator.first;
@@ -3718,7 +3719,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   uav_state.estimator_vertical.type   = mrs_msgs::AltitudeType::TYPE_COUNT;
   uav_state.estimator_heading.type    = mrs_msgs::HeadingType::TYPE_COUNT;
 
-  // initialized odom_main from pixhawk odometry to obtain attitude which is not estimated by us
+  // initialized odom_main from pixhawk odometry to obtain attitude and angular rate which is not estimated by us
   nav_msgs::Odometry odom_main;
 
   auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted);
@@ -4941,19 +4942,12 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     }
   }
 
-  geometry_msgs::Quaternion q_body;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    q_body = odom_pixhawk.pose.pose.orientation;
-  }
   double mes;
   {
     std::scoped_lock lock(mutex_attitude_command_);
     mes = attitude_command_.desired_acceleration.z;
   }
 
-  mes = getGlobalZAcceleration(q_body, mes);
-  mes -= 9.8;
   Eigen::VectorXd input(1);
   input(0) = mes;
 
