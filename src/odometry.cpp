@@ -5120,13 +5120,22 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
+  
+
+  // Transform twist from body frame to ENU frame
+  tf2::Transform tf_pixhawk(mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation));
+  tf2::Vector3 vel_body(odom_pixhawk.twist.twist.linear.x, odom_pixhawk.twist.twist.linear.y, odom_pixhawk.twist.twist.linear.z);
+  tf2::Vector3 vel_enu_tmp = tf_pixhawk * vel_body;
+  geometry_msgs::Vector3 vel_enu;
+  vel_enu.x = vel_enu_tmp.getX();
+  vel_enu.y = vel_enu_tmp.getY();
+  vel_enu.z = vel_enu_tmp.getZ();
+
+  /* altitude estimator update //{ */
 
   // set the input vector
   Eigen::VectorXd input;
   input = Eigen::VectorXd::Zero(altitude_m);
-
-
-  /* altitude estimator update //{ */
 
   if (is_altitude_estimator_initialized) {
 
@@ -5175,7 +5184,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         std::scoped_lock lock(mutex_odom_pixhawk);
         altitude = odom_pixhawk.pose.pose.position.z - baro_offset_;
         /* altitude_previous = odom_pixhawk_previous.pose.pose.position.z; */
-        twist_z = odom_pixhawk.twist.twist.linear.z;
+        twist_z = vel_enu.z;
       }
 
       // fuse zero into baro estimator when on the ground
@@ -10663,8 +10672,8 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     mes(0) = x;
     mes(1) = y;
 
-    // Rotate body frame measurements into estimator frame
-    if (measurement_name == "vel_optflow" || measurement_name == "vel_icp" || measurement_name == "acc_imu") {  // TODO is the lower-case correct?
+    // Rotate body frame measurements into estimator frame (vel_mavros) is missing, because it is calculated as difference of ENU positions
+    if (measurement_name == "vel_optflow" || measurement_name == "vel_icp" || measurement_name == "acc_imu") {
 
       Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
       for (auto &hdg_estimator : m_heading_estimators) {
