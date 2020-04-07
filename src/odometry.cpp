@@ -3725,7 +3725,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   odom_main                  = odom_pixhawk_shifted_local;
   uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
-  uav_state.velocity         = odom_pixhawk_shifted_local.twist.twist;
+  uav_state.velocity.angular         = odom_pixhawk_shifted_local.twist.twist.angular;
 
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
@@ -3963,6 +3963,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       auto rtk_local_odom_tmp = mrs_lib::get_mutexed(mutex_rtk_local_odom, rtk_local_odom);
 
+      // TODO transform twist to body frame
       odom_main                 = rtk_local_odom_tmp;
       odom_main.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
       odom_main.child_frame_id  = fcu_frame_id_;
