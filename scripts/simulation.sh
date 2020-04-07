@@ -5,7 +5,7 @@ UAV_NAME=$SESSION_NAME
 ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
-WORLD='worlds/grass_plane.world'
+WORLD='grass_plane'
 # WORLD='worlds/cathedral.world'
 
 if [ "$#" == 0 ]; then
