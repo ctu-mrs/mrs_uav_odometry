@@ -4886,11 +4886,14 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
       attitude_command_prev_ = attitude_command_;
       attitude_command_      = *msg;
 
+      attitude_command_last_update_ = ros::Time::now();
+
     } else {
 
       attitude_command_      = *msg;
       attitude_command_prev_ = attitude_command_;
 
+      attitude_command_last_update_ = ros::Time::now();
       got_attitude_command = true;
       return;
     }
@@ -4900,7 +4903,6 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  attitude_command_last_update_ = ros::Time::now();
 
   {
     std::scoped_lock lock(mutex_attitude_command_);
@@ -8921,7 +8923,6 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   }
 }
 //}
-
 
 /* //{ callbackUavMassEstimate() */
 void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
