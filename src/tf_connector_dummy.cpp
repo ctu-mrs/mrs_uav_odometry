@@ -18,8 +18,8 @@
 #include <sensor_msgs/point_cloud2_iterator.h>
 
 // MRS stuff
-#include <mrs_lib/Profiler.h>
-#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/profiler.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_lib/subscribe_handler.h>
 
 // std
@@ -112,11 +112,11 @@ namespace mrs_odometry
       ROS_INFO("[%s]: LOADING STATIC PARAMETERS", m_node_name.c_str());
       mrs_lib::ParamLoader pl(nh, m_node_name);
 
-      pl.load_param("connecting_frame_id", m_connecting_frame_id);
-      pl.load_param("root_frame_ids", m_root_frame_ids);
-      pl.load_param("equal_frame_ids", m_equal_frame_ids);
+      pl.loadParam("connecting_frame_id", m_connecting_frame_id);
+      pl.loadParam("root_frame_ids", m_root_frame_ids);
+      pl.loadParam("equal_frame_ids", m_equal_frame_ids);
 
-      if (!pl.loaded_successfully())
+      if (!pl.loadedSuccessfully())
       {
         ROS_ERROR("[%s]: Some compulsory parameters were not loaded successfully, ending the node", m_node_name.c_str());
         ros::shutdown();

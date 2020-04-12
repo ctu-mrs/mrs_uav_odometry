@@ -58,11 +58,11 @@
 #include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/ReferenceStampedSrv.h>
 
-#include <mrs_lib/Profiler.h>
-#include <mrs_lib/Lkf.h>
-#include <mrs_lib/MedianFilter.h>
-#include <mrs_lib/GpsConversions.h>
-#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/profiler.h>
+#include <mrs_lib/lkf.h>
+#include <mrs_lib/median_filter.h>
+#include <mrs_lib/gps_conversions.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/geometry_utils.h>
@@ -1022,7 +1022,7 @@ void Odometry::onInit() {
 
   mrs_lib::ParamLoader param_loader(nh_, "Odometry");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -1030,10 +1030,10 @@ void Odometry::onInit() {
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", profiler_enabled_);
+  param_loader.loadParam("enable_profiler", profiler_enabled_);
 
   // establish frame ids
-  param_loader.load_param("uav_name", uav_name);
+  param_loader.loadParam("uav_name", uav_name);
   fcu_frame_id_           = uav_name + "/fcu";
   fcu_untilted_frame_id_  = uav_name + "/fcu_untilted";
   local_origin_frame_id_  = uav_name + "/local_origin";
@@ -1041,8 +1041,8 @@ void Odometry::onInit() {
   last_local_name_        = uav_name + "/null_origin";
   last_stable_name_       = uav_name + "/null_origin";
 
-  param_loader.load_param("uav_mass", uav_mass_estimate);
-  param_loader.load_param("null_tracker", null_tracker_);
+  param_loader.loadParam("uav_mass", uav_mass_estimate);
+  param_loader.loadParam("null_tracker", null_tracker_);
 
   odometry_published        = false;
   got_odom_pixhawk          = false;
@@ -1168,77 +1168,77 @@ void Odometry::onInit() {
 
   //}
 
-  param_loader.load_param("rate", rate_);
+  param_loader.loadParam("rate", rate_);
 
-  param_loader.load_param("simulation", simulation_);
-  param_loader.load_param("slow_odom_rate", slow_odom_rate_);
-  param_loader.load_param("diag_rate", diag_rate_);
-  param_loader.load_param("aux_rate", aux_rate_);
-  param_loader.load_param("max_altitude_rate", max_altitude_rate_);
-  param_loader.load_param("lkf_states_rate", lkf_states_rate_);
-  param_loader.load_param("trgFilterBufferSize", trg_filter_buffer_size);
-  param_loader.load_param("trgFilterMaxValidAltitude", trg_max_valid_altitude);
-  param_loader.load_param("trgFilterMaxDifference", trg_filter_max_difference);
+  param_loader.loadParam("simulation", simulation_);
+  param_loader.loadParam("slow_odom_rate", slow_odom_rate_);
+  param_loader.loadParam("diag_rate", diag_rate_);
+  param_loader.loadParam("aux_rate", aux_rate_);
+  param_loader.loadParam("max_altitude_rate", max_altitude_rate_);
+  param_loader.loadParam("lkf_states_rate", lkf_states_rate_);
+  param_loader.loadParam("trgFilterBufferSize", trg_filter_buffer_size);
+  param_loader.loadParam("trgFilterMaxValidAltitude", trg_max_valid_altitude);
+  param_loader.loadParam("trgFilterMaxDifference", trg_filter_max_difference);
 
-  param_loader.load_param("garminFilterBufferSize", garmin_filter_buffer_size);
-  param_loader.load_param("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
-  param_loader.load_param("garminFilterMaxDifference", garmin_filter_max_difference);
+  param_loader.loadParam("garminFilterBufferSize", garmin_filter_buffer_size);
+  param_loader.loadParam("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
+  param_loader.loadParam("garminFilterMaxDifference", garmin_filter_max_difference);
 
-  param_loader.load_param("sonarFilterBufferSize", sonar_filter_buffer_size);
-  param_loader.load_param("sonarFilterMaxValidAltitude", sonar_max_valid_altitude);
-  param_loader.load_param("sonarFilterMaxDifference", sonar_filter_max_difference);
+  param_loader.loadParam("sonarFilterBufferSize", sonar_filter_buffer_size);
+  param_loader.loadParam("sonarFilterMaxValidAltitude", sonar_max_valid_altitude);
+  param_loader.loadParam("sonarFilterMaxDifference", sonar_filter_max_difference);
 
-  param_loader.load_param("planeFilterBufferSize", plane_filter_buffer_size);
-  param_loader.load_param("planeFilterMaxValidAltitude", plane_max_valid_altitude);
-  param_loader.load_param("planeFilterMaxDifference", plane_filter_max_difference);
+  param_loader.loadParam("planeFilterBufferSize", plane_filter_buffer_size);
+  param_loader.loadParam("planeFilterMaxValidAltitude", plane_max_valid_altitude);
+  param_loader.loadParam("planeFilterMaxDifference", plane_filter_max_difference);
 
-  param_loader.load_param("brickFilterBufferSize", brick_filter_buffer_size);
-  param_loader.load_param("brickFilterMaxValidAltitude", brick_max_valid_altitude);
-  param_loader.load_param("brickFilterMaxDifference", brick_filter_max_difference);
+  param_loader.loadParam("brickFilterBufferSize", brick_filter_buffer_size);
+  param_loader.loadParam("brickFilterMaxValidAltitude", brick_max_valid_altitude);
+  param_loader.loadParam("brickFilterMaxDifference", brick_filter_max_difference);
 
-  param_loader.load_param("vioFilterBufferSize", vio_filter_buffer_size);
-  param_loader.load_param("vioFilterMaxValidAltitude", vio_max_valid_altitude);
-  param_loader.load_param("vioFilterMaxDifference", vio_filter_max_difference);
+  param_loader.loadParam("vioFilterBufferSize", vio_filter_buffer_size);
+  param_loader.loadParam("vioFilterMaxValidAltitude", vio_max_valid_altitude);
+  param_loader.loadParam("vioFilterMaxDifference", vio_filter_max_difference);
 
-  param_loader.load_param("aloamHeightFilterBufferSize", aloam_height_filter_buffer_size);
-  param_loader.load_param("aloamHeightFilterMaxValidAltitude", aloam_height_max_valid_altitude);
-  param_loader.load_param("aloamHeightFilterMaxDifference", aloam_height_filter_max_difference);
+  param_loader.loadParam("aloamHeightFilterBufferSize", aloam_height_filter_buffer_size);
+  param_loader.loadParam("aloamHeightFilterMaxValidAltitude", aloam_height_max_valid_altitude);
+  param_loader.loadParam("aloamHeightFilterMaxDifference", aloam_height_filter_max_difference);
 
-  param_loader.load_param("trg_z_offset", trg_z_offset_);
-  param_loader.load_param("garmin_z_offset", garmin_z_offset_);
-  param_loader.load_param("sonar_z_offset", sonar_z_offset_);
-  param_loader.load_param("fcu_height", fcu_height_);
+  param_loader.loadParam("trg_z_offset", trg_z_offset_);
+  param_loader.loadParam("garmin_z_offset", garmin_z_offset_);
+  param_loader.loadParam("sonar_z_offset", sonar_z_offset_);
+  param_loader.loadParam("fcu_height", fcu_height_);
 
   double garmin_inno_gate_value_tmp;
-  param_loader.load_param("garmin/use_inno_gate", _use_garmin_inno_gate_);
-  param_loader.load_param("garmin/inno_gate_value", garmin_inno_gate_value_tmp);
+  param_loader.loadParam("garmin/use_inno_gate", _use_garmin_inno_gate_);
+  param_loader.loadParam("garmin/inno_gate_value", garmin_inno_gate_value_tmp);
   _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
-  param_loader.load_param("garmin/min_valid_altitude", garmin_min_altitude);
-  param_loader.load_param("garmin/max_valid_altitude", garmin_max_altitude);
+  param_loader.loadParam("garmin/min_valid_altitude", garmin_min_altitude);
+  param_loader.loadParam("garmin/max_valid_altitude", garmin_max_altitude);
 
   // Optic flow
-  param_loader.load_param("use_optflow_low", _use_optflow_low_);
-  param_loader.load_param("max_optflow_altitude", _max_optflow_altitude);
-  param_loader.load_param("max_brick_altitude", _max_brick_altitude);
-  param_loader.load_param("max_plane_altitude", _max_plane_altitude);
-  param_loader.load_param("max_default_altitude", _max_default_altitude);
+  param_loader.loadParam("use_optflow_low", _use_optflow_low_);
+  param_loader.loadParam("max_optflow_altitude", _max_optflow_altitude);
+  param_loader.loadParam("max_brick_altitude", _max_brick_altitude);
+  param_loader.loadParam("max_plane_altitude", _max_plane_altitude);
+  param_loader.loadParam("max_default_altitude", _max_default_altitude);
   max_altitude_ = _max_default_altitude;
-  param_loader.load_param("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
-  param_loader.load_param("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
+  param_loader.loadParam("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
+  param_loader.loadParam("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
   optflow_stddev.x = 1.0;
   optflow_stddev.y = 1.0;
   optflow_stddev.z = 1.0;
 
   // Localization sources availability
-  param_loader.load_param("gps_available", _gps_available);
-  param_loader.load_param("vio_available", _vio_available);
-  param_loader.load_param("vslam_available", _vslam_available);
-  param_loader.load_param("optflow_available", _optflow_available);
-  param_loader.load_param("rtk_available", _rtk_available);
-  param_loader.load_param("t265_available", _t265_available);
-  param_loader.load_param("lidar_available", _lidar_available);
-  param_loader.load_param("aloam_available", _aloam_available);
-  param_loader.load_param("brick_available", _brick_available);
+  param_loader.loadParam("gps_available", _gps_available);
+  param_loader.loadParam("vio_available", _vio_available);
+  param_loader.loadParam("vslam_available", _vslam_available);
+  param_loader.loadParam("optflow_available", _optflow_available);
+  param_loader.loadParam("rtk_available", _rtk_available);
+  param_loader.loadParam("t265_available", _t265_available);
+  param_loader.loadParam("lidar_available", _lidar_available);
+  param_loader.loadParam("aloam_available", _aloam_available);
+  param_loader.loadParam("brick_available", _brick_available);
   gps_reliable       = _gps_available;
   hector_reliable    = _lidar_available;
   tower_reliable     = _lidar_available;
@@ -1252,58 +1252,58 @@ void Odometry::onInit() {
 
   // Takeoff type
   std::string takeoff_estimator;
-  param_loader.load_param("lateral_estimator", takeoff_estimator);
+  param_loader.loadParam("lateral_estimator", takeoff_estimator);
 
   std::transform(takeoff_estimator.begin(), takeoff_estimator.end(), takeoff_estimator.begin(), ::toupper);
   size_t pos = std::distance(_estimator_type_names.begin(), find(_estimator_type_names.begin(), _estimator_type_names.end(), takeoff_estimator));
   _estimator_type_takeoff.name = takeoff_estimator;
   _estimator_type_takeoff.type = (int)pos;
 
-  param_loader.load_param("use_utm_origin", use_utm_origin_);
+  param_loader.loadParam("use_utm_origin", use_utm_origin_);
 
   // Load UTm origin either in UTM or LatLon units
-  param_loader.load_param("utm_origin_units", utm_origin_units);
+  param_loader.loadParam("utm_origin_units", utm_origin_units);
   if (utm_origin_units == 0) {
     ROS_INFO("[Odometry]: Loading UTM origin in UTM units.");
-    param_loader.load_param("utm_origin_x", utm_origin_x_);
-    param_loader.load_param("utm_origin_y", utm_origin_y_);
+    param_loader.loadParam("utm_origin_x", utm_origin_x_);
+    param_loader.loadParam("utm_origin_y", utm_origin_y_);
   } else {
     double lat, lon;
     ROS_INFO("[Odometry]: Loading UTM origin in LatLon units.");
-    param_loader.load_param("utm_origin_lat", lat);
-    param_loader.load_param("utm_origin_lon", lon);
+    param_loader.loadParam("utm_origin_lat", lat);
+    param_loader.loadParam("utm_origin_lon", lon);
     ROS_INFO("[Odometry]: Converted to UTM x: %f, y: %f.", utm_origin_x_, utm_origin_y_);
     mrs_lib::UTM(lat, lon, &utm_origin_x_, &utm_origin_y_);
   }
 
-  param_loader.load_param("local_origin_x", local_origin_x_);
-  param_loader.load_param("local_origin_y", local_origin_y_);
+  param_loader.loadParam("local_origin_x", local_origin_x_);
+  param_loader.loadParam("local_origin_y", local_origin_y_);
 
   pixhawk_odom_offset_x = 0;
   pixhawk_odom_offset_y = 0;
 
-  param_loader.load_param("hiccup_time_threshold", _hiccup_thr_);
+  param_loader.loadParam("hiccup_time_threshold", _hiccup_thr_);
 
   /* initPoseFromFile(); */
 
   /* load parameters of altitude estimator //{ */
 
-  param_loader.load_param("altitude/numberOfVariables", altitude_n);
-  param_loader.load_param("altitude/numberOfInputs", altitude_m);
-  param_loader.load_param("altitude/numberOfMeasurements", altitude_p);
+  param_loader.loadParam("altitude/numberOfVariables", altitude_n);
+  param_loader.loadParam("altitude/numberOfInputs", altitude_m);
+  param_loader.loadParam("altitude/numberOfMeasurements", altitude_p);
 
-  param_loader.load_matrix_dynamic("altitude/B", B_alt, altitude_n, altitude_m);
-  param_loader.load_matrix_dynamic("altitude/R", R_alt, altitude_n, altitude_n);
+  param_loader.loadMatrixDynamic("altitude/B", B_alt, altitude_n, altitude_m);
+  param_loader.loadMatrixDynamic("altitude/R", R_alt, altitude_n, altitude_n);
 
-  param_loader.load_param("altitude_estimators/model_states", _alt_model_state_names);
-  param_loader.load_param("altitude_estimators/measurements", _alt_measurement_names);
-  param_loader.load_param("altitude_estimators/altitude_estimators", _altitude_estimators_names);
+  param_loader.loadParam("altitude_estimators/model_states", _alt_model_state_names);
+  param_loader.loadParam("altitude_estimators/measurements", _alt_measurement_names);
+  param_loader.loadParam("altitude_estimators/altitude_estimators", _altitude_estimators_names);
 
   double excessive_tilt_tmp;
-  param_loader.load_param("altitude/excessive_tilt", excessive_tilt_tmp);
+  param_loader.loadParam("altitude/excessive_tilt", excessive_tilt_tmp);
   _excessive_tilt_sq_ = std::pow(excessive_tilt_tmp, 2);
 
-  param_loader.load_param("altitude_estimator", altitude_estimator_name);
+  param_loader.loadParam("altitude_estimator", altitude_estimator_name);
   size_t pos_alt = std::distance(_altitude_type_names.begin(), find(_altitude_type_names.begin(), _altitude_type_names.end(), altitude_estimator_name));
 
   _alt_estimator_type_takeoff.name = altitude_estimator_name;
@@ -1328,7 +1328,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
 
     std::vector<std::string> temp_vector;
-    param_loader.load_param("altitude_estimators/fused_measurements/" + *it, temp_vector);
+    param_loader.loadParam("altitude_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _alt_measurement_names)) {
@@ -1341,10 +1341,10 @@ void Odometry::onInit() {
 
     // Load the model of each estimator
     int temp_value;
-    param_loader.load_param("altitude_estimators/n_A/" + *it, temp_value);
+    param_loader.loadParam("altitude_estimators/n_A/" + *it, temp_value);
     map_alt_n_states.insert(std::pair<std::string, int>(*it, temp_value));
     Eigen::MatrixXd A_model = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
-    param_loader.load_matrix_dynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
+    param_loader.loadMatrixDynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
 
     map_alt_model.insert(std::pair<std::string, Eigen::MatrixXd>(*it, A_model));
   }
@@ -1353,7 +1353,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it != _alt_measurement_names.end(); ++it) {
 
     std::string temp_value;
-    param_loader.load_param("altitude_estimators/measurement_states/" + *it, temp_value);
+    param_loader.loadParam("altitude_estimators/measurement_states/" + *it, temp_value);
 
     if (!stringInVector(temp_value, _alt_model_state_names)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
@@ -1367,7 +1367,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _alt_model_state_names.begin(); it != _alt_model_state_names.end(); ++it) {
 
     Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, altitude_n);
-    param_loader.load_matrix_static("altitude_estimators/state_mapping/" + *it, temp_P, 1, altitude_n);
+    param_loader.loadMatrixStatic("altitude_estimators/state_mapping/" + *it, temp_P, 1, altitude_n);
 
     map_alt_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
   }
@@ -1376,7 +1376,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it != _alt_measurement_names.end(); ++it) {
 
     Eigen::MatrixXd temp_matrix;
-    param_loader.load_matrix_static("altitude/Q/" + *it, temp_matrix, 1, 1);
+    param_loader.loadMatrixStatic("altitude/Q/" + *it, temp_matrix, 1, 1);
 
     map_alt_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
   }
@@ -1456,8 +1456,8 @@ void Odometry::onInit() {
   H_height << 1;
   estimator_height_ = std::make_unique<lkf_height_t>(A_height, B_height, H_height);
 
-  param_loader.load_matrix_static("height/R", R_height_);
-  param_loader.load_matrix_static("height/Q", Q_height_);
+  param_loader.loadMatrixStatic("height/R", R_height_);
+  param_loader.loadMatrixStatic("height/Q", Q_height_);
 
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
@@ -1465,33 +1465,33 @@ void Odometry::onInit() {
 
   /*  //{ load parameters of state estimators */
 
-  param_loader.load_param("lateral/numberOfVariables", lateral_n);
-  param_loader.load_param("lateral/numberOfInputs", lateral_m);
-  param_loader.load_param("lateral/numberOfMeasurements", lateral_p);
+  param_loader.loadParam("lateral/numberOfVariables", lateral_n);
+  param_loader.loadParam("lateral/numberOfInputs", lateral_m);
+  param_loader.loadParam("lateral/numberOfMeasurements", lateral_p);
 
-  param_loader.load_param("state_estimators/n_model_states", _n_model_states);
-  param_loader.load_param("state_estimators/state_estimators", _state_estimators_names);
-  param_loader.load_param("state_estimators/active", _active_state_estimators_names);
-  param_loader.load_param("state_estimators/model_states", _model_state_names);
-  param_loader.load_param("state_estimators/measurements", _measurement_names);
-  param_loader.load_matrix_static("lateral/A", A_lat);
-  param_loader.load_matrix_static("lateral/B", B_lat);
-  param_loader.load_matrix_static("lateral/R", R_lat);
+  param_loader.loadParam("state_estimators/n_model_states", _n_model_states);
+  param_loader.loadParam("state_estimators/state_estimators", _state_estimators_names);
+  param_loader.loadParam("state_estimators/active", _active_state_estimators_names);
+  param_loader.loadParam("state_estimators/model_states", _model_state_names);
+  param_loader.loadParam("state_estimators/measurements", _measurement_names);
+  param_loader.loadMatrixStatic("lateral/A", A_lat);
+  param_loader.loadMatrixStatic("lateral/B", B_lat);
+  param_loader.loadMatrixStatic("lateral/R", R_lat);
 
-  param_loader.load_matrix_dynamic("lateral/rtk/A", A_lat_rtk, 2, 2);
-  param_loader.load_matrix_dynamic("lateral/rtk/B", B_lat_rtk, 2, 2);
-  param_loader.load_matrix_dynamic("lateral/rtk/R", R_lat_rtk, 2, 2);
-  param_loader.load_matrix_dynamic("lateral/rtk/Q", Q_lat_rtk, 2, 2);
-  param_loader.load_matrix_dynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
-  param_loader.load_param("lateral/rtk_fuse_sps", _rtk_fuse_sps);
+  param_loader.loadMatrixDynamic("lateral/rtk/A", A_lat_rtk, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/B", B_lat_rtk, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/R", R_lat_rtk, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/Q", Q_lat_rtk, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
+  param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps);
 
-  param_loader.load_param("lateral/brick_timeout", _brick_timeout_);
+  param_loader.loadParam("lateral/brick_timeout", _brick_timeout_);
 
   // Optflow median filter
-  param_loader.load_param("lateral/optflow_median_filter", _optflow_median_filter);
-  param_loader.load_param("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size);
-  param_loader.load_param("lateral/optflow_filter_max_valid", _optflow_filter_max_valid);
-  param_loader.load_param("lateral/optflow_filter_max_diff", _optflow_filter_max_diff);
+  param_loader.loadParam("lateral/optflow_median_filter", _optflow_median_filter);
+  param_loader.loadParam("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size);
+  param_loader.loadParam("lateral/optflow_filter_max_valid", _optflow_filter_max_valid);
+  param_loader.loadParam("lateral/optflow_filter_max_diff", _optflow_filter_max_diff);
 
   optflow_filter_x =
       std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
@@ -1499,10 +1499,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
 
   // LIDAR median filter
-  param_loader.load_param("lateral/lidar_vel_median_filter", _lidar_vel_median_filter);
-  param_loader.load_param("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size);
-  param_loader.load_param("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid);
-  param_loader.load_param("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff);
+  param_loader.loadParam("lateral/lidar_vel_median_filter", _lidar_vel_median_filter);
+  param_loader.loadParam("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size);
+  param_loader.loadParam("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid);
+  param_loader.loadParam("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff);
 
   lidar_vel_filter_x =
       std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
@@ -1510,10 +1510,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
 
   // Hector median filter
-  param_loader.load_param("lateral/hector_pos_median_filter", _hector_pos_median_filter);
-  param_loader.load_param("lateral/hector_pos_filter_buffer_size", _hector_pos_filter_buffer_size);
-  param_loader.load_param("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid);
-  param_loader.load_param("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff);
+  param_loader.loadParam("lateral/hector_pos_median_filter", _hector_pos_median_filter);
+  param_loader.loadParam("lateral/hector_pos_filter_buffer_size", _hector_pos_filter_buffer_size);
+  param_loader.loadParam("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid);
+  param_loader.loadParam("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff);
 
   hector_pos_filter_x =
       std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
@@ -1521,10 +1521,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
 
   // TOWER median filter
-  param_loader.load_param("lateral/tower_pos_median_filter", _tower_pos_median_filter);
-  param_loader.load_param("lateral/tower_pos_filter_buffer_size", _tower_pos_filter_buffer_size);
-  param_loader.load_param("lateral/tower_pos_filter_max_valid", _tower_pos_filter_max_valid);
-  param_loader.load_param("lateral/tower_pos_filter_max_diff", _tower_pos_filter_max_diff);
+  param_loader.loadParam("lateral/tower_pos_median_filter", _tower_pos_median_filter);
+  param_loader.loadParam("lateral/tower_pos_filter_buffer_size", _tower_pos_filter_buffer_size);
+  param_loader.loadParam("lateral/tower_pos_filter_max_valid", _tower_pos_filter_max_valid);
+  param_loader.loadParam("lateral/tower_pos_filter_max_diff", _tower_pos_filter_max_diff);
 
   tower_pos_filter_x =
       std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size, _tower_pos_filter_max_valid, -_tower_pos_filter_max_valid, _tower_pos_filter_max_diff);
@@ -1532,10 +1532,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size, _tower_pos_filter_max_valid, -_tower_pos_filter_max_valid, _tower_pos_filter_max_diff);
 
   // ALOAM median filter
-  param_loader.load_param("lateral/aloam_pos_median_filter", _aloam_pos_median_filter);
-  param_loader.load_param("lateral/aloam_pos_filter_buffer_size", _aloam_pos_filter_buffer_size);
-  param_loader.load_param("lateral/aloam_pos_filter_max_valid", _aloam_pos_filter_max_valid);
-  param_loader.load_param("lateral/aloam_pos_filter_max_diff", _aloam_pos_filter_max_diff);
+  param_loader.loadParam("lateral/aloam_pos_median_filter", _aloam_pos_median_filter);
+  param_loader.loadParam("lateral/aloam_pos_filter_buffer_size", _aloam_pos_filter_buffer_size);
+  param_loader.loadParam("lateral/aloam_pos_filter_max_valid", _aloam_pos_filter_max_valid);
+  param_loader.loadParam("lateral/aloam_pos_filter_max_diff", _aloam_pos_filter_max_diff);
 
   aloam_pos_filter_x =
       std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size, _aloam_pos_filter_max_valid, -_aloam_pos_filter_max_valid, _aloam_pos_filter_max_diff);
@@ -1543,10 +1543,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size, _aloam_pos_filter_max_valid, -_aloam_pos_filter_max_valid, _aloam_pos_filter_max_diff);
 
   // ICP median filter
-  param_loader.load_param("lateral/icp_twist_median_filter", _icp_twist_median_filter);
-  param_loader.load_param("lateral/icp_twist_filter_buffer_size", _icp_twist_filter_buffer_size);
-  param_loader.load_param("lateral/icp_twist_filter_max_valid", _icp_twist_filter_max_valid);
-  param_loader.load_param("lateral/icp_twist_filter_max_diff", _icp_twist_filter_max_diff);
+  param_loader.loadParam("lateral/icp_twist_median_filter", _icp_twist_median_filter);
+  param_loader.loadParam("lateral/icp_twist_filter_buffer_size", _icp_twist_filter_buffer_size);
+  param_loader.loadParam("lateral/icp_twist_filter_max_valid", _icp_twist_filter_max_valid);
+  param_loader.loadParam("lateral/icp_twist_filter_max_diff", _icp_twist_filter_max_diff);
 
   icp_twist_filter_x =
       std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size, _icp_twist_filter_max_valid, -_icp_twist_filter_max_valid, _icp_twist_filter_max_diff);
@@ -1555,10 +1555,10 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size, _icp_twist_filter_max_valid, -_icp_twist_filter_max_valid, _icp_twist_filter_max_diff);
 
   // brick median filter
-  param_loader.load_param("lateral/brick_pos_median_filter", _brick_pos_median_filter);
-  param_loader.load_param("lateral/brick_pos_filter_buffer_size", _brick_pos_filter_buffer_size);
-  param_loader.load_param("lateral/brick_pos_filter_max_valid", _brick_pos_filter_max_valid);
-  param_loader.load_param("lateral/brick_pos_filter_max_diff", _brick_pos_filter_max_diff);
+  param_loader.loadParam("lateral/brick_pos_median_filter", _brick_pos_median_filter);
+  param_loader.loadParam("lateral/brick_pos_filter_buffer_size", _brick_pos_filter_buffer_size);
+  param_loader.loadParam("lateral/brick_pos_filter_max_valid", _brick_pos_filter_max_valid);
+  param_loader.loadParam("lateral/brick_pos_filter_max_diff", _brick_pos_filter_max_diff);
 
   brick_pos_filter_x =
       std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size, _brick_pos_filter_max_valid, -_brick_pos_filter_max_valid, _brick_pos_filter_max_diff);
@@ -1575,7 +1575,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
 
     std::vector<std::string> temp_vector;
-    param_loader.load_param("state_estimators/fused_measurements/" + *it, temp_vector);
+    param_loader.loadParam("state_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _measurement_names)) {
@@ -1591,7 +1591,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
 
     std::string temp_value;
-    param_loader.load_param("state_estimators/measurement_states/" + *it, temp_value);
+    param_loader.loadParam("state_estimators/measurement_states/" + *it, temp_value);
 
     if (!stringInVector(temp_value, _model_state_names)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
@@ -1605,7 +1605,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
 
     LatStateCol1D temp_P;
-    param_loader.load_matrix_static("state_estimators/state_mapping/" + *it, temp_P);
+    param_loader.loadMatrixStatic("state_estimators/state_mapping/" + *it, temp_P);
 
     map_states.insert(std::pair<std::string, LatStateCol1D>(*it, temp_P));
   }
@@ -1614,7 +1614,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
 
     Mat1 temp_matrix;
-    param_loader.load_matrix_static("lateral/Q/" + *it, temp_matrix);
+    param_loader.loadMatrixStatic("lateral/Q/" + *it, temp_matrix);
 
     map_measurement_covariance.insert(std::pair<std::string, Mat1>(*it, temp_matrix));
   }
@@ -1682,47 +1682,47 @@ void Odometry::onInit() {
 
   /* load parameters of heading estimator //{ */
 
-  param_loader.load_param("heading/numberOfVariables", heading_n);
-  param_loader.load_param("heading/numberOfInputs", heading_m);
-  param_loader.load_param("heading/numberOfMeasurements", heading_p);
+  param_loader.loadParam("heading/numberOfVariables", heading_n);
+  param_loader.loadParam("heading/numberOfInputs", heading_m);
+  param_loader.loadParam("heading/numberOfMeasurements", heading_p);
 
-  param_loader.load_matrix_dynamic("heading/A", A_hdg, heading_n, heading_n);
-  param_loader.load_matrix_dynamic("heading/B", B_hdg, heading_n, heading_m);
-  param_loader.load_matrix_dynamic("heading/R", R_hdg, heading_n, heading_n);
+  param_loader.loadMatrixDynamic("heading/A", A_hdg, heading_n, heading_n);
+  param_loader.loadMatrixDynamic("heading/B", B_hdg, heading_n, heading_m);
+  param_loader.loadMatrixDynamic("heading/R", R_hdg, heading_n, heading_n);
 
-  param_loader.load_param("heading_estimators/model_states", _hdg_model_state_names);
-  param_loader.load_param("heading_estimators/measurements", _hdg_measurement_names);
-  param_loader.load_param("heading_estimators/heading_estimators", _heading_estimators_names);
-  param_loader.load_param("heading_estimators/active", _active_heading_estimators_names);
+  param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names);
+  param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names);
+  param_loader.loadParam("heading_estimators/heading_estimators", _heading_estimators_names);
+  param_loader.loadParam("heading_estimators/active", _active_heading_estimators_names);
 
-  param_loader.load_param("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size);
-  param_loader.load_param("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid);
-  param_loader.load_param("heading/optflow_yaw_rate_filter_max_diff", _optflow_yaw_rate_filter_max_diff);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_diff", _optflow_yaw_rate_filter_max_diff);
 
-  param_loader.load_param("heading/icp_yaw_rate_filter_buffer_size", _icp_yaw_rate_filter_buffer_size);
-  param_loader.load_param("heading/icp_yaw_rate_filter_max_valid", _icp_yaw_rate_filter_max_valid);
-  param_loader.load_param("heading/icp_yaw_rate_filter_max_diff", _icp_yaw_rate_filter_max_diff);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_buffer_size", _icp_yaw_rate_filter_buffer_size);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_max_valid", _icp_yaw_rate_filter_max_valid);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_max_diff", _icp_yaw_rate_filter_max_diff);
 
-  param_loader.load_param("heading/compass_yaw_filter_buffer_size", _compass_yaw_filter_buffer_size);
-  param_loader.load_param("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff);
+  param_loader.loadParam("heading/compass_yaw_filter_buffer_size", _compass_yaw_filter_buffer_size);
+  param_loader.loadParam("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff);
 
-  param_loader.load_param("heading/hector_yaw_filter_buffer_size", _hector_yaw_filter_buffer_size);
-  param_loader.load_param("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff);
+  param_loader.loadParam("heading/hector_yaw_filter_buffer_size", _hector_yaw_filter_buffer_size);
+  param_loader.loadParam("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff);
 
-  param_loader.load_param("heading/tower_yaw_filter_buffer_size", _tower_yaw_filter_buffer_size);
-  param_loader.load_param("heading/tower_yaw_filter_max_diff", _tower_yaw_filter_max_diff);
+  param_loader.loadParam("heading/tower_yaw_filter_buffer_size", _tower_yaw_filter_buffer_size);
+  param_loader.loadParam("heading/tower_yaw_filter_max_diff", _tower_yaw_filter_max_diff);
 
-  param_loader.load_param("heading/aloam_yaw_filter_buffer_size", _aloam_yaw_filter_buffer_size);
-  param_loader.load_param("heading/aloam_yaw_filter_max_diff", _aloam_yaw_filter_max_diff);
+  param_loader.loadParam("heading/aloam_yaw_filter_buffer_size", _aloam_yaw_filter_buffer_size);
+  param_loader.loadParam("heading/aloam_yaw_filter_max_diff", _aloam_yaw_filter_max_diff);
 
-  param_loader.load_param("heading/brick_yaw_filter_buffer_size", _brick_yaw_filter_buffer_size);
-  param_loader.load_param("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff);
-  param_loader.load_param("heading/max_brick_yaw_correction", max_brick_yaw_correction_);
-  param_loader.load_param("heading/accum_yaw_brick_alpha", _accum_yaw_brick_alpha_);
+  param_loader.loadParam("heading/brick_yaw_filter_buffer_size", _brick_yaw_filter_buffer_size);
+  param_loader.loadParam("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff);
+  param_loader.loadParam("heading/max_brick_yaw_correction", max_brick_yaw_correction_);
+  param_loader.loadParam("heading/accum_yaw_brick_alpha", _accum_yaw_brick_alpha_);
   accum_yaw_brick_ = 0.0;
 
-  param_loader.load_param("heading_estimator", heading_estimator_name);
-  param_loader.load_param("heading/gyro_fallback", _gyro_fallback);
+  param_loader.loadParam("heading_estimator", heading_estimator_name);
+  param_loader.loadParam("heading/gyro_fallback", _gyro_fallback);
 
   optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
                                                            -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
@@ -1761,7 +1761,7 @@ void Odometry::onInit() {
     }
 
     std::vector<std::string> temp_vector;
-    param_loader.load_param("heading_estimators/fused_measurements/" + *it, temp_vector);
+    param_loader.loadParam("heading_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _hdg_measurement_names)) {
@@ -1777,7 +1777,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it != _hdg_measurement_names.end(); ++it) {
 
     std::string temp_value;
-    param_loader.load_param("heading_estimators/measurement_states/" + *it, temp_value);
+    param_loader.loadParam("heading_estimators/measurement_states/" + *it, temp_value);
 
     if (!stringInVector(temp_value, _hdg_model_state_names)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
@@ -1791,7 +1791,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _hdg_model_state_names.begin(); it != _hdg_model_state_names.end(); ++it) {
 
     Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, heading_n);
-    param_loader.load_matrix_static("heading_estimators/state_mapping/" + *it, temp_P, 1, heading_n);
+    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, temp_P, 1, heading_n);
 
     map_hdg_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
   }
@@ -1800,7 +1800,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it != _hdg_measurement_names.end(); ++it) {
 
     Eigen::MatrixXd temp_matrix;
-    param_loader.load_matrix_static("heading/Q/" + *it, temp_matrix, 1, 1);
+    param_loader.loadMatrixStatic("heading/Q/" + *it, temp_matrix, 1, 1);
 
     map_hdg_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
   }
@@ -1872,37 +1872,37 @@ void Odometry::onInit() {
   //}
 
   // use differential gps
-  param_loader.load_param("publish_fused_odom", _publish_fused_odom);
-  param_loader.load_param("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
-  param_loader.load_param("publish_pixhawk_velocity", _publish_pixhawk_velocity);
-  param_loader.load_param("pass_rtk_as_odom", pass_rtk_as_odom);
-  param_loader.load_param("max_altitude_correction", max_altitude_correction_);
-  param_loader.load_param("reset_hector_after_takeoff", _reset_hector_after_takeoff_);
-  param_loader.load_param("perform_hector_reset_routine", _perform_hector_reset_routine);
+  param_loader.loadParam("publish_fused_odom", _publish_fused_odom);
+  param_loader.loadParam("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
+  param_loader.loadParam("publish_pixhawk_velocity", _publish_pixhawk_velocity);
+  param_loader.loadParam("pass_rtk_as_odom", pass_rtk_as_odom);
+  param_loader.loadParam("max_altitude_correction", max_altitude_correction_);
+  param_loader.loadParam("reset_hector_after_takeoff", _reset_hector_after_takeoff_);
+  param_loader.loadParam("perform_hector_reset_routine", _perform_hector_reset_routine);
 
-  param_loader.load_param("lateral/saturate_mavros_position", saturate_mavros_position_);
-  param_loader.load_param("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
-  param_loader.load_param("lateral/max_vio_pos_correction", max_vio_pos_correction);
-  param_loader.load_param("lateral/max_vslam_pos_correction", max_vslam_pos_correction);
-  param_loader.load_param("lateral/max_brick_pos_correction", max_brick_pos_correction);
-  param_loader.load_param("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
-  param_loader.load_param("lateral/max_t265_vel", _max_t265_vel);
+  param_loader.loadParam("lateral/saturate_mavros_position", saturate_mavros_position_);
+  param_loader.loadParam("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
+  param_loader.loadParam("lateral/max_vio_pos_correction", max_vio_pos_correction);
+  param_loader.loadParam("lateral/max_vslam_pos_correction", max_vslam_pos_correction);
+  param_loader.loadParam("lateral/max_brick_pos_correction", max_brick_pos_correction);
+  param_loader.loadParam("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
+  param_loader.loadParam("lateral/max_t265_vel", _max_t265_vel);
   double max_safe_brick_jump_tmp = 0.0;
-  param_loader.load_param("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
+  param_loader.loadParam("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
   max_safe_brick_jump_sq_            = std::pow(max_safe_brick_jump_tmp, 2);
   double max_safe_brick_yaw_jump_tmp = 0.0;
-  param_loader.load_param("lateral/max_safe_brick_yaw_jump", max_safe_brick_yaw_jump_tmp);
+  param_loader.loadParam("lateral/max_safe_brick_yaw_jump", max_safe_brick_yaw_jump_tmp);
   max_safe_brick_yaw_jump_sq_ = std::pow(max_safe_brick_yaw_jump_tmp, 2);
 
-  param_loader.load_param("lateral/gps_fallback/allowed", _gps_fallback_allowed_);
-  param_loader.load_param("lateral/gps_fallback/fallback_estimator", _gps_fallback_estimator_);
-  param_loader.load_param("lateral/gps_fallback/cov_limit", _gps_fallback_covariance_limit_);
-  param_loader.load_param("lateral/gps_fallback/cov_ok", _gps_fallback_covariance_ok_);
-  param_loader.load_param("lateral/gps_fallback/return_after_ok", _gps_return_after_fallback_);
-  param_loader.load_param("lateral/gps_fallback/bad_samples", _gps_fallback_bad_samples_);
-  param_loader.load_param("lateral/gps_fallback/good_samples", _gps_fallback_good_samples_);
-  param_loader.load_param("lateral/gps_fallback/altitude", _gps_fallback_altitude_);
-  param_loader.load_param("lateral/gps_fallback/altitude_wait_time", _gps_fallback_wait_for_altitude_time_);
+  param_loader.loadParam("lateral/gps_fallback/allowed", _gps_fallback_allowed_);
+  param_loader.loadParam("lateral/gps_fallback/fallback_estimator", _gps_fallback_estimator_);
+  param_loader.loadParam("lateral/gps_fallback/cov_limit", _gps_fallback_covariance_limit_);
+  param_loader.loadParam("lateral/gps_fallback/cov_ok", _gps_fallback_covariance_ok_);
+  param_loader.loadParam("lateral/gps_fallback/return_after_ok", _gps_return_after_fallback_);
+  param_loader.loadParam("lateral/gps_fallback/bad_samples", _gps_fallback_bad_samples_);
+  param_loader.loadParam("lateral/gps_fallback/good_samples", _gps_fallback_good_samples_);
+  param_loader.loadParam("lateral/gps_fallback/altitude", _gps_fallback_altitude_);
+  param_loader.loadParam("lateral/gps_fallback/altitude_wait_time", _gps_fallback_wait_for_altitude_time_);
 
 
   if (pass_rtk_as_odom && !_rtk_available) {
@@ -2330,7 +2330,7 @@ void Odometry::onInit() {
   //}
 
   // | ----------------------- finish init ---------------------- |
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Odometry]: Could not load all non-optional parameters. Shutting down.");
     ros::shutdown();
   }
@@ -3726,7 +3726,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   odom_main                  = odom_pixhawk_shifted_local;
   uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
-  uav_state.velocity.angular         = odom_pixhawk_shifted_local.twist.twist.angular;
+  uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.angular;
 
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
@@ -4894,7 +4894,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
       attitude_command_prev_ = attitude_command_;
 
       attitude_command_last_update_ = ros::Time::now();
-      got_attitude_command = true;
+      got_attitude_command          = true;
       return;
     }
   }
@@ -5122,12 +5122,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
-  
+
 
   // Transform twist from body frame to ENU frame
-  tf2::Transform tf_pixhawk(mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation));
-  tf2::Vector3 vel_body(odom_pixhawk.twist.twist.linear.x, odom_pixhawk.twist.twist.linear.y, odom_pixhawk.twist.twist.linear.z);
-  tf2::Vector3 vel_enu_tmp = tf_pixhawk * vel_body;
+  tf2::Transform         tf_pixhawk(mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation));
+  tf2::Vector3           vel_body(odom_pixhawk.twist.twist.linear.x, odom_pixhawk.twist.twist.linear.y, odom_pixhawk.twist.twist.linear.z);
+  tf2::Vector3           vel_enu_tmp = tf_pixhawk * vel_body;
   geometry_msgs::Vector3 vel_enu;
   vel_enu.x = vel_enu_tmp.getX();
   vel_enu.y = vel_enu_tmp.getY();

@@ -3,9 +3,9 @@
 
 #include <ros/ros.h>
 
-#include <mrs_lib/Lkf.h>
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/lkf_legacy.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 
 #include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/MavrosState.h>

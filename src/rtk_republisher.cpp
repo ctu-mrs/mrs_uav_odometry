@@ -14,8 +14,8 @@
 
 #include <std_srvs/Trigger.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 
 #include <support.h>
@@ -104,13 +104,13 @@ void RtkRepublisher::onInit() {
 
   mrs_lib::ParamLoader param_loader(nh_, "RtkRepublisher");
 
-  param_loader.load_param("enable_profiler", profiler_enabled_);
+  param_loader.loadParam("enable_profiler", profiler_enabled_);
 
-  param_loader.load_param("rate", _rate_);
-  param_loader.load_param("offset_x", _offset_x_);
-  param_loader.load_param("offset_y", _offset_y_);
+  param_loader.loadParam("rate", _rate_);
+  param_loader.loadParam("offset_x", _offset_x_);
+  param_loader.loadParam("offset_y", _offset_y_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[RtkRepublisher]: could not load all parameters!");
     ros::shutdown();
   }

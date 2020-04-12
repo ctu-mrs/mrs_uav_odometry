@@ -8,13 +8,13 @@
 #include <vector>
 
 // Legacy LKF implementation
-#include <mrs_lib/Lkf.h>
+#include <mrs_lib/lkf.h>
 
 // New optimized LKF implementation
 #include <mrs_lib/lkf.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 
 #include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/MavrosState.h>
