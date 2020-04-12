@@ -42,7 +42,7 @@
 
   <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
   <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
-  
+
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
 
@@ -50,14 +50,6 @@
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/uav/uav_default.yaml" />
 
   <include file="$(find mrs_odometry)/launch/rtk_republisher.launch">
-
-    <arg name="UAV_NAME" value="$(arg UAV_NAME)" />
-    <arg name="PROFILER" value="$(arg PROFILER)" />
-    <arg name="standalone" value="$(arg standalone)" />
-
-  </include>
-
-  <include file="$(find mrs_mavros_interface)/launch/mavros_interface.launch">
 
     <arg name="UAV_NAME" value="$(arg UAV_NAME)" />
     <arg name="PROFILER" value="$(arg PROFILER)" />
