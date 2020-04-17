@@ -265,7 +265,8 @@ private:
   double      _gps_fallback_altitude_               = 4.0;
   double      _gps_fallback_wait_for_altitude_time_ = 5.0;
 
-  double des_yaw_rate_, des_yaw_;
+  double des_yaw_rate_ = 0.0;
+  double des_yaw_ = 0.0;
 
   std::vector<nav_msgs::Odometry> vec_odom_aux;
 
