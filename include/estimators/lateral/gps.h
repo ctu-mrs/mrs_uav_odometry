@@ -7,16 +7,32 @@
 
 #include <Eigen/Dense>
 
-#include <lateral_estimator.h>
+#include <mrs_lib/lkf.h>
+
+#include "lateral_estimator.h"
 
 //}
 
-#define N_STATES 6
+#define N_STATES 3
 #define N_INPUTS 1
 #define N_MEASUREMENTS 6
 
 namespace mrs_odometry
 {
+
+using namespace mrs_lib;
+
+using lkf_t      = LKF<N_STATES, N_INPUTS, N_MEASUREMENTS>;
+using A_t        = lkf_t::A_t;
+using B_t        = lkf_t::B_t;
+using H_t        = lkf_t::H_t;
+using Q_t        = lkf_t::Q_t;
+using x_t        = lkf_t::x_t;
+using P_t        = lkf_t::P_t;
+using u_t        = lkf_t::u_t;
+using z_t        = lkf_t::z_t;
+using R_t        = lkf_t::R_t;
+using statecov_t = lkf_t::statecov_t;
 
 class Gps : public LateralEstimator {
 
@@ -27,37 +43,39 @@ class Gps : public LateralEstimator {
 
     POSITION,
     VELOCITY,
-    ACCELERATION,
-    ACCELERATION_INPUT,
-    ACCELERATION_DISTURBANCE,
-    TILT_MAVROS
+    ACCELERATION
 
   } StateId_t;
 
   //}
 
+private:
+  ros::NodeHandle nh_;
+  std::string     name_;
+  std::string     uav_name_;
+
+  double dt_;
+  A_t    A_;
+  B_t    B_;
+  H_t    H_;
+  Q_t    Q_;
+
 public:
-  static const int n = N_STATES;
-  static const int m = N_INPUTS;
-  static const int p = N_MEASUREMENTS;
+  static const int n_states       = N_STATES;
+  static const int n_inputs       = N_INPUTS;
+  static const int n_measurements = N_MEASUREMENTS;
 
-  typedef Eigen::Matrix<double, n, n> A_t;
-  typedef Eigen::Matrix<double, n, m> B_t;
-  typedef Eigen::Matrix<double, p, n> H_t;
-  typedef Eigen::Matrix<double, n, p> K_t;
-  typedef Eigen::Matrix<double, n, n> R_t;
-
-  typedef Eigen::Matrix<double, 2, 1> State_t;
-  typedef Eigen::Matrix<double, 2, n> States_t;
-  typedef Eigen::Matrix<double, 2, 1> Input_t;
-  typedef Eigen::Matrix<double, n, n> ProcessNoiseMatrix_t;
-  typedef double                      Measurement_t;
+  typedef Eigen::Matrix<double, 2, 1>               State_t;
+  typedef Eigen::Matrix<double, 2, n_states>        States_t;
+  typedef Eigen::Matrix<double, 2, 1>               Input_t;
+  typedef Eigen::Matrix<double, n_states, n_states> ProcessNoiseMatrix_t;
+  typedef LateralMeasurement                        Measurement_t;
 
 public:
   virtual ~Gps(void) {
   }
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name) const override;
+  virtual void initialize(const ros::NodeHandle &parent_nh, std::string name, const std::string uav_name) const override;
   virtual bool start(void) const override;
   virtual bool pause(void) const override;
   virtual bool reset(void) const override;
