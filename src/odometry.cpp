@@ -73,7 +73,6 @@
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
-#include <StddevBuffer.h>
 #include <mrs_odometry/odometry_dynparamConfig.h>
 
 #include <tf2_ros/transform_broadcaster.h>

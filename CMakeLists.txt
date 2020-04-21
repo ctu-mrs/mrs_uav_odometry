@@ -57,8 +57,6 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(stddev_buffer src/StddevBuffer.cpp)
-
 ## Declare a C++ executable
 add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
 
