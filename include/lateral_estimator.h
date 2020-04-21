@@ -32,11 +32,11 @@ public:
   }
 
 private:
-  SMStates_t previous_sm_state_;
-  SMStates_t current_sm_state_;
+  SMStates_t previous_sm_state_ = UNINITIALIZED_STATE;
+  SMStates_t current_sm_state_ = UNINITIALIZED_STATE;
 
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, std::string name, const std::string uav_name) = 0;
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string& name, const std::string& uav_name) = 0;
   virtual bool start(void)                                                                                = 0;
   virtual bool pause(void)                                                                                = 0;
   virtual bool reset(void)                                                                                = 0;
