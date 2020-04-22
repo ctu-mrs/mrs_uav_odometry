@@ -235,14 +235,6 @@ bool AltitudeEstimator::doPrediction(const Eigen::VectorXd &input) {
 
   input_vec_x << input(0);
 
-  /* newA(0, 2)           = std::pow(dt, 2)/2; */
-  /* newA(1, 2)           = dt; */
-
-  /* newA(3, 1)           = dt; */
-  /* newA(3, 2)           = std::pow(dt, 2)/2; */
-
-  /* std::cout << newA << std::endl; */
-
   {
     std::scoped_lock lock(mutex_lkf);
 
@@ -291,18 +283,18 @@ bool AltitudeEstimator::doCorrection(const Eigen::VectorXd &measurement, int mea
     return false;
   }
 
+  //}
+
   // Check whether the measurement type is fused by this estimator
   if (!m_fusing_measurement[measurement_type]) {
     return false;
   }
 
-  //}
-
+  // Fuse the measurement
   Eigen::VectorXd mes_vec_x = Eigen::VectorXd::Zero(1);
 
   mes_vec_x << measurement(0);
 
-  // Fuse the measurement if this estimator allows it
   /* std::cout << "[AltitudeEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping:
    * "
    * <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */

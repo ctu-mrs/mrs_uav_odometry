@@ -104,29 +104,28 @@ public:
 
 public:
   void publishMessage();
-  int  rate_;
-  bool is_initialized      = false;
-  bool is_ready_to_takeoff = false;
+  int  _main_rate_;
+  bool is_initialized_      = false;
+  bool is_ready_to_takeoff_ = false;
 
 private:
-  std::string uav_name;
-  bool        simulation_ = false;
-  bool        use_gt_orientation_;
+  std::string _uav_name_;
+  bool        _simulation_ = false;
 
-  bool   _publish_fused_odom;
+  bool   _publish_fused_odom_;
   bool   _publish_local_origin_stable_tf_;
-  bool   _publish_pixhawk_velocity;
-  bool   _dynamic_optflow_cov       = false;
-  double _dynamic_optflow_cov_scale = 0;
+  bool   _publish_pixhawk_velocity_;
+  bool   _dynamic_optflow_cov_       = false;
+  double _dynamic_optflow_cov_scale_ = 0;
   double twist_q_x_prev             = 0;
   double twist_q_y_prev             = 0;
 
-  double _max_optflow_altitude;
-  double _max_brick_altitude;
-  double _max_plane_altitude;
-  double _max_default_altitude;
+  double _max_optflow_altitude_;
+  double _max_brick_altitude_;
+  double _max_plane_altitude_;
+  double _max_default_altitude_;
 
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh;
 
 private:
   ros::Publisher pub_uav_state_;
@@ -136,9 +135,9 @@ private:
   ros::Publisher pub_odom_stable_;
   ros::Publisher pub_slow_odom_;
   ros::Publisher pub_esp_odom_;
-  ros::Publisher pub_rtk_local;
-  ros::Publisher pub_rtk_local_odom;
-  ros::Publisher pub_gps_local_odom;
+  ros::Publisher pub_rtk_local_;
+  ros::Publisher pub_rtk_local_odom_;
+  ros::Publisher pub_gps_local_odom_;
   ros::Publisher pub_orientation_gt_;
   ros::Publisher pub_orientation_mavros_;
   ros::Publisher pub_des_attitude_global_;
@@ -274,10 +273,10 @@ private:
   ros::Time                                 optflow_twist_last_update;
   std::shared_ptr<MedianFilter>             optflow_filter_x;
   std::shared_ptr<MedianFilter>             optflow_filter_y;
-  bool                                      _optflow_median_filter;
-  int                                       _optflow_filter_buffer_size;
-  double                                    _optflow_filter_max_valid;
-  double                                    _optflow_filter_max_diff;
+  bool                                      _optflow_median_filter_;
+  int                                       _optflow_filter_buffer_size_;
+  double                                    _optflow_filter_max_valid_;
+  double                                    _optflow_filter_max_diff_;
   bool                                      fusing_optflow_low_ = true;
   bool                                      _use_optflow_low_   = false;
 
@@ -336,9 +335,9 @@ private:
   ros::Time                     hector_yaw_last_update;
   std::shared_ptr<MedianFilter> hector_yaw_filter;
   bool                          _hector_yaw_median_filter;
-  int                           _hector_yaw_filter_buffer_size;
+  int                           _hector_yaw_filter_buffer_size_;
   double                        _hector_yaw_filter_max_valid;
-  double                        _hector_yaw_filter_max_diff;
+  double                        _hector_yaw_filter_max_diff_;
 
   // TOWER heading msgs
   double                        tower_yaw_previous;
@@ -346,15 +345,15 @@ private:
   ros::Time                     tower_yaw_last_update;
   std::shared_ptr<MedianFilter> tower_yaw_filter;
   bool                          _tower_yaw_median_filter;
-  int                           _tower_yaw_filter_buffer_size;
+  int                           _tower_yaw_filter_buffer_size_;
   double                        _tower_yaw_filter_max_valid;
-  double                        _tower_yaw_filter_max_diff;
+  double                        _tower_yaw_filter_max_diff_;
 
   // ALOAM heading msgs
   double                        aloam_yaw_previous;
   std::shared_ptr<MedianFilter> aloam_yaw_filter;
-  int                           _aloam_yaw_filter_buffer_size;
-  double                        _aloam_yaw_filter_max_diff;
+  int                           _aloam_yaw_filter_buffer_size_;
+  double                        _aloam_yaw_filter_max_diff_;
 
   // Lidar heading msgs
   double                        lidar_yaw_previous;
@@ -374,10 +373,10 @@ private:
   ros::Time                     aloam_odom_last_update;
   std::shared_ptr<MedianFilter> aloam_pos_filter_x;
   std::shared_ptr<MedianFilter> aloam_pos_filter_y;
-  bool                          _aloam_pos_median_filter;
-  int                           _aloam_pos_filter_buffer_size;
-  double                        _aloam_pos_filter_max_valid;
-  double                        _aloam_pos_filter_max_diff;
+  bool                          _aloam_pos_median_filter_;
+  int                           _aloam_pos_filter_buffer_size_;
+  double                        _aloam_pos_filter_max_valid_;
+  double                        _aloam_pos_filter_max_diff_;
   Vec2                          aloam_offset_;
   Vec2                          aloam_vel_state_;
   double                        aloam_offset_hdg_;
@@ -388,9 +387,9 @@ private:
   ros::Time                     brick_yaw_last_update;
   std::shared_ptr<MedianFilter> brick_yaw_filter;
   bool                          _brick_yaw_median_filter;
-  int                           _brick_yaw_filter_buffer_size;
+  int                           _brick_yaw_filter_buffer_size_;
   double                        _brick_yaw_filter_max_valid;
-  double                        _brick_yaw_filter_max_diff;
+  double                        _brick_yaw_filter_max_diff_;
   double                        accum_yaw_brick_;
   double                        _accum_yaw_brick_alpha_;
 
@@ -417,8 +416,8 @@ private:
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
 
-  double     uav_mass_estimate;
-  std::mutex mutex_uav_mass_estimate;
+  double     _uav_mass_estimate_;
+  std::mutex mutex_uav_mass_estimate_;
 
   // Target attitude msgs
   mrs_msgs::AttitudeCommand attitude_command_;
@@ -431,7 +430,7 @@ private:
   mrs_msgs::RtkGps rtk_odom_previous;
   mrs_msgs::RtkGps rtk_odom;
   ros::Time        rtk_last_update;
-  bool             _rtk_fuse_sps;
+  bool             _rtk_fuse_sps_;
 
 
   // LIDAR messages
@@ -442,10 +441,10 @@ private:
   ros::Time                     lidar_odom_last_update;
   std::shared_ptr<MedianFilter> lidar_vel_filter_x;
   std::shared_ptr<MedianFilter> lidar_vel_filter_y;
-  bool                          _lidar_vel_median_filter;
-  int                           _lidar_vel_filter_buffer_size;
-  double                        _lidar_vel_filter_max_valid;
-  double                        _lidar_vel_filter_max_diff;
+  bool                          _lidar_vel_median_filter_;
+  int                           _lidar_vel_filter_buffer_size_;
+  double                        _lidar_vel_filter_max_valid_;
+  double                        _lidar_vel_filter_max_diff_;
 
   // Hector messages
   std::mutex                    mutex_hector;
@@ -455,10 +454,10 @@ private:
   ros::Time                     hector_pose_last_update;
   std::shared_ptr<MedianFilter> hector_pos_filter_x;
   std::shared_ptr<MedianFilter> hector_pos_filter_y;
-  bool                          _hector_pos_median_filter;
-  int                           _hector_pos_filter_buffer_size;
-  double                        _hector_pos_filter_max_valid;
-  double                        _hector_pos_filter_max_diff;
+  bool                          _hector_pos_median_filter_;
+  int                           _hector_pos_filter_buffer_size_;
+  double                        _hector_pos_filter_max_valid_;
+  double                        _hector_pos_filter_max_diff_;
   bool                          hector_reset_called_         = false;
   bool                          _reset_hector_after_takeoff_ = false;
   Vec2                          hector_offset_;
@@ -474,10 +473,10 @@ private:
   ros::Time                     tower_pose_last_update;
   std::shared_ptr<MedianFilter> tower_pos_filter_x;
   std::shared_ptr<MedianFilter> tower_pos_filter_y;
-  bool                          _tower_pos_median_filter;
-  int                           _tower_pos_filter_buffer_size;
-  double                        _tower_pos_filter_max_valid;
-  double                        _tower_pos_filter_max_diff;
+  bool                          _tower_pos_median_filter_;
+  int                           _tower_pos_filter_buffer_size_;
+  double                        _tower_pos_filter_max_valid_;
+  double                        _tower_pos_filter_max_diff_;
   int                           c_tower_msg_;
 
   // VIO messages
@@ -487,14 +486,14 @@ private:
   ros::Time                                 icp_twist_last_update;
   std::shared_ptr<MedianFilter>             icp_twist_filter_x;
   std::shared_ptr<MedianFilter>             icp_twist_filter_y;
-  bool                                      _icp_twist_median_filter;
-  int                                       _icp_twist_filter_buffer_size;
-  double                                    _icp_twist_filter_max_valid;
-  double                                    _icp_twist_filter_max_diff;
+  bool                                      _icp_twist_median_filter_;
+  int                                       _icp_twist_filter_buffer_size_;
+  double                                    _icp_twist_filter_max_valid_;
+  double                                    _icp_twist_filter_max_diff_;
   std::shared_ptr<MedianFilter>             icp_yaw_rate_filter;
-  int                                       _icp_yaw_rate_filter_buffer_size;
-  double                                    _icp_yaw_rate_filter_max_valid;
-  double                                    _icp_yaw_rate_filter_max_diff;
+  int                                       _icp_yaw_rate_filter_buffer_size_;
+  double                                    _icp_yaw_rate_filter_max_valid_;
+  double                                    _icp_yaw_rate_filter_max_diff_;
   double                                    icp_yaw_rate_inconsistent_samples;
 
   // brick messages
@@ -504,10 +503,10 @@ private:
   ros::Time                     brick_pose_last_update;
   std::shared_ptr<MedianFilter> brick_pos_filter_x;
   std::shared_ptr<MedianFilter> brick_pos_filter_y;
-  bool                          _brick_pos_median_filter;
-  int                           _brick_pos_filter_buffer_size;
-  double                        _brick_pos_filter_max_valid;
-  double                        _brick_pos_filter_max_diff;
+  bool                          _brick_pos_median_filter_;
+  int                           _brick_pos_filter_buffer_size_;
+  double                        _brick_pos_filter_max_valid_;
+  double                        _brick_pos_filter_max_diff_;
   double                        _brick_timeout_;
 
   std::mutex         mutex_ground_truth;
@@ -642,15 +641,15 @@ private:
   std::mutex                    mutex_range_garmin;
   void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
   std::shared_ptr<MedianFilter> garminFilter;
-  int                           garmin_filter_buffer_size;
-  double                        garmin_max_valid_altitude;
-  double                        garmin_filter_max_difference;
+  int                           _garmin_filter_buffer_size_;
+  double                        _garmin_max_valid_altitude_;
+  double                        _garmin_filter_max_difference_;
   ros::Time                     garmin_last_update;
   bool                          saturate_garmin_corrections_ = false;
   double                        _garmin_inno_gate_value_sq_;
   bool                          _use_garmin_inno_gate_;
-  double                        garmin_min_altitude;
-  double                        garmin_max_altitude;
+  double                        _garmin_min_altitude_;
+  double                        _garmin_max_altitude_;
 
 
   bool   callbacks_enabled_ = false;
@@ -664,9 +663,9 @@ private:
   std::mutex                    mutex_range_sonar;
   void                          callbackSonar(const sensor_msgs::RangeConstPtr &msg);
   std::shared_ptr<MedianFilter> sonarFilter;
-  int                           sonar_filter_buffer_size;
-  double                        sonar_max_valid_altitude;
-  double                        sonar_filter_max_difference;
+  int                           _sonar_filter_buffer_size_;
+  double                        _sonar_max_valid_altitude_;
+  double                        _sonar_filter_max_difference_;
   ros::Time                     sonar_last_update;
 
   // Plane altitude subscriber and callback
@@ -676,30 +675,30 @@ private:
   std::mutex                    mutex_range_plane;
   void                          callbackPlane(const sensor_msgs::RangeConstPtr &msg);
   std::shared_ptr<MedianFilter> planeFilter;
-  int                           plane_filter_buffer_size;
-  double                        plane_max_valid_altitude;
-  double                        plane_filter_max_difference;
+  int                           _plane_filter_buffer_size_;
+  double                        _plane_max_valid_altitude_;
+  double                        _plane_filter_max_difference_;
   ros::Time                     plane_last_update;
 
   // Brick altitude subscriber and callback
   std::shared_ptr<MedianFilter> brickHeightFilter;
-  int                           brick_filter_buffer_size;
-  double                        brick_max_valid_altitude;
-  double                        brick_filter_max_difference;
+  int                           _brick_filter_buffer_size_;
+  double                        _brick_max_valid_altitude_;
+  double                        _brick_filter_max_difference_;
   ros::Time                     brick_last_update;
 
   // VIO altitude subscriber and callback
   std::shared_ptr<MedianFilter> vioHeightFilter;
-  int                           vio_filter_buffer_size;
-  double                        vio_max_valid_altitude;
-  double                        vio_filter_max_difference;
+  int                           _vio_filter_buffer_size_;
+  double                        _vio_max_valid_altitude_;
+  double                        _vio_filter_max_difference_;
   ros::Time                     vio_last_update;
 
   // ALOAM height median filter
   std::shared_ptr<MedianFilter> aloamHeightFilter;
-  int                           aloam_height_filter_buffer_size;
-  double                        aloam_height_max_valid_altitude;
-  double                        aloam_height_filter_max_difference;
+  int                           _aloam_height_filter_buffer_size_;
+  double                        _aloam_height_max_valid_altitude_;
+  double                        _aloam_height_filter_max_difference_;
 
   bool got_odom_pixhawk     = false;
   bool got_odom_t265        = false;
@@ -735,11 +734,11 @@ private:
   geometry_msgs::Vector3Stamped des_attitude_global;
 
   // for setting home position
-  double utm_origin_x_, utm_origin_y_;
-  bool   use_utm_origin_  = false;
-  int    utm_origin_units = 0;
+  double _utm_origin_x_, _utm_origin_y_;
+  bool   _use_utm_origin_  = false;
+  int    _utm_origin_units_ = 0;
   double rtk_local_origin_z_;
-  double local_origin_x_, local_origin_y_;
+  double _local_origin_x_, _local_origin_y_;
   double land_position_x, land_position_y;
   bool   land_position_set = false;
 
@@ -755,7 +754,7 @@ private:
   bool                                isUavFlying();
   bool                                isUavLandoff();
   bool                                uav_in_the_air = false;
-  std::string                         null_tracker_;
+  std::string                         _null_tracker_;
 
   // offset to adjust the local origin
   double pixhawk_odom_offset_x, pixhawk_odom_offset_y;
@@ -770,14 +769,14 @@ private:
   double init_pose_yaw = 0.0;
 
   // heading estimation
-  int                                                      heading_n, heading_m, heading_p;
+  int                                                      _heading_n_, _heading_m_, _heading_p_;
   Eigen::MatrixXd                                          A_hdg, B_hdg, R_hdg;
   std::mutex                                               mutex_heading_estimator;
   std::mutex                                               mutex_hdg_estimator_type;
-  std::vector<std::string>                                 _heading_estimators_names;
-  std::vector<std::string>                                 _active_heading_estimators_names;
-  std::vector<std::string>                                 _hdg_model_state_names;
-  std::vector<std::string>                                 _hdg_measurement_names;
+  std::vector<std::string>                                 _heading_estimators_names_;
+  std::vector<std::string>                                 _active_heading_estimators_names_;
+  std::vector<std::string>                                 _hdg_model_state_names_;
+  std::vector<std::string>                                 _hdg_measurement_names_;
   std::map<std::string, std::vector<std::string>>          map_hdg_estimator_measurement;
   std::map<std::string, Eigen::MatrixXd>                   map_hdg_measurement_covariance;
   std::map<std::string, std::string>                       map_hdg_measurement_state;
@@ -791,32 +790,32 @@ private:
   mrs_msgs::HeadingType                                    _hdg_estimator_type;
   mrs_msgs::HeadingType                                    _hdg_estimator_type_takeoff;
   std::vector<std::string>                                 _heading_type_names;
-  std::string                                              heading_estimator_name;
+  std::string                                              _heading_estimator_name_;
   std::mutex                                               mutex_current_hdg_estimator;
-  int                                                      _optflow_yaw_rate_filter_buffer_size;
-  double                                                   _optflow_yaw_rate_filter_max_valid;
-  double                                                   _optflow_yaw_rate_filter_max_diff;
+  int                                                      _optflow_yaw_rate_filter_buffer_size_;
+  double                                                   _optflow_yaw_rate_filter_max_valid_;
+  double                                                   _optflow_yaw_rate_filter_max_diff_;
   bool                                                     init_hdg_avg_done;
   int                                                      init_hdg_avg_samples;
   double                                                   init_hdg_avg;
 
-  int    _compass_yaw_filter_buffer_size;
-  double _compass_yaw_filter_max_diff;
+  int    _compass_yaw_filter_buffer_size_;
+  double _compass_yaw_filter_max_diff_;
 
   std::shared_ptr<MedianFilter> optflow_yaw_rate_filter;
   std::shared_ptr<MedianFilter> compass_yaw_filter;
   int                           compass_inconsistent_samples;
   int                           optflow_inconsistent_samples;
   bool                          is_heading_estimator_initialized = false;
-  bool                          _gyro_fallback;
+  bool                          _gyro_fallback_;
 
   // altitude estimation
-  int                                                       altitude_n, altitude_m, altitude_p;
-  Eigen::MatrixXd                                           B_alt, R_alt;
+  int                                                       _altitude_n_, _altitude_m_, _altitude_p_;
+  Eigen::MatrixXd                                           _B_alt_, _R_alt_;
   std::mutex                                                mutex_altitude_estimator;
-  std::vector<std::string>                                  _altitude_estimators_names;
-  std::vector<std::string>                                  _alt_model_state_names;
-  std::vector<std::string>                                  _alt_measurement_names;
+  std::vector<std::string>                                  _altitude_estimators_names_;
+  std::vector<std::string>                                  _alt_model_state_names_;
+  std::vector<std::string>                                  _alt_measurement_names_;
   std::map<std::string, std::vector<std::string>>           map_alt_estimator_measurement;
   std::map<std::string, Eigen::MatrixXd>                    map_alt_model;
   std::map<std::string, int>                                map_alt_n_states;
@@ -839,12 +838,12 @@ private:
   int                                                       current_altitude_type;
 
   // State estimation
-  int                                                    _n_model_states;
-  int                                                    _n_model_states_rtk;
-  std::vector<std::string>                               _state_estimators_names;
-  std::vector<std::string>                               _active_state_estimators_names;
-  std::vector<std::string>                               _model_state_names;
-  std::vector<std::string>                               _measurement_names;
+  int                                                    _n_model_states_;
+  int                                                    _n_model_states__rtk;
+  std::vector<std::string>                               _state_estimators_names_;
+  std::vector<std::string>                               _active_state_estimators_names_;
+  std::vector<std::string>                               _model_state_names_;
+  std::vector<std::string>                               _measurement_names_;
   std::map<std::string, std::vector<std::string>>        map_estimator_measurement;
   std::map<std::string, Mat1>                            map_measurement_covariance;
   std::map<std::string, std::string>                     map_measurement_state;
@@ -857,21 +856,21 @@ private:
   std::mutex                                             mutex_current_estimator;
   std::string                                            current_estimator_name;
 
-  bool   saturate_mavros_position_;
-  double max_mavros_pos_correction;
-  double max_vio_pos_correction;
-  double max_vslam_pos_correction;
-  double max_brick_pos_correction;
-  double max_brick_yaw_correction_;
-  double max_rtk_pos_correction;
-  double _max_t265_vel;
+  bool   _saturate_mavros_position_;
+  double _max_mavros_pos_correction_;
+  double _max_vio_pos_correction_;
+  double _max_vslam_pos_correction_;
+  double _max_brick_pos_correction_;
+  double _max_brick_yaw_correction_;
+  double _max_rtk_pos_correction_;
+  double _max_t265_vel_;
   double max_safe_brick_jump_sq_;
   double max_safe_brick_yaw_jump_sq_;
 
-  int                           lateral_n, lateral_m, lateral_p;
-  LatMat                        A_lat, R_lat;
-  LatStateCol1D                 B_lat;
-  Eigen::MatrixXd               A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk;
+  int                           _lateral_n_, _lateral_m_, _lateral_p_;
+  LatMat                        _A_lat_, _R_lat_;
+  LatStateCol1D                 _B_lat_;
+  Eigen::MatrixXd               _A_lat_rtk_, _B_lat_rtk_, _R_lat_rtk_, _Q_lat_rtk_, _P_lat_rtk_;
   std::shared_ptr<mrs_lib::Lkf> estimator_rtk;
   std::mutex                    mutex_rtk_est;
 
@@ -886,20 +885,20 @@ private:
   bool       hector_reliable    = false;
   bool       tower_reliable     = false;
   bool       aloam_reliable     = false;
-  bool       _gps_available     = false;
-  bool       _vio_available     = false;
+  bool       _gps_available_     = false;
+  bool       _vio_available_     = false;
   bool       vio_reliable       = true;
-  bool       _vslam_available   = false;
+  bool       _vslam_available_   = false;
   bool       vslam_reliable     = true;
   bool       optflow_reliable   = false;
-  bool       _optflow_available = false;
-  bool       _rtk_available     = false;
+  bool       _optflow_available_ = false;
+  bool       _rtk_available_     = false;
   bool       rtk_reliable       = false;
-  bool       _t265_available    = false;
+  bool       _t265_available_    = false;
   bool       t265_reliable      = false;
-  bool       _lidar_available   = false;
-  bool       _aloam_available   = false;
-  bool       _brick_available   = false;
+  bool       _lidar_available_   = false;
+  bool       _aloam_available_   = false;
+  bool       _brick_available_   = false;
   bool       brick_reliable     = false;
   bool       height_available_  = false;
   bool       icp_reliable       = false;
@@ -909,9 +908,9 @@ private:
   bool      brick_semi_reliable = false;
   ros::Time brick_semi_reliable_started;
 
-  bool   pass_rtk_as_odom = false;
+  bool   _pass_rtk_as_odom_ = false;
   double max_pos_correction_rate;
-  double max_altitude_correction_;
+  double _max_altitude_correction_;
 
   // disabling rangefinders on the flight
   bool garmin_enabled;
@@ -924,12 +923,12 @@ private:
   ros::Timer topic_watcher_timer;
   ros::Timer hector_reset_routine_timer;
   bool       hector_reset_routine_running_;
-  bool       _perform_hector_reset_routine;
-  int        slow_odom_rate_;
-  int        aux_rate_;
-  int        diag_rate_;
-  int        lkf_states_rate_;
-  int        max_altitude_rate_;
+  bool       _perform_hector_reset_routine_;
+  int        _slow_odom_rate_;
+  int        _aux_rate_;
+  int        _diag_rate_;
+  int        _lkf_states_rate_;
+  int        _max_altitude_rate_;
   int        topic_watcher_rate_ = 1;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
@@ -941,17 +940,17 @@ private:
 
   using lkf_height_t = mrs_lib::LKF<1, 1, 1>;
   std::unique_ptr<lkf_height_t> estimator_height_;
-  lkf_height_t::R_t             R_height_;
-  lkf_height_t::Q_t             Q_height_;
+  lkf_height_t::R_t             _R_height_;
+  lkf_height_t::Q_t             _Q_height_;
   lkf_height_t::statecov_t      sc_height_;
   std::mutex                    mutex_estimator_height_;
   ros::Time                     time_main_timer_prev_;
   bool                          first_main_timer_tick_ = true;
 
   // for fusing rtk altitude
-  double garmin_z_offset_;
-  double sonar_z_offset_;
-  double fcu_height_;
+  double _garmin_z_offset_;
+  double _sonar_z_offset_;
+  double _fcu_height_;
 
 private:
   // for fusing rtk altitude
@@ -969,7 +968,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
+  bool               _profiler_enabled_ = false;
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
@@ -988,13 +987,13 @@ private:
 
 void Odometry::onInit() {
 
-  ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
+  ros::NodeHandle nh = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   ros::Time::waitForValid();
 
   ROS_INFO("[Odometry]: initializing");
 
-  mrs_lib::ParamLoader param_loader(nh_, "Odometry");
+  mrs_lib::ParamLoader param_loader(nh, "Odometry");
 
   param_loader.loadParam("version", _version_);
 
@@ -1004,19 +1003,19 @@ void Odometry::onInit() {
     ros::shutdown();
   }
 
-  param_loader.loadParam("enable_profiler", profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   // establish frame ids
-  param_loader.loadParam("uav_name", uav_name);
-  fcu_frame_id_           = uav_name + "/fcu";
-  fcu_untilted_frame_id_  = uav_name + "/fcu_untilted";
-  local_origin_frame_id_  = uav_name + "/local_origin";
-  stable_origin_frame_id_ = uav_name + "/stable_origin";
-  last_local_name_        = uav_name + "/null_origin";
-  last_stable_name_       = uav_name + "/null_origin";
+  param_loader.loadParam("uav_name", _uav_name_);
+  fcu_frame_id_           = _uav_name_ + "/fcu";
+  fcu_untilted_frame_id_  = _uav_name_ + "/fcu_untilted";
+  local_origin_frame_id_  = _uav_name_ + "/local_origin";
+  stable_origin_frame_id_ = _uav_name_ + "/stable_origin";
+  last_local_name_        = _uav_name_ + "/null_origin";
+  last_stable_name_       = _uav_name_ + "/null_origin";
 
-  param_loader.loadParam("uav_mass", uav_mass_estimate);
-  param_loader.loadParam("null_tracker", null_tracker_);
+  param_loader.loadParam("uav_mass", _uav_mass_estimate_);
+  param_loader.loadParam("null_tracker", _null_tracker_);
 
   odometry_published        = false;
   got_odom_pixhawk          = false;
@@ -1039,7 +1038,7 @@ void Odometry::onInit() {
   failsafe_called               = false;
   hector_reset_called_          = false;
   _reset_hector_after_takeoff_  = false;
-  _perform_hector_reset_routine = false;
+  _perform_hector_reset_routine_ = false;
   hector_reset_routine_running_ = false;
   hector_offset_ << 0, 0;
   hector_offset_hdg_   = 0;
@@ -1143,109 +1142,109 @@ void Odometry::onInit() {
   //}
 
   // | ------------------- parameters loading ------------------- |
-  param_loader.loadParam("rate", rate_);
+  param_loader.loadParam("rate", _main_rate_);
 
-  param_loader.loadParam("simulation", simulation_);
-  param_loader.loadParam("slow_odom_rate", slow_odom_rate_);
-  param_loader.loadParam("diag_rate", diag_rate_);
-  param_loader.loadParam("aux_rate", aux_rate_);
-  param_loader.loadParam("max_altitude_rate", max_altitude_rate_);
-  param_loader.loadParam("lkf_states_rate", lkf_states_rate_);
+  param_loader.loadParam("simulation", _simulation_);
+  param_loader.loadParam("slow_odom_rate", _slow_odom_rate_);
+  param_loader.loadParam("diag_rate", _diag_rate_);
+  param_loader.loadParam("aux_rate", _aux_rate_);
+  param_loader.loadParam("max_altitude_rate", _max_altitude_rate_);
+  param_loader.loadParam("lkf_states_rate", _lkf_states_rate_);
 
-  param_loader.loadParam("garminFilterBufferSize", garmin_filter_buffer_size);
-  param_loader.loadParam("garminFilterMaxValidAltitude", garmin_max_valid_altitude);
-  param_loader.loadParam("garminFilterMaxDifference", garmin_filter_max_difference);
+  param_loader.loadParam("garminFilterBufferSize", _garmin_filter_buffer_size_);
+  param_loader.loadParam("garminFilterMaxValidAltitude", _garmin_max_valid_altitude_);
+  param_loader.loadParam("garminFilterMaxDifference", _garmin_filter_max_difference_);
 
-  param_loader.loadParam("sonarFilterBufferSize", sonar_filter_buffer_size);
-  param_loader.loadParam("sonarFilterMaxValidAltitude", sonar_max_valid_altitude);
-  param_loader.loadParam("sonarFilterMaxDifference", sonar_filter_max_difference);
+  param_loader.loadParam("sonarFilterBufferSize", _sonar_filter_buffer_size_);
+  param_loader.loadParam("sonarFilterMaxValidAltitude", _sonar_max_valid_altitude_);
+  param_loader.loadParam("sonarFilterMaxDifference", _sonar_filter_max_difference_);
 
-  param_loader.loadParam("planeFilterBufferSize", plane_filter_buffer_size);
-  param_loader.loadParam("planeFilterMaxValidAltitude", plane_max_valid_altitude);
-  param_loader.loadParam("planeFilterMaxDifference", plane_filter_max_difference);
+  param_loader.loadParam("planeFilterBufferSize", _plane_filter_buffer_size_);
+  param_loader.loadParam("planeFilterMaxValidAltitude", _plane_max_valid_altitude_);
+  param_loader.loadParam("planeFilterMaxDifference", _plane_filter_max_difference_);
 
-  param_loader.loadParam("brickFilterBufferSize", brick_filter_buffer_size);
-  param_loader.loadParam("brickFilterMaxValidAltitude", brick_max_valid_altitude);
-  param_loader.loadParam("brickFilterMaxDifference", brick_filter_max_difference);
+  param_loader.loadParam("brickFilterBufferSize", _brick_filter_buffer_size_);
+  param_loader.loadParam("brickFilterMaxValidAltitude", _brick_max_valid_altitude_);
+  param_loader.loadParam("brickFilterMaxDifference", _brick_filter_max_difference_);
 
-  param_loader.loadParam("vioFilterBufferSize", vio_filter_buffer_size);
-  param_loader.loadParam("vioFilterMaxValidAltitude", vio_max_valid_altitude);
-  param_loader.loadParam("vioFilterMaxDifference", vio_filter_max_difference);
+  param_loader.loadParam("vioFilterBufferSize", _vio_filter_buffer_size_);
+  param_loader.loadParam("vioFilterMaxValidAltitude", _vio_max_valid_altitude_);
+  param_loader.loadParam("vioFilterMaxDifference", _vio_filter_max_difference_);
 
-  param_loader.loadParam("aloamHeightFilterBufferSize", aloam_height_filter_buffer_size);
-  param_loader.loadParam("aloamHeightFilterMaxValidAltitude", aloam_height_max_valid_altitude);
-  param_loader.loadParam("aloamHeightFilterMaxDifference", aloam_height_filter_max_difference);
+  param_loader.loadParam("aloamHeightFilterBufferSize", _aloam_height_filter_buffer_size_);
+  param_loader.loadParam("aloamHeightFilterMaxValidAltitude", _aloam_height_max_valid_altitude_);
+  param_loader.loadParam("aloamHeightFilterMaxDifference", _aloam_height_filter_max_difference_);
 
-  param_loader.loadParam("garmin_z_offset", garmin_z_offset_);
-  param_loader.loadParam("sonar_z_offset", sonar_z_offset_);
-  param_loader.loadParam("fcu_height", fcu_height_);
+  param_loader.loadParam("garmin_z_offset", _garmin_z_offset_);
+  param_loader.loadParam("sonar_z_offset", _sonar_z_offset_);
+  param_loader.loadParam("fcu_height", _fcu_height_);
 
   double garmin_inno_gate_value_tmp;
   param_loader.loadParam("garmin/use_inno_gate", _use_garmin_inno_gate_);
   param_loader.loadParam("garmin/inno_gate_value", garmin_inno_gate_value_tmp);
   _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
-  param_loader.loadParam("garmin/min_valid_altitude", garmin_min_altitude);
-  param_loader.loadParam("garmin/max_valid_altitude", garmin_max_altitude);
+  param_loader.loadParam("garmin/min_valid_altitude", _garmin_min_altitude_);
+  param_loader.loadParam("garmin/max_valid_altitude", _garmin_max_altitude_);
 
   // Optic flow
   param_loader.loadParam("use_optflow_low", _use_optflow_low_);
-  param_loader.loadParam("max_optflow_altitude", _max_optflow_altitude);
-  param_loader.loadParam("max_brick_altitude", _max_brick_altitude);
-  param_loader.loadParam("max_plane_altitude", _max_plane_altitude);
-  param_loader.loadParam("max_default_altitude", _max_default_altitude);
-  max_altitude_ = _max_default_altitude;
-  param_loader.loadParam("lateral/dynamic_optflow_cov", _dynamic_optflow_cov);
-  param_loader.loadParam("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale);
+  param_loader.loadParam("max_optflow_altitude", _max_optflow_altitude_);
+  param_loader.loadParam("max_brick_altitude", _max_brick_altitude_);
+  param_loader.loadParam("max_plane_altitude", _max_plane_altitude_);
+  param_loader.loadParam("max_default_altitude", _max_default_altitude_);
+  max_altitude_ = _max_default_altitude_;
+  param_loader.loadParam("lateral/dynamic_optflow_cov", _dynamic_optflow_cov_);
+  param_loader.loadParam("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale_);
 
   // Localization sources availability
-  param_loader.loadParam("gps_available", _gps_available);
-  param_loader.loadParam("vio_available", _vio_available);
-  param_loader.loadParam("vslam_available", _vslam_available);
-  param_loader.loadParam("optflow_available", _optflow_available);
-  param_loader.loadParam("rtk_available", _rtk_available);
-  param_loader.loadParam("t265_available", _t265_available);
-  param_loader.loadParam("lidar_available", _lidar_available);
-  param_loader.loadParam("aloam_available", _aloam_available);
-  param_loader.loadParam("brick_available", _brick_available);
-  gps_reliable       = _gps_available;
-  hector_reliable    = _lidar_available;
-  tower_reliable     = _lidar_available;
-  icp_reliable       = _lidar_available;
-  aloam_reliable     = _aloam_available;
-  brick_reliable     = _brick_available;
-  rtk_reliable       = _rtk_available;
-  t265_reliable      = _t265_available;
-  plane_reliable     = _brick_available;
+  param_loader.loadParam("gps_available", _gps_available_);
+  param_loader.loadParam("vio_available", _vio_available_);
+  param_loader.loadParam("vslam_available", _vslam_available_);
+  param_loader.loadParam("optflow_available", _optflow_available_);
+  param_loader.loadParam("rtk_available", _rtk_available_);
+  param_loader.loadParam("t265_available", _t265_available_);
+  param_loader.loadParam("lidar_available", _lidar_available_);
+  param_loader.loadParam("aloam_available", _aloam_available_);
+  param_loader.loadParam("brick_available", _brick_available_);
+  gps_reliable       = _gps_available_;
+  hector_reliable    = _lidar_available_;
+  tower_reliable     = _lidar_available_;
+  icp_reliable       = _lidar_available_;
+  aloam_reliable     = _aloam_available_;
+  brick_reliable     = _brick_available_;
+  rtk_reliable       = _rtk_available_;
+  t265_reliable      = _t265_available_;
+  plane_reliable     = _brick_available_;
   counter_odom_brick = 0;
 
   // Takeoff type
-  std::string takeoff_estimator;
-  param_loader.loadParam("lateral_estimator", takeoff_estimator);
+  std::string _takeoff_estimator_;
+  param_loader.loadParam("lateral_estimator", _takeoff_estimator_);
 
-  std::transform(takeoff_estimator.begin(), takeoff_estimator.end(), takeoff_estimator.begin(), ::toupper);
-  size_t pos = std::distance(_estimator_type_names.begin(), find(_estimator_type_names.begin(), _estimator_type_names.end(), takeoff_estimator));
-  _estimator_type_takeoff.name = takeoff_estimator;
+  std::transform(_takeoff_estimator_.begin(), _takeoff_estimator_.end(), _takeoff_estimator_.begin(), ::toupper);
+  size_t pos = std::distance(_estimator_type_names.begin(), find(_estimator_type_names.begin(), _estimator_type_names.end(), _takeoff_estimator_));
+  _estimator_type_takeoff.name = _takeoff_estimator_;
   _estimator_type_takeoff.type = (int)pos;
 
-  param_loader.loadParam("use_utm_origin", use_utm_origin_);
+  param_loader.loadParam("use_utm_origin", _use_utm_origin_);
 
-  // Load UTm origin either in UTM or LatLon units
-  param_loader.loadParam("utm_origin_units", utm_origin_units);
-  if (utm_origin_units == 0) {
+  // Load UTM origin either in UTM or LatLon units
+  param_loader.loadParam("_utm_origin_units_", _utm_origin_units_);
+  if (_utm_origin_units_ == 0) {
     ROS_INFO("[Odometry]: Loading UTM origin in UTM units.");
-    param_loader.loadParam("utm_origin_x", utm_origin_x_);
-    param_loader.loadParam("utm_origin_y", utm_origin_y_);
+    param_loader.loadParam("utm_origin_x", _utm_origin_x_);
+    param_loader.loadParam("utm_origin_y", _utm_origin_y_);
   } else {
     double lat, lon;
     ROS_INFO("[Odometry]: Loading UTM origin in LatLon units.");
     param_loader.loadParam("utm_origin_lat", lat);
     param_loader.loadParam("utm_origin_lon", lon);
-    ROS_INFO("[Odometry]: Converted to UTM x: %f, y: %f.", utm_origin_x_, utm_origin_y_);
-    mrs_lib::UTM(lat, lon, &utm_origin_x_, &utm_origin_y_);
+    ROS_INFO("[Odometry]: Converted to UTM x: %f, y: %f.", _utm_origin_x_, _utm_origin_y_);
+    mrs_lib::UTM(lat, lon, &_utm_origin_x_, &_utm_origin_y_);
   }
 
-  param_loader.loadParam("local_origin_x", local_origin_x_);
-  param_loader.loadParam("local_origin_y", local_origin_y_);
+  param_loader.loadParam("local_origin_x", _local_origin_x_);
+  param_loader.loadParam("local_origin_y", _local_origin_y_);
 
   pixhawk_odom_offset_x = 0;
   pixhawk_odom_offset_y = 0;
@@ -1254,16 +1253,16 @@ void Odometry::onInit() {
 
   /* load parameters of altitude estimator //{ */
 
-  param_loader.loadParam("altitude/numberOfVariables", altitude_n);
-  param_loader.loadParam("altitude/numberOfInputs", altitude_m);
-  param_loader.loadParam("altitude/numberOfMeasurements", altitude_p);
+  param_loader.loadParam("altitude/numberOfVariables", _altitude_n_);
+  param_loader.loadParam("altitude/numberOfInputs", _altitude_m_);
+  param_loader.loadParam("altitude/numberOfMeasurements", _altitude_p_);
 
-  param_loader.loadMatrixDynamic("altitude/B", B_alt, altitude_n, altitude_m);
-  param_loader.loadMatrixDynamic("altitude/R", R_alt, altitude_n, altitude_n);
+  param_loader.loadMatrixDynamic("altitude/B", _B_alt_, _altitude_n_, _altitude_m_);
+  param_loader.loadMatrixDynamic("altitude/R", _R_alt_, _altitude_n_, _altitude_n_);
 
-  param_loader.loadParam("altitude_estimators/model_states", _alt_model_state_names);
-  param_loader.loadParam("altitude_estimators/measurements", _alt_measurement_names);
-  param_loader.loadParam("altitude_estimators/altitude_estimators", _altitude_estimators_names);
+  param_loader.loadParam("altitude_estimators/model_states", _alt_model_state_names_);
+  param_loader.loadParam("altitude_estimators/measurements", _alt_measurement_names_);
+  param_loader.loadParam("altitude_estimators/altitude_estimators", _altitude_estimators_names_);
 
   double excessive_tilt_tmp;
   param_loader.loadParam("altitude/excessive_tilt", excessive_tilt_tmp);
@@ -1275,27 +1274,27 @@ void Odometry::onInit() {
   _alt_estimator_type_takeoff.name = altitude_estimator_name;
   _alt_estimator_type_takeoff.type = (int)pos_alt;
 
-  garminFilter     = std::make_shared<MedianFilter>(garmin_filter_buffer_size, garmin_max_valid_altitude, 0, garmin_filter_max_difference);
-  sonarFilter      = std::make_shared<MedianFilter>(sonar_filter_buffer_size, sonar_max_valid_altitude, 0, sonar_filter_max_difference);
-  planeFilter      = std::make_shared<MedianFilter>(plane_filter_buffer_size, plane_max_valid_altitude, 0, plane_filter_max_difference);
+  garminFilter     = std::make_shared<MedianFilter>(_garmin_filter_buffer_size_, _garmin_max_valid_altitude_, 0, _garmin_filter_max_difference_);
+  sonarFilter      = std::make_shared<MedianFilter>(_sonar_filter_buffer_size_, _sonar_max_valid_altitude_, 0, _sonar_filter_max_difference_);
+  planeFilter      = std::make_shared<MedianFilter>(_plane_filter_buffer_size_, _plane_max_valid_altitude_, 0, _plane_filter_max_difference_);
   brickHeightFilter =
-      std::make_shared<MedianFilter>(brick_filter_buffer_size, brick_max_valid_altitude, -brick_max_valid_altitude, brick_filter_max_difference);
-  vioHeightFilter   = std::make_shared<MedianFilter>(vio_filter_buffer_size, vio_max_valid_altitude, -vio_max_valid_altitude, vio_filter_max_difference);
-  aloamHeightFilter = std::make_shared<MedianFilter>(aloam_height_filter_buffer_size, aloam_height_max_valid_altitude, -aloam_height_max_valid_altitude,
-                                                     aloam_height_filter_max_difference);
+      std::make_shared<MedianFilter>(_brick_filter_buffer_size_, _brick_max_valid_altitude_, -_brick_max_valid_altitude_, _brick_filter_max_difference_);
+  vioHeightFilter   = std::make_shared<MedianFilter>(_vio_filter_buffer_size_, _vio_max_valid_altitude_, -_vio_max_valid_altitude_, _vio_filter_max_difference_);
+  aloamHeightFilter = std::make_shared<MedianFilter>(_aloam_height_filter_buffer_size_, _aloam_height_max_valid_altitude_, -_aloam_height_max_valid_altitude_,
+                                                     _aloam_height_filter_max_difference_);
 
-  ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", garmin_max_valid_altitude);
-  ROS_INFO("[Odometry]: Sonar max valid altitude: %2.2f", sonar_max_valid_altitude);
-  ROS_INFO("[Odometry]: ALOAM max valid altitude: %2.2f", aloam_height_max_valid_altitude);
+  ROS_INFO("[Odometry]: Garmin max valid altitude: %2.2f", _garmin_max_valid_altitude_);
+  ROS_INFO("[Odometry]: Sonar max valid altitude: %2.2f", _sonar_max_valid_altitude_);
+  ROS_INFO("[Odometry]: ALOAM max valid altitude: %2.2f", _aloam_height_max_valid_altitude_);
 
   // Load the measurements fused by each state estimator
-  for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _altitude_estimators_names_.begin(); it != _altitude_estimators_names_.end(); ++it) {
 
     std::vector<std::string> temp_vector;
     param_loader.loadParam("altitude_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _alt_measurement_names)) {
+      if (!stringInVector(*it2, _alt_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1307,19 +1306,19 @@ void Odometry::onInit() {
     int temp_value;
     param_loader.loadParam("altitude_estimators/n_A/" + *it, temp_value);
     map_alt_n_states.insert(std::pair<std::string, int>(*it, temp_value));
-    Eigen::MatrixXd A_model = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
+    Eigen::MatrixXd A_model = Eigen::MatrixXd::Zero(_altitude_n_, _altitude_n_);
     param_loader.loadMatrixDynamic("altitude_estimators/A/" + *it, A_model, temp_value, temp_value);
 
     map_alt_model.insert(std::pair<std::string, Eigen::MatrixXd>(*it, A_model));
   }
 
   // Load the model state of each measurement
-  for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it != _alt_measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _alt_measurement_names_.begin(); it != _alt_measurement_names_.end(); ++it) {
 
     std::string temp_value;
     param_loader.loadParam("altitude_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _alt_model_state_names)) {
+    if (!stringInVector(temp_value, _alt_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -1328,16 +1327,16 @@ void Odometry::onInit() {
   }
 
   // Load the model state mapping
-  for (std::vector<std::string>::iterator it = _alt_model_state_names.begin(); it != _alt_model_state_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _alt_model_state_names_.begin(); it != _alt_model_state_names_.end(); ++it) {
 
-    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, altitude_n);
-    param_loader.loadMatrixStatic("altitude_estimators/state_mapping/" + *it, temp_P, 1, altitude_n);
+    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _altitude_n_);
+    param_loader.loadMatrixStatic("altitude_estimators/state_mapping/" + *it, temp_P, 1, _altitude_n_);
 
     map_alt_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
   }
 
   // Load the covariances of each measurement
-  for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it != _alt_measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _alt_measurement_names_.begin(); it != _alt_measurement_names_.end(); ++it) {
 
     Eigen::MatrixXd temp_matrix;
     param_loader.loadMatrixStatic("altitude/Q/" + *it, temp_matrix, 1, 1);
@@ -1346,8 +1345,8 @@ void Odometry::onInit() {
   }
 
 
-  for (std::vector<std::string>::iterator it = _alt_measurement_names.begin(); it < _alt_measurement_names.end(); it++) {
-    map_alt_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_alt_measurement_names.begin(), it)));
+  for (std::vector<std::string>::iterator it = _alt_measurement_names_.begin(); it < _alt_measurement_names_.end(); it++) {
+    map_alt_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_alt_measurement_names_.begin(), it)));
   }
 
   //}
@@ -1356,7 +1355,7 @@ void Odometry::onInit() {
 
 
   // Loop through all estimators
-  for (std::vector<std::string>::iterator it = _altitude_estimators_names.begin(); it != _altitude_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _altitude_estimators_names_.begin(); it != _altitude_estimators_names_.end(); ++it) {
 
     std::vector<bool>            alt_fusing_measurement;
     std::vector<Eigen::MatrixXd> P_arr_alt, Q_arr_alt;
@@ -1365,7 +1364,7 @@ void Odometry::onInit() {
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_alt_estimator_measurement.find(*it);
 
     // Loop through all measurements
-    for (std::vector<std::string>::iterator it2 = _alt_measurement_names.begin(); it2 != _alt_measurement_names.end(); ++it2) {
+    for (std::vector<std::string>::iterator it2 = _alt_measurement_names_.begin(); it2 != _alt_measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
       if (stringInVector(*it2, temp_vec->second)) {
@@ -1395,7 +1394,7 @@ void Odometry::onInit() {
 
     // Add pointer to altitude estimator to array
     m_altitude_estimators.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_model, B_alt, R_alt)));
+        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, P_arr_alt, Q_arr_alt, A_model, _B_alt_, _R_alt_)));
 
     // Map odometry to estimator name
     mrs_msgs::Float64Stamped alt_msg;
@@ -1404,11 +1403,11 @@ void Odometry::onInit() {
     map_alt_estimator_msg.insert(std::pair<std::string, mrs_msgs::Float64Stamped>(*it, alt_msg));
 
     // Map publisher to estimator name
-    ros::Publisher pub = nh_.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
+    ros::Publisher pub = nh.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
     map_alt_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
 
     ROS_INFO_STREAM("[Odometry]: Altitude estimator was initiated with following parameters: n: "
-                    << altitude_n << ", m: " << altitude_m << ", p: " << altitude_p << ", A: " << A_model << ", B: " << B_alt << ", R: " << R_alt);
+                    << _altitude_n_ << ", m: " << _altitude_m_ << ", p: " << _altitude_p_ << ", A: " << A_model << ", B: " << _B_alt_ << ", R: " << _R_alt_);
   }
 
   // Height Garmin filter
@@ -1420,8 +1419,8 @@ void Odometry::onInit() {
   H_height << 1;
   estimator_height_ = std::make_unique<lkf_height_t>(A_height, B_height, H_height);
 
-  param_loader.loadMatrixStatic("height/R", R_height_);
-  param_loader.loadMatrixStatic("height/Q", Q_height_);
+  param_loader.loadMatrixStatic("height/R", _R_height_);
+  param_loader.loadMatrixStatic("height/Q", _Q_height_);
 
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
@@ -1429,120 +1428,120 @@ void Odometry::onInit() {
 
   /*  //{ load parameters of state estimators */
 
-  param_loader.loadParam("lateral/numberOfVariables", lateral_n);
-  param_loader.loadParam("lateral/numberOfInputs", lateral_m);
-  param_loader.loadParam("lateral/numberOfMeasurements", lateral_p);
+  param_loader.loadParam("lateral/numberOfVariables", _lateral_n_);
+  param_loader.loadParam("lateral/numberOfInputs", _lateral_m_);
+  param_loader.loadParam("lateral/numberOfMeasurements", _lateral_p_);
 
-  param_loader.loadParam("state_estimators/n_model_states", _n_model_states);
-  param_loader.loadParam("state_estimators/state_estimators", _state_estimators_names);
-  param_loader.loadParam("state_estimators/active", _active_state_estimators_names);
-  param_loader.loadParam("state_estimators/model_states", _model_state_names);
-  param_loader.loadParam("state_estimators/measurements", _measurement_names);
-  param_loader.loadMatrixStatic("lateral/A", A_lat);
-  param_loader.loadMatrixStatic("lateral/B", B_lat);
-  param_loader.loadMatrixStatic("lateral/R", R_lat);
+  param_loader.loadParam("state_estimators/n_model_states", _n_model_states_);
+  param_loader.loadParam("state_estimators/state_estimators", _state_estimators_names_);
+  param_loader.loadParam("state_estimators/active", _active_state_estimators_names_);
+  param_loader.loadParam("state_estimators/model_states", _model_state_names_);
+  param_loader.loadParam("state_estimators/measurements", _measurement_names_);
+  param_loader.loadMatrixStatic("lateral/A", _A_lat_);
+  param_loader.loadMatrixStatic("lateral/B", _B_lat_);
+  param_loader.loadMatrixStatic("lateral/R", _R_lat_);
 
-  param_loader.loadMatrixDynamic("lateral/rtk/A", A_lat_rtk, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/B", B_lat_rtk, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/R", R_lat_rtk, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/Q", Q_lat_rtk, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/P", P_lat_rtk, 2, 2);
-  param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps);
+  param_loader.loadMatrixDynamic("lateral/rtk/A", _A_lat_rtk_, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/B", _B_lat_rtk_, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/R", _R_lat_rtk_, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/Q", _Q_lat_rtk_, 2, 2);
+  param_loader.loadMatrixDynamic("lateral/rtk/P", _P_lat_rtk_, 2, 2);
+  param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
   param_loader.loadParam("lateral/brick_timeout", _brick_timeout_);
 
   // Optflow median filter
-  param_loader.loadParam("lateral/optflow_median_filter", _optflow_median_filter);
-  param_loader.loadParam("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size);
-  param_loader.loadParam("lateral/optflow_filter_max_valid", _optflow_filter_max_valid);
-  param_loader.loadParam("lateral/optflow_filter_max_diff", _optflow_filter_max_diff);
+  param_loader.loadParam("lateral/optflow_median_filter", _optflow_median_filter_);
+  param_loader.loadParam("lateral/optflow_filter_buffer_size", _optflow_filter_buffer_size_);
+  param_loader.loadParam("lateral/optflow_filter_max_valid", _optflow_filter_max_valid_);
+  param_loader.loadParam("lateral/optflow_filter_max_diff", _optflow_filter_max_diff_);
 
   optflow_filter_x =
-      std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+      std::make_shared<MedianFilter>(_optflow_filter_buffer_size_, _optflow_filter_max_valid_, -_optflow_filter_max_valid_, _optflow_filter_max_diff_);
   optflow_filter_y =
-      std::make_shared<MedianFilter>(_optflow_filter_buffer_size, _optflow_filter_max_valid, -_optflow_filter_max_valid, _optflow_filter_max_diff);
+      std::make_shared<MedianFilter>(_optflow_filter_buffer_size_, _optflow_filter_max_valid_, -_optflow_filter_max_valid_, _optflow_filter_max_diff_);
 
   // LIDAR median filter
-  param_loader.loadParam("lateral/lidar_vel_median_filter", _lidar_vel_median_filter);
-  param_loader.loadParam("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size);
-  param_loader.loadParam("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid);
-  param_loader.loadParam("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff);
+  param_loader.loadParam("lateral/lidar_vel_median_filter", _lidar_vel_median_filter_);
+  param_loader.loadParam("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size_);
+  param_loader.loadParam("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid_);
+  param_loader.loadParam("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff_);
 
   lidar_vel_filter_x =
-      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
+      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size_, _lidar_vel_filter_max_valid_, -_lidar_vel_filter_max_valid_, _lidar_vel_filter_max_diff_);
   lidar_vel_filter_y =
-      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size, _lidar_vel_filter_max_valid, -_lidar_vel_filter_max_valid, _lidar_vel_filter_max_diff);
+      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size_, _lidar_vel_filter_max_valid_, -_lidar_vel_filter_max_valid_, _lidar_vel_filter_max_diff_);
 
   // Hector median filter
-  param_loader.loadParam("lateral/hector_pos_median_filter", _hector_pos_median_filter);
-  param_loader.loadParam("lateral/hector_pos_filter_buffer_size", _hector_pos_filter_buffer_size);
-  param_loader.loadParam("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid);
-  param_loader.loadParam("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff);
+  param_loader.loadParam("lateral/hector_pos_median_filter", _hector_pos_median_filter_);
+  param_loader.loadParam("lateral/hector_pos_filter_buffer_size", _hector_pos_filter_buffer_size_);
+  param_loader.loadParam("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid_);
+  param_loader.loadParam("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff_);
 
   hector_pos_filter_x =
-      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_, _hector_pos_filter_max_diff_);
   hector_pos_filter_y =
-      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size, _hector_pos_filter_max_valid, -_hector_pos_filter_max_valid, _hector_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_, _hector_pos_filter_max_diff_);
 
   // TOWER median filter
-  param_loader.loadParam("lateral/tower_pos_median_filter", _tower_pos_median_filter);
-  param_loader.loadParam("lateral/tower_pos_filter_buffer_size", _tower_pos_filter_buffer_size);
-  param_loader.loadParam("lateral/tower_pos_filter_max_valid", _tower_pos_filter_max_valid);
-  param_loader.loadParam("lateral/tower_pos_filter_max_diff", _tower_pos_filter_max_diff);
+  param_loader.loadParam("lateral/tower_pos_median_filter", _tower_pos_median_filter_);
+  param_loader.loadParam("lateral/tower_pos_filter_buffer_size", _tower_pos_filter_buffer_size_);
+  param_loader.loadParam("lateral/tower_pos_filter_max_valid", _tower_pos_filter_max_valid_);
+  param_loader.loadParam("lateral/tower_pos_filter_max_diff", _tower_pos_filter_max_diff_);
 
   tower_pos_filter_x =
-      std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size, _tower_pos_filter_max_valid, -_tower_pos_filter_max_valid, _tower_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size_, _tower_pos_filter_max_valid_, -_tower_pos_filter_max_valid_, _tower_pos_filter_max_diff_);
   tower_pos_filter_y =
-      std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size, _tower_pos_filter_max_valid, -_tower_pos_filter_max_valid, _tower_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_tower_pos_filter_buffer_size_, _tower_pos_filter_max_valid_, -_tower_pos_filter_max_valid_, _tower_pos_filter_max_diff_);
 
   // ALOAM median filter
-  param_loader.loadParam("lateral/aloam_pos_median_filter", _aloam_pos_median_filter);
-  param_loader.loadParam("lateral/aloam_pos_filter_buffer_size", _aloam_pos_filter_buffer_size);
-  param_loader.loadParam("lateral/aloam_pos_filter_max_valid", _aloam_pos_filter_max_valid);
-  param_loader.loadParam("lateral/aloam_pos_filter_max_diff", _aloam_pos_filter_max_diff);
+  param_loader.loadParam("lateral/aloam_pos_median_filter", _aloam_pos_median_filter_);
+  param_loader.loadParam("lateral/aloam_pos_filter_buffer_size", _aloam_pos_filter_buffer_size_);
+  param_loader.loadParam("lateral/aloam_pos_filter_max_valid", _aloam_pos_filter_max_valid_);
+  param_loader.loadParam("lateral/aloam_pos_filter_max_diff", _aloam_pos_filter_max_diff_);
 
   aloam_pos_filter_x =
-      std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size, _aloam_pos_filter_max_valid, -_aloam_pos_filter_max_valid, _aloam_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size_, _aloam_pos_filter_max_valid_, -_aloam_pos_filter_max_valid_, _aloam_pos_filter_max_diff_);
   aloam_pos_filter_y =
-      std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size, _aloam_pos_filter_max_valid, -_aloam_pos_filter_max_valid, _aloam_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_aloam_pos_filter_buffer_size_, _aloam_pos_filter_max_valid_, -_aloam_pos_filter_max_valid_, _aloam_pos_filter_max_diff_);
 
   // ICP median filter
-  param_loader.loadParam("lateral/icp_twist_median_filter", _icp_twist_median_filter);
-  param_loader.loadParam("lateral/icp_twist_filter_buffer_size", _icp_twist_filter_buffer_size);
-  param_loader.loadParam("lateral/icp_twist_filter_max_valid", _icp_twist_filter_max_valid);
-  param_loader.loadParam("lateral/icp_twist_filter_max_diff", _icp_twist_filter_max_diff);
+  param_loader.loadParam("lateral/icp_twist_median_filter", _icp_twist_median_filter_);
+  param_loader.loadParam("lateral/icp_twist_filter_buffer_size", _icp_twist_filter_buffer_size_);
+  param_loader.loadParam("lateral/icp_twist_filter_max_valid", _icp_twist_filter_max_valid_);
+  param_loader.loadParam("lateral/icp_twist_filter_max_diff", _icp_twist_filter_max_diff_);
 
   icp_twist_filter_x =
-      std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size, _icp_twist_filter_max_valid, -_icp_twist_filter_max_valid, _icp_twist_filter_max_diff);
+      std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size_, _icp_twist_filter_max_valid_, -_icp_twist_filter_max_valid_, _icp_twist_filter_max_diff_);
   icp_twist_filter_y =
 
-      std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size, _icp_twist_filter_max_valid, -_icp_twist_filter_max_valid, _icp_twist_filter_max_diff);
+      std::make_shared<MedianFilter>(_icp_twist_filter_buffer_size_, _icp_twist_filter_max_valid_, -_icp_twist_filter_max_valid_, _icp_twist_filter_max_diff_);
 
   // brick median filter
-  param_loader.loadParam("lateral/brick_pos_median_filter", _brick_pos_median_filter);
-  param_loader.loadParam("lateral/brick_pos_filter_buffer_size", _brick_pos_filter_buffer_size);
-  param_loader.loadParam("lateral/brick_pos_filter_max_valid", _brick_pos_filter_max_valid);
-  param_loader.loadParam("lateral/brick_pos_filter_max_diff", _brick_pos_filter_max_diff);
+  param_loader.loadParam("lateral/brick_pos_median_filter", _brick_pos_median_filter_);
+  param_loader.loadParam("lateral/brick_pos_filter_buffer_size", _brick_pos_filter_buffer_size_);
+  param_loader.loadParam("lateral/brick_pos_filter_max_valid", _brick_pos_filter_max_valid_);
+  param_loader.loadParam("lateral/brick_pos_filter_max_diff", _brick_pos_filter_max_diff_);
 
   brick_pos_filter_x =
-      std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size, _brick_pos_filter_max_valid, -_brick_pos_filter_max_valid, _brick_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size_, _brick_pos_filter_max_valid_, -_brick_pos_filter_max_valid_, _brick_pos_filter_max_diff_);
   brick_pos_filter_y =
-      std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size, _brick_pos_filter_max_valid, -_brick_pos_filter_max_valid, _brick_pos_filter_max_diff);
+      std::make_shared<MedianFilter>(_brick_pos_filter_buffer_size_, _brick_pos_filter_max_valid_, -_brick_pos_filter_max_valid_, _brick_pos_filter_max_diff_);
 
   // Check whether GPS is active
-  if (!stringInVector("GPS", _active_state_estimators_names)) {
+  if (!stringInVector("GPS", _active_state_estimators_names_)) {
     gps_active_ = false;
     ROS_INFO("[Odometry]: GPS is not in the list of active estimators.");
   }
 
   // Load the measurements fused by each state estimator
-  for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     std::vector<std::string> temp_vector;
     param_loader.loadParam("state_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _measurement_names)) {
+      if (!stringInVector(*it2, _measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1552,12 +1551,12 @@ void Odometry::onInit() {
   }
 
   // Load the model state of each measurement
-  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it != _measurement_names_.end(); ++it) {
 
     std::string temp_value;
     param_loader.loadParam("state_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _model_state_names)) {
+    if (!stringInVector(temp_value, _model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -1566,7 +1565,7 @@ void Odometry::onInit() {
   }
 
   // Load the model state mapping
-  for (std::vector<std::string>::iterator it = _model_state_names.begin(); it != _model_state_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _model_state_names_.begin(); it != _model_state_names_.end(); ++it) {
 
     LatStateCol1D temp_P;
     param_loader.loadMatrixStatic("state_estimators/state_mapping/" + *it, temp_P);
@@ -1575,7 +1574,7 @@ void Odometry::onInit() {
   }
 
   // Load the covariances of each measurement
-  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it != _measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it != _measurement_names_.end(); ++it) {
 
     Mat1 temp_matrix;
     param_loader.loadMatrixStatic("lateral/Q/" + *it, temp_matrix);
@@ -1583,14 +1582,14 @@ void Odometry::onInit() {
     map_measurement_covariance.insert(std::pair<std::string, Mat1>(*it, temp_matrix));
   }
 
-  for (std::vector<std::string>::iterator it = _measurement_names.begin(); it < _measurement_names.end(); it++) {
-    map_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names.begin(), it)));
+  for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it < _measurement_names_.end(); it++) {
+    map_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names_.begin(), it)));
   }
 
   //}
 
   /*  //{ create state estimators*/
-  for (std::vector<std::string>::iterator it = _active_state_estimators_names.begin(); it != _active_state_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     std::vector<bool>          fusing_measurement;
     std::vector<LatStateCol1D> P_arr_lat, Q_arr_lat;
@@ -1599,7 +1598,7 @@ void Odometry::onInit() {
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
 
     // Loop through all measurements
-    for (std::vector<std::string>::iterator it2 = _measurement_names.begin(); it2 != _measurement_names.end(); ++it2) {
+    for (std::vector<std::string>::iterator it2 = _measurement_names_.begin(); it2 != _measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
       if (stringInVector(*it2, temp_vec->second)) {
@@ -1626,9 +1625,9 @@ void Odometry::onInit() {
 
     // Add pointer to state estimator to array
     m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, A_lat, B_lat, R_lat, P_arr_lat, Q_arr_lat)));
+        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _A_lat_, _B_lat_, _R_lat_, P_arr_lat, Q_arr_lat)));
 
-    estimator_rtk = std::make_shared<mrs_lib::Lkf>(2, 2, 2, A_lat_rtk, B_lat_rtk, R_lat_rtk, Q_lat_rtk, P_lat_rtk);
+    estimator_rtk = std::make_shared<mrs_lib::Lkf>(2, 2, 2, _A_lat_rtk_, _B_lat_rtk_, _R_lat_rtk_, _Q_lat_rtk_, _P_lat_rtk_);
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -1638,7 +1637,7 @@ void Odometry::onInit() {
     map_estimator_odom.insert(std::pair<std::string, nav_msgs::Odometry>(*it, odom));
 
     // Map publisher to estimator name
-    ros::Publisher pub = nh_.advertise<nav_msgs::Odometry>("odom_" + estimator_name + "_out", 1);
+    ros::Publisher pub = nh.advertise<nav_msgs::Odometry>("odom_" + estimator_name + "_out", 1);
     map_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
   }
   is_lateral_estimator_initialized = true;
@@ -1646,77 +1645,77 @@ void Odometry::onInit() {
 
   /* load parameters of heading estimator //{ */
 
-  param_loader.loadParam("heading/numberOfVariables", heading_n);
-  param_loader.loadParam("heading/numberOfInputs", heading_m);
-  param_loader.loadParam("heading/numberOfMeasurements", heading_p);
+  param_loader.loadParam("heading/numberOfVariables", _heading_n_);
+  param_loader.loadParam("heading/numberOfInputs", _heading_m_);
+  param_loader.loadParam("heading/numberOfMeasurements", _heading_p_);
 
-  param_loader.loadMatrixDynamic("heading/A", A_hdg, heading_n, heading_n);
-  param_loader.loadMatrixDynamic("heading/B", B_hdg, heading_n, heading_m);
-  param_loader.loadMatrixDynamic("heading/R", R_hdg, heading_n, heading_n);
+  param_loader.loadMatrixDynamic("heading/A", A_hdg, _heading_n_, _heading_n_);
+  param_loader.loadMatrixDynamic("heading/B", B_hdg, _heading_n_, _heading_m_);
+  param_loader.loadMatrixDynamic("heading/R", R_hdg, _heading_n_, _heading_n_);
 
-  param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names);
-  param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names);
-  param_loader.loadParam("heading_estimators/heading_estimators", _heading_estimators_names);
-  param_loader.loadParam("heading_estimators/active", _active_heading_estimators_names);
+  param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names_);
+  param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names_);
+  param_loader.loadParam("heading_estimators/heading_estimators", _heading_estimators_names_);
+  param_loader.loadParam("heading_estimators/active", _active_heading_estimators_names_);
 
-  param_loader.loadParam("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size);
-  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid);
-  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_diff", _optflow_yaw_rate_filter_max_diff);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_buffer_size", _optflow_yaw_rate_filter_buffer_size_);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_valid", _optflow_yaw_rate_filter_max_valid_);
+  param_loader.loadParam("heading/optflow_yaw_rate_filter_max_diff", _optflow_yaw_rate_filter_max_diff_);
 
-  param_loader.loadParam("heading/icp_yaw_rate_filter_buffer_size", _icp_yaw_rate_filter_buffer_size);
-  param_loader.loadParam("heading/icp_yaw_rate_filter_max_valid", _icp_yaw_rate_filter_max_valid);
-  param_loader.loadParam("heading/icp_yaw_rate_filter_max_diff", _icp_yaw_rate_filter_max_diff);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_buffer_size", _icp_yaw_rate_filter_buffer_size_);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_max_valid", _icp_yaw_rate_filter_max_valid_);
+  param_loader.loadParam("heading/icp_yaw_rate_filter_max_diff", _icp_yaw_rate_filter_max_diff_);
 
-  param_loader.loadParam("heading/compass_yaw_filter_buffer_size", _compass_yaw_filter_buffer_size);
-  param_loader.loadParam("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff);
+  param_loader.loadParam("heading/compass_yaw_filter_buffer_size", _compass_yaw_filter_buffer_size_);
+  param_loader.loadParam("heading/compass_yaw_filter_max_diff", _compass_yaw_filter_max_diff_);
 
-  param_loader.loadParam("heading/hector_yaw_filter_buffer_size", _hector_yaw_filter_buffer_size);
-  param_loader.loadParam("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff);
+  param_loader.loadParam("heading/hector_yaw_filter_buffer_size", _hector_yaw_filter_buffer_size_);
+  param_loader.loadParam("heading/hector_yaw_filter_max_diff", _hector_yaw_filter_max_diff_);
 
-  param_loader.loadParam("heading/tower_yaw_filter_buffer_size", _tower_yaw_filter_buffer_size);
-  param_loader.loadParam("heading/tower_yaw_filter_max_diff", _tower_yaw_filter_max_diff);
+  param_loader.loadParam("heading/tower_yaw_filter_buffer_size", _tower_yaw_filter_buffer_size_);
+  param_loader.loadParam("heading/tower_yaw_filter_max_diff", _tower_yaw_filter_max_diff_);
 
-  param_loader.loadParam("heading/aloam_yaw_filter_buffer_size", _aloam_yaw_filter_buffer_size);
-  param_loader.loadParam("heading/aloam_yaw_filter_max_diff", _aloam_yaw_filter_max_diff);
+  param_loader.loadParam("heading/aloam_yaw_filter_buffer_size", _aloam_yaw_filter_buffer_size_);
+  param_loader.loadParam("heading/aloam_yaw_filter_max_diff", _aloam_yaw_filter_max_diff_);
 
-  param_loader.loadParam("heading/brick_yaw_filter_buffer_size", _brick_yaw_filter_buffer_size);
-  param_loader.loadParam("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff);
-  param_loader.loadParam("heading/max_brick_yaw_correction", max_brick_yaw_correction_);
+  param_loader.loadParam("heading/brick_yaw_filter_buffer_size", _brick_yaw_filter_buffer_size_);
+  param_loader.loadParam("heading/brick_yaw_filter_max_diff", _brick_yaw_filter_max_diff_);
+  param_loader.loadParam("heading/max_brick_yaw_correction", _max_brick_yaw_correction_);
   param_loader.loadParam("heading/accum_yaw_brick_alpha", _accum_yaw_brick_alpha_);
   accum_yaw_brick_ = 0.0;
 
-  param_loader.loadParam("heading_estimator", heading_estimator_name);
-  param_loader.loadParam("heading/gyro_fallback", _gyro_fallback);
+  param_loader.loadParam("heading_estimator", _heading_estimator_name_);
+  param_loader.loadParam("heading/gyro_fallback", _gyro_fallback_);
 
-  optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size, _optflow_yaw_rate_filter_max_valid,
-                                                           -_optflow_yaw_rate_filter_max_valid, _optflow_yaw_rate_filter_max_diff);
-  icp_yaw_rate_filter     = std::make_shared<MedianFilter>(_icp_yaw_rate_filter_buffer_size, _icp_yaw_rate_filter_max_valid, -_icp_yaw_rate_filter_max_valid,
-                                                       _icp_yaw_rate_filter_max_diff);
-  hector_yaw_filter       = std::make_shared<MedianFilter>(_hector_yaw_filter_buffer_size, 1000000, -1000000, _hector_yaw_filter_max_diff);
-  tower_yaw_filter        = std::make_shared<MedianFilter>(_tower_yaw_filter_buffer_size, 1000000, -1000000, _tower_yaw_filter_max_diff);
-  brick_yaw_filter        = std::make_shared<MedianFilter>(_brick_yaw_filter_buffer_size, 1000000, -1000000, _brick_yaw_filter_max_diff);
-  aloam_yaw_filter        = std::make_shared<MedianFilter>(_aloam_yaw_filter_buffer_size, 1000000, -1000000, _aloam_yaw_filter_max_diff);
+  optflow_yaw_rate_filter = std::make_shared<MedianFilter>(_optflow_yaw_rate_filter_buffer_size_, _optflow_yaw_rate_filter_max_valid_,
+                                                           -_optflow_yaw_rate_filter_max_valid_, _optflow_yaw_rate_filter_max_diff_);
+  icp_yaw_rate_filter     = std::make_shared<MedianFilter>(_icp_yaw_rate_filter_buffer_size_, _icp_yaw_rate_filter_max_valid_, -_icp_yaw_rate_filter_max_valid_,
+                                                       _icp_yaw_rate_filter_max_diff_);
+  hector_yaw_filter       = std::make_shared<MedianFilter>(_hector_yaw_filter_buffer_size_, 1000000, -1000000, _hector_yaw_filter_max_diff_);
+  tower_yaw_filter        = std::make_shared<MedianFilter>(_tower_yaw_filter_buffer_size_, 1000000, -1000000, _tower_yaw_filter_max_diff_);
+  brick_yaw_filter        = std::make_shared<MedianFilter>(_brick_yaw_filter_buffer_size_, 1000000, -1000000, _brick_yaw_filter_max_diff_);
+  aloam_yaw_filter        = std::make_shared<MedianFilter>(_aloam_yaw_filter_buffer_size_, 1000000, -1000000, _aloam_yaw_filter_max_diff_);
 
-  compass_yaw_filter                = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size, 1000000, -1000000, _compass_yaw_filter_max_diff);
+  compass_yaw_filter                = std::make_shared<MedianFilter>(_compass_yaw_filter_buffer_size_, 1000000, -1000000, _compass_yaw_filter_max_diff_);
   compass_inconsistent_samples      = 0;
   optflow_inconsistent_samples      = 0;
   icp_yaw_rate_inconsistent_samples = 0;
 
-  size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), heading_estimator_name));
+  size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), _heading_estimator_name_));
 
-  _hdg_estimator_type_takeoff.name = heading_estimator_name;
+  _hdg_estimator_type_takeoff.name = _heading_estimator_name_;
   _hdg_estimator_type_takeoff.type = (int)pos_hdg;
 
   // Check whether PIXHAWK is active
-  if (!stringInVector("PIXHAWK", _active_heading_estimators_names)) {
+  if (!stringInVector("PIXHAWK", _active_heading_estimators_names_)) {
     gps_active_ = false;
     ROS_INFO("[Odometry]: PIXHAWK is not in the list of active heading estimators.");
   }
 
   // Load the measurements fused by each heading estimator
-  for (std::vector<std::string>::iterator it = _active_heading_estimators_names.begin(); it != _active_heading_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_heading_estimators_names_.begin(); it != _active_heading_estimators_names_.end(); ++it) {
 
-    if (!stringInVector(*it, _heading_estimators_names)) {
+    if (!stringInVector(*it, _heading_estimators_names_)) {
       ROS_ERROR("[Odometry]: %s in the list of active heading estimators is not a valid heading estimator.", it->c_str());
       if (*it == "GPS") {
         ROS_ERROR("[Odometry]: You probably want PIXHAWK heading estimator.");
@@ -1728,7 +1727,7 @@ void Odometry::onInit() {
     param_loader.loadParam("heading_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _hdg_measurement_names)) {
+      if (!stringInVector(*it2, _hdg_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1738,12 +1737,12 @@ void Odometry::onInit() {
   }
 
   // Load the model state of each measurement
-  for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it != _hdg_measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
 
     std::string temp_value;
     param_loader.loadParam("heading_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _hdg_model_state_names)) {
+    if (!stringInVector(temp_value, _hdg_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -1752,16 +1751,16 @@ void Odometry::onInit() {
   }
 
   // Load the model state mapping
-  for (std::vector<std::string>::iterator it = _hdg_model_state_names.begin(); it != _hdg_model_state_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _hdg_model_state_names_.begin(); it != _hdg_model_state_names_.end(); ++it) {
 
-    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, heading_n);
-    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, temp_P, 1, heading_n);
+    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _heading_n_);
+    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, temp_P, 1, _heading_n_);
 
     map_hdg_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
   }
 
   // Load the covariances of each measurement
-  for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it != _hdg_measurement_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
 
     Eigen::MatrixXd temp_matrix;
     param_loader.loadMatrixStatic("heading/Q/" + *it, temp_matrix, 1, 1);
@@ -1769,8 +1768,8 @@ void Odometry::onInit() {
     map_hdg_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
   }
 
-  for (std::vector<std::string>::iterator it = _hdg_measurement_names.begin(); it < _hdg_measurement_names.end(); it++) {
-    map_hdg_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_hdg_measurement_names.begin(), it)));
+  for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it < _hdg_measurement_names_.end(); it++) {
+    map_hdg_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_hdg_measurement_names_.begin(), it)));
   }
   for (auto &it : map_hdg_measurement_name_id) {
     ROS_INFO("[Odometry]: heading measurement mapping: %s - %d", it.first.c_str(), it.second);
@@ -1781,7 +1780,7 @@ void Odometry::onInit() {
   /* create heading estimator //{ */
 
   // Loop through all estimators
-  for (std::vector<std::string>::iterator it = _active_heading_estimators_names.begin(); it != _active_heading_estimators_names.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_heading_estimators_names_.begin(); it != _active_heading_estimators_names_.end(); ++it) {
 
     std::vector<bool>            hdg_fusing_measurement;
     std::vector<Eigen::MatrixXd> P_arr_hdg, Q_arr_hdg;
@@ -1790,7 +1789,7 @@ void Odometry::onInit() {
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_hdg_estimator_measurement.find(*it);
 
     // Loop through all measurements
-    for (std::vector<std::string>::iterator it2 = _hdg_measurement_names.begin(); it2 != _hdg_measurement_names.end(); ++it2) {
+    for (std::vector<std::string>::iterator it2 = _hdg_measurement_names_.begin(); it2 != _hdg_measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
       if (stringInVector(*it2, temp_vec->second)) {
@@ -1824,32 +1823,32 @@ void Odometry::onInit() {
     map_hdg_estimator_msg.insert(std::pair<std::string, mrs_msgs::Float64ArrayStamped>(*it, hdg_msg));
 
     // Map publisher to heading estimator name
-    ros::Publisher pub = nh_.advertise<mrs_msgs::Float64ArrayStamped>("hdg_" + hdg_estimator_name + "_out", 1);
+    ros::Publisher pub = nh.advertise<mrs_msgs::Float64ArrayStamped>("hdg_" + hdg_estimator_name + "_out", 1);
     map_hdg_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
   }
 
-  ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << heading_n << ", m: " << heading_m << ", p: " << heading_p
+  ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << _heading_n_ << ", m: " << _heading_m_ << ", p: " << _heading_p_
                                                                                                << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
 
   ROS_INFO("[Odometry]: heading estimator prepared");
 
   //}
 
-  param_loader.loadParam("publish_fused_odom", _publish_fused_odom);
+  param_loader.loadParam("publish_fused_odom", _publish_fused_odom_);
   param_loader.loadParam("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
-  param_loader.loadParam("publish_pixhawk_velocity", _publish_pixhawk_velocity);
-  param_loader.loadParam("pass_rtk_as_odom", pass_rtk_as_odom);
-  param_loader.loadParam("max_altitude_correction", max_altitude_correction_);
+  param_loader.loadParam("publish_pixhawk_velocity", _publish_pixhawk_velocity_);
+  param_loader.loadParam("pass_rtk_as_odom", _pass_rtk_as_odom_);
+  param_loader.loadParam("max_altitude_correction", _max_altitude_correction_);
   param_loader.loadParam("reset_hector_after_takeoff", _reset_hector_after_takeoff_);
-  param_loader.loadParam("perform_hector_reset_routine", _perform_hector_reset_routine);
+  param_loader.loadParam("perform_hector_reset_routine", _perform_hector_reset_routine_);
 
-  param_loader.loadParam("lateral/saturate_mavros_position", saturate_mavros_position_);
-  param_loader.loadParam("lateral/max_mavros_pos_correction", max_mavros_pos_correction);
-  param_loader.loadParam("lateral/max_vio_pos_correction", max_vio_pos_correction);
-  param_loader.loadParam("lateral/max_vslam_pos_correction", max_vslam_pos_correction);
-  param_loader.loadParam("lateral/max_brick_pos_correction", max_brick_pos_correction);
-  param_loader.loadParam("lateral/max_rtk_pos_correction", max_rtk_pos_correction);
-  param_loader.loadParam("lateral/max_t265_vel", _max_t265_vel);
+  param_loader.loadParam("lateral/saturate_mavros_position", _saturate_mavros_position_);
+  param_loader.loadParam("lateral/max_mavros_pos_correction", _max_mavros_pos_correction_);
+  param_loader.loadParam("lateral/max_vio_pos_correction", _max_vio_pos_correction_);
+  param_loader.loadParam("lateral/max_vslam_pos_correction", _max_vslam_pos_correction_);
+  param_loader.loadParam("lateral/max_brick_pos_correction", _max_brick_pos_correction_);
+  param_loader.loadParam("lateral/_max_rtk_pos_correction_", _max_rtk_pos_correction_);
+  param_loader.loadParam("lateral/max_t265_vel", _max_t265_vel_);
   double max_safe_brick_jump_tmp = 0.0;
   param_loader.loadParam("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
   max_safe_brick_jump_sq_            = std::pow(max_safe_brick_jump_tmp, 2);
@@ -1868,8 +1867,8 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/gps_fallback/altitude_wait_time", _gps_fallback_wait_for_altitude_time_);
 
 
-  if (pass_rtk_as_odom && !_rtk_available) {
-    ROS_ERROR("[Odometry]: cannot have pass_rtk_as_odom TRUE when rtk_available FALSE");
+  if (_pass_rtk_as_odom_ && !_rtk_available_) {
+    ROS_ERROR("[Odometry]: cannot have _pass_rtk_as_odom_ TRUE when rtk_available FALSE");
     ros::shutdown();
   }
 
@@ -1883,69 +1882,69 @@ void Odometry::onInit() {
   // |                         tf listener                        |
   // --------------------------------------------------------------
   m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
-  transformer_      = mrs_lib::Transformer("Odometry", uav_name);
+  transformer_      = mrs_lib::Transformer("Odometry", _uav_name_);
 
 
   // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "Odometry", profiler_enabled_);
+  profiler = new mrs_lib::Profiler(nh, "Odometry", _profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         publishers                         |
   // --------------------------------------------------------------
 
   /* //{ publishers */
-  pub_uav_state_           = nh_.advertise<mrs_msgs::UavState>("uav_state_out", 1);
-  pub_odom_main_           = nh_.advertise<nav_msgs::Odometry>("odom_main_out", 1);
-  pub_odom_main_inno_      = nh_.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
-  pub_odom_local_          = nh_.advertise<nav_msgs::Odometry>("odom_local_out", 1);
-  pub_odom_stable_         = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
-  pub_slow_odom_           = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
-  pub_odom_mavros_         = nh_.advertise<nav_msgs::Odometry>("odom_mavros_out", 1);
-  pub_esp_odom_            = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
-  pub_odometry_diag_       = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
-  pub_altitude_            = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
-  pub_height_              = nh_.advertise<mrs_msgs::Float64Stamped>("height_out", 1);
-  pub_max_altitude_        = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
-  pub_orientation_         = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
-  pub_lkf_states_x_        = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
-  pub_lkf_states_y_        = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
-  pub_heading_states_      = nh_.advertise<mrs_msgs::EstimatedState>("heading_state_out", 1);
-  pub_altitude_state_      = nh_.advertise<mrs_msgs::EstimatedState>("altitude_state_out", 1);
-  pub_alt_cov_             = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
-  pub_debug_optflow_filter = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
-  pub_imu_untilted_        = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
-  pub_brick_diag_          = nh_.advertise<mrs_msgs::ReferenceStamped>("brick_diag_out", 1);
+  pub_uav_state_           = nh.advertise<mrs_msgs::UavState>("uav_state_out", 1);
+  pub_odom_main_           = nh.advertise<nav_msgs::Odometry>("odom_main_out", 1);
+  pub_odom_main_inno_      = nh.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
+  pub_odom_local_          = nh.advertise<nav_msgs::Odometry>("odom_local_out", 1);
+  pub_odom_stable_         = nh.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
+  pub_slow_odom_           = nh.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
+  pub_odom_mavros_         = nh.advertise<nav_msgs::Odometry>("odom_mavros_out", 1);
+  pub_esp_odom_            = nh.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
+  pub_odometry_diag_       = nh.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
+  pub_altitude_            = nh.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
+  pub_height_              = nh.advertise<mrs_msgs::Float64Stamped>("height_out", 1);
+  pub_max_altitude_        = nh.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+  pub_orientation_         = nh.advertise<nav_msgs::Odometry>("orientation_out", 1);
+  pub_lkf_states_x_        = nh.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
+  pub_lkf_states_y_        = nh.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
+  pub_heading_states_      = nh.advertise<mrs_msgs::EstimatedState>("heading_state_out", 1);
+  pub_altitude_state_      = nh.advertise<mrs_msgs::EstimatedState>("altitude_state_out", 1);
+  pub_alt_cov_             = nh.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
+  pub_debug_optflow_filter = nh.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
+  pub_imu_untilted_        = nh.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
+  pub_brick_diag_          = nh.advertise<mrs_msgs::ReferenceStamped>("brick_diag_out", 1);
 
   // republisher for rtk local
-  pub_rtk_local = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
+  pub_rtk_local_ = nh.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
 
   // republisher for rtk local odometry (e.g. for rviz)
-  pub_rtk_local_odom = nh_.advertise<nav_msgs::Odometry>("rtk_local_odom_out", 1);
+  pub_rtk_local_odom_ = nh.advertise<nav_msgs::Odometry>("rtk_local_odom_out", 1);
 
   // republisher for gps local odometry (e.g. for rviz)
-  pub_gps_local_odom = nh_.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
+  pub_gps_local_odom_ = nh.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
 
   // publisher for resetting hector map
-  pub_hector_reset_ = nh_.advertise<std_msgs::String>("hector_map_reset_out", 1);
+  pub_hector_reset_ = nh.advertise<std_msgs::String>("hector_map_reset_out", 1);
 
   // publisher for tf
   broadcaster_ = new tf2_ros::TransformBroadcaster();
 
-  pub_compass_yaw_ = nh_.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
-  pub_hector_yaw_  = nh_.advertise<mrs_msgs::Float64Stamped>("hector_yaw_out", 1);
-  pub_tower_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("tower_yaw_out", 1);
-  pub_aloam_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("aloam_yaw_out", 1);
-  pub_vio_yaw_     = nh_.advertise<mrs_msgs::Float64Stamped>("vio_yaw_out", 1);
-  pub_vslam_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("vslam_yaw_out", 1);
-  pub_brick_yaw_   = nh_.advertise<mrs_msgs::Float64Stamped>("brick_yaw_out", 1);
+  pub_compass_yaw_ = nh.advertise<mrs_msgs::Float64Stamped>("compass_yaw_out", 1);
+  pub_hector_yaw_  = nh.advertise<mrs_msgs::Float64Stamped>("hector_yaw_out", 1);
+  pub_tower_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("tower_yaw_out", 1);
+  pub_aloam_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("aloam_yaw_out", 1);
+  pub_vio_yaw_     = nh.advertise<mrs_msgs::Float64Stamped>("vio_yaw_out", 1);
+  pub_vslam_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("vslam_yaw_out", 1);
+  pub_brick_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("brick_yaw_out", 1);
 
   // publishers for roll pitch yaw orientations in local_origin frame
-  pub_des_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
-  pub_orientation_gt_      = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
-  pub_orientation_mavros_  = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
+  pub_des_attitude_global_ = nh.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
+  pub_orientation_gt_      = nh.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
+  pub_orientation_mavros_  = nh.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
   //}
 
   // --------------------------------------------------------------
@@ -1954,86 +1953,86 @@ void Odometry::onInit() {
 
   /* //{ subscribers */
   // subsribe to target attitude
-  sub_attitude_command_ = nh_.subscribe("attitude_command_in", 1, &Odometry::callbackAttitudeCommand, this, ros::TransportHints().tcpNoDelay());
+  sub_attitude_command_ = nh.subscribe("attitude_command_in", 1, &Odometry::callbackAttitudeCommand, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to pixhawk imu
-  sub_pixhawk_imu_ = nh_.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
+  sub_pixhawk_imu_ = nh.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to compass heading
-  sub_pixhawk_compass_ = nh_.subscribe("pixhawk_compass_in", 1, &Odometry::callbackPixhawkCompassHdg, this, ros::TransportHints().tcpNoDelay());
+  sub_pixhawk_compass_ = nh.subscribe("pixhawk_compass_in", 1, &Odometry::callbackPixhawkCompassHdg, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber to mavros odometry
-  sub_pixhawk_ = nh_.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
+  sub_pixhawk_ = nh.subscribe("pixhawk_odom_in", 1, &Odometry::callbackMavrosOdometry, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber to t265 odometry
-  if (_t265_available) {
-    sub_t265_odom_ = nh_.subscribe("t265_odom_in", 1, &Odometry::callbackT265Odometry, this, ros::TransportHints().tcpNoDelay());
+  if (_t265_available_) {
+    sub_t265_odom_ = nh.subscribe("t265_odom_in", 1, &Odometry::callbackT265Odometry, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber to optflow velocity
-  if (_optflow_available) {
-    sub_optflow_ = nh_.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
+  if (_optflow_available_) {
+    sub_optflow_ = nh.subscribe("optflow_in", 1, &Odometry::callbackOptflowTwist, this, ros::TransportHints().tcpNoDelay());
     if (_use_optflow_low_) {
-      sub_optflow_low_ = nh_.subscribe("optflow_low_in", 1, &Odometry::callbackOptflowTwistLow, this, ros::TransportHints().tcpNoDelay());
+      sub_optflow_low_ = nh.subscribe("optflow_low_in", 1, &Odometry::callbackOptflowTwistLow, this, ros::TransportHints().tcpNoDelay());
     }
   }
 
   // subscriber to visual odometry
-  if (_vio_available) {
-    sub_vio_       = nh_.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
+  if (_vio_available_) {
+    sub_vio_       = nh.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber to visual slam (pose)
-  if (_vslam_available) {
-    sub_vslam_ = nh_.subscribe("vslam_in", 1, &Odometry::callbackVslamPose, this, ros::TransportHints().tcpNoDelay());
+  if (_vslam_available_) {
+    sub_vslam_ = nh.subscribe("vslam_in", 1, &Odometry::callbackVslamPose, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber to brick odometry
-  if (_brick_available) {
-    sub_brick_pose_ = nh_.subscribe("brick_pose_in", 1, &Odometry::callbackBrickPose, this, ros::TransportHints().tcpNoDelay());
+  if (_brick_available_) {
+    sub_brick_pose_ = nh.subscribe("brick_pose_in", 1, &Odometry::callbackBrickPose, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for differential gps
-  if (_rtk_available) {
-    rtk_gps_sub_ = nh_.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
+  if (_rtk_available_) {
+    rtk_gps_sub_ = nh.subscribe("rtk_gps_in", 1, &Odometry::callbackRtkGps, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for lidar odometry
-  if (_lidar_available) {
-    sub_lidar_odom_  = nh_.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
-    sub_hector_pose_ = nh_.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
-    sub_tower_pose_  = nh_.subscribe("tower_pose_in", 1, &Odometry::callbackTowerPose, this, ros::TransportHints().tcpNoDelay());
-    sub_icp_twist_   = nh_.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
+  if (_lidar_available_) {
+    sub_lidar_odom_  = nh.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
+    sub_hector_pose_ = nh.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
+    sub_tower_pose_  = nh.subscribe("tower_pose_in", 1, &Odometry::callbackTowerPose, this, ros::TransportHints().tcpNoDelay());
+    sub_icp_twist_   = nh.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
   }
 
-  if (_aloam_available) {
-    sub_aloam_odom_ = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
+  if (_aloam_available_) {
+    sub_aloam_odom_ = nh.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber for garmin range
-  sub_garmin_ = nh_.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
+  sub_garmin_ = nh.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for sonar range
-  sub_sonar_ = nh_.subscribe("sonar_in", 1, &Odometry::callbackSonar, this, ros::TransportHints().tcpNoDelay());
+  sub_sonar_ = nh.subscribe("sonar_in", 1, &Odometry::callbackSonar, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for plane range
-  sub_plane_ = nh_.subscribe("plane_in", 1, &Odometry::callbackPlane, this, ros::TransportHints().tcpNoDelay());
+  sub_plane_ = nh.subscribe("plane_in", 1, &Odometry::callbackPlane, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for ground truth
-  sub_ground_truth_ = nh_.subscribe("ground_truth_in", 1, &Odometry::callbackGroundTruth, this, ros::TransportHints().tcpNoDelay());
+  sub_ground_truth_ = nh.subscribe("ground_truth_in", 1, &Odometry::callbackGroundTruth, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for utm coordinates
-  sub_global_position_ = nh_.subscribe("global_position_in", 1, &Odometry::callbackPixhawkUtm, this, ros::TransportHints().tcpNoDelay());
+  sub_global_position_ = nh.subscribe("global_position_in", 1, &Odometry::callbackPixhawkUtm, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for control manager diagnostics
-  sub_control_manager_diag_ = nh_.subscribe("control_manager_diag_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
+  sub_control_manager_diag_ = nh.subscribe("control_manager_diag_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for uav mass estimate
-  sub_uav_mass_estimate_ = nh_.subscribe("uav_mass_estimate_in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
+  sub_uav_mass_estimate_ = nh.subscribe("_uav_mass_estimate__in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for gps covariance
   if (_gps_fallback_allowed_) {
-    sub_gps_covariance_ = nh_.subscribe("gps_covariance_in", 1, &Odometry::callbackGPSCovariance, this, ros::TransportHints().tcpNoDelay());
+    sub_gps_covariance_ = nh.subscribe("gps_covariance_in", 1, &Odometry::callbackGPSCovariance, this, ros::TransportHints().tcpNoDelay());
   }
   //}
 
@@ -2044,47 +2043,47 @@ void Odometry::onInit() {
   /* //{ services */
 
   // subscribe for reset kalman service
-  ser_reset_lateral_kalman_ = nh_.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetEstimator, this);
+  ser_reset_lateral_kalman_ = nh.advertiseService("reset_lateral_kalman_in", &Odometry::callbackResetEstimator, this);
 
   // subscribe for reset hector service
-  ser_reset_hector_ = nh_.advertiseService("reset_hector_in", &Odometry::callbackResetHector, this);
+  ser_reset_hector_ = nh.advertiseService("reset_hector_in", &Odometry::callbackResetHector, this);
 
   // subscribe for reliable hector service
-  ser_reliable_hector_ = nh_.advertiseService("reliable_hector_in", &Odometry::callbackReliableHector, this);
+  ser_reliable_hector_ = nh.advertiseService("reliable_hector_in", &Odometry::callbackReliableHector, this);
 
   // subscribe for garmin toggle service
-  ser_garmin_ = nh_.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
+  ser_garmin_ = nh.advertiseService("toggle_garmin_in", &Odometry::callbackToggleGarmin, this);
 
   // change odometry source
-  ser_change_odometry_source = nh_.advertiseService("change_odometry_source_in", &Odometry::callbackChangeOdometrySource, this);
+  ser_change_odometry_source = nh.advertiseService("change_odometry_source_in", &Odometry::callbackChangeOdometrySource, this);
 
   // change current estimator
-  ser_change_estimator_type = nh_.advertiseService("change_estimator_type_in", &Odometry::callbackChangeEstimator, this);
+  ser_change_estimator_type = nh.advertiseService("change_estimator_type_in", &Odometry::callbackChangeEstimator, this);
 
   // change current estimator
-  ser_change_estimator_type_string = nh_.advertiseService("change_estimator_type_string_in", &Odometry::callbackChangeEstimatorString, this);
+  ser_change_estimator_type_string = nh.advertiseService("change_estimator_type_string_in", &Odometry::callbackChangeEstimatorString, this);
 
-  ser_change_hdg_estimator_type = nh_.advertiseService("change_hdg_estimator_type_in", &Odometry::callbackChangeHdgEstimator, this);
+  ser_change_hdg_estimator_type = nh.advertiseService("change_hdg_estimator_type_in", &Odometry::callbackChangeHdgEstimator, this);
 
-  ser_change_hdg_estimator_type_string = nh_.advertiseService("change_hdg_estimator_type_string_in", &Odometry::callbackChangeHdgEstimatorString, this);
+  ser_change_hdg_estimator_type_string = nh.advertiseService("change_hdg_estimator_type_string_in", &Odometry::callbackChangeHdgEstimatorString, this);
 
-  ser_change_alt_estimator_type = nh_.advertiseService("change_alt_estimator_type_in", &Odometry::callbackChangeAltEstimator, this);
+  ser_change_alt_estimator_type = nh.advertiseService("change_alt_estimator_type_in", &Odometry::callbackChangeAltEstimator, this);
 
-  ser_change_alt_estimator_type_string = nh_.advertiseService("change_alt_estimator_type_string_in", &Odometry::callbackChangeAltEstimatorString, this);
+  ser_change_alt_estimator_type_string = nh.advertiseService("change_alt_estimator_type_string_in", &Odometry::callbackChangeAltEstimatorString, this);
 
-  ser_gyro_jump_ = nh_.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
+  ser_gyro_jump_ = nh.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
 
   // subscribe for callbacks toggle service
-  ser_toggle_callbacks_ = nh_.advertiseService("toggle_callbacks_in", &Odometry::callbackToggleCallbacks, this);
+  ser_toggle_callbacks_ = nh.advertiseService("toggle_callbacks_in", &Odometry::callbackToggleCallbacks, this);
 
   // initialized service clients
-  ser_client_failsafe_         = nh_.serviceClient<std_srvs::Trigger>("failsafe_out");
-  ser_client_hover_            = nh_.serviceClient<std_srvs::Trigger>("hover_out");
-  ser_client_reference_        = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("ereference_out");
-  ser_client_ehover_           = nh_.serviceClient<std_srvs::Trigger>("ehover_out");
-  ser_client_enable_callbacks_ = nh_.serviceClient<std_srvs::SetBool>("enable_callbacks_out");
-  ser_client_tracker_          = nh_.serviceClient<mrs_msgs::String>("tracker_out");
-  ser_client_controller_       = nh_.serviceClient<mrs_msgs::String>("controller_out");
+  ser_client_failsafe_         = nh.serviceClient<std_srvs::Trigger>("failsafe_out");
+  ser_client_hover_            = nh.serviceClient<std_srvs::Trigger>("hover_out");
+  ser_client_reference_        = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>("ereference_out");
+  ser_client_ehover_           = nh.serviceClient<std_srvs::Trigger>("ehover_out");
+  ser_client_enable_callbacks_ = nh.serviceClient<std_srvs::SetBool>("enable_callbacks_out");
+  ser_client_tracker_          = nh.serviceClient<mrs_msgs::String>("tracker_out");
+  ser_client_controller_       = nh.serviceClient<mrs_msgs::String>("controller_out");
   //}
 
   // --------------------------------------------------------------
@@ -2093,13 +2092,13 @@ void Odometry::onInit() {
 
   /* timers //{ */
 
-  main_timer                 = nh_.createTimer(ros::Rate(rate_), &Odometry::mainTimer, this);
-  slow_odom_timer            = nh_.createTimer(ros::Rate(slow_odom_rate_), &Odometry::slowOdomTimer, this);
-  diag_timer                 = nh_.createTimer(ros::Rate(diag_rate_), &Odometry::diagTimer, this);
-  lkf_states_timer           = nh_.createTimer(ros::Rate(lkf_states_rate_), &Odometry::lkfStatesTimer, this);
-  max_altitude_timer         = nh_.createTimer(ros::Rate(max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
-  topic_watcher_timer        = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
-  hector_reset_routine_timer = nh_.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
+  main_timer                 = nh.createTimer(ros::Rate(_main_rate_), &Odometry::mainTimer, this);
+  slow_odom_timer            = nh.createTimer(ros::Rate(_slow_odom_rate_), &Odometry::slowOdomTimer, this);
+  diag_timer                 = nh.createTimer(ros::Rate(_diag_rate_), &Odometry::diagTimer, this);
+  lkf_states_timer           = nh.createTimer(ros::Rate(_lkf_states_rate_), &Odometry::lkfStatesTimer, this);
+  max_altitude_timer         = nh.createTimer(ros::Rate(_max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
+  topic_watcher_timer        = nh.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
+  hector_reset_routine_timer = nh.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
 
@@ -2107,67 +2106,67 @@ void Odometry::onInit() {
 
   // If required sensor is not available shutdown
   ROS_INFO_ONCE("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff.name.c_str());
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOW && !_optflow_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOW && !_optflow_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::GPS && !_gps_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::GPS && !_gps_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. GPS localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !_optflow_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !_optflow_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && !_rtk_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::RTK && !_rtk_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265 && !_t265_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::T265 && !_t265_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. T265 localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::LIDAR && !_lidar_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::LIDAR && !_lidar_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::HECTOR && !_lidar_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::HECTOR && !_lidar_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::TOWER && !_lidar_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::TOWER && !_lidar_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ALOAM && !_aloam_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ALOAM && !_aloam_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAM localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::ICP && !_lidar_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && !_vio_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO && !_vio_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual odometry localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VSLAM && !_vslam_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VSLAM && !_vslam_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual SLAM localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICKFLOW && !_optflow_available) {
+  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::BRICKFLOW && !_optflow_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Optflow localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
@@ -2275,7 +2274,7 @@ void Odometry::onInit() {
     current_hdg_estimator->getR(last_drs_config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
   }
 
-  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh));
   reconfigure_server_->updateConfig(last_drs_config);
   ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
   reconfigure_server_->setCallback(f);
@@ -2288,7 +2287,7 @@ void Odometry::onInit() {
     ros::shutdown();
   }
 
-  is_initialized = true;
+  is_initialized_ = true;
 
   ROS_INFO("[Odometry]: initialized, version %s", VERSION);
 }
@@ -2411,7 +2410,7 @@ bool Odometry::isUavFlying() {
 
   if (got_control_manager_diag_) {
 
-    if (control_manager_diag.active_tracker == null_tracker_) {
+    if (control_manager_diag.active_tracker == _null_tracker_) {
 
       return false;
     } else {
@@ -2460,10 +2459,10 @@ bool Odometry::isUavLandoff() {
 
 void Odometry::mainTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", _main_rate_, 0.01, event);
 
   ros::Time t_start = ros::Time::now();
 
@@ -2491,7 +2490,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     lkf_height_t::u_t u;
     u << 0;
-    sc_height_       = estimator_height_->predict(sc_height_, u, Q_height_, dt);
+    sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
     height_msg.value = sc_height_.x(0);
   }
 
@@ -2598,7 +2597,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   new_altitude.header.stamp    = ros::Time::now();
 
   // update the altitude state
-  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
   {
     std::scoped_lock lock(mutex_altitude_estimator);
     if (!current_alt_estimator->getStates(current_altitude)) {
@@ -2636,8 +2635,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish altitude state //{ */
 
-  Eigen::MatrixXd alt_state      = Eigen::MatrixXd::Zero(altitude_n, 1);
-  Eigen::MatrixXd alt_covariance = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
+  Eigen::MatrixXd alt_state      = Eigen::MatrixXd::Zero(_altitude_n_, 1);
+  Eigen::MatrixXd alt_covariance = Eigen::MatrixXd::Zero(_altitude_n_, _altitude_n_);
   current_alt_estimator->getStates(alt_state);
   current_alt_estimator->getCovariance(alt_covariance);
 
@@ -2648,7 +2647,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   altitude_state_msg.header.stamp = ros::Time::now();
-  for (int i = 0; i < altitude_n; i++) {
+  for (int i = 0; i < _altitude_n_; i++) {
     altitude_state_msg.state.push_back(alt_state(i, 0));
     altitude_state_msg.covariance.push_back(alt_covariance(i, i));
   }
@@ -2677,7 +2676,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     Eigen::VectorXd yaw       = Eigen::VectorXd::Zero(1);
     Eigen::VectorXd yaw_rate  = Eigen::VectorXd::Zero(1);
     Eigen::VectorXd gyro_bias = Eigen::VectorXd::Zero(1);
-    Eigen::MatrixXd init_cov  = Eigen::MatrixXd::Identity(heading_n, heading_n);
+    Eigen::MatrixXd init_cov  = Eigen::MatrixXd::Identity(_heading_n_, _heading_n_);
     init_cov *= 1000;
     yaw_rate << 0.0;
     gyro_bias << 0.0;
@@ -2704,7 +2703,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
     orientation.header                = odom_pixhawk.header;
-    orientation.header.frame_id       = uav_name + "/" + "gps_origin";
+    orientation.header.frame_id       = _uav_name_ + "/" + "gps_origin";
     orientation.child_frame_id        = fcu_frame_id_;
     orientation.pose.pose.orientation = odom_pixhawk.pose.pose.orientation;
   }
@@ -2741,8 +2740,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* sensor checking //{ */
 
-  if (!is_ready_to_takeoff) {
-    is_ready_to_takeoff = isReadyToTakeoff();
+  if (!is_ready_to_takeoff_) {
+    is_ready_to_takeoff_ = isReadyToTakeoff();
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not ready to takeoff.");
     return;
   }
@@ -2769,7 +2768,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fallback from RTK
   if (_estimator_type.type == mrs_msgs::EstimatorType::RTK) {
-    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -2794,7 +2793,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from GPS
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::GPS) {
-    if (!gps_reliable && _optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -2819,7 +2818,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from OPTFLOWGPS
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
-    if (!gps_reliable && _optflow_available && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if (!gps_reliable && _optflow_available_ && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: GPS not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -2845,8 +2844,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from T265
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::T265) {
-    if ((!got_odom_t265 || !t265_reliable) && _optflow_available && got_optflow &&
-        current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if ((!got_odom_t265 || !t265_reliable) && _optflow_available_ && got_optflow &&
+        current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: T265 not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -2885,9 +2884,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (!got_hector_pose || !hector_reliable) {
 
-      if (_lidar_available && got_icp_twist) {
+      if (_lidar_available_ && got_icp_twist) {
 
-        if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
+        if (_perform_hector_reset_routine_ && !hector_reset_routine_running_) {
 
           ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
           hector_reset_routine_timer.start();
@@ -2896,7 +2895,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to ICP heading estimator.");
           mrs_msgs::HeadingType desired_estimator;
           desired_estimator.type = mrs_msgs::HeadingType::ICP;
-          desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+          desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
           changeCurrentHeadingEstimator(desired_estimator);
           ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
           mrs_msgs::EstimatorType icp_type;
@@ -2908,8 +2907,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
             failsafe_called = true;
           }
         }
-      } else if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
-        if (_perform_hector_reset_routine && !hector_reset_routine_running_) {
+      } else if (_optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+        if (_perform_hector_reset_routine_ && !hector_reset_routine_running_) {
 
           ROS_WARN("[Odometry]: HECTOR not reliable. Performing HECTOR reset routine.");
           hector_reset_routine_timer.start();
@@ -2918,7 +2917,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to OPTFLOW heading estimator.");
           mrs_msgs::HeadingType desired_estimator;
           desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-          desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+          desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
           changeCurrentHeadingEstimator(desired_estimator);
           ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
           mrs_msgs::EstimatorType optflow_type;
@@ -2934,7 +2933,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: HECTOR not reliable. Switching to PIXHAWK type.");
         mrs_msgs::EstimatorType gps_type;
@@ -2970,12 +2969,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (!got_tower_pose || !tower_reliable) {
 
-      if (_lidar_available && got_icp_twist) {
+      if (_lidar_available_ && got_icp_twist) {
 
         ROS_WARN_THROTTLE(1.0, "[Odometry]: tower heading not reliable. Switching to ICP heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: TOWER not reliable. Switching to ICP type.");
         mrs_msgs::EstimatorType icp_type;
@@ -2986,11 +2985,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+      } else if (_optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: TOWER heading not reliable. Switching to OPTFLOW heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: TOWER not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
@@ -3005,7 +3004,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: TOWER heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: TOWER not reliable. Switching to PIXHAWK type.");
         mrs_msgs::EstimatorType gps_type;
@@ -3039,11 +3038,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Fallback from ALOAM Slam
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::ALOAM) {
     if (!got_aloam_odom || !aloam_reliable) {
-      if (_aloam_available && got_icp_twist) {
+      if (_aloam_available_ && got_icp_twist) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ALOAM not reliable. Switching to ICP type.");
         mrs_msgs::EstimatorType icp_type;
@@ -3054,11 +3053,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+      } else if (_optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to OPTFLOW heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ALOAM not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
@@ -3073,7 +3072,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ALOAM not reliable. Switching to PIXHAWK type.");
         mrs_msgs::EstimatorType gps_type;
@@ -3108,11 +3107,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::ICP) {
 
     if (!got_icp_twist || !icp_reliable) {
-      if (_optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+      if (_optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to OPTFLOW heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ICP not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
@@ -3127,7 +3126,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ICP not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
@@ -3163,12 +3162,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: BRICK altitude not reliable. Switching to HEIGHT altitude estimator.");
       mrs_msgs::AltitudeType desired_alt_estimator;
       desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
-      desired_alt_estimator.name = _altitude_estimators_names[desired_alt_estimator.type];
+      desired_alt_estimator.name = _altitude_estimators_names_[desired_alt_estimator.type];
       changeCurrentAltitudeEstimator(desired_alt_estimator);
       ROS_WARN_THROTTLE(1.0, "[Odometry]: BRICK heading not reliable. Switching to fallback heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
       desired_estimator.type = fallback_brick_hdg_estimator_type.type;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
       changeCurrentHeadingEstimator(desired_estimator);
       ROS_WARN("[Odometry]: BRICK not reliable. Switching to %s type.", _estimator_type_names[fallback_brick_estimator_type.type].c_str());
       if (!changeCurrentEstimator(fallback_brick_estimator_type)) {
@@ -3187,7 +3186,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: OTPFLOW heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: OPTFLOW not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
@@ -3280,7 +3279,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     // Fallback from VIO
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::VIO) {
-    if (!vio_reliable && _optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if (!vio_reliable && _optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3314,7 +3313,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     // Fallback from VSLAM
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::VSLAM) {
-    if (!vslam_reliable && _optflow_available && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude) {
+    if (!vslam_reliable && _optflow_available_ && got_optflow && current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3412,11 +3411,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-    odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
+    odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
     odom_aux->second.header.stamp    = time_now;
     odom_aux->second.child_frame_id  = fcu_frame_id_;
 
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     // update the altitude state
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -3474,12 +3473,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (estimator.second->getName() == "RTK" && pass_rtk_as_odom) {
+    if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
 
       mrs_lib::set_mutexed(mutex_rtk_local_odom, rtk_local_odom.pose.pose.position.z, odom_aux->second.pose.pose.position.z);
     }
 
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == _fcu_height_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
                         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY),
                         current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION));
@@ -3584,10 +3583,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     geometry_msgs::TransformStamped tf;
 
     tf.header.stamp            = ros::Time::now();
-    tf.header.frame_id         = uav_name + "/gps_origin";
-    tf.child_frame_id          = uav_name + "/utm_origin";
-    tf.transform.translation.x = -utm_origin_x_;
-    tf.transform.translation.y = -utm_origin_y_;
+    tf.header.frame_id         = _uav_name_ + "/gps_origin";
+    tf.child_frame_id          = _uav_name_ + "/utm_origin";
+    tf.transform.translation.x = -_utm_origin_x_;
+    tf.transform.translation.y = -_utm_origin_y_;
 
     tf.transform.rotation.x = 0;
     tf.transform.rotation.y = 0;
@@ -3612,7 +3611,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = time_now;
 
-    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(heading_n, 1);
+    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(_heading_n_, 1);
     // update the altitude state
     {
       std::scoped_lock lock(mutex_heading_estimator);
@@ -3644,12 +3643,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /* publish fused odometry //{ */
 
   // blocking/returning when cannot calculate utm_origin_offset
-  if (_gps_available && !calculatePixhawkOdomOffset()) {
+  if (_gps_available_ && !calculatePixhawkOdomOffset()) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Cannot calculate pixhawk odom offset.");
     return;
   }
 
-  if (_gps_available && !got_pixhawk_odom_shifted) {
+  if (_gps_available_ && !got_pixhawk_odom_shifted) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for pixhawk odom offset");
     return;
   }
@@ -3673,10 +3672,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
-  odom_main.header.frame_id = uav_name + "/" + toLowercase(current_estimator_name) + "_origin";
+  odom_main.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
   odom_main.child_frame_id  = fcu_frame_id_;
   uav_state.header.stamp    = ros::Time::now();
-  uav_state.header.frame_id = uav_name + "/" + toLowercase(current_estimator_name) + "_origin";
+  uav_state.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
   uav_state.child_frame_id  = fcu_frame_id_;
 
   /* initialize lateral kalman filters //{ */
@@ -3694,7 +3693,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           estimator.second->getName() == "ALOAM" || estimator.second->getName() == "BRICK" || estimator.second->getName() == "VIO" ||
           estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" || estimator.second->getName() == "ICP") {
 
-        state << local_origin_x_, local_origin_y_;
+        state << _local_origin_x_, _local_origin_y_;
         estimator.second->setState(0, state);
 
 
@@ -3718,8 +3717,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (toUppercase(current_estimator_name) != "GPS" && toUppercase(current_estimator_name) != "RTK") {
-      odom_main.pose.pose.position.x  = local_origin_x_;
-      odom_main.pose.pose.position.y  = local_origin_y_;
+      odom_main.pose.pose.position.x  = _local_origin_x_;
+      odom_main.pose.pose.position.y  = _local_origin_y_;
       odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setYaw(0.0);
     }
 
@@ -3761,7 +3760,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   //}
 
-  if (_publish_fused_odom) {
+  if (_publish_fused_odom_) {
 
     // do not publish when switching estimators
     if (is_updating_state_) {
@@ -3881,7 +3880,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // mavros velocity is correct only in the PIXHAWK heading estimator frame, our velocity estimate should be more accurate anyway
     // mavros velocity should be used only for debug and estimation baseline
-    if (!_publish_pixhawk_velocity) {
+    if (!_publish_pixhawk_velocity_) {
       odom_main.twist.twist.linear.x = body_vel.vector.x;
       odom_main.twist.twist.linear.y = body_vel.vector.y;
     }
@@ -3903,16 +3902,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* pass rtk as odometry //{ */
 
-    if (pass_rtk_as_odom) {
+    if (_pass_rtk_as_odom_) {
 
       auto rtk_local_odom_tmp = mrs_lib::get_mutexed(mutex_rtk_local_odom, rtk_local_odom);
 
       // TODO transform twist to body frame
       odom_main                 = rtk_local_odom_tmp;
-      odom_main.header.frame_id = uav_name + "/rtk_origin";  // TODO does this not cause problems?
+      odom_main.header.frame_id = _uav_name_ + "/rtk_origin";  // TODO does this not cause problems?
       odom_main.child_frame_id  = fcu_frame_id_;
 
-      uav_state.header.frame_id = uav_name + "/rtk_origin";
+      uav_state.header.frame_id = _uav_name_ + "/rtk_origin";
       uav_state.pose            = rtk_local_odom_tmp.pose.pose;
       uav_state.velocity        = rtk_local_odom_tmp.twist.twist;
     }
@@ -4112,10 +4111,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
 void Odometry::auxTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("auxTimer", aux_rate_, 0.004, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("auxTimer", _aux_rate_, 0.004, event);
 
   ros::Time t_pub = ros::Time::now();
 
@@ -4132,11 +4131,11 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-    odom_aux->second.header.frame_id = uav_name + "/" + estimator_name + "_origin";
+    odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
     odom_aux->second.header.stamp    = t_pub;
     odom_aux->second.child_frame_id  = fcu_frame_id_;
 
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     // update the altitude state
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -4177,7 +4176,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (estimator.second->getName() == "RTK" && pass_rtk_as_odom) {
+    if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
       {
         std::scoped_lock lock(mutex_rtk_local_odom);
 
@@ -4185,7 +4184,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == fcu_height_) {
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) == _fcu_height_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
                         current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY),
                         current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION));
@@ -4259,10 +4258,10 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     geometry_msgs::TransformStamped tf;
 
     tf.header.stamp            = ros::Time::now();
-    tf.header.frame_id         = uav_name + "/gps_origin";
-    tf.child_frame_id          = uav_name + "/utm_origin";
-    tf.transform.translation.x = -utm_origin_x_;
-    tf.transform.translation.y = -utm_origin_y_;
+    tf.header.frame_id         = _uav_name_ + "/gps_origin";
+    tf.child_frame_id          = _uav_name_ + "/utm_origin";
+    tf.transform.translation.x = -_utm_origin_x_;
+    tf.transform.translation.y = -_utm_origin_y_;
 
     tf.transform.rotation.x = 0;
     tf.transform.rotation.y = 0;
@@ -4287,7 +4286,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = t_pub;
 
-    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(heading_n, 1);
+    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(_heading_n_, 1);
     // update the altitude state
     {
       std::scoped_lock lock(mutex_heading_estimator);
@@ -4321,10 +4320,10 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
 
 void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("slowOdomTimer", slow_odom_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("slowOdomTimer", _slow_odom_rate_, 0.01, event);
 
   nav_msgs::Odometry slow_odom;
 
@@ -4364,10 +4363,10 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
 
 void Odometry::diagTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagTimer", diag_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagTimer", _diag_rate_, 0.01, event);
 
   static ros::Time t_start = ros::Time::now();
 
@@ -4403,11 +4402,11 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.max_altitude      = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
   odometry_diag.gps_reliable      = gps_reliable;
-  odometry_diag.gps_available     = _gps_available;
-  odometry_diag.optflow_available = _optflow_available;
-  odometry_diag.rtk_available     = _rtk_available;
-  odometry_diag.lidar_available   = _lidar_available;
-  odometry_diag.aloam_available   = _aloam_available;
+  odometry_diag.gps_available     = _gps_available_;
+  odometry_diag.optflow_available = _optflow_available_;
+  odometry_diag.rtk_available     = _rtk_available_;
+  odometry_diag.lidar_available   = _lidar_available_;
+  odometry_diag.aloam_available   = _aloam_available_;
   odometry_diag.height_available  = height_available_;
 
 
@@ -4442,10 +4441,10 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
 void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", lkf_states_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", _lkf_states_rate_, 0.01, event);
 
   LatState2D states_mat;
 
@@ -4484,8 +4483,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
   }
 
-  Eigen::MatrixXd hdg_state      = Eigen::MatrixXd::Zero(heading_n, 1);
-  Eigen::MatrixXd hdg_covariance = Eigen::MatrixXd::Zero(heading_n, heading_n);
+  Eigen::MatrixXd hdg_state      = Eigen::MatrixXd::Zero(_heading_n_, 1);
+  Eigen::MatrixXd hdg_covariance = Eigen::MatrixXd::Zero(_heading_n_, _heading_n_);
   {
     std::scoped_lock lock(mutex_current_hdg_estimator);
     current_hdg_estimator->getStates(hdg_state);
@@ -4503,7 +4502,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
   } else {
     hdg_state(0, 0) = mrs_lib::wrapAngle(hdg_state(0, 0));
-    for (int i = 0; i < heading_n; i++) {
+    for (int i = 0; i < _heading_n_; i++) {
       hdg_state_msg.state.push_back(hdg_state(i, 0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i, i));
     }
@@ -4523,19 +4522,19 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
 void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("maxAltitudeTimer", max_altitude_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
 
-  mrs_msgs::Float64Stamped max_altitude_msg;
-  max_altitude_msg.header.frame_id = uav_name + "/" + toLowercase(current_estimator_name) + "_origin";
-  max_altitude_msg.header.stamp    = ros::Time::now();
+  mrs_msgs::Float64Stamped max__altitude_m_sg;
+  max__altitude_m_sg.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
+  max__altitude_m_sg.header.stamp    = ros::Time::now();
 
-  max_altitude_msg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
+  max__altitude_m_sg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
   try {
-    pub_max_altitude_.publish(max_altitude_msg);
+    pub_max_altitude_.publish(max__altitude_m_sg);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
@@ -4548,7 +4547,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
 void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("rtkRateTimer", 1, 0.01, event);
@@ -4570,7 +4569,7 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
 
 void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
@@ -4666,7 +4665,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
 void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   hector_reset_routine_running_ = true;
@@ -4675,11 +4674,11 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
   // Change estimator to ICP
   bool in_icp = false;
-  if (_lidar_available && got_icp_twist) {
+  if (_lidar_available_ && got_icp_twist) {
     ROS_WARN("[Odometry]: HECTOR not reliable. Switching to ICP type.");
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = mrs_msgs::HeadingType::ICP;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
     mrs_msgs::EstimatorType icp_type;
     icp_type.type = mrs_msgs::EstimatorType::ICP;
     if (!changeCurrentHeadingEstimator(desired_estimator) || !changeCurrentEstimator(icp_type)) {
@@ -4694,11 +4693,11 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   }
 
   // Change estimator to optflow
-  if (_optflow_available && got_optflow && !in_icp) {
+  if (_optflow_available_ && got_optflow && !in_icp) {
     ROS_WARN("[Odometry]: HECTOR not reliable. Switching to OPTFLOW type.");
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
     mrs_msgs::EstimatorType optflow_type;
     optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
     if (!changeCurrentHeadingEstimator(desired_estimator) || !changeCurrentEstimator(optflow_type)) {
@@ -4775,7 +4774,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   ROS_INFO("[Odometry]: %d HECTOR msgs after map reset arrived. Switching to HECTOR type", wait_msgs);
   mrs_msgs::HeadingType desired_estimator;
   desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
-  desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+  desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
   changeCurrentHeadingEstimator(desired_estimator);
   hector_reliable = true;
   mrs_msgs::EstimatorType hector_type;
@@ -4804,7 +4803,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 /* //{ callbackAttitudeCommand() */
 void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAttitudeCommand");
@@ -4894,7 +4893,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 /* //{ callbackMavrosOdometry() */
 void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (is_updating_state_) {
@@ -4933,7 +4932,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       init_magnetic_heading_ = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getYaw();
     }
 
-    if (simulation_) {
+    if (_simulation_) {
       mavros_glitch.x = 0.0;
       mavros_glitch.y = 0.0;
       mavros_glitch.z = 0.0;
@@ -4985,7 +4984,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // Negate weird simulation position jump glitches (caused by gazebo timestamp glitches - should be handled by isTimestampOK(), this check is for redundancy)
   // (smaller jumps in GPS position are handled by safety control mechanisms)
-  if (simulation_) {
+  if (_simulation_) {
 
     if (std::fabs(odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x) > 100) {
       mavros_glitch.x = odom_pixhawk.pose.pose.position.x - odom_pixhawk_previous.pose.pose.position.x;
@@ -5039,13 +5038,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // set the input vector
   Eigen::VectorXd input;
-  input = Eigen::VectorXd::Zero(altitude_m);
+  input = Eigen::VectorXd::Zero(_altitude_m_);
 
   if (is_altitude_estimator_initialized) {
 
     /* publish covariance of altitude states //{ */
 
-    Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(altitude_n, altitude_n);
+    Eigen::MatrixXd cov = Eigen::MatrixXd::Zero(_altitude_n_, _altitude_n_);
     {
       std::scoped_lock lock(mutex_altitude_estimator);
       current_alt_estimator->getCovariance(cov);
@@ -5074,7 +5073,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
         return;
       }
-      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
 
       if (!current_alt_estimator->getStates(current_altitude)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
@@ -5082,12 +5081,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       }
 
       double altitude;
-      /* double altitude_previous; */
+      /* double _altitude_p_revious; */
       double twist_z;
       {
         std::scoped_lock lock(mutex_odom_pixhawk);
         altitude = odom_pixhawk.pose.pose.position.z - baro_offset_;
-        /* altitude_previous = odom_pixhawk_previous.pose.pose.position.z; */
+        /* _altitude_p_revious = odom_pixhawk_previous.pose.pose.position.z; */
         twist_z = vel_enu.z;
       }
 
@@ -5117,7 +5116,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   } else {
     Eigen::VectorXd zero_state = Eigen::VectorXd::Zero(1);
-    Eigen::MatrixXd init_cov   = Eigen::MatrixXd::Identity(altitude_n, altitude_n);
+    Eigen::MatrixXd init_cov   = Eigen::MatrixXd::Identity(_altitude_n_, _altitude_n_);
 
     // Initialize all altitude estimators
     for (auto &estimator : m_altitude_estimators) {
@@ -5173,7 +5172,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* //{ fuse mavros velocity */
 
-  if (_gps_available) {
+  if (_gps_available_) {
 
     double vel_mavros_x, vel_mavros_y;
     {
@@ -5221,7 +5220,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* //{ fuse mavros position */
 
-  if (_gps_available) {
+  if (_gps_available_) {
 
     if (!got_odom_pixhawk || !got_pixhawk_utm) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing Mavros position. Global position not averaged.");
@@ -5254,19 +5253,19 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         innovation(0) = pos_mavros_x - pos_vec(0);
         innovation(1) = pos_mavros_y - pos_vec(1);
 
-        if (saturate_mavros_position_) {
+        if (_saturate_mavros_position_) {
 
           // X position
           if (!std::isfinite(pos_mavros_x)) {
             pos_mavros_x = 0;
             ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"pos_mavros_x\", setting it to 0 and returning!!!");
             return;
-          } else if (innovation(0) > max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), max_mavros_pos_correction);
-            pos_mavros_x = pos_vec(0) + max_mavros_pos_correction;
-          } else if (innovation(0) < -max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), -max_mavros_pos_correction);
-            pos_mavros_x = pos_vec(0) - max_mavros_pos_correction;
+          } else if (innovation(0) > _max_mavros_pos_correction_) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), _max_mavros_pos_correction_);
+            pos_mavros_x = pos_vec(0) + _max_mavros_pos_correction_;
+          } else if (innovation(0) < -_max_mavros_pos_correction_) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS X pos correction %f -> %f", innovation(0), -_max_mavros_pos_correction_);
+            pos_mavros_x = pos_vec(0) - _max_mavros_pos_correction_;
           }
 
           // Y position
@@ -5274,12 +5273,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
             pos_mavros_y = 0;
             ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"pos_mavros_y\", setting it to 0 and returning!!!");
             return;
-          } else if (innovation(1) > max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), max_mavros_pos_correction);
-            pos_mavros_y = pos_vec(1) + max_mavros_pos_correction;
-          } else if (innovation(1) < -max_mavros_pos_correction) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), -max_mavros_pos_correction);
-            pos_mavros_y = pos_vec(1) - max_mavros_pos_correction;
+          } else if (innovation(1) > _max_mavros_pos_correction_) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), _max_mavros_pos_correction_);
+            pos_mavros_y = pos_vec(1) + _max_mavros_pos_correction_;
+          } else if (innovation(1) < -_max_mavros_pos_correction_) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating GPS Y pos correction %f -> %f", innovation(1), -_max_mavros_pos_correction_);
+            pos_mavros_y = pos_vec(1) - _max_mavros_pos_correction_;
           }
         }
 
@@ -5322,7 +5321,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkImu");
@@ -5463,7 +5462,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
 void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkCompassHdg");
@@ -5541,11 +5540,11 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     compass_inconsistent_samples++;
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass yaw inconsistent: %f. Not fusing.", yaw);
 
-    if (toUppercase(current_hdg_estimator_name) == "COMPASS" && _gyro_fallback && compass_inconsistent_samples > 20) {
+    if (toUppercase(current_hdg_estimator_name) == "COMPASS" && _gyro_fallback_ && compass_inconsistent_samples > 20) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
       desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
       changeCurrentHeadingEstimator(desired_estimator);
       compass_inconsistent_samples = 0;
     }
@@ -5581,7 +5580,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
 void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (_use_optflow_low_ && (isUavLandoff() || !isUavFlying())) {
@@ -5640,7 +5639,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     fusing_optflow_low_ = false;
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
     changeCurrentHeadingEstimator(desired_estimator);
   }
 
@@ -5668,15 +5667,15 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     }
   }
 
-  if (_dynamic_optflow_cov) {
+  if (_dynamic_optflow_cov_) {
     double twist_q_x = optflow_twist.twist.covariance[0];
     double twist_q_y = optflow_twist.twist.covariance[7];
 
     if (std::isfinite(twist_q_x)) {
 
       // Scale covariance
-      twist_q_x *= _dynamic_optflow_cov_scale;
-      twist_q_y *= _dynamic_optflow_cov_scale;
+      twist_q_x *= _dynamic_optflow_cov_scale_;
+      twist_q_y *= _dynamic_optflow_cov_scale_;
 
       double twist_q = std::max(twist_q_x, twist_q_y);
 
@@ -5704,7 +5703,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   double optflow_vel_x = optflow_twist.twist.twist.linear.x;
   double optflow_vel_y = optflow_twist.twist.twist.linear.y;
 
-  if (_optflow_median_filter) {
+  if (_optflow_median_filter_) {
     if (!optflow_filter_x->isValid(optflow_vel_x)) {
 
       double median = optflow_filter_x->getMedian();
@@ -5767,11 +5766,11 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     optflow_inconsistent_samples++;
     ROS_WARN("[Odometry]: Optflow yaw rate inconsistent: %f. Not fusing.", yaw_rate);
 
-    if (_gyro_fallback && optflow_inconsistent_samples > 20) {
+    if (_gyro_fallback_ && optflow_inconsistent_samples > 20) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optflow yaw rate inconsistent. Swtiching to GYRO heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
       desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
       changeCurrentHeadingEstimator(desired_estimator);
       --optflow_inconsistent_samples;
       optflow_inconsistent_samples = std::max(0, optflow_inconsistent_samples);
@@ -5799,7 +5798,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
 void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (isUavFlying() && !isUavLandoff()) {
@@ -5856,7 +5855,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   if (toUppercase(current_hdg_estimator_name) == "OPTFLOW") {
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
     changeCurrentHeadingEstimator(desired_estimator);
   }
 
@@ -5884,15 +5883,15 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     }
   }
 
-  if (_dynamic_optflow_cov) {
+  if (_dynamic_optflow_cov_) {
     double twist_q_x = optflow_twist.twist.covariance[0];
     double twist_q_y = optflow_twist.twist.covariance[7];
 
     if (std::isfinite(twist_q_x)) {
 
       // Scale covariance
-      twist_q_x *= _dynamic_optflow_cov_scale;
-      twist_q_y *= _dynamic_optflow_cov_scale;
+      twist_q_x *= _dynamic_optflow_cov_scale_;
+      twist_q_y *= _dynamic_optflow_cov_scale_;
 
       double twist_q = std::max(twist_q_x, twist_q_y);
 
@@ -5920,7 +5919,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   double optflow_vel_x = optflow_twist.twist.twist.linear.x;
   double optflow_vel_y = optflow_twist.twist.twist.linear.y;
 
-  if (_optflow_median_filter) {
+  if (_optflow_median_filter_) {
     if (!optflow_filter_x->isValid(optflow_vel_x)) {
 
       double median = optflow_filter_x->getMedian();
@@ -5974,7 +5973,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
 void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg) {
 
   // Note: ICP twist is coming in the UAV body frame (uav/fcu)
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackICPTwist");
@@ -6024,7 +6023,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   double icp_vel_x = icp_twist.twist.twist.linear.x;
   double icp_vel_y = icp_twist.twist.twist.linear.y;
 
-  if (_icp_twist_median_filter) {
+  if (_icp_twist_median_filter_) {
     if (!icp_twist_filter_x->isValid(icp_vel_x)) {
 
       double median = icp_twist_filter_x->getMedian();
@@ -6086,11 +6085,11 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     icp_yaw_rate_inconsistent_samples++;
     ROS_WARN("[Odometry]: icp yaw rate inconsistent: %f. Not fusing.", yaw_rate);
 
-    if (_gyro_fallback && icp_yaw_rate_inconsistent_samples > 20) {
+    if (_gyro_fallback_ && icp_yaw_rate_inconsistent_samples > 20) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: icp yaw rate inconsistent. Swtiching to GYRO heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
       desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+      desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
       changeCurrentHeadingEstimator(desired_estimator);
       --icp_yaw_rate_inconsistent_samples;
       icp_yaw_rate_inconsistent_samples = std::max(0.0, icp_yaw_rate_inconsistent_samples);
@@ -6118,7 +6117,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
 
 void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackRtk");
@@ -6167,7 +6166,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
         if (!got_rtk_local_origin_z) {
           rtk_local_origin_z_ /= 10;
-          rtk_local_origin_z_ -= fcu_height_;
+          rtk_local_origin_z_ -= _fcu_height_;
           got_rtk_local_origin_z = true;
           ROS_INFO("[Odometry]: RTK ASL altitude avg: %f", rtk_local_origin_z_);
         }
@@ -6199,7 +6198,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // check whether we have rtk fix
   got_rtk_fix = (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FLOAT || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::RTK_FIX) ? true : false;
 
-  if (_rtk_fuse_sps) {
+  if (_rtk_fuse_sps_) {
     if (rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::NO_FIX || rtk_local.fix_type.fix_type == mrs_msgs::RtkFixType::UNKNOWN) {
       ROS_WARN_THROTTLE(1.0, "RTK fix type: NO_FIX. Not fusing RTK.");
       return;
@@ -6212,20 +6211,20 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   }
 
   // | ------------- offset the rtk to local_origin ------------- |
-  rtk_local.pose.pose.position.x -= utm_origin_x_;
-  rtk_local.pose.pose.position.y -= utm_origin_y_;
+  rtk_local.pose.pose.position.x -= _utm_origin_x_;
+  rtk_local.pose.pose.position.y -= _utm_origin_y_;
   rtk_local.pose.pose.position.z -= rtk_local_origin_z_;
 
-  rtk_local.header.frame_id = uav_name + "/rtk_origin";
+  rtk_local.header.frame_id = _uav_name_ + "/rtk_origin";
 
   // | ------------------ publish the rtk local ----------------- |
   mrs_msgs::RtkGps rtk_local_out = rtk_local;
 
   try {
-    pub_rtk_local.publish(rtk_local_out);
+    pub_rtk_local_.publish(rtk_local_out);
   }
   catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local.getTopic().c_str());
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_.getTopic().c_str());
   }
   // | ------------- publish the rtk local odometry ------------- |
   {
@@ -6236,14 +6235,14 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_local_odom.twist  = rtk_local.twist;
 
     try {
-      pub_rtk_local_odom.publish(rtk_local_odom);
+      pub_rtk_local_odom_.publish(rtk_local_odom);
     }
     catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom.getTopic().c_str());
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom_.getTopic().c_str());
     }
   }
 
-  if (_rtk_available) {
+  if (_rtk_available_) {
     if (!std::isfinite(rtk_local.pose.pose.position.x) || !std::isfinite(rtk_local.pose.pose.position.y)) {
 
       ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in variable \"rtk_local.pose.pose.position.x\" or \"rtk_local.pose.pose.position.y\" (rtk)!!!");
@@ -6292,12 +6291,12 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"x_rtk\", setting it to 0 and returning!!!");
       return;
     }
-    if (x_correction > max_rtk_pos_correction) {
-      x_correction = max_rtk_pos_correction;
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, max_rtk_pos_correction);
-    } else if (x_correction < -max_rtk_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, -max_rtk_pos_correction);
-      x_correction = -max_rtk_pos_correction;
+    if (x_correction > _max_rtk_pos_correction_) {
+      x_correction = _max_rtk_pos_correction_;
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, _max_rtk_pos_correction_);
+    } else if (x_correction < -_max_rtk_pos_correction_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, -_max_rtk_pos_correction_);
+      x_correction = -_max_rtk_pos_correction_;
     }
 
     // Y position
@@ -6307,12 +6306,12 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"y_rtk\", setting it to 0 and returning!!!");
       return;
     }
-    if (y_correction > max_rtk_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, max_rtk_pos_correction);
-      y_correction = max_rtk_pos_correction;
-    } else if (y_correction < -max_rtk_pos_correction) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, -max_rtk_pos_correction);
-      y_correction = -max_rtk_pos_correction;
+    if (y_correction > _max_rtk_pos_correction_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, _max_rtk_pos_correction_);
+      y_correction = _max_rtk_pos_correction_;
+    } else if (y_correction < -_max_rtk_pos_correction_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, -_max_rtk_pos_correction_);
+      y_correction = -_max_rtk_pos_correction_;
     }
     /* } */
 
@@ -6321,7 +6320,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     {
       std::scoped_lock lock(mutex_rtk_est);
 
-      estimator_rtk->setMeasurement(rtk_meas, Q_lat_rtk);
+      estimator_rtk->setMeasurement(rtk_meas, _Q_lat_rtk_);
       estimator_rtk->doCorrection();
     }
     //}
@@ -6338,7 +6337,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
 void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVioOdometry");
@@ -6440,7 +6439,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   // Fuse vio measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
       vio_altitude_ok = false;
@@ -6527,12 +6526,12 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         vio_pos_x = 0;
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
         return;
-      } else if (innovation(0) > max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), max_vio_pos_correction);
-        vio_pos_x = pos_vec(0) + max_vio_pos_correction;
-      } else if (innovation(0) < -max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), -max_vio_pos_correction);
-        vio_pos_x = pos_vec(0) - max_vio_pos_correction;
+      } else if (innovation(0) > _max_vio_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), _max_vio_pos_correction_);
+        vio_pos_x = pos_vec(0) + _max_vio_pos_correction_;
+      } else if (innovation(0) < -_max_vio_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), -_max_vio_pos_correction_);
+        vio_pos_x = pos_vec(0) - _max_vio_pos_correction_;
       }
 
       // Y position
@@ -6540,12 +6539,12 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
         vio_pos_y = 0;
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
         return;
-      } else if (innovation(1) > max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), max_vio_pos_correction);
-        vio_pos_y = pos_vec(1) + max_vio_pos_correction;
-      } else if (innovation(1) < -max_vio_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), -max_vio_pos_correction);
-        vio_pos_y = pos_vec(1) - max_vio_pos_correction;
+      } else if (innovation(1) > _max_vio_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), _max_vio_pos_correction_);
+        vio_pos_y = pos_vec(1) + _max_vio_pos_correction_;
+      } else if (innovation(1) < -_max_vio_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), -_max_vio_pos_correction_);
+        vio_pos_y = pos_vec(1) - _max_vio_pos_correction_;
       }
 
       // Set innoation variable if ccurnet estimator is VIO
@@ -6580,7 +6579,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVslamPose");
@@ -6675,12 +6674,12 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
         vslam_pos_x = 0;
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_x\", setting it to 0 and returning!!!");
         return;
-      } else if (innovation(0) > max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), max_vslam_pos_correction);
-        vslam_pos_x = pos_vec(0) + max_vslam_pos_correction;
-      } else if (innovation(0) < -max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), -max_vslam_pos_correction);
-        vslam_pos_x = pos_vec(0) - max_vslam_pos_correction;
+      } else if (innovation(0) > _max_vslam_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), _max_vslam_pos_correction_);
+        vslam_pos_x = pos_vec(0) + _max_vslam_pos_correction_;
+      } else if (innovation(0) < -_max_vslam_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), -_max_vslam_pos_correction_);
+        vslam_pos_x = pos_vec(0) - _max_vslam_pos_correction_;
       }
 
       // Y position
@@ -6688,12 +6687,12 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
         vslam_pos_y = 0;
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_y\", setting it to 0 and returning!!!");
         return;
-      } else if (innovation(1) > max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), max_vslam_pos_correction);
-        vslam_pos_y = pos_vec(1) + max_vslam_pos_correction;
-      } else if (innovation(1) < -max_vslam_pos_correction) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), -max_vslam_pos_correction);
-        vslam_pos_y = pos_vec(1) - max_vslam_pos_correction;
+      } else if (innovation(1) > _max_vslam_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), _max_vslam_pos_correction_);
+        vslam_pos_y = pos_vec(1) + _max_vslam_pos_correction_;
+      } else if (innovation(1) < -_max_vslam_pos_correction_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), -_max_vslam_pos_correction_);
+        vslam_pos_y = pos_vec(1) - _max_vslam_pos_correction_;
       }
 
       // Set innoation variable if ccurnet estimator is VSLAM
@@ -6731,7 +6730,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
 
 void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackBrickPose");
@@ -6956,7 +6955,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   // Fuse brick measurement for each altitude estimator
   if (fuse_brick_height && brick_reliable) {
     for (auto &estimator : m_altitude_estimators) {
-      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
       if (!estimator.second->getStates(current_altitude)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
         return;
@@ -7032,7 +7031,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
 void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackLidarOdom");
@@ -7106,7 +7105,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     vel_lidar_y = lidar_odom.twist.twist.linear.y;
   }
 
-  if (_lidar_vel_median_filter) {
+  if (_lidar_vel_median_filter_) {
 
     if (!lidar_vel_filter_x->isValid(vel_lidar_x)) {
 
@@ -7189,7 +7188,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
 
 void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackHectorPose");
@@ -7342,7 +7341,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
 void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTowerPose");
@@ -7489,7 +7488,7 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
 void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAloamOdom");
@@ -7556,7 +7555,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   // Fuse vio measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
       aloam_height_ok = false;
@@ -7656,7 +7655,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
 void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
@@ -7705,14 +7704,14 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
   // non-positive measurements check
-  if (range_garmin_tmp.range < garmin_min_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", range_garmin_tmp.range, garmin_min_altitude);
+  if (range_garmin_tmp.range < _garmin_min_altitude_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f < %f. Not fusing.", range_garmin_tmp.range, _garmin_min_altitude_);
     return;
   }
 
   // max value of measurements check
-  if (range_garmin_tmp.range > garmin_max_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_altitude: %f. Not fusing.", range_garmin_tmp.range, garmin_max_altitude);
+  if (range_garmin_tmp.range > _garmin_max_altitude_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f > max_altitude: %f. Not fusing.", range_garmin_tmp.range, _garmin_max_altitude_);
     return;
   }
 
@@ -7763,7 +7762,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   catch (tf2::TransformException &ex) {
     ROS_WARN_ONCE("Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
                   range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
-    range_fcu = range_garmin_tmp.range + garmin_z_offset_;
+    range_fcu = range_garmin_tmp.range + _garmin_z_offset_;
   }
 
   double measurement;
@@ -7783,7 +7782,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_estimator_height_);
 
-    sc_height_ = estimator_height_->correct(sc_height_, z, R_height_);
+    sc_height_ = estimator_height_->correct(sc_height_, z, _R_height_);
   }
 
   //////////////////// Filter out garmin measurement ////////////////////
@@ -7803,7 +7802,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   // Fuse garmin measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
       return;
@@ -7817,10 +7816,10 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     if (!std::isfinite(correction)) {
       correction = 0;
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in Garmin variable \"correction\", setting it to 0!!!");
-    } else if (correction > max_altitude_correction_) {
-      correction = max_altitude_correction_;
-    } else if (correction < -max_altitude_correction_) {
-      correction = -max_altitude_correction_;
+    } else if (correction > _max_altitude_correction_) {
+      correction = _max_altitude_correction_;
+    } else if (correction < -_max_altitude_correction_) {
+      correction = -_max_altitude_correction_;
     } else if (saturate_garmin_corrections_) {
       saturate_garmin_corrections_ = false;
       ROS_INFO("[Odometry]: Saturating garmin corrections: false");
@@ -7853,7 +7852,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
 void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackSonar");
@@ -7914,7 +7913,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     catch (tf2::TransformException &ex) {
       ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
                         range_sonar.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
-      range_fcu = range_sonar.range + sonar_z_offset_;
+      range_fcu = range_sonar.range + _sonar_z_offset_;
     }
   }
 
@@ -7950,8 +7949,8 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  if (measurement > sonar_max_valid_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f > %f. Not fusing.", measurement, sonar_max_valid_altitude);
+  if (measurement > _sonar_max_valid_altitude_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f > %f. Not fusing.", measurement, _sonar_max_valid_altitude_);
     return;
   }
 
@@ -7962,7 +7961,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
 
   // Fuse sonar measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
       return;
@@ -7976,10 +7975,10 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     if (!std::isfinite(correction)) {
       correction = 0;
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in sonar variable \"correction\", setting it to 0!!!");
-    } else if (correction > max_altitude_correction_) {
-      correction = max_altitude_correction_;
-    } else if (correction < -max_altitude_correction_) {
-      correction = -max_altitude_correction_;
+    } else if (correction > _max_altitude_correction_) {
+      correction = _max_altitude_correction_;
+    } else if (correction < -_max_altitude_correction_) {
+      correction = -_max_altitude_correction_;
     }
 
     // set the measurement vector
@@ -8006,7 +8005,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
 
 void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPlane");
@@ -8060,14 +8059,14 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  if (measurement > _max_plane_altitude) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not reliable.", measurement, _max_plane_altitude);
+  if (measurement > _max_plane_altitude_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f > %f. Not reliable.", measurement, _max_plane_altitude_);
     return;
   }
 
   // Fuse plane measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
-    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+    Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
     if (!estimator.second->getStates(current_altitude)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
       return;
@@ -8097,7 +8096,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
 
 void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkUtm");
@@ -8128,11 +8127,11 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
   nav_msgs::Odometry gps_local_odom;
   gps_local_odom.header          = msg->header;
-  gps_local_odom.header.frame_id = uav_name + "/gps_origin";
+  gps_local_odom.header.frame_id = _uav_name_ + "/gps_origin";
 
   // | ------------- offset the gps to local_origin ------------- |
-  gps_local_odom.pose.pose.position.x = pixhawk_utm_position_x - utm_origin_x_;
-  gps_local_odom.pose.pose.position.y = pixhawk_utm_position_y - utm_origin_y_;
+  gps_local_odom.pose.pose.position.x = pixhawk_utm_position_x - _utm_origin_x_;
+  gps_local_odom.pose.pose.position.y = pixhawk_utm_position_y - _utm_origin_y_;
 
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
@@ -8147,10 +8146,10 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
     std::scoped_lock lock(mutex_gps_local_odom);
 
     try {
-      pub_gps_local_odom.publish(gps_local_odom);
+      pub_gps_local_odom_.publish(gps_local_odom);
     }
     catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_gps_local_odom.getTopic().c_str());
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_gps_local_odom_.getTopic().c_str());
     }
   }
 }
@@ -8161,7 +8160,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
 void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnosticsConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackControlManagerDiag");
@@ -8171,7 +8170,7 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   control_manager_diag_     = *msg;
   got_control_manager_diag_ = true;
 
-  if (uav_in_the_air && control_manager_diag.active_tracker == null_tracker_) {
+  if (uav_in_the_air && control_manager_diag.active_tracker == _null_tracker_) {
 
     // save the current position
     Vec2 pose;
@@ -8181,7 +8180,7 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
     land_position_set = true;
 
     uav_in_the_air = false;
-  } else if (!uav_in_the_air && control_manager_diag.active_tracker != null_tracker_) {
+  } else if (!uav_in_the_air && control_manager_diag.active_tracker != _null_tracker_) {
     uav_in_the_air = true;
   }
 }
@@ -8190,16 +8189,16 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
 /* //{ callbackUavMassEstimate() */
 void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackUavMassEstimate");
 
   {
-    std::scoped_lock lock(mutex_uav_mass_estimate);
+    std::scoped_lock lock(mutex_uav_mass_estimate_);
 
-    uav_mass_estimate = msg->data;
+    _uav_mass_estimate_ = msg->data;
   }
 }
 //}
@@ -8207,7 +8206,7 @@ void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
 /* //{ callbackGPSCovariance() */
 void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (!_gps_fallback_allowed_)
@@ -8240,7 +8239,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
     // Fallback to optflow
     if (_gps_fallback_estimator_ == "OPTFLOW") {
 
-      if (_optflow_available && got_optflow) {
+      if (_optflow_available_ && got_optflow) {
         ROS_WARN_THROTTLE(1.0, "Fallback to %s initiated.", _gps_fallback_estimator_.c_str());
 
         // Disable odometry service callbacks
@@ -8256,7 +8255,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
         callDisableControlCallbacks();
 
         // Get current altitude
-        Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+        Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
         double          have_alt         = false;
         {
           std::scoped_lock lock(mutex_altitude_estimator);
@@ -8393,7 +8392,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
 /* //{ callbackGroundTruth() */
 void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGroundTruth");
@@ -8424,7 +8423,7 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
 /* //{ callbackT265Odometry() */
 void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackT265Odometry");
@@ -8516,9 +8515,9 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     vel_z = (odom_t265.pose.pose.position.z - odom_t265_previous.pose.pose.position.z) / dt;
   }
 
-  if (vel_x > _max_t265_vel || vel_y > _max_t265_vel || vel_z > _max_t265_vel) {
+  if (vel_x > _max_t265_vel_ || vel_y > _max_t265_vel_ || vel_z > _max_t265_vel_) {
     t265_reliable = false;
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 velocity: x: %f, y: %f, z: %f, exceeded %f m/s", vel_x, vel_y, vel_z, _max_t265_vel);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: T265 velocity: x: %f, y: %f, z: %f, exceeded %f m/s", vel_x, vel_y, vel_z, _max_t265_vel_);
     return;
   }
 
@@ -8574,7 +8573,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_main = odom_t265;
     }
 
-    odom_main.header.frame_id = uav_name + "/" + toLowercase(current_estimator_name) + "_origin";
+    odom_main.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
     odom_main.child_frame_id  = fcu_frame_id_;
     odom_main.header.stamp    = ros::Time::now();
 
@@ -8653,7 +8652,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
 
 bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -8741,7 +8740,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     return true;
   }
 
-  desired_hdg_estimator.name = _heading_estimators_names[desired_hdg_estimator.type];
+  desired_hdg_estimator.name = _heading_estimators_names_[desired_hdg_estimator.type];
 
   bool success_hdg = false;
 
@@ -8757,7 +8756,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     success_hdg = changeCurrentHeadingEstimator(desired_hdg_estimator);
   }
 
-  desired_estimator.name = _state_estimators_names[desired_estimator.type];
+  desired_estimator.name = _state_estimators_names_[desired_estimator.type];
 
   bool success = false;
 
@@ -8781,7 +8780,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     return true;
   }
 
-  desired_alt_estimator.name = _altitude_estimators_names[desired_alt_estimator.type];
+  desired_alt_estimator.name = _altitude_estimators_names_[desired_alt_estimator.type];
 
   bool success_alt = false;
   if (toUppercase(current_alt_estimator_name) == toUppercase(desired_alt_estimator.name)) {
@@ -8809,7 +8808,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
 
 bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, mrs_msgs::ChangeEstimator::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -8838,7 +8837,7 @@ bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, 
 
     mrs_msgs::EstimatorType desired_estimator;
     desired_estimator.type = req.estimator_type.type;
-    desired_estimator.name = _state_estimators_names[desired_estimator.type];
+    desired_estimator.name = _state_estimators_names_[desired_estimator.type];
     success                = changeCurrentEstimator(desired_estimator);
   }
 
@@ -8861,7 +8860,7 @@ bool Odometry::callbackChangeEstimator(mrs_msgs::ChangeEstimator::Request &req, 
 
 bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -8919,7 +8918,7 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
   }
 
   bool success           = false;
-  desired_estimator.name = _state_estimators_names[desired_estimator.type];
+  desired_estimator.name = _state_estimators_names_[desired_estimator.type];
 
   if (toUppercase(current_estimator_name) == toUppercase(desired_estimator.name)) {
 
@@ -8949,7 +8948,7 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
 
 bool Odometry::callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request &req, mrs_msgs::ChangeHdgEstimator::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -8978,7 +8977,7 @@ bool Odometry::callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request 
 
     mrs_msgs::HeadingType desired_estimator;
     desired_estimator.type = req.estimator_type.type;
-    desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
     success                = changeCurrentHeadingEstimator(desired_estimator);
   }
 
@@ -9001,7 +9000,7 @@ bool Odometry::callbackChangeHdgEstimator(mrs_msgs::ChangeHdgEstimator::Request 
 
 bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9056,7 +9055,7 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     return true;
   }
 
-  desired_estimator.name = _heading_estimators_names[desired_estimator.type];
+  desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
 
   if (toUppercase(current_hdg_estimator_name) == toUppercase(desired_estimator.name)) {
 
@@ -9087,7 +9086,7 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
 
 bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request &req, mrs_msgs::ChangeAltEstimator::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9116,7 +9115,7 @@ bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request 
 
     mrs_msgs::AltitudeType desired_estimator;
     desired_estimator.type = req.estimator_type.type;
-    desired_estimator.name = _altitude_estimators_names[desired_estimator.type];
+    desired_estimator.name = _altitude_estimators_names_[desired_estimator.type];
     success                = changeCurrentAltitudeEstimator(desired_estimator);
   }
 
@@ -9139,7 +9138,7 @@ bool Odometry::callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request 
 
 bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9180,7 +9179,7 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     return true;
   }
 
-  desired_estimator.name = _altitude_estimators_names[desired_estimator.type];
+  desired_estimator.name = _altitude_estimators_names_[desired_estimator.type];
 
   if (toUppercase(current_alt_estimator_name) == toUppercase(desired_estimator.name)) {
 
@@ -9211,7 +9210,7 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
 
 bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9251,7 +9250,7 @@ bool Odometry::callbackToggleGarmin(std_srvs::SetBool::Request &req, std_srvs::S
 
 bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9289,8 +9288,8 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
         states(0, 1) = odom_pixhawk_shifted.pose.pose.position.y;
         ROS_INFO("[Odometry]: Resetting estimators to pijhawk shifted odom x: %f y: %f", states(0, 0), states(0, 1));
       } else {
-        states(0, 0) = local_origin_x_;
-        states(0, 1) = local_origin_y_;
+        states(0, 0) = _local_origin_x_;
+        states(0, 1) = _local_origin_y_;
         ROS_INFO("[Odometry]: Resetting estimators to local_origin x: %f y: %f", states(0, 0), states(0, 1));
       }
 
@@ -9354,7 +9353,7 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
 
 bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9448,7 +9447,7 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
 
 bool Odometry::callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9473,10 +9472,10 @@ bool Odometry::callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Reques
 
 bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
-  if (!simulation_)
+  if (!_simulation_)
     return false;
 
   if (!callbacks_enabled_) {
@@ -9509,7 +9508,7 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
 
 bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return false;
 
   callbacks_enabled_ = req.data;
@@ -9534,7 +9533,7 @@ bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs
 /* //{ callbackReconfigure() */
 void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (!callbacks_enabled_) {
@@ -9662,7 +9661,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynpa
 
 void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt) {
 
-  if (!is_initialized)
+  if (!is_initialized_)
     return;
 
   if (!got_fcu_untilted_) {
@@ -10004,7 +10003,7 @@ void Odometry::rotateLateralStates(const double yaw_new, const double yaw_old) {
     }
 
     LatState2D new_state;
-    for (int i = 0; i < lateral_n; i++) {
+    for (int i = 0; i < _lateral_n_; i++) {
       new_state(i, 0) = old_state(i, 0) * cy - old_state(i, 1) * sy;
       new_state(i, 1) = old_state(i, 0) * sy + old_state(i, 1) * cy;
     }
@@ -10068,7 +10067,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   mrs_msgs::EstimatorType target_estimator = desired_estimator;
   target_estimator.name                    = _estimator_type_names[target_estimator.type];
 
-  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+  Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
   {
     std::scoped_lock lock(mutex_altitude_estimator);
     if (isUavFlying() && !current_alt_estimator->getStates(current_altitude)) {
@@ -10086,29 +10085,29 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   // Optic flow type
   if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOW) {
 
-    if (!_optflow_available) {
+    if (!_optflow_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Optic flow not available in this world.");
       return false;
     }
 
-    if (!got_optflow && is_ready_to_takeoff) {
+    if (!got_optflow && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. No new optic flow msgs received.");
       return false;
     }
 
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_optflow_altitude) {
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_optflow_altitude_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOW type. Current altitude %f. Must descend to %f.",
-                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_optflow_altitude);
+                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_optflow_altitude_);
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_optflow_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_optflow_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_optflow_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_optflow_altitude_);
 
     // Mavros GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::GPS) {
 
-    if (!_gps_available) {
+    if (!_gps_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to GPS type. GPS signal not available in this world.");
       return false;
     }
@@ -10118,29 +10117,29 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // Optic flow + Mavros GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::OPTFLOWGPS) {
 
-    if (!_optflow_available) {
+    if (!_optflow_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Optic flow not available in this world.");
       return false;
     }
 
-    if (!got_optflow && is_ready_to_takeoff) {
+    if (!got_optflow && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. No new optic flow msgs received.");
       return false;
     }
 
-    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_optflow_altitude) {
+    if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_optflow_altitude_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. Current altitude %f. Must descend to %f.",
-                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_optflow_altitude);
+                current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_optflow_altitude_);
       return false;
     }
 
-    if (!_gps_available) {
+    if (!_gps_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to OPTFLOWGPS type. GPS signal not available in this world.");
       return false;
     }
@@ -10150,23 +10149,23 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // RTK GPS type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::RTK) {
 
-    if (!_rtk_available) {
+    if (!_rtk_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to RTK type. RTK signal not available in this world.");
       return false;
     }
 
-    if (!got_rtk && is_ready_to_takeoff) {
+    if (!got_rtk && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to RTK type. No new rtk msgs received.");
       return false;
     }
 
-    if (!_gps_available) {
+    if (!_gps_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to RTK type. GPS signal not available in this world.");
       return false;
     }
@@ -10176,18 +10175,18 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // T265 type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::T265) {
 
-    if (!_t265_available) {
+    if (!_t265_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to T265 type. T265 not available in this world.");
       return false;
     }
 
-    if (!got_odom_t265 && is_ready_to_takeoff) {
+    if (!got_odom_t265 && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to T265 type. No new T265 odom msgs received.");
       return false;
     }
@@ -10197,137 +10196,137 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // LIDAR localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::LIDAR) {
 
-    if (!_lidar_available) {
+    if (!_lidar_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. Lidar localization not available in this world.");
       return false;
     }
 
-    if (!got_lidar_odom && is_ready_to_takeoff) {
+    if (!got_lidar_odom && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. No new lidar odom msgs received.");
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // Hector SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::HECTOR) {
 
-    if (!_lidar_available) {
+    if (!_lidar_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. Lidar localization not available in this world.");
       return false;
     }
 
-    if (!got_hector_pose && is_ready_to_takeoff) {
+    if (!got_hector_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
       return false;
     }
 
     hector_reliable = true;
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // TOWER localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::TOWER) {
 
-    if (!_lidar_available) {
+    if (!_lidar_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to TOWER type. Lidar localization not available in this world.");
       return false;
     }
 
-    if (!got_tower_pose && is_ready_to_takeoff) {
+    if (!got_tower_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to TOWER type. No new tower msgs received.");
       return false;
     }
 
     tower_reliable = true;
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // ALOAM SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAM) {
 
-    if (!_aloam_available) {
+    if (!_aloam_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to ALOAM type. Lidar localization not available in this world.");
       return false;
     }
 
-    if (!got_aloam_odom && is_ready_to_takeoff) {
+    if (!got_aloam_odom && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to ALOAM type. No new aloam msgs received.");
       return false;
     }
 
     aloam_reliable = true;
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // ICP localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
-    if (!_lidar_available) {
+    if (!_lidar_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to ICP type. ICP localization not available in this world.");
       return false;
     }
 
-    if (!got_icp_twist && is_ready_to_takeoff) {
+    if (!got_icp_twist && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to ICP type. No new ICP stmsgs received.");
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // Vio localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VIO) {
 
-    if (!_vio_available) {
+    if (!_vio_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to VIO type. Visual odometry not available in this world.");
       return false;
     }
 
-    if (!got_vio && is_ready_to_takeoff) {
+    if (!got_vio && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to VIO type. No new vio msgs received.");
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // VSLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::VSLAM) {
 
-    if (!_vslam_available) {
+    if (!_vslam_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to VSLAM type. Visual odometry not available in this world.");
       return false;
     }
 
-    if (!got_vslam && is_ready_to_takeoff) {
+    if (!got_vslam && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to VSLAM type. No new VSLAM msgs received.");
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // brick localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICK) {
 
 
-    if (!_brick_available) {
+    if (!_brick_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. brick odometry not available in this world.");
       return false;
     }
 
-    if (!got_brick_pose && is_ready_to_takeoff) {
+    if (!got_brick_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. No new brick msgs received.");
       return false;
     }
@@ -10343,29 +10342,29 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       ROS_INFO("[Odometry]: Fallback from BRICK estimator: %s", _estimator_type.name.c_str());
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // Brick flow type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::BRICKFLOW) {
 
-    if (!_optflow_available) {
+    if (!_optflow_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICKFLOW type. Optic flow not available in this world.");
       return false;
     }
 
-    if (!got_optflow && is_ready_to_takeoff) {
+    if (!got_optflow && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICKFLOW type. No new optic flow msgs received.");
       return false;
     }
 
-    if (current_altitude(2) > _max_optflow_altitude) {
-      ROS_ERROR("[Odometry]: Cannot transition to BRICKFLOW type. Current altitude %f. Must descend to %f.", current_altitude(2), _max_optflow_altitude);
+    if (current_altitude(2) > _max_optflow_altitude_) {
+      ROS_ERROR("[Odometry]: Cannot transition to BRICKFLOW type. Current altitude %f. Must descend to %f.", current_altitude(2), _max_optflow_altitude_);
       return false;
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
     // Mavros GPS type
   } else {
@@ -10375,7 +10374,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   }
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _active_state_estimators_names)) {
+  if (stringInVector(target_estimator.name, _active_state_estimators_names_)) {
 
     {
       std::scoped_lock lock(mutex_current_estimator);
@@ -10425,12 +10424,12 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   if (target_estimator.type == mrs_msgs::AltitudeType::BRICK) {
 
-    if (!_brick_available) {
+    if (!_brick_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Bricks not available in this world.");
       return false;
     }
 
-    if (!got_brick_pose && is_ready_to_takeoff) {
+    if (!got_brick_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK type. No new brick msgs received.");
       return false;
     }
@@ -10438,7 +10437,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     if (isUavFlying()) {
 
       // update the altitude state
-      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         if (!current_alt_estimator->getStates(current_altitude)) {
@@ -10446,15 +10445,15 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
           return false;
         }
       }
-      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude) {
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude_) {
         ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.",
-                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_brick_altitude);
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_brick_altitude_);
         return false;
       }
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_brick_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_brick_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_brick_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_brick_altitude_);
   }
 
   //}
@@ -10463,14 +10462,14 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   if (target_estimator.type == mrs_msgs::AltitudeType::PLANE) {
 
-    if (!got_plane && is_ready_to_takeoff) {
+    if (!got_plane && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to PLANE type. No new plane msgs received.");
       return false;
     }
 
     if (isUavFlying()) {
       // update the altitude state
-      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(altitude_n, 1);
+      Eigen::MatrixXd current_altitude = Eigen::MatrixXd::Zero(_altitude_n_, 1);
       {
         std::scoped_lock lock(mutex_altitude_estimator);
         if (!current_alt_estimator->getStates(current_altitude)) {
@@ -10478,21 +10477,21 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
           return false;
         }
       }
-      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude) {
+      if (current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude_) {
         ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.",
-                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_plane_altitude);
+                  current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT), _max_plane_altitude_);
         return false;
       }
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_plane_altitude, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_plane_altitude);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_plane_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_plane_altitude_);
   }
 
   //}
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _altitude_estimators_names)) {
+  if (stringInVector(target_estimator.name, _altitude_estimators_names_)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator);
 
@@ -10543,12 +10542,12 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
   // brick heading type
   if (target_estimator.type == mrs_msgs::HeadingType::BRICK && _hdg_estimator_type.type != mrs_msgs::HeadingType::BRICK) {
 
-    if (!_brick_available) {
+    if (!_brick_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK heading type. brick odometry not available in this world.");
       return false;
     }
 
-    if (!got_brick_pose && is_ready_to_takeoff) {
+    if (!got_brick_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to BRICK heading type. No new brick msgs received.");
       return false;
     }
@@ -10564,19 +10563,19 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
     // Hector SLAM localization type
   } else if (target_estimator.type == mrs_msgs::HeadingType::HECTOR) {
 
-    if (!_lidar_available) {
+    if (!_lidar_available_) {
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. Lidar localization not available in this world.");
       return false;
     }
 
-    if (!got_hector_pose && is_ready_to_takeoff) {
+    if (!got_hector_pose && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
       return false;
     }
   }
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _active_heading_estimators_names)) {
-    if (is_initialized) {
+  if (stringInVector(target_estimator.name, _active_heading_estimators_names_)) {
+    if (is_initialized_) {
 
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -10855,8 +10854,8 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
     {
       std::scoped_lock lock(mutex_odom_pixhawk, mutex_pixhawk_utm_position);
 
-      pixhawk_odom_offset_x = (pixhawk_utm_position_x - odom_pixhawk.pose.pose.position.x) - utm_origin_x_;
-      pixhawk_odom_offset_y = (pixhawk_utm_position_y - odom_pixhawk.pose.pose.position.y) - utm_origin_y_;
+      pixhawk_odom_offset_x = (pixhawk_utm_position_x - odom_pixhawk.pose.pose.position.x) - _utm_origin_x_;
+      pixhawk_odom_offset_y = (pixhawk_utm_position_y - odom_pixhawk.pose.pose.position.y) - _utm_origin_y_;
     }
 
     ROS_INFO("[Odometry]: pixhawk_odom_offset based in local_utm calculated as: x: %f, y: %f", pixhawk_odom_offset_x, pixhawk_odom_offset_y);
@@ -10870,8 +10869,8 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
 
-      pixhawk_odom_offset_x = local_origin_x_ - odom_pixhawk.pose.pose.position.x;
-      pixhawk_odom_offset_y = local_origin_y_ - odom_pixhawk.pose.pose.position.y;
+      pixhawk_odom_offset_x = _local_origin_x_ - odom_pixhawk.pose.pose.position.x;
+      pixhawk_odom_offset_y = _local_origin_y_ - odom_pixhawk.pose.pose.position.y;
     }
 
     ROS_INFO("[Odometry]: pixhawk_odom_offset based in local_origin calculated as: x: %f, y: %f", pixhawk_odom_offset_x, pixhawk_odom_offset_y);
