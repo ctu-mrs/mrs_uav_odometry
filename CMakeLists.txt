@@ -65,7 +65,6 @@ target_link_libraries(Odometry
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   ${Eigen_LIBRARIES}
-  stddev_buffer
   )
 
 ## Add configure headers for dynamic reconfigure
