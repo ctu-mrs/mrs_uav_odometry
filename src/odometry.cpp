@@ -838,8 +838,6 @@ private:
   int                                                       current_altitude_type;
 
   // State estimation
-  int                                                    _n_model_states_;
-  int                                                    _n_model_states__rtk;
   std::vector<std::string>                               _state_estimators_names_;
   std::vector<std::string>                               _active_state_estimators_names_;
   std::vector<std::string>                               _model_state_names_;
@@ -870,9 +868,19 @@ private:
   int                           _lateral_n_, _lateral_m_, _lateral_p_;
   LatMat                        _A_lat_, _R_lat_;
   LatStateCol1D                 _B_lat_;
-  Eigen::MatrixXd               _A_lat_rtk_, _B_lat_rtk_, _R_lat_rtk_, _Q_lat_rtk_, _P_lat_rtk_;
-  std::shared_ptr<mrs_lib::Lkf> estimator_rtk;
-  std::mutex                    mutex_rtk_est;
+
+  // RTK LKF
+  using lkf_rtk_t = mrs_lib::LKF<2, 2, 2>;
+  lkf_rtk_t::A_t _A_lat_rtk_; 
+  lkf_rtk_t::B_t _B_lat_rtk_;
+  lkf_rtk_t::H_t _H_lat_rtk_;
+  lkf_rtk_t::R_t _R_lat_rtk_;
+  lkf_rtk_t::Q_t _Q_lat_rtk_; 
+  lkf_rtk_t::P_t _P_lat_rtk_;
+  lkf_rtk_t::statecov_t sc_lat_rtk_;
+
+  std::shared_ptr<lkf_rtk_t>    estimator_rtk_;
+  std::mutex                    mutex_rtk_est_;
 
   bool got_home_position_fix = false;
   bool calculatePixhawkOdomOffset(void);
@@ -967,7 +975,7 @@ private:
   void       auxTimer(const ros::TimerEvent &event);
 
 private:
-  mrs_lib::Profiler *profiler;
+  mrs_lib::Profiler profiler_;
   bool               _profiler_enabled_ = false;
 
   // --------------------------------------------------------------
@@ -1229,7 +1237,7 @@ void Odometry::onInit() {
   param_loader.loadParam("use_utm_origin", _use_utm_origin_);
 
   // Load UTM origin either in UTM or LatLon units
-  param_loader.loadParam("_utm_origin_units_", _utm_origin_units_);
+  param_loader.loadParam("utm_origin_units", _utm_origin_units_);
   if (_utm_origin_units_ == 0) {
     ROS_INFO("[Odometry]: Loading UTM origin in UTM units.");
     param_loader.loadParam("utm_origin_x", _utm_origin_x_);
@@ -1432,7 +1440,6 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/numberOfInputs", _lateral_m_);
   param_loader.loadParam("lateral/numberOfMeasurements", _lateral_p_);
 
-  param_loader.loadParam("state_estimators/n_model_states", _n_model_states_);
   param_loader.loadParam("state_estimators/state_estimators", _state_estimators_names_);
   param_loader.loadParam("state_estimators/active", _active_state_estimators_names_);
   param_loader.loadParam("state_estimators/model_states", _model_state_names_);
@@ -1441,11 +1448,11 @@ void Odometry::onInit() {
   param_loader.loadMatrixStatic("lateral/B", _B_lat_);
   param_loader.loadMatrixStatic("lateral/R", _R_lat_);
 
-  param_loader.loadMatrixDynamic("lateral/rtk/A", _A_lat_rtk_, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/B", _B_lat_rtk_, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/R", _R_lat_rtk_, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/Q", _Q_lat_rtk_, 2, 2);
-  param_loader.loadMatrixDynamic("lateral/rtk/P", _P_lat_rtk_, 2, 2);
+  param_loader.loadMatrixStatic("lateral/rtk/A", _A_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/B", _B_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/R", _R_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/Q", _Q_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/P", _P_lat_rtk_);
   param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
   param_loader.loadParam("lateral/brick_timeout", _brick_timeout_);
@@ -1623,11 +1630,17 @@ void Odometry::onInit() {
       }
     }
 
-    // Add pointer to state estimator to array
+    // Add state estimator to array
     m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
         *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _A_lat_, _B_lat_, _R_lat_, P_arr_lat, Q_arr_lat)));
 
-    estimator_rtk = std::make_shared<mrs_lib::Lkf>(2, 2, 2, _A_lat_rtk_, _B_lat_rtk_, _R_lat_rtk_, _Q_lat_rtk_, _P_lat_rtk_);
+    estimator_rtk_ = std::make_shared<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
+
+  const lkf_rtk_t::x_t x0 = lkf_rtk_t::x_t::Zero();
+  lkf_rtk_t::P_t P_tmp = lkf_rtk_t::P_t::Identity();
+  const lkf_rtk_t::P_t P0 = 1000.0*P_tmp*P_tmp.transpose();
+  const lkf_rtk_t::statecov_t sc0({x0, P0});
+  sc_lat_rtk_ = sc0;
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -1847,7 +1860,7 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/max_vio_pos_correction", _max_vio_pos_correction_);
   param_loader.loadParam("lateral/max_vslam_pos_correction", _max_vslam_pos_correction_);
   param_loader.loadParam("lateral/max_brick_pos_correction", _max_brick_pos_correction_);
-  param_loader.loadParam("lateral/_max_rtk_pos_correction_", _max_rtk_pos_correction_);
+  param_loader.loadParam("lateral/max_rtk_pos_correction", _max_rtk_pos_correction_);
   param_loader.loadParam("lateral/max_t265_vel", _max_t265_vel_);
   double max_safe_brick_jump_tmp = 0.0;
   param_loader.loadParam("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
@@ -1889,7 +1902,7 @@ void Odometry::onInit() {
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh, "Odometry", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(nh, "Odometry", _profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         publishers                         |
@@ -1940,6 +1953,7 @@ void Odometry::onInit() {
   pub_vio_yaw_     = nh.advertise<mrs_msgs::Float64Stamped>("vio_yaw_out", 1);
   pub_vslam_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("vslam_yaw_out", 1);
   pub_brick_yaw_   = nh.advertise<mrs_msgs::Float64Stamped>("brick_yaw_out", 1);
+
 
   // publishers for roll pitch yaw orientations in local_origin frame
   pub_des_attitude_global_ = nh.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
@@ -2028,12 +2042,13 @@ void Odometry::onInit() {
   sub_control_manager_diag_ = nh.subscribe("control_manager_diag_in", 1, &Odometry::callbackControlManagerDiag, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for uav mass estimate
-  sub_uav_mass_estimate_ = nh.subscribe("_uav_mass_estimate__in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
+  sub_uav_mass_estimate_ = nh.subscribe("uav_mass_estimate_in", 1, &Odometry::callbackUavMassEstimate, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe for gps covariance
   if (_gps_fallback_allowed_) {
     sub_gps_covariance_ = nh.subscribe("gps_covariance_in", 1, &Odometry::callbackGPSCovariance, this, ros::TransportHints().tcpNoDelay());
   }
+
   //}
 
   // --------------------------------------------------------------
@@ -2101,7 +2116,7 @@ void Odometry::onInit() {
   hector_reset_routine_timer = nh.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
-
+  
   /* check validity and set takeoff estimator //{ */
 
   // If required sensor is not available shutdown
@@ -2462,7 +2477,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", _main_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("mainTimer", _main_rate_, 0.01, event);
 
   ros::Time t_start = ros::Time::now();
 
@@ -3489,10 +3504,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (toUppercase(estimator.second->getName()) == "RTK") {
       {
-        std::scoped_lock lock(mutex_rtk_est);
+        std::scoped_lock lock(mutex_rtk_est_);
 
-        pos_vec(0) = estimator_rtk->getState(0);
-        pos_vec(1) = estimator_rtk->getState(1);
+        pos_vec(0) = sc_lat_rtk_.x(0);
+        pos_vec(1) = sc_lat_rtk_.x(1);
       }
     } else {
 
@@ -3711,8 +3726,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       state(0) = odom_pixhawk_shifted_local.pose.pose.position.x;
       state(1) = odom_pixhawk_shifted_local.pose.pose.position.y;
       {
-        std::scoped_lock lock(mutex_rtk_est);
-        estimator_rtk->setStates(state);
+        std::scoped_lock lock(mutex_rtk_est_);
+        sc_lat_rtk_.x = state;
       }
     }
 
@@ -3860,10 +3875,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (toUppercase(current_estimator_name) == "RTK") {
       {
-        std::scoped_lock lock(mutex_rtk_est);
+        std::scoped_lock lock(mutex_rtk_est_);
 
-        odom_main.pose.pose.position.x = estimator_rtk->getState(0);
-        odom_main.pose.pose.position.y = estimator_rtk->getState(1);
+        odom_main.pose.pose.position.x = sc_lat_rtk_.x(0);
+        odom_main.pose.pose.position.y = sc_lat_rtk_.x(1);
       }
       uav_state.pose.position.x = odom_main.pose.pose.position.x;
       uav_state.pose.position.y = odom_main.pose.pose.position.y;
@@ -4114,7 +4129,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("auxTimer", _aux_rate_, 0.004, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("auxTimer", _aux_rate_, 0.004, event);
 
   ros::Time t_pub = ros::Time::now();
 
@@ -4323,7 +4338,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("slowOdomTimer", _slow_odom_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("slowOdomTimer", _slow_odom_rate_, 0.01, event);
 
   nav_msgs::Odometry slow_odom;
 
@@ -4366,7 +4381,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagTimer", _diag_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagTimer", _diag_rate_, 0.01, event);
 
   static ros::Time t_start = ros::Time::now();
 
@@ -4444,7 +4459,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("lkfStatesTimer", _lkf_states_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("lkfStatesTimer", _lkf_states_rate_, 0.01, event);
 
   LatState2D states_mat;
 
@@ -4525,16 +4540,16 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
 
-  mrs_msgs::Float64Stamped max__altitude_m_sg;
-  max__altitude_m_sg.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
-  max__altitude_m_sg.header.stamp    = ros::Time::now();
+  mrs_msgs::Float64Stamped max_altitude_m_sg;
+  max_altitude_m_sg.header.frame_id = _uav_name_ + "/" + toLowercase(current_estimator_name) + "_origin";
+  max_altitude_m_sg.header.stamp    = ros::Time::now();
 
-  max__altitude_m_sg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
+  max_altitude_m_sg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
   try {
-    pub_max_altitude_.publish(max__altitude_m_sg);
+    pub_max_altitude_.publish(max_altitude_m_sg);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
@@ -4550,7 +4565,7 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("rtkRateTimer", 1, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("rtkRateTimer", 1, 0.01, event);
 
   if (got_rtk) {
 
@@ -4572,7 +4587,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
 
   ros::Duration interval;
 
@@ -4670,7 +4685,7 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
   hector_reset_routine_running_ = true;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTimerHectorResetRoutine", topic_watcher_rate_, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackTimerHectorResetRoutine", topic_watcher_rate_, 0.01, event);
 
   // Change estimator to ICP
   bool in_icp = false;
@@ -4806,7 +4821,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAttitudeCommand");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackAttitudeCommand");
 
   {
     std::scoped_lock lock(mutex_attitude_command_);
@@ -4900,7 +4915,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOdometry");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOdometry");
 
   if (got_odom_pixhawk) {
 
@@ -5205,14 +5220,19 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     Eigen::VectorXd rtk_input(2);
     rtk_input << vel_mavros_x, vel_mavros_y;
 
+    // RTK estimator prediction step
     {
-      std::scoped_lock lock(mutex_rtk_est);
+      std::scoped_lock lock(mutex_rtk_est_);
 
-      estimator_rtk->setInput(rtk_input);
-      Eigen::MatrixXd B_new(2, 2);
+      lkf_rtk_t::B_t B_new;
       B_new << dt, 0, 0, dt;
-      estimator_rtk->setB(B_new);
-      estimator_rtk->iterateWithoutCorrection();
+      estimator_rtk_->B = B_new;
+    try {
+      sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+    }
+    catch (const std::exception &e) {
+      ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+    }
     }
   }
 
@@ -5324,7 +5344,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkImu");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkImu");
 
   pixhawk_imu_last_update = ros::Time::now();
 
@@ -5465,7 +5485,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkCompassHdg");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkCompassHdg");
 
   if (!init_hdg_avg_done) {
     ROS_INFO_ONCE("[Odometry]: Averaging initial compass heading.");
@@ -5588,7 +5608,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwist");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOptflowTwist");
 
   optflow_twist_last_update = ros::Time::now();
 
@@ -5806,7 +5826,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOptflowTwistLow");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOptflowTwistLow");
 
   optflow_twist_last_update = ros::Time::now();
 
@@ -5976,7 +5996,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackICPTwist");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackICPTwist");
 
   icp_twist_last_update = ros::Time::now();
 
@@ -6120,7 +6140,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackRtk");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackRtk");
 
   mrs_msgs::RtkGps rtk_utm;
 
@@ -6278,10 +6298,10 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     double x_est;
     double y_est;
     {
-      std::scoped_lock lock(mutex_rtk_est);
+      std::scoped_lock lock(mutex_rtk_est_);
 
-      x_est = estimator_rtk->getState(0);
-      y_est = estimator_rtk->getState(1);
+      x_est = sc_lat_rtk_.x(0);
+      y_est = sc_lat_rtk_.x(1);
     }
 
     // X position
@@ -6315,13 +6335,18 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     }
     /* } */
 
-    Vec2 rtk_meas;
+    // Do RTK estimator correction
+    lkf_rtk_t::z_t rtk_meas;
     rtk_meas << x_est + x_correction, y_est + y_correction;
     {
-      std::scoped_lock lock(mutex_rtk_est);
+      std::scoped_lock lock(mutex_rtk_est_);
 
-      estimator_rtk->setMeasurement(rtk_meas, _Q_lat_rtk_);
-      estimator_rtk->doCorrection();
+      try {
+      sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _R_lat_rtk_);
+    }
+    catch (const std::exception &e) {
+      ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
+    }
     }
     //}
 
@@ -6340,7 +6365,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVioOdometry");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVioOdometry");
 
   if (got_vio) {
 
@@ -6582,7 +6607,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackVslamPose");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVslamPose");
 
   if (got_vslam) {
 
@@ -6733,7 +6758,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackBrickPose");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackBrickPose");
 
   brick_pose_last_update = ros::Time::now();
 
@@ -7034,7 +7059,7 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackLidarOdom");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackLidarOdom");
 
   lidar_odom_last_update = ros::Time::now();
 
@@ -7191,7 +7216,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackHectorPose");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackHectorPose");
 
   hector_pose_last_update = ros::Time::now();
 
@@ -7344,7 +7369,7 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackTowerPose");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackTowerPose");
 
   tower_pose_last_update = ros::Time::now();
 
@@ -7491,7 +7516,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackAloamOdom");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackAloamOdom");
 
   aloam_odom_last_update = ros::Time::now();
 
@@ -7658,7 +7683,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGarmin");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGarmin");
 
   if (got_range) {
     {
@@ -7855,7 +7880,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackSonar");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackSonar");
 
   if (got_range) {
     {
@@ -8008,7 +8033,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPlane");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPlane");
 
   if (got_plane) {
     {
@@ -8099,7 +8124,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackPixhawkUtm");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkUtm");
 
   double out_x;
   double out_y;
@@ -8163,7 +8188,7 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackControlManagerDiag");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackControlManagerDiag");
 
   auto control_manager_diag = mrs_lib::get_mutexed(mutex_control_manager_diag_, control_manager_diag_);
 
@@ -8193,7 +8218,7 @@ void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
     return;
 
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackUavMassEstimate");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackUavMassEstimate");
 
   {
     std::scoped_lock lock(mutex_uav_mass_estimate_);
@@ -8212,7 +8237,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
   if (!_gps_fallback_allowed_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGPSCovariance");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGPSCovariance");
 
   double cov_tmp = msg->pose.covariance.at(0);
 
@@ -8395,7 +8420,7 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackGroundTruth");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGroundTruth");
 
   {
     std::scoped_lock lock(mutex_ground_truth);
@@ -8426,7 +8451,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackT265Odometry");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackT265Odometry");
 
   if (got_odom_t265) {
 
