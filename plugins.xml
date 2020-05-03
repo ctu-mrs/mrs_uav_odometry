@@ -1,17 +1,17 @@
 <library path="lib/libOdometry">
-  <class name="mrs_odometry/Odometry" type="mrs_odometry::Odometry" base_class_type="nodelet::Nodelet">
+  <class name="mrs_uav_odometry/Odometry" type="mrs_uav_odometry::Odometry" base_class_type="nodelet::Nodelet">
     <description>Odometry nodelet</description>
   </class>
 </library>
 
 <library path="lib/libRtkRepublisher">
-  <class name="mrs_odometry/RtkRepublisher" type="mrs_odometry::RtkRepublisher" base_class_type="nodelet::Nodelet">
+  <class name="mrs_uav_odometry/RtkRepublisher" type="mrs_uav_odometry::RtkRepublisher" base_class_type="nodelet::Nodelet">
     <description>RtkRepublisher nodelet</description>
   </class>
 </library>
 
 <library path="lib/libTFConnectorDummy">
-  <class name="mrs_odometry/TFConnectorDummy" type="mrs_odometry::TFConnectorDummy" base_class_type="nodelet::Nodelet">
+  <class name="mrs_uav_odometry/TFConnectorDummy" type="mrs_uav_odometry::TFConnectorDummy" base_class_type="nodelet::Nodelet">
     <description>RtkRepublisher nodelet</description>
   </class>
 </library>

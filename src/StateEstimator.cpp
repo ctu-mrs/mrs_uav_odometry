@@ -1,6 +1,6 @@
 #include "StateEstimator.h"
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /*  //{ StateEstimator() */
@@ -653,4 +653,4 @@ bool StateEstimator::reset(const LatState2D &states) {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry

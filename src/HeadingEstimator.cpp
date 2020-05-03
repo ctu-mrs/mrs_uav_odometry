@@ -1,6 +1,6 @@
 #include "HeadingEstimator.h"
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /*  //{ HeadingEstimator() */
@@ -675,4 +675,4 @@ bool HeadingEstimator::reset(const Eigen::MatrixXd &states) {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry

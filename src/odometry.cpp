@@ -73,7 +73,7 @@
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
-#include <mrs_odometry/odometry_dynparamConfig.h>
+#include <mrs_uav_odometry/odometry_dynparamConfig.h>
 
 #include <tf2_ros/transform_broadcaster.h>
 
@@ -91,7 +91,7 @@
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /* //{ class Odometry */
@@ -117,8 +117,8 @@ private:
   bool   _publish_pixhawk_velocity_;
   bool   _dynamic_optflow_cov_       = false;
   double _dynamic_optflow_cov_scale_ = 0;
-  double twist_q_x_prev             = 0;
-  double twist_q_y_prev             = 0;
+  double twist_q_x_prev              = 0;
+  double twist_q_y_prev              = 0;
 
   double _max_optflow_altitude_;
   double _max_brick_altitude_;
@@ -224,8 +224,8 @@ private:
   std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
   mrs_lib::Transformer                        transformer_;
 
-  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
-  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
+  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
+  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
 
   nav_msgs::Odometry odom_pixhawk;
   nav_msgs::Odometry odom_pixhawk_previous;
@@ -448,7 +448,7 @@ private:
 
   // Hector messages
   std::mutex                    mutex_hector;
-  double pos_hector_x, pos_hector_y;
+  double                        pos_hector_x, pos_hector_y;
   geometry_msgs::PoseStamped    hector_pose;
   geometry_msgs::PoseStamped    hector_pose_previous;
   ros::Time                     hector_pose_last_update;
@@ -565,7 +565,7 @@ private:
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
-  void callbackReconfigure(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
+  void callbackReconfigure(mrs_uav_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
@@ -593,7 +593,7 @@ private:
   bool changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
 
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator);
+  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator);
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
   void headingEstimatorsPrediction(const double yaw, const double yaw_rate, const double dt);
@@ -735,7 +735,7 @@ private:
 
   // for setting home position
   double _utm_origin_x_, _utm_origin_y_;
-  bool   _use_utm_origin_  = false;
+  bool   _use_utm_origin_   = false;
   int    _utm_origin_units_ = 0;
   double rtk_local_origin_z_;
   double _local_origin_x_, _local_origin_y_;
@@ -865,22 +865,22 @@ private:
   double max_safe_brick_jump_sq_;
   double max_safe_brick_yaw_jump_sq_;
 
-  int                           _lateral_n_, _lateral_m_, _lateral_p_;
-  LatMat                        _A_lat_, _R_lat_;
-  LatStateCol1D                 _B_lat_;
+  int           _lateral_n_, _lateral_m_, _lateral_p_;
+  LatMat        _A_lat_, _R_lat_;
+  LatStateCol1D _B_lat_;
 
   // RTK LKF
   using lkf_rtk_t = mrs_lib::LKF<2, 2, 2>;
-  lkf_rtk_t::A_t _A_lat_rtk_; 
-  lkf_rtk_t::B_t _B_lat_rtk_;
-  lkf_rtk_t::H_t _H_lat_rtk_;
-  lkf_rtk_t::R_t _R_lat_rtk_;
-  lkf_rtk_t::Q_t _Q_lat_rtk_; 
-  lkf_rtk_t::P_t _P_lat_rtk_;
+  lkf_rtk_t::A_t        _A_lat_rtk_;
+  lkf_rtk_t::B_t        _B_lat_rtk_;
+  lkf_rtk_t::H_t        _H_lat_rtk_;
+  lkf_rtk_t::R_t        _R_lat_rtk_;
+  lkf_rtk_t::Q_t        _Q_lat_rtk_;
+  lkf_rtk_t::P_t        _P_lat_rtk_;
   lkf_rtk_t::statecov_t sc_lat_rtk_;
 
-  std::shared_ptr<lkf_rtk_t>    estimator_rtk_;
-  std::mutex                    mutex_rtk_est_;
+  std::shared_ptr<lkf_rtk_t> estimator_rtk_;
+  std::mutex                 mutex_rtk_est_;
 
   bool got_home_position_fix = false;
   bool calculatePixhawkOdomOffset(void);
@@ -889,29 +889,29 @@ private:
 
   double     max_altitude_ = 10;
   std::mutex mutex_max_altitude_;
-  bool       gps_reliable       = false;
-  bool       hector_reliable    = false;
-  bool       tower_reliable     = false;
-  bool       aloam_reliable     = false;
+  bool       gps_reliable        = false;
+  bool       hector_reliable     = false;
+  bool       tower_reliable      = false;
+  bool       aloam_reliable      = false;
   bool       _gps_available_     = false;
   bool       _vio_available_     = false;
-  bool       vio_reliable       = true;
+  bool       vio_reliable        = true;
   bool       _vslam_available_   = false;
-  bool       vslam_reliable     = true;
-  bool       optflow_reliable   = false;
+  bool       vslam_reliable      = true;
+  bool       optflow_reliable    = false;
   bool       _optflow_available_ = false;
   bool       _rtk_available_     = false;
-  bool       rtk_reliable       = false;
+  bool       rtk_reliable        = false;
   bool       _t265_available_    = false;
-  bool       t265_reliable      = false;
+  bool       t265_reliable       = false;
   bool       _lidar_available_   = false;
   bool       _aloam_available_   = false;
   bool       _brick_available_   = false;
-  bool       brick_reliable     = false;
-  bool       height_available_  = false;
-  bool       icp_reliable       = false;
-  bool       plane_reliable     = false;
-  bool       gps_active_        = true;
+  bool       brick_reliable      = false;
+  bool       height_available_   = false;
+  bool       icp_reliable        = false;
+  bool       plane_reliable      = false;
+  bool       gps_active_         = true;
 
   bool      brick_semi_reliable = false;
   ros::Time brick_semi_reliable_started;
@@ -976,17 +976,17 @@ private:
 
 private:
   mrs_lib::Profiler profiler_;
-  bool               _profiler_enabled_ = false;
+  bool              _profiler_enabled_ = false;
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
   // --------------------------------------------------------------
 
   boost::recursive_mutex                        config_mutex_;
-  typedef mrs_odometry::odometry_dynparamConfig Config;
+  typedef mrs_uav_odometry::odometry_dynparamConfig Config;
   typedef dynamic_reconfigure::Server<Config>   ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>          reconfigure_server_;
-  mrs_odometry::odometry_dynparamConfig         last_drs_config;
+  mrs_uav_odometry::odometry_dynparamConfig         last_drs_config;
 };
 
 //}
@@ -1043,11 +1043,11 @@ void Odometry::onInit() {
   got_compass_hdg           = false;
   got_icp_twist             = false;
 
-  failsafe_called               = false;
-  hector_reset_called_          = false;
-  _reset_hector_after_takeoff_  = false;
+  failsafe_called                = false;
+  hector_reset_called_           = false;
+  _reset_hector_after_takeoff_   = false;
   _perform_hector_reset_routine_ = false;
-  hector_reset_routine_running_ = false;
+  hector_reset_routine_running_  = false;
   hector_offset_ << 0, 0;
   hector_offset_hdg_   = 0;
   c_hector_msg_        = 0;
@@ -1282,12 +1282,12 @@ void Odometry::onInit() {
   _alt_estimator_type_takeoff.name = altitude_estimator_name;
   _alt_estimator_type_takeoff.type = (int)pos_alt;
 
-  garminFilter     = std::make_shared<MedianFilter>(_garmin_filter_buffer_size_, _garmin_max_valid_altitude_, 0, _garmin_filter_max_difference_);
-  sonarFilter      = std::make_shared<MedianFilter>(_sonar_filter_buffer_size_, _sonar_max_valid_altitude_, 0, _sonar_filter_max_difference_);
-  planeFilter      = std::make_shared<MedianFilter>(_plane_filter_buffer_size_, _plane_max_valid_altitude_, 0, _plane_filter_max_difference_);
+  garminFilter = std::make_shared<MedianFilter>(_garmin_filter_buffer_size_, _garmin_max_valid_altitude_, 0, _garmin_filter_max_difference_);
+  sonarFilter  = std::make_shared<MedianFilter>(_sonar_filter_buffer_size_, _sonar_max_valid_altitude_, 0, _sonar_filter_max_difference_);
+  planeFilter  = std::make_shared<MedianFilter>(_plane_filter_buffer_size_, _plane_max_valid_altitude_, 0, _plane_filter_max_difference_);
   brickHeightFilter =
       std::make_shared<MedianFilter>(_brick_filter_buffer_size_, _brick_max_valid_altitude_, -_brick_max_valid_altitude_, _brick_filter_max_difference_);
-  vioHeightFilter   = std::make_shared<MedianFilter>(_vio_filter_buffer_size_, _vio_max_valid_altitude_, -_vio_max_valid_altitude_, _vio_filter_max_difference_);
+  vioHeightFilter = std::make_shared<MedianFilter>(_vio_filter_buffer_size_, _vio_max_valid_altitude_, -_vio_max_valid_altitude_, _vio_filter_max_difference_);
   aloamHeightFilter = std::make_shared<MedianFilter>(_aloam_height_filter_buffer_size_, _aloam_height_max_valid_altitude_, -_aloam_height_max_valid_altitude_,
                                                      _aloam_height_filter_max_difference_);
 
@@ -1485,10 +1485,10 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/hector_pos_filter_max_valid", _hector_pos_filter_max_valid_);
   param_loader.loadParam("lateral/hector_pos_filter_max_diff", _hector_pos_filter_max_diff_);
 
-  hector_pos_filter_x =
-      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_, _hector_pos_filter_max_diff_);
-  hector_pos_filter_y =
-      std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_, _hector_pos_filter_max_diff_);
+  hector_pos_filter_x = std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_,
+                                                       _hector_pos_filter_max_diff_);
+  hector_pos_filter_y = std::make_shared<MedianFilter>(_hector_pos_filter_buffer_size_, _hector_pos_filter_max_valid_, -_hector_pos_filter_max_valid_,
+                                                       _hector_pos_filter_max_diff_);
 
   // TOWER median filter
   param_loader.loadParam("lateral/tower_pos_median_filter", _tower_pos_median_filter_);
@@ -1636,11 +1636,11 @@ void Odometry::onInit() {
 
     estimator_rtk_ = std::make_shared<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
 
-  const lkf_rtk_t::x_t x0 = lkf_rtk_t::x_t::Zero();
-  lkf_rtk_t::P_t P_tmp = lkf_rtk_t::P_t::Identity();
-  const lkf_rtk_t::P_t P0 = 1000.0*P_tmp*P_tmp.transpose();
-  const lkf_rtk_t::statecov_t sc0({x0, P0});
-  sc_lat_rtk_ = sc0;
+    const lkf_rtk_t::x_t        x0    = lkf_rtk_t::x_t::Zero();
+    lkf_rtk_t::P_t              P_tmp = lkf_rtk_t::P_t::Identity();
+    const lkf_rtk_t::P_t        P0    = 1000.0 * P_tmp * P_tmp.transpose();
+    const lkf_rtk_t::statecov_t sc0({x0, P0});
+    sc_lat_rtk_ = sc0;
 
     // Map odometry to estimator name
     nav_msgs::Odometry odom;
@@ -1840,8 +1840,8 @@ void Odometry::onInit() {
     map_hdg_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
   }
 
-  ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << _heading_n_ << ", m: " << _heading_m_ << ", p: " << _heading_p_
-                                                                                               << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
+  ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: "
+                  << _heading_n_ << ", m: " << _heading_m_ << ", p: " << _heading_p_ << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
 
   ROS_INFO("[Odometry]: heading estimator prepared");
 
@@ -1894,7 +1894,7 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
   // |                         tf listener                        |
   // --------------------------------------------------------------
-  m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
+  m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_uav_odometry");
   transformer_      = mrs_lib::Transformer("Odometry", _uav_name_);
 
 
@@ -1993,7 +1993,7 @@ void Odometry::onInit() {
 
   // subscriber to visual odometry
   if (_vio_available_) {
-    sub_vio_       = nh.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
+    sub_vio_ = nh.subscribe("vio_in", 1, &Odometry::callbackVioOdometry, this, ros::TransportHints().tcpNoDelay());
   }
 
   // subscriber to visual slam (pose)
@@ -2116,7 +2116,7 @@ void Odometry::onInit() {
   hector_reset_routine_timer = nh.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
-  
+
   /* check validity and set takeoff estimator //{ */
 
   // If required sensor is not available shutdown
@@ -2561,7 +2561,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // correction step for hector
-    
+
     auto pos_hector_x_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_x);
     auto pos_hector_y_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_y);
     stateEstimatorsCorrection(pos_hector_x_tmp, pos_hector_y_tmp, "pos_hector");
@@ -3534,9 +3534,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -3573,7 +3573,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       body_vel = response.value();
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_aux.", global_vel.header.frame_id.c_str(), fcu_frame_id_.c_str());
-      return; 
+      return;
     }
 
     odom_aux->second.twist.twist.linear.x = body_vel.vector.x;
@@ -3985,15 +3985,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /* publish local origin tf //{ */
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_local.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_local.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = local_origin_frame_id_;
-    tf.transform.translation = mrs_odometry::pointToVector3(pose_inv.position);
+    tf.transform.translation = mrs_uav_odometry::pointToVector3(pose_inv.position);
     tf.transform.rotation    = pose_inv.orientation;
     if (noNans(tf)) {
       try {
@@ -4085,15 +4085,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   if (got_stable) {
     // Get inverse trasnform
-    tf2::Transform tf_stable_inv        = mrs_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
+    tf2::Transform tf_stable_inv        = mrs_uav_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
     tf_stable_inv                       = tf_stable_inv.inverse();
-    geometry_msgs::Pose pose_stable_inv = mrs_odometry::poseFromTf2(tf_stable_inv);
+    geometry_msgs::Pose pose_stable_inv = mrs_uav_odometry::poseFromTf2(tf_stable_inv);
 
     geometry_msgs::TransformStamped tf_stable;
     tf_stable.header.stamp          = ros::Time::now();
     tf_stable.header.frame_id       = fcu_frame_id_;
     tf_stable.child_frame_id        = stable_origin_frame_id_;
-    tf_stable.transform.translation = mrs_odometry::pointToVector3(pose_stable_inv.position);
+    tf_stable.transform.translation = mrs_uav_odometry::pointToVector3(pose_stable_inv.position);
     tf_stable.transform.rotation    = pose_stable_inv.orientation;
     if (noNans(tf_stable)) {
       try {
@@ -4240,9 +4240,9 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -5227,12 +5227,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       lkf_rtk_t::B_t B_new;
       B_new << dt, 0, 0, dt;
       estimator_rtk_->B = B_new;
-    try {
-      sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
-    }
-    catch (const std::exception &e) {
-      ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
-    }
+      try {
+        sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+      }
+      catch (const std::exception &e) {
+        ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+      }
     }
   }
 
@@ -5247,7 +5247,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       return;
     }
 
-    double pos_mavros_x, pos_mavros_y;
+    double             pos_mavros_x, pos_mavros_y;
     nav_msgs::Odometry odom_mavros_out;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_shifted);
@@ -5331,7 +5331,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     //}
 
     //}
-
   }
 }
 
@@ -5364,7 +5363,6 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
       return;
     }
-
   }
 
   // --------------------------------------------------------------
@@ -5473,7 +5471,6 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_pixhawk);
     q_body = odom_pixhawk.pose.pose.orientation;
   }
-
 }
 
 //}
@@ -6161,8 +6158,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_utm.header               = msg->header;
     rtk_utm.header.frame_id      = "utm";
     rtk_utm.pose.pose.position.z = msg->gps.altitude;
-    rtk_utm.fix_type = msg->fix_type;
-    rtk_utm.status   = msg->status;
+    rtk_utm.fix_type             = msg->fix_type;
+    rtk_utm.status               = msg->status;
 
   } else if (msg->header.frame_id == "utm") {
 
@@ -6342,11 +6339,11 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       std::scoped_lock lock(mutex_rtk_est_);
 
       try {
-      sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _R_lat_rtk_);
-    }
-    catch (const std::exception &e) {
-      ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
-    }
+        sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _R_lat_rtk_);
+      }
+      catch (const std::exception &e) {
+        ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
+      }
     }
     //}
 
@@ -6745,7 +6742,6 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
 
   ROS_WARN_ONCE("[Odometry]: Fusing VSLAM position");
   //}
-
 }
 
 
@@ -6938,7 +6934,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(yaw_brick, "yaw_brick");
 
-    yaw_brick= mrs_lib::wrapAngle(yaw_brick);
+    yaw_brick = mrs_lib::wrapAngle(yaw_brick);
 
     mrs_msgs::Float64Stamped brick_yaw_out;
     brick_yaw_out.header.stamp    = ros::Time::now();
@@ -7049,7 +7045,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   ROS_WARN_ONCE("[Odometry]: Fusing brick position");
-}  
+}
 //}
 
 /* //{ callbackLidarOdom() */
@@ -7342,11 +7338,11 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     Vec2 pos_vec, innovation;
     current_estimator->getState(0, pos_vec);
 
-  {
-    std::scoped_lock lock(mutex_hector);
-    innovation(0) = pos_hector_x - pos_vec(0);
-    innovation(1) = pos_hector_y - pos_vec(1);
-  }
+    {
+      std::scoped_lock lock(mutex_hector);
+      innovation(0) = pos_hector_x - pos_vec(0);
+      innovation(1) = pos_hector_y - pos_vec(1);
+    }
 
     {
       std::scoped_lock lock(mutex_odom_main_inno);
@@ -8638,7 +8634,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
         ROS_WARN("[Odometry]: Changed odometry estimator. Updating offset for stable odometry.");
       }
 
-      odom_local = applyOdomOffset(odom_main, m_pos_odom_offset, m_rot_odom_offset);
+      odom_local                 = applyOdomOffset(odom_main, m_pos_odom_offset, m_rot_odom_offset);
       odom_local.header.frame_id = local_origin_frame_id_;
 
       try {
@@ -8666,7 +8662,6 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     //}
   }
   //}
-  
 }
 
 //}
@@ -8965,7 +8960,7 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
   res.message = (printOdometryDiag().c_str());
 
   return true;
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 //}
 
@@ -9103,7 +9098,7 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
   res.message = (printOdometryDiag().c_str());
 
   return true;
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 //}
 
@@ -9556,7 +9551,7 @@ bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs
 //}
 
 /* //{ callbackReconfigure() */
-void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
+void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized_)
     return;
@@ -9854,7 +9849,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 /*  //{ altitudeEstimatorCorrection() */
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
-                                           const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator) {
+                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id.end()) {
@@ -10947,7 +10942,6 @@ bool Odometry::callEnableControlCallbacks() {
     ROS_INFO("[Odometry]: Enable callbacks service call failed: %s", enable_callbacks_srv.response.message.c_str());
     return false;
   }
-
 }
 
 //}
@@ -10969,7 +10963,6 @@ bool Odometry::callDisableControlCallbacks() {
     ROS_INFO("[Odometry]: Disable callbacks service call failed: %s", disable_callbacks_srv.response.message.c_str());
     return false;
   }
-
 }
 
 //}
@@ -10989,7 +10982,6 @@ bool Odometry::callHover() {
     ROS_INFO("[Odometry]: Hover service call failed: %s", hover_srv.response.message.c_str());
     return false;
   }
-
 }
 
 //}
@@ -11010,12 +11002,11 @@ bool Odometry::callMpcController() {
     ROS_INFO("[Odometry]: MpcController service call failed: %s", mpc_controller_srv.response.message.c_str());
     return false;
   }
-
 }
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_odometry::Odometry, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_odometry::Odometry, nodelet::Nodelet)

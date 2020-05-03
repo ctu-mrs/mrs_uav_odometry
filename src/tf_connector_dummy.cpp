@@ -28,7 +28,7 @@
 
 //}
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
   class TFConnectorDummy : public nodelet::Nodelet
@@ -150,8 +150,7 @@ namespace mrs_odometry
 
   };
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_odometry::TFConnectorDummy, nodelet::Nodelet)
-
+PLUGINLIB_EXPORT_CLASS(mrs_uav_odometry::TFConnectorDummy, nodelet::Nodelet)

@@ -1,5 +1,5 @@
 <launch>
-    <!-- other args -->
+  <!-- other args -->
   <arg name="standalone" default="true" />
   <arg name="debug" default="false" />
 
@@ -11,17 +11,16 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+  <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_uav_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
-    <rosparam file="$(find mrs_odometry)/config/tf_connector_dummy.yaml" />
+    <rosparam file="$(find mrs_uav_odometry)/config/tf_connector_dummy.yaml" />
 
-    <!-- Subscribers -->
+      <!-- Subscribers -->
     <remap from="~tf_in" to="/tf" />
 
-    <!-- Publishers -->
+      <!-- Publishers -->
     <remap from="~tf_out" to="/tf" />
 
   </node>
 
 </launch>
-

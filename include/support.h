@@ -13,7 +13,7 @@
 
 //}
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 void addRPY(geometry_msgs::Quaternion& q_msg, const double& roll_add, const double& pitch_add, const double& yaw_add);
@@ -37,6 +37,6 @@ void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
 bool noNans(const geometry_msgs::TransformStamped& tf);
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #endif

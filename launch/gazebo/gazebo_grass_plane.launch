@@ -11,9 +11,9 @@
   <arg name="verbose" default="true"/>
   <arg name="vehicle" default="iris"/>
   <arg name="est" default="ekf2"/>
-  <arg name="world_name" default="$(find simulation)/worlds/grass_plane.world"/> 
+  <arg name="world_name" default="$(find simulation)/worlds/grass_plane.world"/>
 
-  <!-- set use_sim_time flag -->
+    <!-- set use_sim_time flag -->
   <group if="$(arg use_sim_time)">
     <param name="/use_sim_time" value="true" />
   </group>
@@ -28,15 +28,16 @@
   <arg unless="$(arg debug)" name="script_type" value="gzserver"/>
   <arg     if="$(arg debug)" name="script_type" value="debug"/>
 
-  <!-- specify additional model path -->
-  <env name="GAZEBO_MODEL_PATH" value="$(env GAZEBO_MODEL_PATH):$(find mrs_odometry)/gazebo_files/models" />
+    <!-- specify additional model path -->
+  <env name="GAZEBO_MODEL_PATH" value="$(env GAZEBO_MODEL_PATH):$(find mrs_uav_odometry)/gazebo_files/models" />
 
-  <!-- start gazebo server-->
+    <!-- start gazebo server-->
   <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen"
-	args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
-	
-  <!-- start gazebo client -->
+    args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
+
+    <!-- start gazebo client -->
   <group if="$(arg gui)">
     <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
   </group>
+
 </launch>

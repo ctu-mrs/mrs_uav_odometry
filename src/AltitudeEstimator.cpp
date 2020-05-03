@@ -1,6 +1,6 @@
 #include "AltitudeEstimator.h"
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /*  //{ AltitudeEstimator() */
@@ -215,7 +215,7 @@ bool AltitudeEstimator::doPrediction(const Eigen::VectorXd &input) {
 
   // Check size of input
   if (input.size() != 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input 
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input
               << "): wrong size of \"input\". Should be: " << 1 << " is:" << input.size() << std::endl;
     return false;
   }
@@ -440,7 +440,7 @@ bool AltitudeEstimator::getStates(Eigen::MatrixXd &states) {
 
 /*  //{ getN() */
 
-bool AltitudeEstimator::getN(int& n) {
+bool AltitudeEstimator::getN(int &n) {
 
   /*  //{ sanity checks */
 
@@ -449,7 +449,7 @@ bool AltitudeEstimator::getN(int& n) {
 
   //}
 
-  n = m_n_states; 
+  n = m_n_states;
 
   return true;
 }
@@ -741,4 +741,4 @@ bool AltitudeEstimator::reset(const Eigen::MatrixXd &states) {
 }
 
 //}
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry

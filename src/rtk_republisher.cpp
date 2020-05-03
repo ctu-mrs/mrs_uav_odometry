@@ -24,7 +24,7 @@
 
 #define btoa(x) ((x) ? "true" : "false")
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /* class RtkRepublisher //{ */
@@ -330,7 +330,7 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
     pose_msg_out_.pose.pose.position.x += jump_offset_;
     pose_msg_out_.pose.pose.position.y += jump_offset_;
 
-    mrs_odometry::addYaw(pose_msg_out_.pose.pose.orientation, jump_yaw_offset_);
+    mrs_uav_odometry::addYaw(pose_msg_out_.pose.pose.orientation, jump_yaw_offset_);
 
     pose_msg_out_.header.stamp    = ros::Time::now();
     pose_msg_out_.header.frame_id = "local_origin";
@@ -385,7 +385,7 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_odometry::RtkRepublisher, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_odometry::RtkRepublisher, nodelet::Nodelet)
