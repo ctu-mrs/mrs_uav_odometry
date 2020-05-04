@@ -7,12 +7,7 @@
 #include <string>
 #include <vector>
 
-// Legacy LKF implementation
 #include <mrs_lib/lkf.h>
-
-// New optimized LKF implementation
-#include <mrs_lib/lkf.h>
-
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
@@ -62,8 +57,6 @@ using H_t = mrs_lib::LKF_MRS_odom::H_t;
     int    m_n_states;
     size_t m_n_measurement_types;
 
-    /* std::unique_ptr<mrs_lib::Lkf> mp_lkf_x; */
-    /* std::unique_ptr<mrs_lib::Lkf> mp_lkf_y; */
     std::unique_ptr<mrs_lib::LKF_MRS_odom> mp_lkf_x;
     std::unique_ptr<mrs_lib::LKF_MRS_odom> mp_lkf_y;
 

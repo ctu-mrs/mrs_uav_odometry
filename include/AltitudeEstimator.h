@@ -3,7 +3,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_lib/lkf_legacy.h>
+#include <mrs_lib/lkf.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
@@ -14,17 +14,22 @@
 #include <vector>
 #include <mutex>
 
+#include "types.h"
+
+#define ALT_DT 0.01
+
 namespace mrs_odometry
 {
+
 
   class AltitudeEstimator {
 
   public:
-    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
-                      const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
+    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const alt_Q_t &Q, const std::vector<alt_H_t> &H_multi,
+                      const std::vector<alt_R_t> &R_multi);
 
-    bool        doPrediction(const Eigen::VectorXd &input, double dt);
-    bool        doPrediction(const Eigen::VectorXd &input);
+    bool        doPrediction(const double input, const double dt);
+    bool        doPrediction(const double input);
     bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
     bool        getStates(Eigen::MatrixXd &states);
     bool        getN(int& n);
@@ -35,23 +40,27 @@ namespace mrs_odometry
     bool        getR(double &cov, int measurement_type);
     bool        getCovariance(Eigen::MatrixXd &cov);
     bool        setCovariance(const Eigen::MatrixXd &cov);
-    bool        getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd &innovation);
-    bool        getInnovationCovariance(int measurement_type, Eigen::MatrixXd &innovation_cov);
     bool        reset(const Eigen::MatrixXd &states);
 
   private:
     std::string                  m_estimator_name;
     std::vector<bool>            m_fusing_measurement;
-    std::vector<Eigen::MatrixXd> m_P_arr;
-    std::vector<Eigen::MatrixXd> m_Q_arr;
-    Eigen::MatrixXd              m_A;
-    Eigen::MatrixXd              m_B;
-    Eigen::MatrixXd              m_R;
+    alt_A_t              m_A;
+    alt_B_t              m_B;
+    alt_Q_t              m_Q;
+    std::vector<alt_H_t> m_H_multi;
+    std::vector<alt_R_t> m_R_multi;
 
     int    m_n_states;
     size_t m_n_measurement_types;
 
-    mrs_lib::Lkf *mp_lkf_x;
+    // Default dt
+    double m_dt = ALT_DT;
+    double m_dt_sq = m_dt*m_dt;
+
+    std::unique_ptr<lkf_alt_t> mp_lkf;
+
+    alt_statecov_t m_sc;
 
     std::mutex mutex_lkf;
 

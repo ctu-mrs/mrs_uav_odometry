@@ -15,7 +15,6 @@ fi
 if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow optic_flow.launch'
-  WORLD='worlds/grass_plane.world'
 # elif [ "$ESTIMATOR" == "gps" ]; then
 #   SENSORS="$SENSORS --enable-rplidar"
 #   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'

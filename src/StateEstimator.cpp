@@ -89,9 +89,9 @@ StateEstimator::StateEstimator(
   mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
 
   sc_x.x = sc_x.x.Ones() * 0;
-  sc_x.P = sc_x.P.Identity() * 0;
+  sc_x.P = sc_x.P.Identity() * 1000;
   sc_y.x = sc_y.x.Ones() * 0;
-  sc_y.P = sc_y.P.Identity() * 0;
+  sc_y.P = sc_y.P.Identity() * 1000;
 
 
   std::cout << "[StateEstimator]: New StateEstimator initialized " << std::endl;
