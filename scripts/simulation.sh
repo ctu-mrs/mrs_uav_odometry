@@ -6,7 +6,6 @@ ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
 WORLD='grass_plane'
-# WORLD='worlds/cathedral.world'
 
 if [ "$#" == 0 ]; then
   ESTIMATOR=gps
@@ -22,15 +21,15 @@ if [ "$ESTIMATOR" == "optflow" ]; then
 elif [ "$ESTIMATOR" == "hector" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='forest'
 elif [ "$ESTIMATOR" == "icp" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_icp2d uav.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='worlds/forest.world'
 elif [ "$ESTIMATOR" == "lidar" ]; then
   SENSORS="$SENSORS --enable-velodyne"
   LAUNCH_NODES='waitForOdometry; roslaunch aloam_velodyne velodyne_odometry_simulation.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='worlds/forest.world'
 fi
 
 # following commands will be executed first, in each window

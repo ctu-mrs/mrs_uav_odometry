@@ -771,7 +771,7 @@ private:
 
   // heading estimation
   int                                                      _heading_n_, _heading_m_, _heading_p_;
-  Eigen::MatrixXd                                          A_hdg, B_hdg, R_hdg;
+  hdg_Q_t _Q_hdg_;
   std::mutex                                               mutex_heading_estimator;
   std::mutex                                               mutex_hdg_estimator_type;
   std::vector<std::string>                                 _heading_estimators_names_;
@@ -779,10 +779,10 @@ private:
   std::vector<std::string>                                 _hdg_model_state_names_;
   std::vector<std::string>                                 _hdg_measurement_names_;
   std::map<std::string, std::vector<std::string>>          map_hdg_estimator_measurement;
-  std::map<std::string, Eigen::MatrixXd>                   map_hdg_measurement_covariance;
+  std::map<std::string, hdg_R_t>                   map_hdg_measurement_covariance;
   std::map<std::string, std::string>                       map_hdg_measurement_state;
   std::map<std::string, int>                               map_hdg_measurement_name_id;
-  std::map<std::string, Eigen::MatrixXd>                   map_hdg_states;
+  std::map<std::string, hdg_H_t>                   map_hdg_states;
   std::map<std::string, mrs_msgs::Float64ArrayStamped>     map_hdg_estimator_msg;
   std::map<std::string, ros::Publisher>                    map_hdg_estimator_pub;
   std::map<std::string, std::shared_ptr<HeadingEstimator>> m_heading_estimators;
@@ -1388,7 +1388,7 @@ void Odometry::onInit() {
 
     // Add pointer to altitude estimator to array
     m_altitude_estimators.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, _Q_alt_, H_multi_alt, R_multi_alt)));
+        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
 
     // Map odometry to estimator name
     mrs_msgs::Float64Stamped alt_msg;
@@ -1649,9 +1649,7 @@ void Odometry::onInit() {
   param_loader.loadParam("heading/numberOfInputs", _heading_m_);
   param_loader.loadParam("heading/numberOfMeasurements", _heading_p_);
 
-  param_loader.loadMatrixDynamic("heading/A", A_hdg, _heading_n_, _heading_n_);
-  param_loader.loadMatrixDynamic("heading/B", B_hdg, _heading_n_, _heading_m_);
-  param_loader.loadMatrixDynamic("heading/R", R_hdg, _heading_n_, _heading_n_);
+  param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
 
   param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names_);
   param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names_);
@@ -1753,19 +1751,19 @@ void Odometry::onInit() {
   // Load the model state mapping
   for (std::vector<std::string>::iterator it = _hdg_model_state_names_.begin(); it != _hdg_model_state_names_.end(); ++it) {
 
-    Eigen::MatrixXd temp_P = Eigen::MatrixXd::Zero(1, _heading_n_);
-    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, temp_P, 1, _heading_n_);
+    hdg_H_t temp_matrix;
+    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, temp_matrix);
 
-    map_hdg_states.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_P));
+    map_hdg_states.insert(std::pair<std::string, hdg_H_t>(*it, temp_matrix));
   }
 
   // Load the covariances of each measurement
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
 
-    Eigen::MatrixXd temp_matrix;
-    param_loader.loadMatrixStatic("heading/Q/" + *it, temp_matrix, 1, 1);
+    hdg_R_t R_hdg;
+    param_loader.loadMatrixStatic("heading/R/" + *it, R_hdg);
 
-    map_hdg_measurement_covariance.insert(std::pair<std::string, Eigen::MatrixXd>(*it, temp_matrix));
+    map_hdg_measurement_covariance.insert(std::pair<std::string, hdg_R_t>(*it, R_hdg));
   }
 
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it < _hdg_measurement_names_.end(); it++) {
@@ -1783,7 +1781,8 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_heading_estimators_names_.begin(); it != _active_heading_estimators_names_.end(); ++it) {
 
     std::vector<bool>            hdg_fusing_measurement;
-    std::vector<Eigen::MatrixXd> P_arr_hdg, Q_arr_hdg;
+    std::vector<hdg_H_t> H_multi_hdg;
+    std::vector<hdg_R_t> R_multi_hdg;
 
     // Find measurements fused by the estimator
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_hdg_estimator_measurement.find(*it);
@@ -1803,18 +1802,19 @@ void Odometry::onInit() {
       std::map<std::string, std::string>::iterator pair_measurement_state = map_hdg_measurement_state.find(*it2);
 
       // Find measurement to state mapping
-      std::map<std::string, Eigen::MatrixXd>::iterator pair_state_matrix = map_hdg_states.find(pair_measurement_state->second);
-      P_arr_hdg.push_back(pair_state_matrix->second);
+      std::map<std::string, hdg_H_t>::iterator pair_state_matrix = map_hdg_states.find(pair_measurement_state->second);
+      H_multi_hdg.push_back(pair_state_matrix->second);
 
       // Find measurement covariance
-      std::map<std::string, Eigen::MatrixXd>::iterator pair_measurement_covariance = map_hdg_measurement_covariance.find(*it2);
-      Q_arr_hdg.push_back(pair_measurement_covariance->second);
+      std::map<std::string, hdg_R_t>::iterator pair_measurement_covariance = map_hdg_measurement_covariance.find(*it2);
+      R_multi_hdg.push_back(pair_measurement_covariance->second);
     }
 
+    std::cout << "H:" << H_multi_hdg.size() << std::endl;
+    std::cout << "R:" << R_multi_hdg.size() << std::endl;
+
     // Add pointer to heading estimator to array
-    // this is how to create shared pointers!!! the correct way
-    m_heading_estimators.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-        *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, P_arr_hdg, Q_arr_hdg, A_hdg, B_hdg, R_hdg)));
+    m_heading_estimators.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(*it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg)));
 
     // Map odometry to estimator name
     mrs_msgs::Float64ArrayStamped hdg_msg;
@@ -1828,7 +1828,7 @@ void Odometry::onInit() {
   }
 
   ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << _heading_n_ << ", m: " << _heading_m_ << ", p: " << _heading_p_
-                                                                                               << ", A: " << A_hdg << ", B: " << B_hdg << ", R: " << R_hdg);
+                                                                                               << ", Q: " << _Q_hdg_);
 
   ROS_INFO("[Odometry]: heading estimator prepared");
 
@@ -2682,20 +2682,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_heading_estimator_initialized) {
 
     // prepare initial state
-    Eigen::VectorXd yaw       = Eigen::VectorXd::Zero(1);
-    Eigen::VectorXd yaw_rate  = Eigen::VectorXd::Zero(1);
-    Eigen::VectorXd gyro_bias = Eigen::VectorXd::Zero(1);
-    Eigen::MatrixXd init_cov  = Eigen::MatrixXd::Identity(_heading_n_, _heading_n_);
+    hdg_P_t init_cov  = init_cov.Identity();
     init_cov *= 1000;
-    yaw_rate << 0.0;
-    gyro_bias << 0.0;
-    yaw << init_hdg_avg;
+    double yaw = init_hdg_avg;
 
     // set initial state to all estimators
     for (auto &estimator : m_heading_estimators) {
       estimator.second->setState(0, yaw);
-      estimator.second->setState(1, yaw_rate);
-      estimator.second->setState(2, gyro_bias);
+      estimator.second->setState(1, 0);
+      estimator.second->setState(2, 0);
       estimator.second->setCovariance(init_cov);
     }
     is_heading_estimator_initialized = true;
@@ -2720,8 +2715,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // get correct yaw if current heading estimator is not pixhawk
   if (current_hdg_estimator->getName() != "PIXHAWK") {
 
-    Eigen::VectorXd yaw(1);
-    Eigen::VectorXd yaw_rate(1);
+    double yaw, yaw_rate;
 
     {
       std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -2730,8 +2724,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       current_hdg_estimator->getState(1, yaw_rate);
     }
 
-    yaw(0)                            = mrs_lib::wrapAngle(yaw(0));
-    orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setYaw(yaw(0));
+    yaw                            = mrs_lib::wrapAngle(yaw);
+    orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setYaw(yaw);
     {
       std::scoped_lock lock(mutex_current_hdg_estimator);
       orientation.header.frame_id = current_estimator->getName();
@@ -3381,9 +3375,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     for (auto &estimator : m_heading_estimators) {
       if (estimator.first == "HECTOR") {
-        Eigen::VectorXd tmp_hdg_offset(1);
+        double tmp_hdg_offset;
         estimator.second->getState(0, tmp_hdg_offset);
-        hector_offset_hdg_ += tmp_hdg_offset(0);
+        hector_offset_hdg_ += tmp_hdg_offset;
       }
     }
 
@@ -3512,18 +3506,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_aux->second.pose.pose.position.x = pos_vec(0);
     odom_aux->second.pose.pose.position.y = pos_vec(1);
 
-    // Loop through each heading estimator
-    Eigen::VectorXd hdg_vec(1);
-    Eigen::VectorXd hdg_vel_vec(1);
 
+    // Loop through each heading estimator
+    double hdg, hdg_rate;
     for (auto &hdg_estimator : m_heading_estimators) {
 
       if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW")) {
 
-        hdg_estimator.second->getState(0, hdg_vec);
-        hdg_estimator.second->getState(1, hdg_vel_vec);
-        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_aux->second.pose.pose.orientation).setYaw(hdg_vec(0));
-        odom_aux->second.twist.twist.angular.z = hdg_vel_vec(0);
+        hdg_estimator.second->getState(0, hdg);
+        hdg_estimator.second->getState(1, hdg_rate);
+        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_aux->second.pose.pose.orientation).setYaw(hdg);
+        odom_aux->second.twist.twist.angular.z = hdg_rate;
       }
     }
 
@@ -3620,7 +3613,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = time_now;
 
-    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(_heading_n_, 1);
+    hdg_x_t current_heading = current_heading.Zero();
     // update the altitude state
     {
       std::scoped_lock lock(mutex_heading_estimator);
@@ -3845,8 +3838,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     if (current_hdg_estimator_name_local != "PIXHAWK") {
 
-      Eigen::VectorXd yaw(1);
-      Eigen::VectorXd yaw_rate(1);
+      double yaw, yaw_rate;
 
       {
         std::scoped_lock lock(mutex_current_hdg_estimator);
@@ -3855,10 +3847,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         current_hdg_estimator->getState(1, yaw_rate);
       }
 
-      odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setYaw(yaw(0));
-      odom_main.twist.twist.angular.z = yaw_rate(0);
-      uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setYaw(yaw(0));
-      uav_state.velocity.angular.z    = yaw_rate(0);
+      odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setYaw(yaw);
+      odom_main.twist.twist.angular.z = yaw_rate;
+      uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setYaw(yaw);
+      uav_state.velocity.angular.z    = yaw_rate;
 
       uav_state.estimator_heading = _hdg_estimator_type;
     }
@@ -4209,17 +4201,16 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     odom_aux->second.pose.pose.position.y = pos_vec(1);
 
     // Loop through each heading estimator
-    Eigen::VectorXd hdg_vec(1);
-    Eigen::VectorXd hdg_vel_vec(1);
+    double hdg, hdg_rate;
 
     for (auto &hdg_estimator : m_heading_estimators) {
 
       if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW")) {
 
-        hdg_estimator.second->getState(0, hdg_vec);
-        hdg_estimator.second->getState(1, hdg_vel_vec);
-        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_aux->second.pose.pose.orientation).setYaw(hdg_vec(0));
-        odom_aux->second.twist.twist.angular.z = hdg_vel_vec(0);
+        hdg_estimator.second->getState(0, hdg);
+        hdg_estimator.second->getState(1, hdg_rate);
+        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_aux->second.pose.pose.orientation).setYaw(hdg);
+        odom_aux->second.twist.twist.angular.z = hdg_rate;
       }
     }
 
@@ -4295,7 +4286,7 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     heading_aux.header.frame_id = local_origin_frame_id_;
     heading_aux.header.stamp    = t_pub;
 
-    Eigen::MatrixXd current_heading = Eigen::MatrixXd::Zero(_heading_n_, 1);
+    hdg_x_t current_heading = current_heading.Zero();
     // update the altitude state
     {
       std::scoped_lock lock(mutex_heading_estimator);
@@ -4492,8 +4483,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
   }
 
-  Eigen::MatrixXd hdg_state      = Eigen::MatrixXd::Zero(_heading_n_, 1);
-  Eigen::MatrixXd hdg_covariance = Eigen::MatrixXd::Zero(_heading_n_, _heading_n_);
+  hdg_x_t hdg_state;
+  hdg_P_t hdg_covariance;
   {
     std::scoped_lock lock(mutex_current_hdg_estimator);
     current_hdg_estimator->getStates(hdg_state);
@@ -4746,15 +4737,9 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   // Reset HECTOR heading
   for (auto &estimator : m_heading_estimators) {
     if (estimator.first == "HECTOR") {
-      Eigen::VectorXd hdg(1);
-      Eigen::VectorXd hdg_vel(1);
-      Eigen::VectorXd hdg_acc(1);
-      hdg << 0;
-      hdg_vel << 0;
-      hdg_acc << 0;
-      estimator.second->setState(0, hdg);
-      estimator.second->setState(1, hdg_vel);
-      estimator.second->setState(2, hdg_acc);
+      estimator.second->setState(0, 0);
+      estimator.second->setState(1, 0);
+      estimator.second->setState(2, 0);
     }
   }
 
@@ -6833,9 +6818,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     }
     for (auto &estimator : m_heading_estimators) {
       if (estimator.first == "BRICK" || estimator.first == "BRICKFLOW") {
-        Eigen::VectorXd hdg(1);
         init_brick_yaw_ = mrs_lib::AttitudeConverter(brick_pose.pose.orientation).getYaw();
-        hdg << init_brick_yaw_;
+        double hdg = init_brick_yaw_;
         estimator.second->setState(0, hdg);
       }
     }
@@ -7006,7 +6990,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   for (auto &estimator : m_heading_estimators) {
     if (estimator.first == "BRICK") {
-      Eigen::VectorXd state = Eigen::VectorXd::Zero(1);
+      double state;
       if (!estimator.second->getState(0, state)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
         return;
@@ -7158,12 +7142,12 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
   ROS_WARN_ONCE("[Odometry]: Fusing LIDAR velocity");
 
   // Current orientation
-  Eigen::VectorXd hdg_state(1);
+  double hdg_state;
 
   if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state(0) = orientation_mavros.vector.z;
+    hdg_state = orientation_mavros.vector.z;
 
   } else {
 
@@ -7312,12 +7296,12 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   }
 
   // Current orientation
-  Eigen::VectorXd hdg_state(1);
+  double hdg_state;
 
   if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state(0) = orientation_mavros.vector.z;
+    hdg_state = orientation_mavros.vector.z;
 
   } else {
 
@@ -7463,12 +7447,12 @@ void Odometry::callbackTowerPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   // Current orientation
-  Eigen::VectorXd hdg_state(1);
+  double hdg_state;
 
   if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state(0) = orientation_mavros.vector.z;
+    hdg_state = orientation_mavros.vector.z;
 
   } else {
 
@@ -7629,18 +7613,18 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Current orientation
-  Eigen::VectorXd hdg_state(1);
+  double hdg;
 
   if (current_hdg_estimator->getName() == "PIXHAWK") {
 
     std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state(0) = orientation_mavros.vector.z;
+    hdg = orientation_mavros.vector.z;
 
   } else {
 
     std::scoped_lock lock(mutex_current_hdg_estimator);
 
-    current_hdg_estimator->getState(0, hdg_state);
+    current_hdg_estimator->getState(0, hdg);
   }
 
   // Set innoation variable if ccurnet estimator is ALOAM
@@ -9424,15 +9408,9 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
   // Reset HECTOR heading
   for (auto &estimator : m_heading_estimators) {
     if (estimator.first == "HECTOR") {
-      Eigen::VectorXd hdg(1);
-      Eigen::VectorXd hdg_rate(1);
-      Eigen::VectorXd hdg_acc(1);
-      hdg << 0;
-      hdg_rate << 0;
-      hdg_acc << 0;
-      estimator.second->setState(0, hdg);
-      estimator.second->setState(1, hdg_rate);
-      estimator.second->setState(2, hdg_acc);
+      estimator.second->setState(0, 0);
+      estimator.second->setState(1, 0);
+      estimator.second->setState(2, 0);
     }
   }
 
@@ -9500,13 +9478,13 @@ bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req
     return true;
   }
 
-  Eigen::VectorXd state = Eigen::VectorXd::Zero(1);
+  double hdg;
 
   for (auto &estimator : m_heading_estimators) {
     std::scoped_lock lock(mutex_heading_estimator);
     if (estimator.first == "GYRO") {
-      estimator.second->getState(0, state);
-      state(0) += 1.57;
+      estimator.second->getState(0, hdg);
+      hdg += 1.57;
     }
   }
 
@@ -9695,13 +9673,13 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
   for (auto &estimator : m_state_estimators) {
 
     // Rotate body frame measurements into estimator frame
-    Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+    double current_yaw;
     for (auto &hdg_estimator : m_heading_estimators) {
       if (estimator.first == "GPS" || estimator.first == "RTK") {
         {
           std::scoped_lock lock(mutex_odom_pixhawk);
 
-          current_yaw(0) = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getYaw();
+          current_yaw = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getYaw();
         }
         break;
       } else {
@@ -9729,7 +9707,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     }
 
     geometry_msgs::Vector3 acc_global;
-    getRotatedVector(acc_untilted.vector, current_yaw(0), acc_global);
+    getRotatedVector(acc_untilted.vector, current_yaw, acc_global);
 
     if (!std::isfinite(acc_global.x)) {
       ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"acc_x\" (stateEstimatorsPrediction) !!!");
@@ -9782,13 +9760,13 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
     // TODO find out what frame of are the VIO velocities
     if (measurement_name == "vel_optflow" || measurement_name == "vel_icp" || measurement_name == "acc_imu") {
 
-      Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+      double current_yaw;
       for (auto &hdg_estimator : m_heading_estimators) {
         if (estimator.first == "GPS" || estimator.first == "RTK") {
           {
             std::scoped_lock lock(mutex_odom_pixhawk);
 
-            current_yaw(0) = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getYaw();
+            current_yaw = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getYaw();
           }
           break;
         } else {
@@ -9799,8 +9777,8 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
         }
       }
       double mes_x, mes_y;
-      mes_x  = mes(0) * cos(current_yaw(0)) - mes(1) * sin(current_yaw(0));
-      mes_y  = mes(0) * sin(current_yaw(0)) + mes(1) * cos(current_yaw(0));
+      mes_x  = mes(0) * cos(current_yaw) - mes(1) * sin(current_yaw);
+      mes_y  = mes(0) * sin(current_yaw) + mes(1) * cos(current_yaw);
       mes(0) = mes_x;
       mes(1) = mes_y;
     }
@@ -9898,19 +9876,13 @@ void Odometry::headingEstimatorsPrediction(const double yaw, const double yaw_ra
 
   for (auto &estimator : m_heading_estimators) {
 
-    Eigen::VectorXd input = Eigen::VectorXd::Zero(2);
+    hdg_u_t input = input.Zero();
     input << yaw, yaw_rate;
 
-    Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+    double current_yaw;
     estimator.second->getState(0, current_yaw);
-    input(0) = mrs_lib::unwrapAngle(input(0), current_yaw(0));
-    if (estimator.second->getName() == "COMPASS") {
-    }
+    input(0) = mrs_lib::unwrapAngle(input(0), current_yaw);
     estimator.second->doPrediction(input, dt);
-    Eigen::VectorXd yaw_state(1);
-    Eigen::VectorXd yaw_rate_state(1);
-    estimator.second->getState(0, yaw_state);
-    estimator.second->getState(1, yaw_rate_state);
   }
 }
 
@@ -9931,27 +9903,21 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
     return;
   }
 
+  double z = value;
 
   for (auto &estimator : m_heading_estimators) {
 
-    Eigen::VectorXd mes = Eigen::VectorXd::Zero(1);
-    mes << value;
 
     if (measurement_name == "yaw_compass") {
-      Eigen::VectorXd current_yaw = Eigen::VectorXd::Zero(1);
+      double current_yaw;
       estimator.second->getState(0, current_yaw);
 
-      mes(0) = mrs_lib::unwrapAngle(mes(0), current_yaw(0));
+      z = mrs_lib::unwrapAngle(z, current_yaw);
       if (estimator.second->getName() == "COMPASS") {
       }
     }
 
-    if (estimator.second->doCorrection(mes, it_measurement_id->second)) {
-      Eigen::VectorXd yaw_state(1);
-      Eigen::VectorXd yaw_rate_state(1);
-      estimator.second->getState(0, yaw_state);
-      estimator.second->getState(1, yaw_rate_state);
-    }
+    estimator.second->doCorrection(z, it_measurement_id->second);
   }
 }
 
@@ -10057,12 +10023,10 @@ double Odometry::getCurrentHeading() {
 
   } else {
 
-    Eigen::VectorXd hdg_state(1);
     {
       std::scoped_lock lock(mutex_current_hdg_estimator);
-      current_hdg_estimator->getState(0, hdg_state);
+      current_hdg_estimator->getState(0, hdg);
     }
-    hdg = hdg_state(0);
   }
 
   return hdg;

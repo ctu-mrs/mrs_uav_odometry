@@ -25,7 +25,7 @@ namespace mrs_odometry
   class AltitudeEstimator {
 
   public:
-    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const alt_Q_t &Q, const std::vector<alt_H_t> &H_multi,
+    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<alt_H_t> &H_multi, const alt_Q_t &Q,
                       const std::vector<alt_R_t> &R_multi);
 
     bool        doPrediction(const double input, const double dt);
@@ -45,21 +45,33 @@ namespace mrs_odometry
   private:
     std::string                  m_estimator_name;
     std::vector<bool>            m_fusing_measurement;
-    alt_A_t              m_A;
-    alt_B_t              m_B;
-    alt_Q_t              m_Q;
-    std::vector<alt_H_t> m_H_multi;
-    std::vector<alt_R_t> m_R_multi;
-
     int    m_n_states;
     size_t m_n_measurement_types;
+
+    // State transition matrix
+    alt_A_t              m_A;
+
+    // Input matrix
+    alt_B_t              m_B;
+
+    // Array with mapping matrices for each fused measurement
+    std::vector<alt_H_t> m_H_multi;
+
+    // Process covariance matrix
+    alt_Q_t              m_Q;
+
+    // Array with covariances of each fused measurement
+    std::vector<alt_R_t> m_R_multi;
+
 
     // Default dt
     double m_dt = ALT_DT;
     double m_dt_sq = m_dt*m_dt;
 
+    // Kalman filter - the core of the estimator 
     std::unique_ptr<lkf_alt_t> mp_lkf;
 
+    // Variable for holding the current state and covariance 
     alt_statecov_t m_sc;
 
     std::mutex mutex_lkf;

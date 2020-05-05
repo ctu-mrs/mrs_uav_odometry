@@ -9,14 +9,14 @@ namespace mrs_odometry
 AltitudeEstimator::AltitudeEstimator(
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
-    const alt_Q_t &Q,
     const std::vector<alt_H_t> &H_multi,
+    const alt_Q_t &Q,
     const std::vector<alt_R_t> &R_multi)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
-    m_Q(Q),
     m_H_multi(H_multi),
+    m_Q(Q),
     m_R_multi(R_multi)
   {
 
@@ -136,6 +136,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   //}
 
   alt_u_t u = u.Zero();
+  //TODO u(2)??? spis u(0), kdyz to ma jen jeden input ne?
   u(2) = input;
 
   double dtsq = pow(dt, 2);

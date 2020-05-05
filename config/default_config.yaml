@@ -305,23 +305,13 @@ heading:
   max_brick_yaw_correction: deg(5)
   accum_yaw_brick_alpha: 0.1
 
-  # The system matrix 
-  A: [1, 0.01, 0.0002,  # yaw
-      0, 0.95, 0.01,     # yaw rate
-      0, 0, 1]     # yaw accel
-
-  # The input matrix (yaw rate or yaw + yaw rate?)
-  B: [0, 0,
-      0, 0.05,
-      0, 0]
-
   # Process covariance
-  R: [0.1, 0, 0,
+  Q: [0.1, 0, 0,
       0, 0.1, 0,
       0, 0, 0.001]
 
   # Covariances of measurements
-  Q:
+  R:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_tower: [0.01]
