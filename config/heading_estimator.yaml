@@ -22,59 +22,59 @@ heading_estimators:
 
   # The measured states of the model
   model_states: [
-    "YAW", 
-    "YAW_RATE", 
+    "HDG", 
+    "HDG_RATE", 
     "GYRO_BIAS" 
   ] 
 
   # The available measurements
   measurements: [
-    "yaw_compass",
+    "hdg_compass",
     "rate_gyro",
     "rate_optflow",
-    "yaw_hector",
-    "yaw_brick",
-    "yaw_vio",
-    "yaw_vslam",
-    "yaw_lidar",
+    "hdg_hector",
+    "hdg_brick",
+    "hdg_vio",
+    "hdg_vslam",
+    "hdg_lidar",
     "rate_icp",
-    "yaw_aloam",
-    "yaw_tower",
+    "hdg_aloam",
+    "hdg_tower",
   ]
 
   # The fused measurements for each state estimator
   fused_measurements:
     PIXHAWK: []
     GYRO: ["rate_gyro"]
-    COMPASS: ["rate_gyro", "yaw_compass"]
+    COMPASS: ["rate_gyro", "hdg_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
-    HECTOR: ["rate_gyro", "yaw_hector"]
-    LIDAR: ["rate_gyro", "yaw_lidar"]
-    BRICK: ["rate_gyro", "yaw_brick"]
-    VIO: ["rate_gyro", "yaw_vio"]
-    VSLAM: ["rate_gyro", "yaw_vslam"]
+    HECTOR: ["rate_gyro", "hdg_hector"]
+    LIDAR: ["rate_gyro", "hdg_lidar"]
+    BRICK: ["rate_gyro", "hdg_brick"]
+    VIO: ["rate_gyro", "hdg_vio"]
+    VSLAM: ["rate_gyro", "hdg_vslam"]
     ICP: ["rate_icp"]
-    BRICKFLOW: ["rate_gyro", "yaw_brick"]
-    ALOAM: ["rate_gyro", "yaw_aloam", "rate_icp"]
-    TOWER: ["rate_gyro", "yaw_tower"]
+    BRICKFLOW: ["rate_gyro", "hdg_brick"]
+    ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
+    TOWER: ["rate_gyro", "hdg_tower"]
 
   # Mapping of measurements to states
   measurement_states:
-    yaw_compass: YAW
-    rate_gyro: YAW_RATE
-    rate_optflow: YAW_RATE
-    yaw_hector: YAW
-    yaw_brick: YAW
-    yaw_vio: YAW
-    yaw_vslam: YAW
-    yaw_lidar: YAW
-    rate_icp: YAW_RATE
-    yaw_aloam: YAW
-    yaw_tower: YAW
+    hdg_compass: HDG
+    rate_gyro: HDG_RATE
+    rate_optflow: HDG_RATE
+    hdg_hector: HDG
+    hdg_brick: HDG
+    hdg_vio: HDG
+    hdg_vslam: HDG
+    hdg_lidar: HDG
+    rate_icp: HDG_RATE
+    hdg_aloam: HDG
+    hdg_tower: HDG
 
   # Mapping states to model
   state_mapping:
-    YAW: [1.0, 0.0, 0.0]
-    YAW_RATE: [0.0, 1.0, 0.0]
+    HDG: [1.0, 0.0, 0.0]
+    HDG_RATE: [0.0, 1.0, 0.0]
     GYRO_BIAS: [0.0, 0.0, 1.0]
 

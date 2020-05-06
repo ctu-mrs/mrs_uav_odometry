@@ -17,6 +17,7 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/attitude_converter.h>
 
 #include <support.h>
 
@@ -53,7 +54,7 @@ private:
 
   double _offset_x_, _offset_y_;
 
-  double jump_offset_, jump_yaw_offset_;
+  double jump_offset_, jump_hdg_offset_;
 
   // simulation of RTK signal degradation
   bool   add_random_jumps_;
@@ -141,7 +142,7 @@ void RtkRepublisher::onInit() {
   // | ----------------------- finish init ---------------------- |
 
   jump_offset_     = 0.0;
-  jump_yaw_offset_ = 0.0;
+  jump_hdg_offset_ = 0.0;
 
   add_random_jumps_   = false;
   random_jump_active_ = false;
@@ -255,11 +256,11 @@ bool RtkRepublisher::emulateJump([[maybe_unused]] std_srvs::Trigger::Request &re
 
   if (jump_offset_ != 2.0) {
     jump_offset_       = 2.0;
-    jump_yaw_offset_   = 1.0;
+    jump_hdg_offset_   = 1.0;
     fix_type_.fix_type = mrs_msgs::RtkFixType::SPS;
   } else {
     jump_offset_       = 0.0;
-    jump_yaw_offset_   = 0.0;
+    jump_hdg_offset_   = 0.0;
     fix_type_.fix_type = mrs_msgs::RtkFixType::RTK_FIX;
   }
 
@@ -330,7 +331,8 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
     pose_msg_out_.pose.pose.position.x += jump_offset_;
     pose_msg_out_.pose.pose.position.y += jump_offset_;
 
-    mrs_odometry::addYaw(pose_msg_out_.pose.pose.orientation, jump_yaw_offset_);
+    double hdg = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation).getHeading();
+    pose_msg_out_.pose.pose.orientation = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation).setHeadingByYaw(hdg + jump_hdg_offset_);
 
     pose_msg_out_.header.stamp    = ros::Time::now();
     pose_msg_out_.header.frame_id = "local_origin";

@@ -151,7 +151,7 @@ lateral:
   max_t265_vel: 10.0
   rtk_fuse_sps: true
   max_safe_brick_jump: 0.3
-  max_safe_brick_yaw_jump: deg(20)
+  max_safe_brick_hdg_jump: deg(20)
 
   gps_fallback:
     allowed: false
@@ -272,38 +272,38 @@ heading:
   numberOfInputs: 2
   numberOfMeasurements: 1
 
-  optflow_yaw_rate_filter_buffer_size: 100
-  optflow_yaw_rate_filter_max_valid: 3.0
-  optflow_yaw_rate_filter_max_diff: 3.0
+  optflow_hdg_rate_filter_buffer_size: 100
+  optflow_hdg_rate_filter_max_valid: 3.0
+  optflow_hdg_rate_filter_max_diff: 3.0
 
-  icp_yaw_rate_filter_buffer_size: 100
-  icp_yaw_rate_filter_max_valid: 3.0
-  icp_yaw_rate_filter_max_diff: 2.0
+  icp_hdg_rate_filter_buffer_size: 100
+  icp_hdg_rate_filter_max_valid: 3.0
+  icp_hdg_rate_filter_max_diff: 2.0
 
-  compass_yaw_filter_buffer_size: 100
-  compass_yaw_filter_max_diff: deg(45)
+  compass_hdg_filter_buffer_size: 100
+  compass_hdg_filter_max_diff: deg(45)
 
-  hector_yaw_median_filter: true
-  hector_yaw_filter_buffer_size: 100
-  hector_yaw_filter_max_diff: deg(10)
+  hector_hdg_median_filter: true
+  hector_hdg_filter_buffer_size: 100
+  hector_hdg_filter_max_diff: deg(10)
   
-  tower_yaw_median_filter: true
-  tower_yaw_filter_buffer_size: 100
-  tower_yaw_filter_max_diff: deg(10)
+  tower_hdg_median_filter: true
+  tower_hdg_filter_buffer_size: 100
+  tower_hdg_filter_max_diff: deg(10)
   
-  aloam_yaw_median_filter: true
-  aloam_yaw_filter_buffer_size: 100
-  aloam_yaw_filter_max_diff: deg(10)
+  aloam_hdg_median_filter: true
+  aloam_hdg_filter_buffer_size: 100
+  aloam_hdg_filter_max_diff: deg(10)
 
-  vio_yaw_median_filter: true
-  vio_yaw_filter_buffer_size: 100
-  vio_yaw_filter_max_diff: deg(10)
+  vio_hdg_median_filter: true
+  vio_hdg_filter_buffer_size: 100
+  vio_hdg_filter_max_diff: deg(10)
 
-  brick_yaw_median_filter: true
-  brick_yaw_filter_buffer_size: 200
-  brick_yaw_filter_max_diff: deg(10)
-  max_brick_yaw_correction: deg(5)
-  accum_yaw_brick_alpha: 0.1
+  brick_hdg_median_filter: true
+  brick_hdg_filter_buffer_size: 200
+  brick_hdg_filter_max_diff: deg(10)
+  max_brick_hdg_correction: deg(5)
+  accum_hdg_brick_alpha: 0.1
 
   # Process covariance
   Q: [0.1, 0, 0,
@@ -312,14 +312,14 @@ heading:
 
   # Covariances of measurements
   R:
-    yaw_compass: [0.1]
-    yaw_hector: [0.01]
-    yaw_tower: [0.01]
-    yaw_aloam: [0.1]
-    yaw_brick: [10]
-    yaw_vio: [100] #100
-    yaw_vslam: [1]
-    yaw_lidar: [1]
+    hdg_compass: [0.1]
+    hdg_hector: [0.01]
+    hdg_tower: [0.01]
+    hdg_aloam: [0.1]
+    hdg_brick: [10]
+    hdg_vio: [100] #100
+    hdg_vslam: [1]
+    hdg_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
     rate_icp: [10]

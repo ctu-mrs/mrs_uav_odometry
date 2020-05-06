@@ -16,10 +16,6 @@
 namespace mrs_odometry
 {
 
-void addRPY(geometry_msgs::Quaternion& q_msg, const double& roll_add, const double& pitch_add, const double& yaw_add);
-
-void addYaw(geometry_msgs::Quaternion& q_msg, const double& yaw_add);
-
 tf2::Transform tf2FromPose(const geometry_msgs::Pose& pose_in);
 
 geometry_msgs::Pose poseFromTf2(const tf2::Transform& tf_in);
