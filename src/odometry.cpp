@@ -3714,18 +3714,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         current_hdg_estimator->getState(0, hdg);
       }
 
-      try {
-      odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setHeadingByYaw(hdg);
-    } catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_main orientation)");
-    }
-    try {
-      uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setHeadingByYaw(hdg);
-    } catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during setting heading (uav_state orientation)");
-    }
+      /* try { */
+      /* odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setHeadingByYaw(hdg); */
+    /* } catch (...) { */
+      /* ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_main orientation)"); */
+    /* } */
+    /* try { */
+      /* uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setHeadingByYaw(hdg); */
+    /* } catch (...) { */
+      /* ROS_ERROR("[Odometry]: Exception caught during setting heading (uav_state orientation)"); */
+    /* } */
 
-      uav_state.estimator_heading = _hdg_estimator_type;
+      /* uav_state.estimator_heading = _hdg_estimator_type; */
     }
 
     //}
@@ -3742,11 +3742,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       uav_state.pose.position.x = odom_main.pose.pose.position.x;
       uav_state.pose.position.y = odom_main.pose.pose.position.y;
     } else {
-      odom_main.pose.pose.position.x = pos_vec(0);
-      odom_main.pose.pose.position.y = pos_vec(1);
-      uav_state.pose.position.x      = pos_vec(0);
-      uav_state.pose.position.y      = pos_vec(1);
+      /* odom_main.pose.pose.position.x = pos_vec(0); */
+      /* odom_main.pose.pose.position.y = pos_vec(1); */
     }
+      uav_state.pose.position.x = odom_main.pose.pose.position.x;
+      uav_state.pose.position.y = odom_main.pose.pose.position.y;
 
     //}
 
@@ -3754,15 +3754,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // mavros velocity is correct only in the PIXHAWK heading estimator frame, our velocity estimate should be more accurate anyway
     // mavros velocity should be used only for debug and estimation baseline
-    if (!_publish_pixhawk_velocity_) {
-      odom_main.twist.twist.linear.x = body_vel.vector.x;
-      odom_main.twist.twist.linear.y = body_vel.vector.y;
-    }
-    odom_main.twist.twist.linear.z = body_vel.vector.z;
+    /* if (!_publish_pixhawk_velocity_) { */
+    /*   odom_main.twist.twist.linear.x = body_vel.vector.x; */
+    /*   odom_main.twist.twist.linear.y = body_vel.vector.y; */
+    /* } */
+    /* odom_main.twist.twist.linear.z = body_vel.vector.z; */
 
-    uav_state.velocity.linear.x = vel_vec(0);
-    uav_state.velocity.linear.y = vel_vec(1);
-    uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
+    /* uav_state.velocity.linear.x = vel_vec(0); */
+    /* uav_state.velocity.linear.y = vel_vec(1); */
+    /* uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY); */
 
 
     //}

@@ -40,9 +40,9 @@ pre_input="export UAV_NAME=$UAV_NAME; export ATHAME_ENABLED=0; export ROS_MASTER
 input=(
   'Roscore' 'roscore
 '
-  'Gazebo' "waitForRos; roscd simulation; roslaunch simulation simulation.launch gui:=true debug:=false world_name:=$WORLD --wait
+  'Gazebo' "waitForRos; roscd mrs_simulation; roslaunch mrs_simulation simulation.launch gui:=true debug:=false world_name:=$WORLD --wait
 "
-  'Spawn' "waitForSimulation; spawn 1 --run --delete --$UAV_TYPE --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
+  'Spawn' "waitForSimulation; rosrun mrs_simulation spawn 1 --run --delete --$UAV_TYPE --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_odometry/config/init_pose/init_pose.csv
 "
   'MRS_control' "waitForOdometry; roslaunch mrs_general core.launch
 "
