@@ -1,6 +1,6 @@
 #include "HeadingEstimator.h"
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /*  //{ HeadingEstimator() */
@@ -604,4 +604,4 @@ bool HeadingEstimator::reset(const hdg_x_t &states) {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry

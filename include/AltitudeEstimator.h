@@ -18,7 +18,7 @@
 
 #define ALT_DT 0.01
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 
@@ -79,6 +79,6 @@ namespace mrs_odometry
     bool m_is_initialized = false;
   };
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #endif

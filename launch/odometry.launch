@@ -27,7 +27,7 @@
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
 
-  <arg name="config_file" default="$(find mrs_odometry)/config/$(arg RUN_TYPE)/$(arg ODOMETRY_TYPE).yaml" />
+  <arg name="config_file" default="$(find mrs_uav_odometry)/config/$(arg RUN_TYPE)/$(arg ODOMETRY_TYPE).yaml" />
 
   <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="standalone" />
   <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="load" />
@@ -46,10 +46,10 @@
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/simulation/simulation_default.yaml" />
-  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_odometry)/config/uav/uav_default.yaml" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/simulation/simulation_default.yaml" />
+  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/uav/uav_default.yaml" />
 
-  <include file="$(find mrs_odometry)/launch/rtk_republisher.launch">
+  <include file="$(find mrs_uav_odometry)/launch/rtk_republisher.launch">
 
     <arg name="UAV_NAME" value="$(arg UAV_NAME)" />
     <arg name="PROFILER" value="$(arg PROFILER)" />
@@ -59,16 +59,16 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node pkg="nodelet" type="nodelet" name="odometry" args="$(arg nodelet) mrs_odometry/Odometry $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+    <node pkg="nodelet" type="nodelet" name="odometry" args="$(arg nodelet) mrs_uav_odometry/Odometry $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
       <param name="enable_profiler" type="bool" value="$(arg PROFILER)" />
 
-      <rosparam file="$(find mrs_odometry)/config/default_config.yaml" command="load" />
+      <rosparam file="$(find mrs_uav_odometry)/config/default_config.yaml" command="load" />
       <rosparam file="$(arg default_config_file)" command="load" />
       <rosparam file="$(arg default_config_file)" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/state_estimators.yaml" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/altitude_estimator.yaml" command="load" />
-      <rosparam file="$(find mrs_odometry)/config/heading_estimator.yaml" command="load" />
+      <rosparam file="$(find mrs_uav_odometry)/config/state_estimators.yaml" command="load" />
+      <rosparam file="$(find mrs_uav_odometry)/config/altitude_estimator.yaml" command="load" />
+      <rosparam file="$(find mrs_uav_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg config_file)" />
       <rosparam file="$(arg world_file)" />
 

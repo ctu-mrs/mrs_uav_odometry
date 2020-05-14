@@ -25,7 +25,7 @@
 
 #define btoa(x) ((x) ? "true" : "false")
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /* class RtkRepublisher //{ */
@@ -387,7 +387,7 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_odometry::RtkRepublisher, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_odometry::RtkRepublisher, nodelet::Nodelet)

@@ -2,7 +2,7 @@
 
 /* tf2FromPose() //{ */
 
-tf2::Transform mrs_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {
+tf2::Transform mrs_uav_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {
 
   tf2::Vector3 position(pose_in.position.x, pose_in.position.y, pose_in.position.z);
 
@@ -21,7 +21,7 @@ tf2::Transform mrs_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {
 
 /* posefromTf2() //{ */
 
-geometry_msgs::Pose mrs_odometry::poseFromTf2(const tf2::Transform& tf_in) {
+geometry_msgs::Pose mrs_uav_odometry::poseFromTf2(const tf2::Transform& tf_in) {
 
   geometry_msgs::Pose pose_out;
   pose_out.position.x = tf_in.getOrigin().getX();
@@ -37,7 +37,7 @@ geometry_msgs::Pose mrs_odometry::poseFromTf2(const tf2::Transform& tf_in) {
 
 /* pointToVector3() //{ */
 
-geometry_msgs::Vector3 mrs_odometry::pointToVector3(const geometry_msgs::Point& point_in) {
+geometry_msgs::Vector3 mrs_uav_odometry::pointToVector3(const geometry_msgs::Point& point_in) {
 
   geometry_msgs::Vector3 vec_out;
   vec_out.x = point_in.x;
@@ -50,7 +50,7 @@ geometry_msgs::Vector3 mrs_odometry::pointToVector3(const geometry_msgs::Point& 
 //}
 
 /* distance() //{ */
-double mrs_odometry::distance(const nav_msgs::Odometry& odom1, const nav_msgs::Odometry& odom2) {
+double mrs_uav_odometry::distance(const nav_msgs::Odometry& odom1, const nav_msgs::Odometry& odom2) {
   return std::sqrt(pow(odom1.pose.pose.position.x - odom2.pose.pose.position.x, 2) + pow(odom1.pose.pose.position.y - odom2.pose.pose.position.y, 2) +
                    pow(odom1.pose.pose.position.z - odom2.pose.pose.position.z, 2));
 }
@@ -58,7 +58,7 @@ double mrs_odometry::distance(const nav_msgs::Odometry& odom1, const nav_msgs::O
 
 /* toLowercase //{ */
 
-std::string mrs_odometry::toLowercase(const std::string str_in) {
+std::string mrs_uav_odometry::toLowercase(const std::string str_in) {
   std::string str_out = str_in;
   std::transform(str_out.begin(), str_out.end(), str_out.begin(), ::tolower);
   return str_out;
@@ -68,7 +68,7 @@ std::string mrs_odometry::toLowercase(const std::string str_in) {
 
 /* toUppercase //{ */
 
-std::string mrs_odometry::toUppercase(const std::string str_in) {
+std::string mrs_uav_odometry::toUppercase(const std::string str_in) {
   std::string str_out = str_in;
   std::transform(str_out.begin(), str_out.end(), str_out.begin(), ::toupper);
   return str_out;
@@ -79,7 +79,7 @@ std::string mrs_odometry::toUppercase(const std::string str_in) {
 /* tryPublish() //{ */
 
 template <typename MsgType>
-void mrs_odometry::tryPublish(const ros::Publisher& pub, const MsgType& msg) {
+void mrs_uav_odometry::tryPublish(const ros::Publisher& pub, const MsgType& msg) {
 
   try {
     pub.publish(msg);
@@ -92,7 +92,7 @@ void mrs_odometry::tryPublish(const ros::Publisher& pub, const MsgType& msg) {
 //}
 
 /* noNans() //{ */
-bool mrs_odometry::noNans(const geometry_msgs::TransformStamped& tf) {
+bool mrs_uav_odometry::noNans(const geometry_msgs::TransformStamped& tf) {
 
   return (std::isfinite(tf.transform.rotation.z) && std::isfinite(tf.transform.translation.x) && std::isfinite(tf.transform.translation.z));
 }

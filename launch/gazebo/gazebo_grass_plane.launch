@@ -29,7 +29,7 @@
   <arg     if="$(arg debug)" name="script_type" value="debug"/>
 
   <!-- specify additional model path -->
-  <env name="GAZEBO_MODEL_PATH" value="$(env GAZEBO_MODEL_PATH):$(find mrs_odometry)/gazebo_files/models" />
+  <env name="GAZEBO_MODEL_PATH" value="$(env GAZEBO_MODEL_PATH):$(find mrs_uav_odometry)/gazebo_files/models" />
 
   <!-- start gazebo server-->
   <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen"

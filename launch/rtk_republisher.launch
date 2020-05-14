@@ -18,9 +18,9 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="$(arg nodelet) mrs_odometry/RtkRepublisher $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+    <node pkg="nodelet" type="nodelet" name="rtk_republisher" args="$(arg nodelet) mrs_uav_odometry/RtkRepublisher $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
-      <rosparam file="$(find mrs_odometry)/config/rtk_republisher.yaml" />
+      <rosparam file="$(find mrs_uav_odometry)/config/rtk_republisher.yaml" />
       <param name="enable_profiler" value="$(arg PROFILER)" />
 
       <!-- Subscribers -->

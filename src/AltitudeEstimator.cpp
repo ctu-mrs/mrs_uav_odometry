@@ -1,6 +1,6 @@
 #include "AltitudeEstimator.h"
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /*  //{ AltitudeEstimator() */
@@ -609,4 +609,4 @@ bool AltitudeEstimator::reset(const Eigen::MatrixXd &states) {
 }
 
 //}
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry

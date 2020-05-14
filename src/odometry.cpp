@@ -73,7 +73,7 @@
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
-#include <mrs_odometry/odometry_dynparamConfig.h>
+#include <mrs_uav_odometry/odometry_dynparamConfig.h>
 
 #include <tf2_ros/transform_broadcaster.h>
 
@@ -91,7 +91,7 @@
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 /* //{ class Odometry */
@@ -224,8 +224,8 @@ private:
   std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
   mrs_lib::Transformer                        transformer_;
 
-  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
-  dynamic_reconfigure::Server<mrs_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
+  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>               odometry_dynparam_server;
+  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server;
 
   nav_msgs::Odometry odom_pixhawk;
   nav_msgs::Odometry odom_pixhawk_previous;
@@ -540,7 +540,7 @@ private:
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
-  void callbackReconfigure(mrs_odometry::odometry_dynparamConfig &config, uint32_t level);
+  void callbackReconfigure(mrs_uav_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
@@ -569,7 +569,7 @@ private:
 
   void altitudeEstimatorsPrediction(const double input, const double dt);
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator);
+  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator);
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
   void headingEstimatorsPrediction(const double hdg, const double hdg_rate, const double dt);
@@ -955,10 +955,10 @@ private:
   // --------------------------------------------------------------
 
   boost::recursive_mutex                        config_mutex_;
-  typedef mrs_odometry::odometry_dynparamConfig Config;
+  typedef mrs_uav_odometry::odometry_dynparamConfig Config;
   typedef dynamic_reconfigure::Server<Config>   ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>          reconfigure_server_;
-  mrs_odometry::odometry_dynparamConfig         last_drs_config;
+  mrs_uav_odometry::odometry_dynparamConfig         last_drs_config;
 };
 
 //}
@@ -1835,7 +1835,7 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
   // |                         tf listener                        |
   // --------------------------------------------------------------
-  m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_odometry");
+  m_tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(m_tf_buffer, "mrs_uav_odometry");
   transformer_      = mrs_lib::Transformer("Odometry", _uav_name_);
 
 
@@ -3383,9 +3383,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -3760,6 +3760,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /* } */
     /* odom_main.twist.twist.linear.z = body_vel.vector.z; */
 
+      // wrong!! for debug
+    uav_state.velocity.linear.x = odom_main.twist.twist.linear.x;
+    uav_state.velocity.linear.y = odom_main.twist.twist.linear.y;
+
     /* uav_state.velocity.linear.x = vel_vec(0); */
     /* uav_state.velocity.linear.y = vel_vec(1); */
     /* uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY); */
@@ -3844,15 +3848,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /* publish local origin tf //{ */
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_local.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_local.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     geometry_msgs::TransformStamped tf;
     tf.header.stamp          = ros::Time::now();
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = local_origin_frame_id_;
-    tf.transform.translation = mrs_odometry::pointToVector3(pose_inv.position);
+    tf.transform.translation = mrs_uav_odometry::pointToVector3(pose_inv.position);
     tf.transform.rotation    = pose_inv.orientation;
     if (noNans(tf)) {
       try {
@@ -3944,15 +3948,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   if (got_stable) {
     // Get inverse trasnform
-    tf2::Transform tf_stable_inv        = mrs_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
+    tf2::Transform tf_stable_inv        = mrs_uav_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
     tf_stable_inv                       = tf_stable_inv.inverse();
-    geometry_msgs::Pose pose_stable_inv = mrs_odometry::poseFromTf2(tf_stable_inv);
+    geometry_msgs::Pose pose_stable_inv = mrs_uav_odometry::poseFromTf2(tf_stable_inv);
 
     geometry_msgs::TransformStamped tf_stable;
     tf_stable.header.stamp          = ros::Time::now();
     tf_stable.header.frame_id       = fcu_frame_id_;
     tf_stable.child_frame_id        = stable_origin_frame_id_;
-    tf_stable.transform.translation = mrs_odometry::pointToVector3(pose_stable_inv.position);
+    tf_stable.transform.translation = mrs_uav_odometry::pointToVector3(pose_stable_inv.position);
     tf_stable.transform.rotation    = pose_stable_inv.orientation;
     if (noNans(tf_stable)) {
       try {
@@ -4100,9 +4104,9 @@ void Odometry::auxTimer(const ros::TimerEvent &event) {
     }
 
     // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_odometry::tf2FromPose(odom_aux->second.pose.pose);
+    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_odometry::poseFromTf2(tf_inv);
+    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
     geometry_msgs::TransformStamped tf;
@@ -8744,7 +8748,7 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
   res.message = (printOdometryDiag().c_str());
 
   return true;
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 //}
 
@@ -8880,7 +8884,7 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
   res.message = (printOdometryDiag().c_str());
 
   return true;
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 //}
 
@@ -9327,7 +9331,7 @@ bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs
 //}
 
 /* //{ callbackReconfigure() */
-void Odometry::callbackReconfigure([[maybe_unused]] mrs_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
+void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_dynparamConfig &config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized_)
     return;
@@ -9629,7 +9633,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 /*  //{ altitudeEstimatorCorrection() */
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
-                                           const std::shared_ptr<mrs_odometry::AltitudeEstimator> &estimator) {
+                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id.end()) {
@@ -10734,7 +10738,7 @@ bool Odometry::callMpcController() {
 
 //}
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_odometry::Odometry, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_odometry::Odometry, nodelet::Nodelet)

@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
 
-  <name>mrs_odometry</name>
+  <name>mrs_uav_odometry</name>
   <version>0.0.5</version>
-  <description>The mrs_odometry package</description>
+  <description>The mrs_uav_odometry package</description>
 
   <author email="matej.petrlik@fel.cvut.cz">Matej Petrlik</author>
   <maintainer email="matej.petrlik@fel.cvut.cz">Matej Petrlik</maintainer>

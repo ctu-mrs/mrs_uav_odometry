@@ -16,7 +16,7 @@
 
 #include <types.h>
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 using statecov_t = mrs_lib::LKF_MRS_odom::statecov_t;
@@ -69,6 +69,6 @@ using H_t = mrs_lib::LKF_MRS_odom::H_t;
     bool m_is_initialized = false;
   };
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #endif

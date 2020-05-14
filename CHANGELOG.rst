@@ -1,5 +1,5 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Changelog for package mrs_odometry
+Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 0.0.5 (2020-02-26)

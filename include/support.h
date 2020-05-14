@@ -13,7 +13,7 @@
 
 //}
 
-namespace mrs_odometry
+namespace mrs_uav_odometry
 {
 
 tf2::Transform tf2FromPose(const geometry_msgs::Pose& pose_in);
@@ -33,6 +33,6 @@ void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
 bool noNans(const geometry_msgs::TransformStamped& tf);
 
-}  // namespace mrs_odometry
+}  // namespace mrs_uav_odometry
 
 #endif

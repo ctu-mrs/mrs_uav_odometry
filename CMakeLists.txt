@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mrs_odometry)
+project(mrs_uav_odometry)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   )
 
-find_package(mavros_msgs 0.30.0 EXACT REQUIRED)
+find_package(mavros_msgs REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -O0 -g")
