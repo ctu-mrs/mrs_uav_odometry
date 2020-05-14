@@ -62,12 +62,20 @@ AltitudeEstimator::AltitudeEstimator(
 
   //}
 
+// clang-format off
   m_A << 1, m_dt, m_dt_sq,
       0, 1, m_dt,
-      0, 0, 1;
+      0, 0, 0.8;
 
-  m_B << 0, 0, m_dt;
+  /* m_A << 1, m_dt, 0, */
+  /*     0, 1, 0, */
+  /*     0, 0, 0; */
 
+  /* m_B << 0, 0, 0; */
+  m_B << 0, 0, 0.2;
+
+  // clang-format on
+  
   // set measurement mapping matrix H to zero, it will be set later during each correction step
   alt_H_t m_H_zero = m_H_zero.Zero();
 
@@ -136,8 +144,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   //}
 
   alt_u_t u = u.Zero();
-  //TODO u(2)??? spis u(0), kdyz to ma jen jeden input ne?
-  u(2) = input;
+  u(0) = input;
 
   double dtsq = pow(dt, 2);
   alt_A_t A = m_A;
@@ -145,17 +152,17 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   B(2, 0)           = dt;
 
   A(0, 1)           = dt;
-  A(1, 2)           = dt;
+  A(1, 2)           = dtsq;
 
-  A(0, 2)           = dtsq;
+  A(0, 2)           = dt;
 
   {
     std::scoped_lock lock(mutex_lkf);
 
     try {
       // Apply the prediction step
-    mp_lkf->A = A;
-    mp_lkf->B = B;
+    /* mp_lkf->A = A; */
+    /* mp_lkf->B = B; */
     m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
   }
     catch (const std::exception &e) {
@@ -206,8 +213,8 @@ bool AltitudeEstimator::doPrediction(const double input) {
     std::scoped_lock lock(mutex_lkf);
     try {
       // Apply the prediction step
-    mp_lkf->A = A;
-    mp_lkf->B = B;
+    /* mp_lkf->A = A; */
+    /* mp_lkf->B = B; */
     m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
   }
     catch (const std::exception &e) {

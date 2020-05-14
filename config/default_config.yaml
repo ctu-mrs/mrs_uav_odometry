@@ -115,16 +115,16 @@ altitude:
   # The input matrix
   B: [0,
       0,
-      0.1]
+      0.01]
 
   # Process covariance
-  Q: [1, 0, 0,
-      0, 1, 0,
-      0, 0, 10]
+  Q: [0.01, 0, 0,
+      0, 0.01, 0,
+      0, 0, 0.01]
 
   # Covariances of measurements
   R:
-    height_range: [100] # 0.04 stddev in simulation
+    height_range: [0.1] # 0.04 stddev in simulation
     height_sonar: [1]
     height_plane: [10] 
     height_brick: [10] 
@@ -132,7 +132,7 @@ altitude:
     height_aloam: [1] 
     height_baro: [1] 
     # vel_baro: [100] # for difference
-    vel_baro: [0.1] # for twist
+    vel_baro: [0.01] # for twist
     acc_imu: [100] 
 
 lateral:

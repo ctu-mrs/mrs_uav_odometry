@@ -14,10 +14,10 @@
 
 // altitude
 #define ALT_N_STATES 3
-#define ALT_N_INPUTS 2
+#define ALT_N_INPUTS 1
 #define ALT_N_MEASUREMENTS 1
 
-// altitude
+// heading
 #define HDG_N_STATES 3
 #define HDG_N_INPUTS 2
 #define HDG_N_MEASUREMENTS 1

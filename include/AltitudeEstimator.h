@@ -66,7 +66,7 @@ namespace mrs_uav_odometry
 
     // Default dt
     double m_dt = ALT_DT;
-    double m_dt_sq = m_dt*m_dt;
+    double m_dt_sq = m_dt*m_dt/2;
 
     // Kalman filter - the core of the estimator 
     std::unique_ptr<lkf_alt_t> mp_lkf;

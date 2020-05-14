@@ -3531,6 +3531,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted);
 
   odom_main                  = odom_pixhawk_shifted_local;
+  uav_state.pose.position = odom_pixhawk_shifted_local.pose.pose.position;
+  uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.linear;
   uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
   uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.angular;
 
@@ -3663,8 +3665,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     odom_main.pose.pose.position.z  = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    uav_state.pose.position.z       = current_altitude(mrs_msgs::AltitudeStateNames::HEIGHT);
-    uav_state.acceleration.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION);
+    uav_state.pose.position.z       = odom_main.pose.pose.position.z;
 
     //}
 
@@ -3738,35 +3739,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         odom_main.pose.pose.position.x = sc_lat_rtk_.x(0);
         odom_main.pose.pose.position.y = sc_lat_rtk_.x(1);
+        uav_state.pose.position.x = sc_lat_rtk_.x(0);
+        uav_state.pose.position.y = sc_lat_rtk_.x(1);
       }
-      uav_state.pose.position.x = odom_main.pose.pose.position.x;
-      uav_state.pose.position.y = odom_main.pose.pose.position.y;
     } else {
-      /* odom_main.pose.pose.position.x = pos_vec(0); */
-      /* odom_main.pose.pose.position.y = pos_vec(1); */
+      odom_main.pose.pose.position.x = pos_vec(0);
+      odom_main.pose.pose.position.y = pos_vec(1);
+      uav_state.pose.position.x = pos_vec(0);
+      uav_state.pose.position.y = pos_vec(1);
     }
-      uav_state.pose.position.x = odom_main.pose.pose.position.x;
-      uav_state.pose.position.y = odom_main.pose.pose.position.y;
 
     //}
 
     /* fill in the velocity //{ */
 
-    // mavros velocity is correct only in the PIXHAWK heading estimator frame, our velocity estimate should be more accurate anyway
-    // mavros velocity should be used only for debug and estimation baseline
-    /* if (!_publish_pixhawk_velocity_) { */
-    /*   odom_main.twist.twist.linear.x = body_vel.vector.x; */
-    /*   odom_main.twist.twist.linear.y = body_vel.vector.y; */
-    /* } */
-    /* odom_main.twist.twist.linear.z = body_vel.vector.z; */
+    odom_main.twist.twist.linear.x = body_vel.vector.x;
+    odom_main.twist.twist.linear.y = body_vel.vector.y;
+    odom_main.twist.twist.linear.z = body_vel.vector.z;
 
-      // wrong!! for debug
-    uav_state.velocity.linear.x = odom_main.twist.twist.linear.x;
-    uav_state.velocity.linear.y = odom_main.twist.twist.linear.y;
 
-    /* uav_state.velocity.linear.x = vel_vec(0); */
-    /* uav_state.velocity.linear.y = vel_vec(1); */
-    /* uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY); */
+    uav_state.velocity.linear.x = vel_vec(0);
+    uav_state.velocity.linear.y = vel_vec(1);
+    uav_state.velocity.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::VELOCITY);
 
 
     //}
@@ -3775,6 +3769,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     uav_state.acceleration.linear.x = acc_vec(0);
     uav_state.acceleration.linear.y = acc_vec(1);
+    uav_state.acceleration.linear.z = current_altitude(mrs_msgs::AltitudeStateNames::ACCELERATION);
 
     //}
 
@@ -3911,6 +3906,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   odometry_published = true;
 
+  ROS_INFO_THROTTLE(1.0, "[Odometry]: mainTimer took: %f", (ros::Time::now()-time_now).toSec());
   //}
 
   /* publish stable odometry //{ */
