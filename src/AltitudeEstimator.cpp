@@ -54,7 +54,8 @@ AltitudeEstimator::AltitudeEstimator(
   for (size_t i = 0; i < m_R_multi.size(); i++) {
     if (m_R_multi[i].rows() != ALT_N_MEASUREMENTS || m_R_multi[i].cols() != ALT_N_MEASUREMENTS) {
       std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".AltitudeEstimator()"
-                << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (3, 3) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")" << std::endl;
+                << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (3, 3) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")"
+                << std::endl;
       return;
     }
   }
@@ -62,29 +63,24 @@ AltitudeEstimator::AltitudeEstimator(
 
   //}
 
-// clang-format off
+  // clang-format off
   m_A << 1, m_dt, m_dt_sq,
       0, 1, m_dt,
-      0, 0, 0.8;
+      0, 0, 1.0-m_b;
 
-  /* m_A << 1, m_dt, 0, */
-  /*     0, 1, 0, */
-  /*     0, 0, 0; */
-
-  /* m_B << 0, 0, 0; */
-  m_B << 0, 0, 0.2;
+  m_B << 0, 0, m_b;
 
   // clang-format on
-  
+
   // set measurement mapping matrix H to zero, it will be set later during each correction step
   alt_H_t m_H_zero = m_H_zero.Zero();
 
   mp_lkf = std::make_unique<lkf_alt_t>(m_A, m_B, m_H_zero);
 
   // Initialize all states to 0
-  const alt_x_t x0 = alt_x_t::Zero();
-  alt_P_t P_tmp = alt_P_t::Identity();
-  const alt_P_t P0 = 1000.0*P_tmp*P_tmp.transpose();
+  const alt_x_t        x0    = alt_x_t::Zero();
+  alt_P_t              P_tmp = alt_P_t::Identity();
+  const alt_P_t        P0    = 1000.0 * P_tmp * P_tmp.transpose();
   const alt_statecov_t sc0({x0, P0});
   m_sc = sc0;
 
@@ -144,27 +140,24 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   //}
 
   alt_u_t u = u.Zero();
-  u(0) = input;
+  u(0)      = input;
 
-  double dtsq = pow(dt, 2);
-  alt_A_t A = m_A;
-  alt_B_t B = m_B;
-  B(2, 0)           = dt;
+  double  dtsq = pow(dt, 2);
+  alt_A_t A    = m_A;
 
-  A(0, 1)           = dt;
-  A(1, 2)           = dtsq;
+  A(0, 1) = dt;
+  A(1, 2) = dtsq;
 
-  A(0, 2)           = dt;
+  A(0, 2) = dt;
 
   {
     std::scoped_lock lock(mutex_lkf);
 
     try {
       // Apply the prediction step
-    /* mp_lkf->A = A; */
-    /* mp_lkf->B = B; */
-    m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
-  }
+      mp_lkf->A = A;
+      m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
+    }
     catch (const std::exception &e) {
       // In case of error, alert the user
       ROS_ERROR("[AltitudeEstimator]: LKF prediction step failed: %s", e.what());
@@ -187,36 +180,32 @@ bool AltitudeEstimator::doPrediction(const double input) {
 
   // Check for NaNs
   if (!std::isfinite(input)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const double input=" << input
-              << "): NaN detected in variable \"input\"." << std::endl;
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doPrediction(const double input=" << input << "): NaN detected in variable \"input\"."
+              << std::endl;
     return false;
   }
 
   //}
 
   alt_u_t u = u.Zero();
-  u(2) = input;
+  u(2)      = input;
 
-  double dt = m_dt;
-  double dtsq = pow(dt, 2);
-
-  alt_B_t B = m_B;
-  B(2, 0)           = dt;
+  double dt   = m_dt;
+  double dtsq = m_dt_sq;
 
   alt_A_t A = m_A;
-  A(0, 1)           = dt;
-  A(1, 2)           = dt;
+  A(0, 1)   = dt;
+  A(1, 2)   = dt;
 
-  A(0, 2)           = dtsq;
+  A(0, 2) = dtsq;
 
   {
     std::scoped_lock lock(mutex_lkf);
     try {
       // Apply the prediction step
-    /* mp_lkf->A = A; */
-    /* mp_lkf->B = B; */
-    m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
-  }
+      mp_lkf->A = A;
+      m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
+    }
     catch (const std::exception &e) {
       // In case of error, alert the user
       ROS_ERROR("[AltitudeEstimator]: LKF prediction step failed: %s", e.what());
@@ -230,36 +219,29 @@ bool AltitudeEstimator::doPrediction(const double input) {
 
 /*  //{ doCorrection() */
 
-bool AltitudeEstimator::doCorrection(const Eigen::VectorXd &measurement, int measurement_type) {
+bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check size of measurement
-  if (measurement.size() != 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): wrong size of \"input\". Should be: " << 2 << " is:" << measurement.size() << std::endl;
-    return false;
-  }
-
   // Check for NaNs
-  if (!std::isfinite(measurement(0))) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
+  if (!std::isfinite(measurement)) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const double &measurement=" << measurement
+              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement\"." << std::endl;
     return false;
   }
 
   if (!std::isfinite(measurement_type)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const double &measurement=" << measurement
+              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement\"." << std::endl;
     return false;
   }
 
   // Check for valid value of measurement
   if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".doCorrection(const double &measurement=" << measurement
               << ", int measurement_type=" << measurement_type << "): invalid value of \"measurement_type\"." << std::endl;
     return false;
   }
@@ -273,18 +255,18 @@ bool AltitudeEstimator::doCorrection(const Eigen::VectorXd &measurement, int mea
 
   // Prepare the measurement vector
   alt_z_t z;
-  z << measurement(0);
+  z << measurement;
 
   alt_R_t R;
   R << m_R_multi[measurement_type];
 
   // Fuse the measurement
-    std::scoped_lock lock(mutex_lkf);
-    {
+  std::scoped_lock lock(mutex_lkf);
+  {
 
     try {
       mp_lkf->H = m_H_multi[measurement_type];
-      m_sc = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]);
+      m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]);
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -299,7 +281,7 @@ bool AltitudeEstimator::doCorrection(const Eigen::VectorXd &measurement, int mea
 
 /*  //{ getStates() */
 
-bool AltitudeEstimator::getStates(Eigen::MatrixXd &states) {
+bool AltitudeEstimator::getStates(alt_x_t &x) {
 
   /*  //{ sanity checks */
 
@@ -310,25 +292,7 @@ bool AltitudeEstimator::getStates(Eigen::MatrixXd &states) {
 
   std::scoped_lock lock(mutex_lkf);
 
-  states = m_sc.x;
-
-  return true;
-}
-
-//}
-
-/*  //{ getN() */
-
-bool AltitudeEstimator::getN(int& n) {
-
-  /*  //{ sanity checks */
-
-  if (!m_is_initialized)
-    return false;
-
-  //}
-
-  n = m_n_states; 
+  x = m_sc.x;
 
   return true;
 }
@@ -337,7 +301,7 @@ bool AltitudeEstimator::getN(int& n) {
 
 /*  //{ getState() */
 
-bool AltitudeEstimator::getState(int state_id, Eigen::VectorXd &state) {
+bool AltitudeEstimator::getState(int state_id, double &state_val) {
 
   /*  //{ sanity checks */
 
@@ -346,14 +310,14 @@ bool AltitudeEstimator::getState(int state_id, Eigen::VectorXd &state) {
 
   // Check for NaNs
   if (!std::isfinite(state_id)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".getState(int state_id=" << state_id << ", Eigen::VectorXd &state=" << state
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".getState(int state_id=" << state_id << ", double &state=" << state_val
               << "): NaN detected in variable \"state_id\"." << std::endl;
     return false;
   }
 
   // Check validity of state_id
   if (state_id < 0 || state_id > m_n_states - 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".getState(int state_id=" << state_id << ", Eigen::VectorXd &state=" << state
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".getState(int state_id=" << state_id << ", double &state_val=" << state_val
               << "): Invalid value of \"state_id\"." << std::endl;
     return false;
   }
@@ -363,7 +327,7 @@ bool AltitudeEstimator::getState(int state_id, Eigen::VectorXd &state) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    state(0) = m_sc.x(state_id);
+    state_val = m_sc.x(state_id);
   }
 
   return true;
@@ -381,36 +345,29 @@ std::string AltitudeEstimator::getName(void) {
 
 /*  //{ setState() */
 
-bool AltitudeEstimator::setState(int state_id, const Eigen::VectorXd &state) {
+bool AltitudeEstimator::setState(int state_id, const double &state_val) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check the size of state
-  if (state.size() != 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
-              << "): wrong size of \"state.size()\". Should be: " << 2 << " is:" << state.size() << std::endl;
-    return false;
-  }
-
   // Check for NaNs
-  if (!std::isfinite(state(0))) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
+  if (!std::isfinite(state_val)) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const double &state=" << state_val
               << "): NaN detected in variable \"state(0)\"." << std::endl;
     return false;
   }
 
   if (!std::isfinite(state_id)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const double &state=" << state_val
               << "): NaN detected in variable \"state_id\"." << std::endl;
     return false;
   }
 
   // Check validity of state_id
   if (state_id < 0 || state_id > m_n_states - 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const double &state=" << state_val
               << "): Invalid value of \"state_id\"." << std::endl;
     return false;
   }
@@ -420,7 +377,7 @@ bool AltitudeEstimator::setState(int state_id, const Eigen::VectorXd &state) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.x(state_id) = state(0);
+    m_sc.x(state_id) = state_val;
   }
 
   return true;
@@ -430,7 +387,7 @@ bool AltitudeEstimator::setState(int state_id, const Eigen::VectorXd &state) {
 
 /*  //{ setR() */
 
-bool AltitudeEstimator::setR(double cov, int measurement_type) {
+bool AltitudeEstimator::setR(double R, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -438,38 +395,38 @@ bool AltitudeEstimator::setR(double cov, int measurement_type) {
     return false;
 
   // Check for NaNs
-  if (!std::isfinite(cov)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type
-              << "): NaN detected in variable \"cov\"." << std::endl;
+  if (!std::isfinite(R)) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
+              << "): NaN detected in variable \"R\"." << std::endl;
     return false;
   }
 
-  // Check for non-positive covariance
-  if (cov <= 0) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type
-              << "): \"cov\" should be > 0." << std::endl;
+  // Check for non-positive Rariance
+  if (R <= 0) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
+              << "): \"R\" should be > 0." << std::endl;
     return false;
   }
 
   // Check for invalid measurement type
   if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
               << "): invalid value of \"measurement_type\"." << std::endl;
     return false;
   }
 
   //}
 
-  double old_cov = m_R_multi[measurement_type](0, 0);
+  double old_R = m_R_multi[measurement_type](0, 0);
 
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_R_multi[measurement_type](0, 0) = cov;
+    m_R_multi[measurement_type](0, 0) = R;
   }
 
-  std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setQ(double cov=" << cov << ", int measurement_type=" << measurement_type << ")"
-            << " Changed covariance from: " << old_cov << " to: " << m_R_multi[measurement_type](0, 0) << std::endl;
+  std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setQ(double R=" << R << ", int measurement_type=" << measurement_type << ")"
+            << " Changed Rariance from: " << old_R << " to: " << m_R_multi[measurement_type](0, 0) << std::endl;
 
   return true;
 }
@@ -478,7 +435,7 @@ bool AltitudeEstimator::setR(double cov, int measurement_type) {
 
 /*  //{ getR() */
 
-bool AltitudeEstimator::getR(double &cov, int measurement_type) {
+bool AltitudeEstimator::getR(double &R, int measurement_type) {
 
   /*  //{ sanity checks */
 
@@ -504,7 +461,7 @@ bool AltitudeEstimator::getR(double &cov, int measurement_type) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = m_R_multi[measurement_type](0, 0);
+    R = m_R_multi[measurement_type](0, 0);
   }
 
   return true;
@@ -514,7 +471,7 @@ bool AltitudeEstimator::getR(double &cov, int measurement_type) {
 
 /*  //{ getCovariance() */
 
-bool AltitudeEstimator::getCovariance(Eigen::MatrixXd &cov) {
+bool AltitudeEstimator::getCovariance(alt_P_t &P) {
 
   /*  //{ sanity checks */
 
@@ -526,7 +483,7 @@ bool AltitudeEstimator::getCovariance(Eigen::MatrixXd &cov) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = m_sc.P;
+    P = m_sc.P;
   }
 
   return true;
@@ -536,25 +493,18 @@ bool AltitudeEstimator::getCovariance(Eigen::MatrixXd &cov) {
 
 /*  //{ setCovariance() */
 
-bool AltitudeEstimator::setCovariance(const Eigen::MatrixXd &cov) {
+bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check size of measurement
-  if (cov.rows() != m_n_states || cov.cols() != m_n_states) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(const Eigen::MatrixXd &cov=" << cov << "): wrong size of \"cov\". Should be: ("
-              << m_n_states << "," << m_n_states << ") is: (" << cov.rows() << "," << cov.cols() << ")" << std::endl;
-    return false;
-  }
-
   // Check for NaNs
   for (int i = 0; i < m_n_states; i++) {
-    if (!std::isfinite(cov(i, i))) {
-      std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(const Eigen::MatrixXd &cov=" << cov << "): NaN detected in variable \"cov("
-                << i << "," << i << ")\"." << std::endl;
+    if (!std::isfinite(P(i, i))) {
+      ROS_ERROR_STREAM("[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(const Eigen::MatrixXd &P=" << P << "): NaN detected in variable \"P("
+                << i << "," << i << ")\".");
       return false;
     }
   }
@@ -565,7 +515,7 @@ bool AltitudeEstimator::setCovariance(const Eigen::MatrixXd &cov) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.P = cov;
+    m_sc.P = P;
   }
 
   return true;
@@ -574,31 +524,19 @@ bool AltitudeEstimator::setCovariance(const Eigen::MatrixXd &cov) {
 
 /*  //{ reset() */
 
-bool AltitudeEstimator::reset(const Eigen::MatrixXd &states) {
+bool AltitudeEstimator::reset(const alt_x_t &x) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
-  // Check size of states
-  if ((int)states.rows() != m_n_states) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".reset(const Eigen::MatrixXd &states="  // << states
-              << "): wrong size of \"states.rows()\". Should be: " << m_n_states << " is:" << states.rows() << std::endl;
-    return false;
-  }
-
-  if (states.cols() != 1) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".reset(const Eigen::MatrixXd &states="  // << states
-              << "): wrong size of \"states.cols()\". Should be: " << 1 << " is:" << states.cols() << std::endl;
-    return false;
-  }
 
   // Check for NaNs
-  for (int i = 0; i < states.rows(); i++) {
-    for (int j = 0; j < states.cols(); j++) {
-      if (!std::isfinite(states(i, j))) {
-        std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".reset(const Eigen::MatrixXd &states="  // << states
-                  << "): NaN detected in variable \"states(" << i << ", " << j << ")\"." << std::endl;
+  for (int i = 0; i < x.rows(); i++) {
+    for (int j = 0; j < x.cols(); j++) {
+      if (!std::isfinite(x(i, j))) {
+        std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".reset(const alt_x_t &x="  // << x
+                  << "): NaN detected in variable \"x(" << i << ", " << j << ")\"." << std::endl;
         return false;
       }
     }
@@ -609,7 +547,7 @@ bool AltitudeEstimator::reset(const Eigen::MatrixXd &states) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.x = (states.col(0));
+    m_sc.x = (x);
   }
 
   return true;

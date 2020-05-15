@@ -17,6 +17,7 @@
 #include "types.h"
 
 #define ALT_DT 0.01
+#define ALT_INPUT_COEFF 0.2
 
 namespace mrs_uav_odometry
 {
@@ -30,17 +31,16 @@ namespace mrs_uav_odometry
 
     bool        doPrediction(const double input, const double dt);
     bool        doPrediction(const double input);
-    bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
-    bool        getStates(Eigen::MatrixXd &states);
-    bool        getN(int& n);
-    bool        getState(int state_id, Eigen::VectorXd &state);
+    bool        doCorrection(const double &measurement, int measurement_type);
+    bool        getStates(alt_x_t &x);
+    bool        getState(int state_id, double &state_val);
     std::string getName(void);
-    bool        setState(int state_id, const Eigen::VectorXd &state);
-    bool        setR(double cov, int measurement_type);
-    bool        getR(double &cov, int measurement_type);
-    bool        getCovariance(Eigen::MatrixXd &cov);
-    bool        setCovariance(const Eigen::MatrixXd &cov);
-    bool        reset(const Eigen::MatrixXd &states);
+    bool        setState(int state_id, const double &state_val);
+    bool        setR(double R, int measurement_type);
+    bool        getR(double &R, int measurement_type);
+    bool        getCovariance(alt_P_t &P);
+    bool        setCovariance(const alt_P_t &P);
+    bool        reset(const alt_x_t &states);
 
   private:
     std::string                  m_estimator_name;
@@ -53,6 +53,9 @@ namespace mrs_uav_odometry
 
     // Input matrix
     alt_B_t              m_B;
+
+    // Input coefficient
+    double m_b = ALT_INPUT_COEFF;
 
     // Array with mapping matrices for each fused measurement
     std::vector<alt_H_t> m_H_multi;
