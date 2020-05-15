@@ -2561,25 +2561,32 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // correction step for hector
-
-    auto pos_hector_x_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_x);
-    auto pos_hector_y_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_y);
-    stateEstimatorsCorrection(pos_hector_x_tmp, pos_hector_y_tmp, "pos_hector");
+    if (got_hector_pose) {
+      auto pos_hector_x_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_x);
+      auto pos_hector_y_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_y);
+      stateEstimatorsCorrection(pos_hector_x_tmp, pos_hector_y_tmp, "pos_hector");
+    }
 
     // correction step for tower
-    auto pos_tower_x_tmp = mrs_lib::get_mutexed(mutex_tower, pos_tower_x);
-    auto pos_tower_y_tmp = mrs_lib::get_mutexed(mutex_tower, pos_tower_y);
-    stateEstimatorsCorrection(pos_tower_x_tmp, pos_tower_y_tmp, "pos_tower");
+    if (got_tower_pose) {
+      auto pos_tower_x_tmp = mrs_lib::get_mutexed(mutex_tower, pos_tower_x);
+      auto pos_tower_y_tmp = mrs_lib::get_mutexed(mutex_tower, pos_tower_y);
+      stateEstimatorsCorrection(pos_tower_x_tmp, pos_tower_y_tmp, "pos_tower");
+    }
 
     // correction step for aloam
-    auto pos_aloam_x_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_x);
-    auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_y);
-    stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
+    if (got_aloam_odom) {
+      auto pos_aloam_x_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_x);
+      auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_y);
+      stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
+    }
 
     // correction step for lidar
-    auto pos_lidar_x_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_x);
-    auto pos_lidar_y_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_y);
-    stateEstimatorsCorrection(pos_lidar_x_tmp, pos_lidar_y_tmp, "pos_lidar");
+    if (got_lidar_odom) {
+      auto pos_lidar_x_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_x);
+      auto pos_lidar_y_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_y);
+      stateEstimatorsCorrection(pos_lidar_x_tmp, pos_lidar_y_tmp, "pos_lidar");
+    }
 
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
