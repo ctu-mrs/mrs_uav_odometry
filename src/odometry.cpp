@@ -3614,7 +3614,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[Odometry]: Exception caught during obtaining heading (initialization of m_rot_odom_offset)");
     }
 
-    m_rot_odom_offset = mrs_lib::AttitudeConverter(0,0,0).setHeadingByYaw(hdg_tmp);
+    m_rot_odom_offset = mrs_lib::AttitudeConverter(0,0,0).setHeading(hdg_tmp);
 
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
   }
@@ -3704,18 +3704,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         current_hdg_estimator->getState(0, hdg);
       }
 
-      /* try { */
-      /* odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setHeadingByYaw(hdg); */
-    /* } catch (...) { */
-      /* ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_main orientation)"); */
-    /* } */
-    /* try { */
-      /* uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setHeadingByYaw(hdg); */
-    /* } catch (...) { */
-      /* ROS_ERROR("[Odometry]: Exception caught during setting heading (uav_state orientation)"); */
-    /* } */
+      try {
+      odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setHeading(hdg);
+    } catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_main orientation)");
+    }
+    try {
+      uav_state.pose.orientation      = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setHeading(hdg);
+    } catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during setting heading (uav_state orientation)");
+    }
 
-      /* uav_state.estimator_heading = _hdg_estimator_type; */
     }
 
     //}
@@ -3895,7 +3894,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   odometry_published = true;
 
-  ROS_INFO_THROTTLE(1.0, "[Odometry]: mainTimer took: %f", (ros::Time::now()-time_now).toSec());
   //}
 
   /* publish stable odometry //{ */
@@ -4624,7 +4622,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     std::scoped_lock lock(mutex_odom_pixhawk);
 
         try {
-    /* q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setHeadingByYaw(0.0); */
+    /* q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setHeading(0.0); */
     q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setYaw(0.0); //TODO which one is correct in this case?
     } catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during setting heading (fcu_untilted)");
@@ -9441,7 +9439,7 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
 /* //{ getRotatedVector() */
 void Odometry::getRotatedVector(const geometry_msgs::Vector3 &acc_in, double hdg_in, geometry_msgs::Vector3 &acc_out) {
 
-  tf2::Quaternion q_hdg = mrs_lib::AttitudeConverter(0, 0, 0).setHeadingByYaw(hdg_in);
+  tf2::Quaternion q_hdg = mrs_lib::AttitudeConverter(0, 0, 0).setHeading(hdg_in);
 
   tf2::Vector3 acc_tf2(acc_in.x, acc_in.y, acc_in.z);
 
