@@ -5224,21 +5224,23 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       }
     }
 
-    Eigen::VectorXd rtk_input(2);
-    rtk_input << vel_mavros_x, vel_mavros_y;
+    if (_rtk_available_) {
+      Eigen::VectorXd rtk_input(2);
+      rtk_input << vel_mavros_x, vel_mavros_y;
 
-    // RTK estimator prediction step
-    {
-      std::scoped_lock lock(mutex_rtk_est_);
+      // RTK estimator prediction step
+      {
+        std::scoped_lock lock(mutex_rtk_est_);
 
-      lkf_rtk_t::B_t B_new;
-      B_new << dt, 0, 0, dt;
-      estimator_rtk_->B = B_new;
-      try {
-        sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
-      }
-      catch (const std::exception &e) {
-        ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+        lkf_rtk_t::B_t B_new;
+        B_new << dt, 0, 0, dt;
+        estimator_rtk_->B = B_new;
+        try {
+          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+        }
+        catch (const std::exception &e) {
+          ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+        }
       }
     }
   }
