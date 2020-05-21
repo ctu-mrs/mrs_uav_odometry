@@ -457,6 +457,7 @@ private:
   Vec2                          hector_vel_state_;
   double                        hector_offset_hdg_;
   int                           c_hector_msg_;
+  int                           c_hector_init_msgs_;
 
   // VIO messages
   std::mutex                                mutex_icp_twist;
@@ -1009,6 +1010,7 @@ void Odometry::onInit() {
   hector_offset_ << 0, 0;
   hector_offset_hdg_   = 0;
   c_hector_msg_        = 0;
+  c_hector_init_msgs_  = 0;
   estimator_iteration_ = 0;
 
   aloam_offset_ << 0, 0;
@@ -4549,7 +4551,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   mrs_msgs::Float64Stamped des_hdg_msg;
   des_hdg_msg.header = attitude_command.header;
-  des_hdg_msg.value = des_hdg;
+  des_hdg_msg.value  = des_hdg;
 
   try {
     pub_cmd_hdg_.publish(des_hdg_msg);
@@ -4590,7 +4592,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   mrs_msgs::Float64Stamped des_hdg_rate_msg;
   des_hdg_rate_msg.header = attitude_command.header;
-  des_hdg_rate_msg.value = des_hdg_rate;
+  des_hdg_rate_msg.value  = des_hdg_rate;
 
   try {
     pub_cmd_hdg_rate_.publish(des_hdg_rate_msg);
@@ -6956,6 +6958,13 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
       hector_pose_previous = *msg;
       hector_pose          = *msg;
+
+      // Wait for hector convergence to initial position
+      if (c_hector_init_msgs_++ < 10) {
+        ROS_INFO("[Odometry]: Hector pose #%d - x: %f y: %f", c_hector_init_msgs_, hector_pose.pose.position.x, hector_pose.pose.position.y);
+        return;
+      }
+
       try {
         hector_hdg_previous = mrs_lib::AttitudeConverter(hector_pose.pose.orientation).getHeading();
       }
