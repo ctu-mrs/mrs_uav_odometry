@@ -24,7 +24,7 @@ heading_estimators:
   model_states: [
     "HDG", 
     "HDG_RATE", 
-    "GYRO_BIAS" 
+    "HDG_ACC" 
   ] 
 
   # The available measurements
@@ -76,5 +76,5 @@ heading_estimators:
   state_mapping:
     HDG: [1.0, 0.0, 0.0]
     HDG_RATE: [0.0, 1.0, 0.0]
-    GYRO_BIAS: [0.0, 0.0, 1.0]
+    HDG_ACC: [0.0, 0.0, 1.0]
 

@@ -80,20 +80,20 @@ HeadingEstimator::HeadingEstimator(
   
 // clang-format off
   m_A << 
-      1, m_dt, m_dt_sq,
-      0, 1, m_dt,
-      0, 0, 1;
+      1.0, m_dt, m_dt_sq,
+      0, 1-m_b, m_dt,
+      0, 0, 1.0;
 
-  /* m_B << m_dt, 0, */ 
+  m_B << 0, 0, 
+         0, m_b,
+         0, 0;
+  /* m_B << 0, 0, */ 
   /*        0, m_dt, */
   /*        0, 0; */
-  m_B << 0, 0, 
-         0, 0,
-         0, 0;
   // clang-format on
 
   // set measurement mapping matrix H to zero, it will be set later during each correction step
-  alt_H_t m_H_zero = m_H_zero.Zero();
+  hdg_H_t m_H_zero = m_H_zero.Zero();
 
   mp_lkf = std::make_unique<lkf_hdg_t>(m_A, m_B, m_H_zero);
 
@@ -166,10 +166,10 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
   hdg_A_t A = m_A;
   hdg_B_t B = m_B;
 
-  double dt_sq = std::pow(dt, 2);;
+  double dt_sq = std::pow(dt, 2)/2;;
 
-  B(0, 0)           = dt;
-  B(1, 1)           = dt;
+  /* B(0, 0)           = dt; */
+  /* B(1, 1)           = dt; */
 
   A(0, 1)           = dt;
   A(1, 2)           = dt;
@@ -182,7 +182,7 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
     try {
       // Apply the prediction step
     mp_lkf->A = A;
-    mp_lkf->B = B;
+    /* mp_lkf->B = B; */
     m_sc = mp_lkf->predict(m_sc, input, m_Q, dt);
   }
     catch (const std::exception &e) {
@@ -199,50 +199,7 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
 
 bool HeadingEstimator::doPrediction(const hdg_u_t &input) {
 
-  /*  //{ sanity checks */
-
-  if (!m_is_initialized)
-    return false;
-
-  // Check for NaNs
-  for (int i = 0; i < input.size(); i++) {
-  if (!std::isfinite(input(i))) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input(i) << "): NaN detected in variable \"input(0)\"." << std::endl;
-    return false;
-  }
-  }
-
-  //}
-
-  hdg_A_t A = m_A;
-  hdg_B_t B = m_B;
-
-  double dt = m_dt;
-  double dt_sq = pow(dt, 2);
-
-  B(0, 0)           = dt;
-  B(1, 1)           = dt;
-
-  A(0, 1)           = dt;
-  A(1, 2)           = dt;
-
-  A(0, 2)           = dt_sq;
-
-  {
-    std::scoped_lock lock(mutex_lkf);
-    try {
-      // Apply the prediction step
-    mp_lkf->A = A;
-    mp_lkf->B = B;
-    m_sc = mp_lkf->predict(m_sc, input, m_Q, dt);
-  }
-    catch (const std::exception &e) {
-      // In case of error, alert the user
-      ROS_ERROR("[HeadingEstimator]: LKF prediction step failed: %s", e.what());
-    }
-  }
-
-  return true;
+  return doPrediction(input, m_dt);
 }
 
 //}
@@ -284,10 +241,10 @@ bool HeadingEstimator::doCorrection(const double measurement, int measurement_ty
   //}
 
   // Prepare the measurement vector
-  alt_z_t z;
+  hdg_z_t z;
   z << measurement;
 
-  alt_R_t R;
+  hdg_R_t R;
   R << m_R_multi[measurement_type];
 
   // Fuse the measurement

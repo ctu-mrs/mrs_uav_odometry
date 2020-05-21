@@ -164,6 +164,9 @@ private:
   ros::Publisher pub_vio_hdg_;
   ros::Publisher pub_vslam_hdg_;
 
+  ros::Publisher pub_cmd_hdg_;
+  ros::Publisher pub_cmd_hdg_rate_;
+
   ros::Publisher pub_debug_optflow_filter;
   ros::Publisher pub_debug_icp_twist_filter;
 
@@ -1695,7 +1698,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _hdg_model_state_names_.begin(); it != _hdg_model_state_names_.end(); ++it) {
 
     hdg_H_t hdg_H;
-    /* param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, hdg_H); */
+    param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, hdg_H);
 
     map_hdg_states.insert(std::pair<std::string, hdg_H_t>(*it, hdg_H));
   }
@@ -1891,6 +1894,9 @@ void Odometry::onInit() {
   pub_brick_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("brick_hdg_out", 1);
   pub_vio_hdg_     = nh.advertise<mrs_msgs::Float64Stamped>("vio_hdg_out", 1);
   pub_vslam_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("vslam_hdg_out", 1);
+
+  pub_cmd_hdg_      = nh.advertise<mrs_msgs::Float64Stamped>("cmd_hdg_out", 1);
+  pub_cmd_hdg_rate_ = nh.advertise<mrs_msgs::Float64Stamped>("cmd_hdg_rate_out", 1);
 
   //}
 
@@ -4526,28 +4532,74 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   }
   auto attitude_command = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_);
 
+  /* attitude command //{ */
+
+  double des_hdg;
+
+
   try {
-    des_hdg_ = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
+    des_hdg = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (attitude command)");
+    des_hdg = 0.0;
   }
 
+  des_hdg_ = des_hdg;
+
+  mrs_msgs::Float64Stamped des_hdg_msg;
+  des_hdg_msg.header = attitude_command.header;
+  des_hdg_msg.value = des_hdg;
+
   try {
-    des_hdg_rate_ = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
+    pub_cmd_hdg_.publish(des_hdg_msg);
+  }
+  catch (...) {
+    ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_.getTopic().c_str());
+  }
+
+  //}
+
+  /* attitude rate command //{ */
+
+  geometry_msgs::Vector3 attitude_rate;
+  attitude_rate.x = attitude_command.attitude_rate.x;
+  attitude_rate.y = attitude_command.attitude_rate.y;
+  attitude_rate.z = attitude_command.attitude_rate.z;
+
+  double des_hdg_rate;
+  try {
+    des_hdg_rate = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeadingRate(attitude_rate);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading rate (attitude command)");
+    des_hdg_rate = 0.0;
   }
 
-  if (!std::isfinite(des_hdg_rate_)) {
+
+  if (!std::isfinite(des_hdg_rate)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"des_hdg_rate_\", prediction with zero input!!!");
-    des_hdg_rate_ = 0.0;
+    des_hdg_rate = 0.0;
   }
 
   if (!isUavFlying()) {
-    des_hdg_rate_ = 0.0;
+    des_hdg_rate = 0.0;
   }
+
+  des_hdg_rate_ = des_hdg_rate;
+
+  mrs_msgs::Float64Stamped des_hdg_rate_msg;
+  des_hdg_rate_msg.header = attitude_command.header;
+  des_hdg_rate_msg.value = des_hdg_rate;
+
+  try {
+    pub_cmd_hdg_rate_.publish(des_hdg_rate_msg);
+  }
+  catch (...) {
+    ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_rate_.getTopic().c_str());
+  }
+
+  //}
 
   double input = attitude_command.desired_acceleration.z;  // TODO untilt?
 
@@ -9424,8 +9476,6 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
       estimator.second->getState(0, current_hdg);
 
       z = mrs_lib::unwrapAngle(z, current_hdg);
-      if (estimator.second->getName() == "COMPASS") {
-      }
     }
 
     estimator.second->doCorrection(z, it_measurement_id->second);

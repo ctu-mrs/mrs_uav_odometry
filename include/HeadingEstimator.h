@@ -17,6 +17,7 @@
 #include "types.h"
 
 #define HDG_DT 0.01
+#define HDG_INPUT_COEFF 0.2
 
 namespace mrs_uav_odometry
 {
@@ -52,6 +53,9 @@ namespace mrs_uav_odometry
     // Input matrix
     hdg_B_t              m_B;
 
+    // Input coefficient
+    double m_b = HDG_INPUT_COEFF;
+
     // Array with mapping matrices for each fused measurement
     std::vector<hdg_H_t> m_H_multi;
 
@@ -63,7 +67,7 @@ namespace mrs_uav_odometry
 
     // Default dt
     double m_dt = HDG_DT;
-    double m_dt_sq = m_dt*m_dt;
+    double m_dt_sq = m_dt*m_dt/2;
 
     // Kalman filter - the core of the estimator
     std::unique_ptr<lkf_hdg_t> mp_lkf;
