@@ -7,12 +7,12 @@ altitude:
       0]
 
   # Process covariance
-  R: [0.1, 0, 0,
+  Q: [0.1, 0, 0,
       0, 1, 0,
       0, 0, 0.1]
 
   # Covariances of measurements
-  Q:
+  R:
     height_range: [10] # 0.04 stddev in simulation
     height_sonar: [1000] # 0.04 stddev in simulation
     height_plane: [10] 
@@ -40,7 +40,7 @@ lateral:
     good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
 
   # Covariances of measurements
-  Q:
+  R:
     vel_optflow: [1]
 
 heading:
@@ -56,12 +56,12 @@ heading:
       0, 0]
 
   # Process covariance
-  R: [0.001, 0, 0,
+  Q: [0.001, 0, 0,
       0, 0.001, 0,
       0, 0, 0.00001]
 
   # Covariances of measurements
-  Q:
+  R:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_brick: [1]
