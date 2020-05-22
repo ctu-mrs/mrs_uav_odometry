@@ -84,12 +84,9 @@ HeadingEstimator::HeadingEstimator(
       0, 1-m_b, m_dt,
       0, 0, 1.0;
 
-  m_B << 0, 0, 
+  m_B << 0, 0, // TODO try with heading input 
          0, m_b,
          0, 0;
-  /* m_B << 0, 0, */ 
-  /*        0, m_dt, */
-  /*        0, 0; */
   // clang-format on
 
   // set measurement mapping matrix H to zero, it will be set later during each correction step

@@ -715,8 +715,8 @@ private:
   bool                                isUavLandoff();
   bool                                uav_in_the_air = false;
 
-  const std::string                         null_tracker_ = NULL_TRACKER;
-  const std::string                         landoff_tracker_ = LANDOFF_TRACKER;
+  const std::string null_tracker_    = NULL_TRACKER;
+  const std::string landoff_tracker_ = LANDOFF_TRACKER;
 
   // offset to adjust the local origin
   double pixhawk_odom_offset_x, pixhawk_odom_offset_y;
@@ -893,7 +893,7 @@ private:
   int        _diag_rate_;
   int        _lkf_states_rate_;
   int        _max_altitude_rate_;
-  int        topic_watcher_rate_ = 1;
+  int        topic_watcher_rate_ = 10;
   void       slowOdomTimer(const ros::TimerEvent &event);
   void       diagTimer(const ros::TimerEvent &event);
   void       lkfStatesTimer(const ros::TimerEvent &event);
@@ -2879,24 +2879,20 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (!failsafe_called) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry not available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called = true;
+      } else {
+        if (!got_odom_pixhawk || !got_range || !got_hector_pose) {
+          ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, hector: %s",
+                            got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
+                            got_hector_pose ? "TRUE" : "FALSE");
+          if (got_lateral_sensors && !failsafe_called) {
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+            std_srvs::Trigger failsafe_out;
+            ser_client_failsafe_.call(failsafe_out);
+            failsafe_called = true;
+          }
+          return;
+        }
       }
-    }
-    if (!got_odom_pixhawk || !got_range || !got_hector_pose) {
-      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, hector: %s",
-                        got_odom_pixhawk ? "TRUE" : "FALSE", got_range ? "TRUE" : "FALSE", got_pixhawk_utm ? "TRUE" : "FALSE",
-                        got_hector_pose ? "TRUE" : "FALSE");
-      if (got_lateral_sensors && !failsafe_called) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called = true;
-      }
-      return;
     }
 
     // Fallback from ALOAM Slam
@@ -3868,11 +3864,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     //}
-    
+
   } else {
 
-  ROS_WARN_THROTTLE(10.0, "[Odometry]: Publishing unfused pixhawk odometry.");
-
+    ROS_WARN_THROTTLE(10.0, "[Odometry]: Publishing unfused pixhawk odometry.");
   }
 
   mrs_lib::set_mutexed(mutex_shared_odometry, odom_main, shared_odom);
@@ -4286,6 +4281,16 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     }
   }
 
+  // hector pose (corrections of lateral kf)
+  interval = ros::Time::now() - hector_pose_last_update;
+  if (got_hector_pose && interval.toSec() > 0.1) {
+    ROS_WARN("[Odometry]: Hector pose not received for %f seconds.", interval.toSec());
+    if (got_hector_pose && interval.toSec() > 0.5) {
+      got_hector_pose = false;
+      hector_reliable = false;
+    }
+  }
+
   //  target attitude (input to lateral kf)
   interval = ros::Time::now() - attitude_command_last_update_;
   if (got_attitude_command && interval.toSec() > 0.1) {
@@ -4337,6 +4342,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     ROS_WARN("[Odometry]: LIDAR velocities not received for %f seconds.", interval.toSec());
     got_lidar_odom = false;
   }
+
   //  icp twist global
   interval = ros::Time::now() - icp_twist_last_update;
   if (got_icp_twist && interval.toSec() > 1.0) {
@@ -6050,10 +6056,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     ROS_WARN_ONCE("[Odometry]: Fusing RTK position");
   }
-
-  //}
 }
-
 //}
 
 /* //{ callbackVioOdometry() */
