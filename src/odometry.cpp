@@ -3551,15 +3551,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     for (auto &estimator : m_state_estimators) {
 
-      Eigen::VectorXd state(2);
+      Eigen::VectorXd pos_state(2);
+      Eigen::VectorXd vel_state(2);
+      vel_state << 0, 0;
 
       // estimators not based on GNSS
       if (estimator.second->getName() == "OPTFLOW" || estimator.second->getName() == "HECTOR" || estimator.second->getName() == "ALOAM" ||
           estimator.second->getName() == "BRICK" || estimator.second->getName() == "VIO" || estimator.second->getName() == "VSLAM" ||
           estimator.second->getName() == "BRICKFLOW" || estimator.second->getName() == "ICP") {
 
-        state << _local_origin_x_, _local_origin_y_;
-        estimator.second->setState(0, state);
+        pos_state << _local_origin_x_, _local_origin_y_;
+        estimator.second->setState(0, pos_state);
+        estimator.second->setState(1, vel_state);
 
 
         // GNSS based estimators (GPS)
@@ -3567,17 +3570,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         double pos_x = odom_pixhawk_shifted_local.pose.pose.position.x;
         double pos_y = odom_pixhawk_shifted_local.pose.pose.position.y;
-        state << pos_x, pos_y;
-        estimator.second->setState(0, state);
+        pos_state << pos_x, pos_y;
+        estimator.second->setState(0, pos_state);
+        estimator.second->setState(1, vel_state);
       }
 
       // RTK estimator
 
-      state(0) = odom_pixhawk_shifted_local.pose.pose.position.x;
-      state(1) = odom_pixhawk_shifted_local.pose.pose.position.y;
+      pos_state(0) = odom_pixhawk_shifted_local.pose.pose.position.x;
+      pos_state(1) = odom_pixhawk_shifted_local.pose.pose.position.y;
       {
         std::scoped_lock lock(mutex_rtk_est_);
-        sc_lat_rtk_.x = state;
+        sc_lat_rtk_.x = pos_state;
       }
     }
 
@@ -6970,6 +6974,17 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       }
       catch (...) {
         ROS_ERROR("[Odometry]: Exception caught during getting heading (hector_hdg_previous)");
+      }
+
+
+      // Reset estimator before first correction
+      Vec2 zero_state = zero_state.Zero();
+      Vec2 pos;
+      pos << hector_pose.pose.position.x, hector_pose.pose.position.y;
+      for (auto &estimator : m_state_estimators) {
+        estimator.second->setState(0, pos);
+        estimator.second->setState(1, zero_state);
+        estimator.second->setState(2, zero_state);
       }
 
       got_hector_pose = true;
