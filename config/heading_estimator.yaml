@@ -1,8 +1,5 @@
 heading_estimators:
 
-  # The number of model states
-  n_model_states: 3
-
   # The available altitude estimators
   heading_estimators: [
     "PIXHAWK",
@@ -56,7 +53,6 @@ heading_estimators:
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "hdg_brick"]
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
-    TOWER: ["rate_gyro", "hdg_tower"]
 
   # Mapping of measurements to states
   measurement_states:

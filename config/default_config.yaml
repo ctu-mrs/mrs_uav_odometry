@@ -31,41 +31,28 @@ brick_available: true
 t265_available: false
 vslam_available: true
 
-# Rates of odometry publishers
-rate: 100 # [Hz]
-aux_rate: 100 # [Hz]
-slow_odom_rate: 2 # [Hz]
-diag_rate: 10 # [Hz]
-max_altitude_rate: 10 # [Hz]
-lkf_states_rate: 10 # [Hz]
+# Rates of publishers
+publish_rate:
+  main: 100 # [Hz] main and aux odometry
+  slow: 2 # [Hz] throttled main odometry
+  diag: 10 # [Hz] diagnostics
+  max_altitude: 10 # [Hz] maximum allowed altitude
+  est_states: 10 # [Hz] inner states of estimators
 
-min_satellites: 0
-max_default_altitude: 30.0
-max_optflow_altitude: 10.0
-max_brick_altitude: 3.0 # over 2 meters starts to oscillate, but MPC can handle it
-max_plane_altitude: 30.0
-april_objects: false
+# Debug paramters
+debug:
+  publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
+  publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
+  pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!
 
-publish_fused_odom: true # otherwise publish pixhawk odometry instead
-publish_local_origin_stable_tf: true 
-publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity - sometimes works better
-publish_local_origin_stable_tf: false
-pass_rtk_as_odom: false # dangerous outside simulation!
-max_altitude_correction: 0.001 # [m]
-use_optflow_low: false # use optimized optflow for takeoff and landing
+# Sensor z offsets (fallback when TF not available)
+offset:
+  garmin: -0.03 # [m]
+  sonar: -0.03 # [m]
+  fcu_height: 0.2 # [m] (above ground)
 
-trg_z_offset: -0.03 # [m]
-garmin_z_offset: -0.03 # [m]
-sonar_z_offset: -0.03 # [m]
-fcu_height: 0.2 # [m] (above ground)
-
-reset_hector_after_takeoff: false # Gets rid of map clutter accumulated during takeoff tilting
-
-perform_hector_reset_routine: false # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
-
-hiccup_time_threshold: 0.03 # [s] Time between mainTimer ticks to be considered as hiccup
-
-null_tracker: "NullTracker"
+# Time between mainTimer ticks to be considered as hiccup
+hiccup_time_threshold: 0.03 # [s] 
 
 # altitude# #{
 # Parameters concerning altitude estimation
@@ -73,6 +60,13 @@ altitude:
 
   # do not fuse rangefinder measurements when the UAV is tilted more than this angle
   excessive_tilt: deg(30)
+
+  # Max value of correction when corrections are being saturated (typically after toggling garmin corrections on)
+  max_saturated_correction: 0.001 # [m]
+
+  # Altitude limits
+  max_default: 30.0 # TODO load from world file?
+  max_optflow: 10.0 # Do not allow switching to optflow above this altitude
 
 # covariances# #{
   # Process covariance
@@ -185,6 +179,9 @@ lateral:
     cov_ok: 6.0 # threshold covariance for return from fallback
     good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
 
+  optflow:
+    optimized_low: false # use optimized optflow for takeoff and landing
+
   dynamic_optflow_cov: false
   dynamic_optflow_cov_scale: 1
 
@@ -284,6 +281,10 @@ lateral:
 
     P: [1, 0,
         0, 1]
+
+  hector:
+    reset_after_takeoff: false # Gets rid of map clutter accumulated during takeoff tilting
+    reset_routine: false # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
 heading:
 

@@ -103,7 +103,6 @@ public:
   virtual void onInit();
 
 public:
-  void publishMessage();
   int  _main_rate_;
   bool is_initialized_      = false;
   bool is_ready_to_takeoff_ = false;
@@ -113,7 +112,6 @@ private:
   bool        _simulation_ = false;
 
   bool   _publish_fused_odom_;
-  bool   _publish_local_origin_stable_tf_;
   bool   _publish_pixhawk_velocity_;
   bool   _dynamic_optflow_cov_       = false;
   double _dynamic_optflow_cov_scale_ = 0;
@@ -121,8 +119,6 @@ private:
   double twist_q_y_prev              = 0;
 
   double _max_optflow_altitude_;
-  double _max_brick_altitude_;
-  double _max_plane_altitude_;
   double _max_default_altitude_;
 
   ros::NodeHandle nh;
@@ -210,7 +206,6 @@ private:
   ros::ServiceServer ser_change_hdg_estimator_type_string;
   ros::ServiceServer ser_change_alt_estimator_type;
   ros::ServiceServer ser_change_alt_estimator_type_string;
-  ros::ServiceServer ser_gyro_jump_;
   ros::ServiceServer ser_toggle_callbacks_;
 
   ros::ServiceClient ser_client_failsafe_;
@@ -562,7 +557,6 @@ private:
   bool callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
   bool callbackChangeAltEstimator(mrs_msgs::ChangeAltEstimator::Request &req, mrs_msgs::ChangeAltEstimator::Response &res);
   bool callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
-  bool callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   // | --------------------- helper methods --------------------- |
@@ -720,7 +714,9 @@ private:
   bool                                isUavFlying();
   bool                                isUavLandoff();
   bool                                uav_in_the_air = false;
-  std::string                         _null_tracker_;
+
+  const std::string                         null_tracker_ = NULL_TRACKER;
+  const std::string                         landoff_tracker_ = LANDOFF_TRACKER;
 
   // offset to adjust the local origin
   double pixhawk_odom_offset_x, pixhawk_odom_offset_y;
@@ -982,7 +978,6 @@ void Odometry::onInit() {
   last_stable_name_       = _uav_name_ + "/null_origin";
 
   param_loader.loadParam("uav_mass", _uav_mass_estimate_);
-  param_loader.loadParam("null_tracker", _null_tracker_);
 
   odometry_published        = false;
   got_odom_pixhawk          = false;
@@ -1108,20 +1103,18 @@ void Odometry::onInit() {
   //}
 
   // | ------------------- parameters loading ------------------- |
-  param_loader.loadParam("rate", _main_rate_);
 
   param_loader.loadParam("simulation", _simulation_);
-  param_loader.loadParam("slow_odom_rate", _slow_odom_rate_);
-  param_loader.loadParam("diag_rate", _diag_rate_);
-  param_loader.loadParam("max_altitude_rate", _max_altitude_rate_);
-  param_loader.loadParam("lkf_states_rate", _lkf_states_rate_);
+
+  // Publish rates
+  param_loader.loadParam("publish_rate/main", _main_rate_);
+  param_loader.loadParam("publish_rate/slow", _slow_odom_rate_);
+  param_loader.loadParam("publish_rate/diag", _diag_rate_);
+  param_loader.loadParam("publish_rate/max_altitude", _max_altitude_rate_);
+  param_loader.loadParam("publish_rate/est_states", _lkf_states_rate_);
 
   // Optic flow
-  param_loader.loadParam("use_optflow_low", _use_optflow_low_);
-  param_loader.loadParam("max_optflow_altitude", _max_optflow_altitude_);
-  param_loader.loadParam("max_brick_altitude", _max_brick_altitude_);
-  param_loader.loadParam("max_plane_altitude", _max_plane_altitude_);
-  param_loader.loadParam("max_default_altitude", _max_default_altitude_);
+  param_loader.loadParam("lateral/optflow/optimized_low", _use_optflow_low_);
   max_altitude_ = _max_default_altitude_;
   param_loader.loadParam("lateral/dynamic_optflow_cov", _dynamic_optflow_cov_);
   param_loader.loadParam("lateral/dynamic_optflow_cov_scale", _dynamic_optflow_cov_scale_);
@@ -1213,10 +1206,10 @@ void Odometry::onInit() {
   param_loader.loadParam("altitude/median_filter/aloam/max_diff", max_diff);
   alt_mf_aloam_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
 
-  // Offset used when TF not available
-  param_loader.loadParam("garmin_z_offset", _garmin_z_offset_);
-  param_loader.loadParam("sonar_z_offset", _sonar_z_offset_);
-  param_loader.loadParam("fcu_height", _fcu_height_);
+  // Sensor offsets used when TF not available
+  param_loader.loadParam("offset/garmin", _garmin_z_offset_);
+  param_loader.loadParam("offset/sonar", _sonar_z_offset_);
+  param_loader.loadParam("offset/fcu_height", _fcu_height_);
 
   // Measurement min and max value gates
   param_loader.loadParam("altitude/gate/garmin/min", _garmin_min_valid_alt_);
@@ -1242,6 +1235,13 @@ void Odometry::onInit() {
   param_loader.loadParam("altitude/gate/garmin/use_inno_gate", _use_garmin_inno_gate_);
   param_loader.loadParam("altitude/gate/garmin/inno_gate_value", garmin_inno_gate_value_tmp);
   _garmin_inno_gate_value_sq_ = std::pow(garmin_inno_gate_value_tmp, 2);
+
+  // Maximum altitude
+  param_loader.loadParam("altitude/max_optflow", _max_optflow_altitude_);
+  param_loader.loadParam("altitude/max_default", _max_default_altitude_);
+
+  // Maximum saturated altitude correction
+  param_loader.loadParam("altitude/max_saturated_correction", _max_altitude_correction_);
 
   /* load parameters of altitude estimators //{ */
   param_loader.loadMatrixStatic("altitude/Q", _Q_alt_);
@@ -1783,13 +1783,13 @@ void Odometry::onInit() {
 
   //}
 
-  param_loader.loadParam("publish_fused_odom", _publish_fused_odom_);
-  param_loader.loadParam("publish_local_origin_stable_tf", _publish_local_origin_stable_tf_);
-  param_loader.loadParam("publish_pixhawk_velocity", _publish_pixhawk_velocity_);
-  param_loader.loadParam("pass_rtk_as_odom", _pass_rtk_as_odom_);
-  param_loader.loadParam("max_altitude_correction", _max_altitude_correction_);
-  param_loader.loadParam("reset_hector_after_takeoff", _reset_hector_after_takeoff_);
-  param_loader.loadParam("perform_hector_reset_routine", _perform_hector_reset_routine_);
+  // Debug parameters
+  param_loader.loadParam("debug/publish_fused_odom", _publish_fused_odom_);
+  param_loader.loadParam("debug/publish_pixhawk_velocity", _publish_pixhawk_velocity_);
+  param_loader.loadParam("debug/pass_rtk_as_odom", _pass_rtk_as_odom_);
+
+  param_loader.loadParam("lateral/hector/reset_after_takeoff", _reset_hector_after_takeoff_);
+  param_loader.loadParam("lateral/hector/reset_routine", _perform_hector_reset_routine_);
 
   param_loader.loadParam("lateral/saturate_mavros_position", _saturate_mavros_position_);
   param_loader.loadParam("lateral/max_mavros_pos_correction", _max_mavros_pos_correction_);
@@ -2025,8 +2025,6 @@ void Odometry::onInit() {
   ser_change_alt_estimator_type = nh.advertiseService("change_alt_estimator_type_in", &Odometry::callbackChangeAltEstimator, this);
 
   ser_change_alt_estimator_type_string = nh.advertiseService("change_alt_estimator_type_string_in", &Odometry::callbackChangeAltEstimatorString, this);
-
-  ser_gyro_jump_ = nh.advertiseService("gyro_jump_in", &Odometry::callbackGyroJump, this);
 
   // subscribe for callbacks toggle service
   ser_toggle_callbacks_ = nh.advertiseService("toggle_callbacks_in", &Odometry::callbackToggleCallbacks, this);
@@ -2350,7 +2348,7 @@ bool Odometry::isUavFlying() {
 
   if (got_control_manager_diag_) {
 
-    if (control_manager_diag.active_tracker == _null_tracker_) {
+    if (control_manager_diag.active_tracker == null_tracker_) {
 
       return false;
     } else {
@@ -2374,7 +2372,7 @@ bool Odometry::isUavLandoff() {
 
   if (got_control_manager_diag_) {
 
-    if (control_manager_diag_.active_tracker == "LandoffTracker") {
+    if (control_manager_diag_.active_tracker == landoff_tracker_) {
 
       return true;
     } else {
@@ -3870,6 +3868,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     //}
+    
+  } else {
+
+  ROS_WARN_THROTTLE(10.0, "[Odometry]: Publishing unfused pixhawk odometry.");
+
   }
 
   mrs_lib::set_mutexed(mutex_shared_odometry, odom_main, shared_odom);
@@ -7780,7 +7783,7 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   control_manager_diag_     = *msg;
   got_control_manager_diag_ = true;
 
-  if (uav_in_the_air && control_manager_diag.active_tracker == _null_tracker_) {
+  if (uav_in_the_air && control_manager_diag.active_tracker == null_tracker_) {
 
     // save the current position
     Vec2 pose;
@@ -7790,7 +7793,7 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
     land_position_set = true;
 
     uav_in_the_air = false;
-  } else if (!uav_in_the_air && control_manager_diag.active_tracker != _null_tracker_) {
+  } else if (!uav_in_the_air && control_manager_diag.active_tracker != null_tracker_) {
     uav_in_the_air = true;
   }
 }
@@ -9063,42 +9066,6 @@ bool Odometry::callbackReliableHector([[maybe_unused]] std_srvs::Trigger::Reques
 }
 //}
 
-/* //{ callbackGyroJump() */
-
-bool Odometry::callbackGyroJump([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  if (!is_initialized_)
-    return false;
-
-  if (!_simulation_)
-    return false;
-
-  if (!callbacks_enabled_) {
-    res.success = false;
-    res.message = ("Service callbacks are disabled");
-    ROS_WARN("[Odometry]: Ignoring service call. Callbacks are disabled.");
-    return true;
-  }
-
-  double hdg;
-
-  for (auto &estimator : m_heading_estimators) {
-    std::scoped_lock lock(mutex_heading_estimator);
-    if (estimator.first == "GYRO") {
-      estimator.second->getState(0, hdg);
-      hdg += 1.57;
-    }
-  }
-
-  ROS_WARN("[Odometry]: Triggered jump in gyro estimator.");
-
-  res.success = true;
-  res.message = "Triggered jump in gyro estimator";
-
-  return true;
-}
-//}
-
 /* //{ callbackToggleCallbacks() */
 
 bool Odometry::callbackToggleCallbacks(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
@@ -9983,15 +9950,15 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
           return false;
         }
       }
-      if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_brick_altitude_) {
+      if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > _brick_max_valid_alt_) {
         ROS_ERROR("[Odometry]: Cannot transition to BRICK type. Current altitude %f. Must descend to %f.", alt_x(mrs_msgs::AltitudeStateNames::HEIGHT),
-                  _max_brick_altitude_);
+                  _brick_max_valid_alt_);
         return false;
       }
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_brick_altitude_, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_brick_altitude_);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _brick_max_valid_alt_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _brick_max_valid_alt_);
   }
 
   //}
@@ -10015,15 +9982,15 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
           return false;
         }
       }
-      if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > _max_plane_altitude_) {
+      if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > _plane_max_valid_alt_) {
         ROS_ERROR("[Odometry]: Cannot transition to PLANE type. Current altitude %f. Must descend to %f.", alt_x(mrs_msgs::AltitudeStateNames::HEIGHT),
-                  _max_plane_altitude_);
+                  _plane_max_valid_alt_);
         return false;
       }
     }
 
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_plane_altitude_, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_plane_altitude_);
+    mrs_lib::set_mutexed(mutex_max_altitude_, _plane_max_valid_alt_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _plane_max_valid_alt_);
   }
 
   //}

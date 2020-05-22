@@ -164,7 +164,7 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
 
 
   hdg_A_t A = m_A;
-  hdg_B_t B = m_B;
+  /* hdg_B_t B = m_B; */
 
   double dt_sq = std::pow(dt, 2)/2;;
 

@@ -8,6 +8,11 @@
 
 /* defines //{ */
 
+// trackers
+
+#define NULL_TRACKER "NullTracker"
+#define LANDOFF_TRACKER "LandoffTracker"
+
 // lateral
 #define LAT_N_STATES 3
 #define LAT_N_MEASUREMENTS 14
