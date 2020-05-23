@@ -2,7 +2,7 @@ version: "0.0.5.0"
 
 # Estimators used during takeoff
 # Lateral state estimator:
-# OPTFLOW, GPS, OPTFLOWGPS, RTK, LIDAR, VIO, VSLAM,  HECTOR, TOWER
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, VIO, VSLAM,  HECTOR, TOWER
 lateral_estimator: "GPS"
 
 # Altitude state estimator:
@@ -15,10 +15,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "TOWER", "LIDAR", "ICP", "ALOAM"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "TOWER", "LIDAR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
 # Available localization methods
 gps_available: true
@@ -196,11 +196,6 @@ lateral:
   icp_twist_filter_max_valid: 5.0
   icp_twist_filter_max_diff: 2.0
 
-  lidar_vel_median_filter: true
-  lidar_vel_filter_buffer_size: 50
-  lidar_vel_filter_max_valid: 8.0
-  lidar_vel_filter_max_diff: 3.0
-
   hector_pos_median_filter: true
   hector_pos_filter_buffer_size: 50
   hector_pos_filter_max_valid: 8.0
@@ -231,8 +226,6 @@ lateral:
     tilt_mavros: [100]
     pos_rtk: [10]
     vel_rtk: [1000]
-    pos_lidar: [1000]
-    vel_lidar: [10000]
     pos_vslam: [1]
     pos_vio: [0.1] #0.1
     vel_vio: [10] #10
@@ -342,7 +335,6 @@ heading:
     hdg_brick: [10]
     hdg_vio: [100] #100
     hdg_vslam: [1]
-    hdg_lidar: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
     rate_icp: [10]

@@ -7,14 +7,12 @@ heading_estimators:
     "COMPASS",
     "OPTFLOW", 
     "HECTOR",
-    "LIDAR",
     "BRICK",
     "VIO",
     "VSLAM",
     "ICP",
     "BRICKFLOW",
     "ALOAM",
-    "TOWER",
   ] 
 
   # The measured states of the model
@@ -33,10 +31,8 @@ heading_estimators:
     "hdg_brick",
     "hdg_vio",
     "hdg_vslam",
-    "hdg_lidar",
     "rate_icp",
     "hdg_aloam",
-    "hdg_tower",
   ]
 
   # The fused measurements for each state estimator
@@ -46,7 +42,6 @@ heading_estimators:
     COMPASS: ["rate_gyro", "hdg_compass"]
     OPTFLOW: ["rate_gyro", "rate_optflow"]
     HECTOR: ["rate_gyro", "hdg_hector"]
-    LIDAR: ["rate_gyro", "hdg_lidar"]
     BRICK: ["rate_gyro", "hdg_brick"]
     VIO: ["rate_gyro", "hdg_vio"]
     VSLAM: ["rate_gyro", "hdg_vslam"]
@@ -63,10 +58,8 @@ heading_estimators:
     hdg_brick: HDG
     hdg_vio: HDG
     hdg_vslam: HDG
-    hdg_lidar: HDG
     rate_icp: HDG_RATE
     hdg_aloam: HDG
-    hdg_tower: HDG
 
   # Mapping states to model
   state_mapping:

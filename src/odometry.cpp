@@ -153,7 +153,6 @@ private:
   ros::Publisher pub_brick_diag_;
 
   ros::Publisher pub_compass_hdg_corr_;
-  ros::Publisher pub_lidar_hdg_corr_;
   ros::Publisher pub_hector_hdg_corr_;
   ros::Publisher pub_aloam_hdg_corr_;
   ros::Publisher pub_brick_hdg_corr_;
@@ -181,7 +180,6 @@ private:
   ros::Subscriber sub_t265_odom_;
   ros::Subscriber sub_brick_;
   ros::Subscriber rtk_gps_sub_;
-  ros::Subscriber sub_lidar_odom_;
   ros::Subscriber sub_icp_twist_;
   ros::Subscriber sub_hector_pose_;
   ros::Subscriber sub_aloam_odom_;
@@ -345,16 +343,6 @@ private:
   int                           _aloam_hdg_filter_buffer_size_;
   double                        _aloam_hdg_filter_max_diff_;
 
-  // Lidar heading msgs
-  double                        lidar_hdg_previous;
-  std::mutex                    mutex_lidar_hdg;
-  ros::Time                     lidar_hdg_last_update;
-  std::shared_ptr<MedianFilter> lidar_hdg_filter;
-  bool                          _lidar_hdg_median_filter;
-  int                           _lidar_hdg_filter_buffer_size;
-  double                        _lidar_hdg_filter_max_valid;
-  double                        _lidar_hdg_filter_max_diff;
-
   // Aloam heading messages
   std::mutex                    mutex_aloam;
   double                        pos_aloam_x, pos_aloam_y;
@@ -422,20 +410,6 @@ private:
   mrs_msgs::RtkGps rtk_odom;
   ros::Time        rtk_last_update;
   bool             _rtk_fuse_sps_;
-
-
-  // LIDAR messages
-  std::mutex                    mutex_lidar;
-  double                        pos_lidar_x, pos_lidar_y;
-  nav_msgs::Odometry            lidar_odom;
-  nav_msgs::Odometry            lidar_odom_previous;
-  ros::Time                     lidar_odom_last_update;
-  std::shared_ptr<MedianFilter> lidar_vel_filter_x;
-  std::shared_ptr<MedianFilter> lidar_vel_filter_y;
-  bool                          _lidar_vel_median_filter_;
-  int                           _lidar_vel_filter_buffer_size_;
-  double                        _lidar_vel_filter_max_valid_;
-  double                        _lidar_vel_filter_max_diff_;
 
   // Hector messages
   std::mutex                    mutex_hector;
@@ -535,7 +509,6 @@ private:
   void callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
-  void callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
@@ -672,7 +645,6 @@ private:
   bool got_plane            = false;
   bool got_pixhawk_utm      = false;
   bool got_rtk              = false;
-  bool got_lidar_odom       = false;
   bool got_hector_pose      = false;
   bool got_aloam_odom       = false;
   bool got_brick_pose       = false;
@@ -689,7 +661,6 @@ private:
 
   bool failsafe_called = false;
 
-  int  got_lidar_odom_counter;
   int  got_rtk_counter;
   bool got_rtk_local_origin_z;
 
@@ -1049,7 +1020,6 @@ void Odometry::onInit() {
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::GPS));
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::OPTFLOWGPS));
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::RTK));
-  _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::LIDAR));
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::VIO));
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::BRICK));
   _estimator_type_names.push_back(NAME_OF(mrs_msgs::EstimatorType::T265));
@@ -1092,7 +1062,6 @@ void Odometry::onInit() {
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::BRICK));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::VIO));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::VSLAM));
-  _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::LIDAR));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::ICP));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::BRICKFLOW));
   _heading_type_names.push_back(NAME_OF(mrs_msgs::HeadingType::ALOAM));
@@ -1421,17 +1390,6 @@ void Odometry::onInit() {
       std::make_shared<MedianFilter>(_optflow_filter_buffer_size_, _optflow_filter_max_valid_, -_optflow_filter_max_valid_, _optflow_filter_max_diff_);
   optflow_filter_y =
       std::make_shared<MedianFilter>(_optflow_filter_buffer_size_, _optflow_filter_max_valid_, -_optflow_filter_max_valid_, _optflow_filter_max_diff_);
-
-  // LIDAR median filter
-  param_loader.loadParam("lateral/lidar_vel_median_filter", _lidar_vel_median_filter_);
-  param_loader.loadParam("lateral/lidar_vel_filter_buffer_size", _lidar_vel_filter_buffer_size_);
-  param_loader.loadParam("lateral/lidar_vel_filter_max_valid", _lidar_vel_filter_max_valid_);
-  param_loader.loadParam("lateral/lidar_vel_filter_max_diff", _lidar_vel_filter_max_diff_);
-
-  lidar_vel_filter_x =
-      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size_, _lidar_vel_filter_max_valid_, -_lidar_vel_filter_max_valid_, _lidar_vel_filter_max_diff_);
-  lidar_vel_filter_y =
-      std::make_shared<MedianFilter>(_lidar_vel_filter_buffer_size_, _lidar_vel_filter_max_valid_, -_lidar_vel_filter_max_valid_, _lidar_vel_filter_max_diff_);
 
   // Hector median filter
   param_loader.loadParam("lateral/hector_pos_median_filter", _hector_pos_median_filter_);
@@ -1897,7 +1855,6 @@ void Odometry::onInit() {
   if (_debug_publish_corrections_) {
     pub_compass_hdg_corr_   = nh.advertise<mrs_msgs::Float64Stamped>("debug_compass_hdg_corr_out", 1);
     pub_hector_hdg_corr_    = nh.advertise<mrs_msgs::Float64Stamped>("debug_hector_hdg_corr_out", 1);
-    pub_lidar_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_lidar_hdg_corr_out", 1);
     pub_aloam_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_aloam_hdg_corr_out", 1);
     pub_brick_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_brick_hdg_corr_out", 1);
     pub_vio_hdg_corr_       = nh.advertise<mrs_msgs::Float64Stamped>("debug_vio_hdg_corr_out", 1);
@@ -1960,7 +1917,6 @@ void Odometry::onInit() {
 
   // subscriber for lidar odometry
   if (_lidar_available_) {
-    sub_lidar_odom_  = nh.subscribe("lidar_odom_in", 1, &Odometry::callbackLidarOdom, this, ros::TransportHints().tcpNoDelay());
     sub_hector_pose_ = nh.subscribe("hector_pose_in", 1, &Odometry::callbackHectorPose, this, ros::TransportHints().tcpNoDelay());
     sub_icp_twist_   = nh.subscribe("icp_twist_in", 1, &Odometry::callbackICPTwist, this, ros::TransportHints().tcpNoDelay());
   }
@@ -2090,11 +2046,6 @@ void Odometry::onInit() {
               _estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::LIDAR && !_lidar_available_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
-              _estimator_type_takeoff.name.c_str());
-    ros::shutdown();
-  }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::HECTOR && !_lidar_available_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Lidar localization not available. Shutting down.",
               _estimator_type_takeoff.name.c_str());
@@ -2168,7 +2119,6 @@ void Odometry::onInit() {
     current_estimator->getR(last_drs_config.R_pos_vio, map_measurement_name_id.find("pos_vio")->second);
     current_estimator->getR(last_drs_config.R_pos_vslam, map_measurement_name_id.find("pos_vslam")->second);
     current_estimator->getR(last_drs_config.R_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getR(last_drs_config.R_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
     current_estimator->getR(last_drs_config.R_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
     current_estimator->getR(last_drs_config.R_pos_hector, map_measurement_name_id.find("pos_hector")->second);
     current_estimator->getR(last_drs_config.R_pos_aloam, map_measurement_name_id.find("pos_aloam")->second);
@@ -2177,7 +2127,6 @@ void Odometry::onInit() {
     current_estimator->getR(last_drs_config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     current_estimator->getR(last_drs_config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
     current_estimator->getR(last_drs_config.R_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-    current_estimator->getR(last_drs_config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
     current_estimator->getR(last_drs_config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     current_estimator->getR(last_drs_config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
 
@@ -2218,7 +2167,6 @@ void Odometry::onInit() {
     current_hdg_estimator->getR(last_drs_config.R_hdg_brick, map_hdg_measurement_name_id.find("hdg_brick")->second);
     current_hdg_estimator->getR(last_drs_config.R_hdg_vio, map_hdg_measurement_name_id.find("hdg_vio")->second);
     current_hdg_estimator->getR(last_drs_config.R_hdg_vslam, map_hdg_measurement_name_id.find("hdg_vslam")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_lidar, map_hdg_measurement_name_id.find("hdg_lidar")->second);
 
     // Heading rate measurement covariances
     current_hdg_estimator->getR(last_drs_config.R_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
@@ -2285,14 +2233,6 @@ bool Odometry::isReadyToTakeoff() {
       return true;
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for T265 msg to initialize takeoff estimator");
-      return false;
-    }
-  }
-  if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::LIDAR) {
-    if (got_lidar_odom) {
-      return true;
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for LIDAR odom msg to initialize takeoff estimator");
       return false;
     }
   }
@@ -2506,13 +2446,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto pos_aloam_x_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_x);
       auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_y);
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
-    }
-
-    // correction step for lidar
-    if (got_lidar_odom) {
-      auto pos_lidar_x_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_x);
-      auto pos_lidar_y_tmp = mrs_lib::get_mutexed(mutex_lidar, pos_lidar_y);
-      stateEstimatorsCorrection(pos_lidar_x_tmp, pos_lidar_y_tmp, "pos_lidar");
     }
 
   } else {
@@ -3088,19 +3021,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
         return;
       }
-    }
-
-  } else if (_estimator_type.type == mrs_msgs::EstimatorType::LIDAR) {
-    if (!got_odom_pixhawk || !got_range || !got_lidar_odom) {
-      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, lidar: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
-                        got_range ? "TRUE" : "FALSE", got_lidar_odom ? "TRUE" : "FALSE");
-      if (got_lateral_sensors && !failsafe_called) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called = true;
-      }
-      return;
     }
 
     // Fallback from BRICKFLOW
@@ -4342,13 +4262,6 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     brick_reliable = false;
   }
 
-  //  lidar velocities (corrections of lateral kf)
-  interval = ros::Time::now() - lidar_odom_last_update;
-  if (got_lidar_odom && interval.toSec() > 1.0) {
-    ROS_WARN("[Odometry]: LIDAR velocities not received for %f seconds.", interval.toSec());
-    got_lidar_odom = false;
-  }
-
   //  icp twist global
   interval = ros::Time::now() - icp_twist_last_update;
   if (got_icp_twist && interval.toSec() > 1.0) {
@@ -5289,7 +5202,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     return;
   }
 
-  if (std::isfinite(hdg)) {
+  if (!std::isfinite(hdg)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"hdg\", not fusing!!!");
     return;
   }
@@ -6132,7 +6045,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   vio_hdg = mrs_lib::unwrapAngle(vio_hdg, vio_hdg_previous);
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(vio_hdg, "vio_hdg");
+  headingEstimatorsCorrection(vio_hdg, "hdg_vio");
 
   // Publish VIO heading correction
   if (_debug_publish_corrections_) {
@@ -6337,7 +6250,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   vslam_hdg_previous = vslam_hdg;
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(vslam_hdg, "vslam_hdg");
+  headingEstimatorsCorrection(vslam_hdg, "hdg_vslam");
 
   if (_debug_publish_corrections_) {
     vslam_hdg = mrs_lib::wrapAngle(vslam_hdg);
@@ -6729,182 +6642,6 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing brick position");
-}
-//}
-
-/* //{ callbackLidarOdom() */
-
-void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
-
-  if (!is_initialized_)
-    return;
-
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackLidarOdom");
-
-  lidar_odom_last_update = ros::Time::now();
-
-  {
-    std::scoped_lock lock(mutex_lidar);
-
-    if (got_lidar_odom) {
-
-      lidar_odom_previous = lidar_odom;
-      lidar_odom          = *msg;
-
-    } else {
-
-      lidar_odom_previous = *msg;
-      lidar_odom          = *msg;
-      try {
-        lidar_hdg_previous = mrs_lib::AttitudeConverter(lidar_odom.pose.pose.orientation).getHeading();
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during getting heading (lidar_hdg_previous)");
-      }
-
-      got_lidar_odom = true;
-      return;
-    }
-  }
-
-  // --------------------------------------------------------------
-  // |                        callback body                       |
-  // --------------------------------------------------------------
-
-  if (!isTimestampOK(lidar_odom.header.stamp.toSec(), lidar_odom_previous.header.stamp.toSec())) {
-    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: LIDAR velocity timestamp not OK, not fusing correction.");
-    return;
-  }
-
-  // fuse hdg
-  double hdg_lidar;
-  {
-    std::scoped_lock lock(mutex_lidar);
-    try {
-      hdg_lidar = mrs_lib::AttitudeConverter(lidar_odom.pose.pose.orientation).getHeading();
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during setting heading (hdg_lidar)");
-      hdg_lidar = hdg_previous;
-    }
-  }
-
-
-  hdg_lidar          = mrs_lib::unwrapAngle(hdg_lidar, lidar_hdg_previous);
-  lidar_hdg_previous = hdg_lidar;
-
-  // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(hdg_lidar, "hdg_lidar");
-
-  if (_debug_publish_corrections_) {
-    hdg_lidar = mrs_lib::wrapAngle(hdg_lidar);
-
-    mrs_msgs::Float64Stamped lidar_hdg_out;
-    lidar_hdg_out.header.stamp    = ros::Time::now();
-    lidar_hdg_out.header.frame_id = local_origin_frame_id_;
-    lidar_hdg_out.value           = hdg_lidar;
-    try {
-      pub_lidar_hdg_corr_.publish(lidar_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_lidar_hdg_corr_.getTopic().c_str());
-    }
-  }
-
-  ROS_INFO_ONCE("[Odometry]: Fusing hdg from Lidar SLAM");
-
-  //////////////////// Fuse Lateral Kalman ////////////////////
-
-  if (!got_lateral_sensors) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing LIDAR velocity. Waiting for other sensors.");
-    return;
-  }
-
-  // velocity correction
-  double vel_lidar_x, vel_lidar_y;
-  {
-    std::scoped_lock lock(mutex_lidar);
-
-    vel_lidar_x = lidar_odom.twist.twist.linear.x;
-    vel_lidar_y = lidar_odom.twist.twist.linear.y;
-  }
-
-  if (_lidar_vel_median_filter_) {
-
-    if (!lidar_vel_filter_x->isValid(vel_lidar_x)) {
-
-      double median = lidar_vel_filter_x->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR x velocity filtered by median filter. %f -> %f", vel_lidar_x, median);
-      vel_lidar_x = median;
-    }
-
-    if (!lidar_vel_filter_y->isValid(vel_lidar_y)) {
-
-      double median = lidar_vel_filter_y->getMedian();
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIDAR y velocity filtered by median filter. %f -> %f", vel_lidar_y, median);
-      vel_lidar_y = median;
-    }
-  }
-
-  // Set innoation variable if ccurnet estimator is LIDAR
-  if (current_estimator->getName() == "LIDAR") {
-    Vec2 vel_vec, innovation;
-    current_estimator->getState(1, vel_vec);
-
-    innovation(0) = vel_lidar_x - vel_vec(0);
-    innovation(1) = vel_lidar_y - vel_vec(1);
-
-    {
-      std::scoped_lock lock(mutex_odom_main_inno_);
-      odom_main_inno_.twist.twist.linear.x = innovation(0);
-      odom_main_inno_.twist.twist.linear.y = innovation(1);
-    }
-  }
-
-  // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vel_lidar_x, vel_lidar_y, "vel_lidar");
-
-  ROS_INFO_ONCE("[Odometry]: Fusing LIDAR velocity");
-
-  // Current orientation
-  double hdg_state;
-
-  if (current_hdg_estimator->getName() == "PIXHAWK") {
-
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state = orientation_mavros.vector.z;
-
-  } else {
-
-    std::scoped_lock lock(mutex_current_hdg_estimator);
-
-    current_hdg_estimator->getState(0, hdg_state);
-  }
-
-  // position correction
-  {
-    std::scoped_lock lock(mutex_lidar);
-
-    pos_lidar_x = lidar_odom.pose.pose.position.x;
-    pos_lidar_y = lidar_odom.pose.pose.position.y;
-  }
-
-  // Set innoation variable if ccurnet estimator is LIDAR
-  if (current_estimator->getName() == "LIDAR") {
-    Vec2 pos_vec, innovation;
-    current_estimator->getState(0, pos_vec);
-
-    innovation(0) = pos_lidar_x - pos_vec(0);
-    innovation(1) = pos_lidar_y - pos_vec(1);
-
-    {
-      std::scoped_lock lock(mutex_odom_main_inno_);
-      odom_main_inno_.twist.twist.linear.x = innovation(0);
-      odom_main_inno_.twist.twist.linear.y = innovation(1);
-    }
-  }
-
-  ROS_INFO_ONCE("[Odometry]: Fusing LIDAR position");
 }
 //}
 
@@ -8277,10 +8014,6 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_estimator.type     = mrs_msgs::EstimatorType::RTK;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
-  } else if (type == "LIDAR") {
-    desired_estimator.type     = mrs_msgs::EstimatorType::LIDAR;
-    desired_hdg_estimator.type = mrs_msgs::HeadingType::LIDAR;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (type == "VIO") {
     desired_estimator.type     = mrs_msgs::EstimatorType::VIO;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::VIO;
@@ -8470,8 +8203,6 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     desired_estimator.type = mrs_msgs::EstimatorType::OPTFLOWGPS;
   } else if (type == "RTK") {
     desired_estimator.type = mrs_msgs::EstimatorType::RTK;
-  } else if (type == "LIDAR") {
-    desired_estimator.type = mrs_msgs::EstimatorType::LIDAR;
   } else if (type == "VIO") {
     desired_estimator.type = mrs_msgs::EstimatorType::VIO;
   } else if (type == "VSLAM") {
@@ -8612,8 +8343,6 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
   } else if (type == "ALOAM") {
     desired_estimator.type = mrs_msgs::HeadingType::ALOAM;
-  } else if (type == "LIDAR") {
-    desired_estimator.type = mrs_msgs::HeadingType::LIDAR;
   } else if (type == "BRICK") {
     desired_estimator.type = mrs_msgs::HeadingType::BRICK;
   } else if (type == "VIO") {
@@ -9089,7 +8818,6 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "R_pos_mavros: %f\n"
       "R_pos_vio: %f\n"
       "R_pos_vslam: %f\n"
-      "R_pos_lidar: %f\n"
       "R_pos_rtk: %f\n"
       "R_pos_brick: %f\n"
       "R_pos_hector: %f\n"
@@ -9098,21 +8826,19 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "R_vel_mavros: %f\n"
       "R_vel_vio: %f\n"
       "R_vel_icp: %f\n"
-      "R_vel_lidar: %f\n"
       "R_vel_optflow: %f\n"
       "R_vel_rtk: %f\n"
 
       "\nAcceleration:\n"
       "R_acc_imu: %f\n",
 
-      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_lidar, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
-      config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_lidar, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
+      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector,
+      config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
 
   for (auto &estimator : m_state_estimators) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
     estimator.second->setR(config.R_pos_vio, map_measurement_name_id.find("pos_vio")->second);
     estimator.second->setR(config.R_pos_vslam, map_measurement_name_id.find("pos_vslam")->second);
-    estimator.second->setR(config.R_pos_lidar, map_measurement_name_id.find("pos_lidar")->second);
     estimator.second->setR(config.R_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
     estimator.second->setR(config.R_pos_brick, map_measurement_name_id.find("pos_brick")->second);
     estimator.second->setR(config.R_pos_hector, map_measurement_name_id.find("pos_hector")->second);
@@ -9121,7 +8847,6 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
     estimator.second->setR(config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
     estimator.second->setR(config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
     estimator.second->setR(config.R_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-    estimator.second->setR(config.R_vel_lidar, map_measurement_name_id.find("vel_lidar")->second);
     estimator.second->setR(config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
     estimator.second->setR(config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
 
@@ -9168,11 +8893,10 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "R_hdg_brick: %f\n"
       "R_hdg_vio: %f\n"
       "R_hdg_vslam: %f\n"
-      "R_hdg_lidar: %f\n"
       "R_rate_gyro: %f\n"
       "R_rate_optflow: %f\n"
       "R_rate_icp: %f\n",
-      config.R_hdg_compass, config.R_hdg_hector, config.R_hdg_aloam, config.R_hdg_brick, config.R_hdg_vio, config.R_hdg_vslam, config.R_hdg_lidar,
+      config.R_hdg_compass, config.R_hdg_hector, config.R_hdg_aloam, config.R_hdg_brick, config.R_hdg_vio, config.R_hdg_vslam,
       config.R_rate_gyro, config.R_rate_optflow, config.R_rate_icp);
 
   for (auto &estimator : m_heading_estimators) {
@@ -9182,7 +8906,6 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
     estimator.second->setR(config.R_hdg_brick, map_hdg_measurement_name_id.find("hdg_brick")->second);
     estimator.second->setR(config.R_hdg_vio, map_hdg_measurement_name_id.find("hdg_vio")->second);
     estimator.second->setR(config.R_hdg_vslam, map_hdg_measurement_name_id.find("hdg_vslam")->second);
-    estimator.second->setR(config.R_hdg_lidar, map_hdg_measurement_name_id.find("hdg_lidar")->second);
     estimator.second->setR(config.R_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
     estimator.second->setR(config.R_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
     estimator.second->setR(config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
@@ -9702,22 +9425,6 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
     ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
 
-    // LIDAR localization type
-  } else if (target_estimator.type == mrs_msgs::EstimatorType::LIDAR) {
-
-    if (!_lidar_available_) {
-      ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. Lidar localization not available in this world.");
-      return false;
-    }
-
-    if (!got_lidar_odom && is_ready_to_takeoff_) {
-      ROS_ERROR("[Odometry]: Cannot transition to LIDAR type. No new lidar odom msgs received.");
-      return false;
-    }
-
-    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
-    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
-
     // Hector SLAM localization type
   } else if (target_estimator.type == mrs_msgs::EstimatorType::HECTOR) {
 
@@ -10009,7 +9716,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
   if (target_estimator.type != mrs_msgs::HeadingType::PIXHAWK && target_estimator.type != mrs_msgs::HeadingType::GYRO &&
       target_estimator.type != mrs_msgs::HeadingType::COMPASS && target_estimator.type != mrs_msgs::HeadingType::OPTFLOW &&
-      target_estimator.type != mrs_msgs::HeadingType::LIDAR && target_estimator.type != mrs_msgs::HeadingType::HECTOR &&
+      target_estimator.type != mrs_msgs::HeadingType::HECTOR &&
       target_estimator.type != mrs_msgs::HeadingType::BRICK && target_estimator.type != mrs_msgs::HeadingType::VIO &&
       target_estimator.type != mrs_msgs::HeadingType::VSLAM && target_estimator.type != mrs_msgs::HeadingType::ICP &&
       target_estimator.type != mrs_msgs::HeadingType::BRICKFLOW && target_estimator.type != mrs_msgs::HeadingType::ALOAM) {
@@ -10101,7 +9808,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
 
   if (type.type == mrs_msgs::EstimatorType::OPTFLOW || type.type == mrs_msgs::EstimatorType::GPS || type.type == mrs_msgs::EstimatorType::OPTFLOWGPS ||
-      type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::LIDAR || type.type == mrs_msgs::EstimatorType::VIO ||
+      type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO ||
       type.type == mrs_msgs::EstimatorType::VSLAM || type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 ||
       type.type == mrs_msgs::EstimatorType::HECTOR || type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP ||
       type.type == mrs_msgs::EstimatorType::ALOAM) {
@@ -10204,8 +9911,6 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "OPTFLOWGPS";
   } else if (type.type == mrs_msgs::EstimatorType::RTK) {
     s_diag += "RTK";
-  } else if (type.type == mrs_msgs::EstimatorType::LIDAR) {
-    s_diag += "LIDAR";
   } else if (type.type == mrs_msgs::EstimatorType::VIO) {
     s_diag += "VIO";
   } else if (type.type == mrs_msgs::EstimatorType::VSLAM) {
