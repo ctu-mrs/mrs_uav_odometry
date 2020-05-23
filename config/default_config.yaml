@@ -41,6 +41,7 @@ publish_rate:
 
 # Debug paramters
 debug:
+  publish_corrections: true # publish debug topics of measurement corrections that are not essential for the functioning of the system
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
   publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
   pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!

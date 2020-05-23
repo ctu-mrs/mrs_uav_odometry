@@ -111,6 +111,7 @@ private:
   std::string _uav_name_;
   bool        _simulation_ = false;
 
+  bool   _debug_publish_corrections_;
   bool   _publish_fused_odom_;
   bool   _publish_pixhawk_velocity_;
   bool   _dynamic_optflow_cov_       = false;
@@ -151,17 +152,16 @@ private:
   ros::Publisher pub_imu_untilted_;
   ros::Publisher pub_brick_diag_;
 
-  ros::Publisher pub_compass_hdg_;
-  ros::Publisher pub_lidar_hdg_;
-  ros::Publisher pub_hector_hdg_;
-  ros::Publisher pub_aloam_hdg_;
-  ros::Publisher pub_optflow_hdg_;
-  ros::Publisher pub_brick_hdg_;
-  ros::Publisher pub_vio_hdg_;
-  ros::Publisher pub_vslam_hdg_;
+  ros::Publisher pub_compass_hdg_corr_;
+  ros::Publisher pub_lidar_hdg_corr_;
+  ros::Publisher pub_hector_hdg_corr_;
+  ros::Publisher pub_aloam_hdg_corr_;
+  ros::Publisher pub_brick_hdg_corr_;
+  ros::Publisher pub_vio_hdg_corr_;
+  ros::Publisher pub_vslam_hdg_corr_;
 
-  ros::Publisher pub_cmd_hdg_;
-  ros::Publisher pub_cmd_hdg_rate_;
+  ros::Publisher pub_cmd_hdg_input_;
+  ros::Publisher pub_cmd_hdg_rate_input_;
 
   ros::Publisher pub_debug_optflow_filter;
   ros::Publisher pub_debug_icp_twist_filter;
@@ -234,8 +234,8 @@ private:
   double             hdg_diff_              = 0.0;
   ros::Publisher     pub_odom_mavros_;
 
-  nav_msgs::Odometry odom_main_inno;
-  std::mutex         mutex_odom_main_inno;
+  nav_msgs::Odometry odom_main_inno_;
+  std::mutex         mutex_odom_main_inno_;
   std::mutex         mutex_uav_state;
 
 
@@ -279,16 +279,18 @@ private:
   bool                                      _use_optflow_low_   = false;
 
   // VIO
-  nav_msgs::Odometry odom_vio;
-  std::mutex         mutex_odom_vio;
-  nav_msgs::Odometry odom_vio_previous;
-  ros::Time          odom_vio_last_update;
+  nav_msgs::Odometry odom_vio_;
+  std::mutex         mutex_odom_vio_;
+  nav_msgs::Odometry odom_vio_previous_;
+  std::mutex         mutex_odom_vio_previous_;
+  ros::Time          odom_vio_last_update_;
 
   // VSLAM
-  geometry_msgs::PoseWithCovarianceStamped pose_vslam;
-  std::mutex                               mutex_pose_vslam;
-  geometry_msgs::PoseWithCovarianceStamped pose_vslam_previous;
-  ros::Time                                pose_vslam_last_update;
+  geometry_msgs::PoseWithCovarianceStamped pose_vslam_;
+  std::mutex                               mutex_pose_vslam_;
+  geometry_msgs::PoseWithCovarianceStamped pose_vslam_previous_;
+  std::mutex                               mutex_pose_vslam_previous_;
+  ros::Time                                pose_vslam_last_update_;
 
   // Realsense t265
   nav_msgs::Odometry odom_t265;
@@ -382,8 +384,9 @@ private:
   double                        _accum_hdg_brick_alpha_;
 
   // VIO heading msgs
-  double                        vio_hdg_previous;
-  std::mutex                    mutex_vio_hdg;
+  double                        vio_hdg_previous_;
+  std::mutex                    mutex_vio_hdg_;
+  std::mutex                    mutex_vio_hdg_previous_;
   ros::Time                     vio_hdg_last_update;
   std::shared_ptr<MedianFilter> vio_hdg_filter;
   bool                          _vio_hdg_median_filter;
@@ -587,6 +590,7 @@ private:
   bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
   nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg, const tf2::Vector3 &pos_offset, const tf2::Quaternion &rot_offset);
   bool               isValidGate(const double &value, const double &min_value, const double &max_value, const std::string &value_name = "");
+  double             saturateCorrection(const double &correction, const double max_correction, const std::string &correction_name);
 
   // | ------------------ call service routines ----------------- |
   bool callEnableControlCallbacks();
@@ -673,8 +677,8 @@ private:
   bool got_aloam_odom       = false;
   bool got_brick_pose       = false;
   bool got_attitude_command = false;
-  bool got_vio              = false;
-  bool got_vslam            = false;
+  bool got_vio_             = false;
+  bool got_vslam_           = false;
   bool got_altitude_sensors = false;
   bool got_lateral_sensors  = false;
   bool got_rtk_fix          = false;
@@ -852,7 +856,7 @@ private:
   bool       aloam_reliable      = false;
   bool       _gps_available_     = false;
   bool       _vio_available_     = false;
-  bool       vio_reliable        = true;
+  bool       vio_reliable_       = true;
   bool       _vslam_available_   = false;
   bool       vslam_reliable      = true;
   bool       optflow_reliable    = false;
@@ -982,8 +986,8 @@ void Odometry::onInit() {
   odometry_published        = false;
   got_odom_pixhawk          = false;
   got_optflow               = false;
-  got_vio                   = false;
-  got_vslam                 = false;
+  got_vio_                  = false;
+  got_vslam_                = false;
   got_brick_pose            = false;
   got_rtk                   = false;
   got_odom_t265             = false;
@@ -1784,6 +1788,7 @@ void Odometry::onInit() {
   //}
 
   // Debug parameters
+  param_loader.loadParam("debug/publish_corrections", _debug_publish_corrections_);
   param_loader.loadParam("debug/publish_fused_odom", _publish_fused_odom_);
   param_loader.loadParam("debug/publish_pixhawk_velocity", _publish_pixhawk_velocity_);
   param_loader.loadParam("debug/pass_rtk_as_odom", _pass_rtk_as_odom_);
@@ -1847,7 +1852,7 @@ void Odometry::onInit() {
   /* //{ publishers */
   pub_uav_state_           = nh.advertise<mrs_msgs::UavState>("uav_state_out", 1);
   pub_odom_main_           = nh.advertise<nav_msgs::Odometry>("odom_main_out", 1);
-  pub_odom_main_inno_      = nh.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
+  pub_odom_main_inno_     = nh.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
   pub_odom_local_          = nh.advertise<nav_msgs::Odometry>("odom_local_out", 1);
   pub_odom_stable_         = nh.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
   pub_slow_odom_           = nh.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
@@ -1888,17 +1893,18 @@ void Odometry::onInit() {
   pub_orientation_mavros_  = nh.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
 
   // publishers for heading
-  pub_compass_hdg_ = nh.advertise<mrs_msgs::Float64Stamped>("compass_hdg_out", 1);
-  pub_optflow_hdg_ = nh.advertise<mrs_msgs::Float64Stamped>("optflow_hdg_out", 1);
-  pub_hector_hdg_  = nh.advertise<mrs_msgs::Float64Stamped>("hector_hdg_out", 1);
-  pub_lidar_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("lidar_hdg_out", 1);
-  pub_aloam_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("aloam_hdg_out", 1);
-  pub_brick_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("brick_hdg_out", 1);
-  pub_vio_hdg_     = nh.advertise<mrs_msgs::Float64Stamped>("vio_hdg_out", 1);
-  pub_vslam_hdg_   = nh.advertise<mrs_msgs::Float64Stamped>("vslam_hdg_out", 1);
 
-  pub_cmd_hdg_      = nh.advertise<mrs_msgs::Float64Stamped>("cmd_hdg_out", 1);
-  pub_cmd_hdg_rate_ = nh.advertise<mrs_msgs::Float64Stamped>("cmd_hdg_rate_out", 1);
+  if (_debug_publish_corrections_) {
+    pub_compass_hdg_corr_   = nh.advertise<mrs_msgs::Float64Stamped>("debug_compass_hdg_corr_out", 1);
+    pub_hector_hdg_corr_    = nh.advertise<mrs_msgs::Float64Stamped>("debug_hector_hdg_corr_out", 1);
+    pub_lidar_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_lidar_hdg_corr_out", 1);
+    pub_aloam_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_aloam_hdg_corr_out", 1);
+    pub_brick_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_brick_hdg_corr_out", 1);
+    pub_vio_hdg_corr_       = nh.advertise<mrs_msgs::Float64Stamped>("debug_vio_hdg_corr_out", 1);
+    pub_vslam_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_vslam_hdg_corr_out", 1);
+    pub_cmd_hdg_input_      = nh.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_input_out", 1);
+    pub_cmd_hdg_rate_input_ = nh.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_rate_input_out", 1);
+  }
 
   //}
 
@@ -2291,7 +2297,7 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VIO) {
-    if (got_vio) {
+    if (got_vio_) {
       return true;
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for VIO msg to initialize takeoff estimator");
@@ -2299,7 +2305,7 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff.type == mrs_msgs::EstimatorType::VSLAM) {
-    if (got_vslam) {
+    if (got_vslam_) {
       return true;
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for VSLAM msg to initialize takeoff estimator");
@@ -3139,7 +3145,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     // Fallback from VIO
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::VIO) {
-    if (!vio_reliable && _optflow_available_ && got_optflow && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+    if (!vio_reliable_ && _optflow_available_ && got_optflow && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3149,7 +3155,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
       }
-    } else if (!vio_reliable && gps_reliable && got_odom_pixhawk) {
+    } else if (!vio_reliable_ && gps_reliable && got_odom_pixhawk) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -3160,9 +3166,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk || !got_range || !got_vio) {
+    if (!got_odom_pixhawk || !got_range || !got_vio_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
-                        got_range ? "TRUE" : "FALSE", got_vio ? "TRUE" : "FALSE");
+                        got_range ? "TRUE" : "FALSE", got_vio_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors && !failsafe_called) {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
@@ -3194,9 +3200,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk || !got_range || !got_vslam) {
+    if (!got_odom_pixhawk || !got_range || !got_vslam_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vslam: %s", got_odom_pixhawk ? "TRUE" : "FALSE",
-                        got_range ? "TRUE" : "FALSE", got_vslam ? "TRUE" : "FALSE");
+                        got_range ? "TRUE" : "FALSE", got_vslam_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors && !failsafe_called) {
         ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
@@ -3898,7 +3904,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /* publish measurement innnovation //{ */
 
   try {
-    pub_odom_main_inno_.publish(odom_main_inno);
+    pub_odom_main_inno_.publish(odom_main_inno_);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_inno_.getTopic().c_str());
@@ -4315,17 +4321,17 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   }
 
   //  vio odometry (corrections of lateral kf)
-  interval = ros::Time::now() - odom_vio_last_update;
-  if (got_vio && interval.toSec() > 1.0) {
+  interval = ros::Time::now() - odom_vio_last_update_;
+  if (got_vio_ && interval.toSec() > 0.5) {
     ROS_WARN("[Odometry]: VIO odometry not received for %f seconds.", interval.toSec());
-    got_vio = false;
+    got_vio_ = false;
   }
 
   //  vslam pose (corrections of lateral kf)
-  interval = ros::Time::now() - pose_vslam_last_update;
-  if (got_vslam && interval.toSec() > 1.0) {
+  interval = ros::Time::now() - pose_vslam_last_update_;
+  if (got_vslam_ && interval.toSec() > 0.5) {
     ROS_WARN("[Odometry]: VSLAM odometry not received for %f seconds.", interval.toSec());
-    got_vslam = false;
+    got_vslam_ = false;
   }
 
   //  brick odometry (corrections of lateral kf)
@@ -4562,15 +4568,17 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   des_hdg_ = des_hdg;
 
-  mrs_msgs::Float64Stamped des_hdg_msg;
-  des_hdg_msg.header = attitude_command.header;
-  des_hdg_msg.value  = des_hdg;
+  if (_debug_publish_corrections_) {
+    mrs_msgs::Float64Stamped des_hdg_msg;
+    des_hdg_msg.header = attitude_command.header;
+    des_hdg_msg.value  = des_hdg;
 
-  try {
-    pub_cmd_hdg_.publish(des_hdg_msg);
-  }
-  catch (...) {
-    ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_.getTopic().c_str());
+    try {
+      pub_cmd_hdg_input_.publish(des_hdg_msg);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_input_.getTopic().c_str());
+    }
   }
 
   //}
@@ -4603,15 +4611,17 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   des_hdg_rate_ = des_hdg_rate;
 
-  mrs_msgs::Float64Stamped des_hdg_rate_msg;
-  des_hdg_rate_msg.header = attitude_command.header;
-  des_hdg_rate_msg.value  = des_hdg_rate;
+  if (_debug_publish_corrections_) {
+    mrs_msgs::Float64Stamped des_hdg_rate_msg;
+    des_hdg_rate_msg.header = attitude_command.header;
+    des_hdg_rate_msg.value  = des_hdg_rate;
 
-  try {
-    pub_cmd_hdg_rate_.publish(des_hdg_rate_msg);
-  }
-  catch (...) {
-    ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_rate_.getTopic().c_str());
+    try {
+      pub_cmd_hdg_rate_input_.publish(des_hdg_rate_msg);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_rate_input_.getTopic().c_str());
+    }
   }
 
   //}
@@ -4847,7 +4857,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     altitudeEstimatorCorrection(altitude, "height_baro");
   }
 
-  ROS_WARN_ONCE("[Odometry]: fusing barometer altitude");
+  ROS_INFO_ONCE("[Odometry]: Fusing barometer altitude");
 
   //}
 
@@ -4908,7 +4918,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     // Apply correction step to all state estimators
     if (fabs(vel_mavros_x) < 100 && fabs(vel_mavros_y) < 100) {
       stateEstimatorsCorrection(vel_mavros_x, vel_mavros_y, "vel_mavros");
-      ROS_WARN_ONCE("[Odometry]: Fusing mavros velocity");
+      ROS_INFO_ONCE("[Odometry]: Fusing mavros velocity");
     }
 
     // Set innoation variable if ccurnet estimator is GPS
@@ -4919,9 +4929,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       innovation(0) = vel_mavros_x - vel_vec(0);
       innovation(1) = vel_mavros_y - vel_vec(1);
       {
-        std::scoped_lock lock(mutex_odom_main_inno);
-        odom_main_inno.twist.twist.linear.x = innovation(0);
-        odom_main_inno.twist.twist.linear.y = innovation(1);
+        std::scoped_lock lock(mutex_odom_main_inno_);
+        odom_main_inno_.twist.twist.linear.x = innovation(0);
+        odom_main_inno_.twist.twist.linear.y = innovation(1);
       }
     }
 
@@ -5012,9 +5022,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
         // Set innoation variable if ccurnet estimator is GPS
         if (current_estimator->getName() == "GPS") {
-          odom_main_inno.pose.pose.position.x = innovation(0);
-          odom_main_inno.pose.pose.position.y = innovation(1);
-          odom_main_inno.pose.pose.position.z = 0;
+          odom_main_inno_.pose.pose.position.x = innovation(0);
+          odom_main_inno_.pose.pose.position.y = innovation(1);
+          odom_main_inno_.pose.pose.position.z = 0;
         }
       }
     }
@@ -5035,7 +5045,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     // Apply correction step to all state estimators
     stateEstimatorsCorrection(pos_mavros_x, pos_mavros_y, "pos_mavros");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing mavros position");
+    ROS_INFO_ONCE("[Odometry]: Fusing mavros position");
     //}
 
     //}
@@ -5109,7 +5119,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     }
     stateEstimatorsCorrection(acc_untilted.vector.x, acc_untilted.vector.y, "acc_imu");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing untilted accelerations");
+    ROS_INFO_ONCE("[Odometry]: Fusing untilted accelerations");
 
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed", pixhawk_imu.header.frame_id.c_str(), fcu_untilted_frame_id_.c_str());
@@ -5173,7 +5183,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(hdg_rate, "rate_gyro");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing gyro hdg rate from PixHawk IMU");
+    ROS_INFO_ONCE("[Odometry]: Fusing gyro hdg rate from PixHawk IMU");
 
   } else {
 
@@ -5280,26 +5290,30 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   }
 
   if (std::isfinite(hdg)) {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"hdg\", not fusing!!!");
+    return;
+  }
 
-    compass_inconsistent_samples = 0;
+  compass_inconsistent_samples = 0;
 
-    // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(hdg, "hdg_compass");
+  // Apply correction step to all heading estimators
+  headingEstimatorsCorrection(hdg, "hdg_compass");
 
+  if (_debug_publish_corrections_) {
     hdg = mrs_lib::wrapAngle(hdg);
-
     mrs_msgs::Float64Stamped compass_hdg_out;
     compass_hdg_out.header.stamp    = ros::Time::now();
     compass_hdg_out.header.frame_id = local_origin_frame_id_;
     compass_hdg_out.value           = hdg;
-    pub_compass_hdg_.publish(compass_hdg_out);
-
-    ROS_WARN_ONCE("[Odometry]: Fusing hdg from PixHawk compass");
-
-  } else {
-
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"hdg\", not fusing!!!");
+    try {
+      pub_compass_hdg_corr_.publish(compass_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_compass_hdg_corr_.getTopic().c_str());
+    }
   }
+
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from PixHawk compass");
 }
 
 //}
@@ -5464,19 +5478,19 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     innovation(0) = optflow_vel_x - vel_vec(0);
     innovation(1) = optflow_vel_y - vel_vec(1);
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = 0;
-      odom_main_inno.pose.pose.position.y = 0;
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = 0;
+      odom_main_inno_.pose.pose.position.y = 0;
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = innovation(0);
+      odom_main_inno_.twist.twist.linear.y = innovation(1);
     }
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity");
+  ROS_INFO_ONCE("[Odometry]: Fusing optflow velocity");
 
   double hdg_rate = mrs_lib::get_mutexed(mutex_optflow, optflow_twist.twist.twist.angular.z);
 
@@ -5508,7 +5522,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(hdg_rate, "rate_optflow");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing optflow hdg rate");
+    ROS_INFO_ONCE("[Odometry]: Fusing optflow hdg rate");
 
   } else {
 
@@ -5675,19 +5689,19 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     innovation(0) = optflow_vel_x - vel_vec(0);
     innovation(1) = optflow_vel_y - vel_vec(1);
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = 0;
-      odom_main_inno.pose.pose.position.y = 0;
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = 0;
+      odom_main_inno_.pose.pose.position.y = 0;
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = innovation(0);
+      odom_main_inno_.twist.twist.linear.y = innovation(1);
     }
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(optflow_vel_x, optflow_vel_y, "vel_optflow");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing optflow velocity from OPTFLOW low");
+  ROS_INFO_ONCE("[Odometry]: Fusing optflow velocity from OPTFLOW low");
 }
 
 //}
@@ -5779,19 +5793,19 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     innovation(0) = icp_vel_x - vel_vec(0);
     innovation(1) = icp_vel_y - vel_vec(1);
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = 0;
-      odom_main_inno.pose.pose.position.y = 0;
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = 0;
+      odom_main_inno_.pose.pose.position.y = 0;
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = innovation(0);
+      odom_main_inno_.twist.twist.linear.y = innovation(1);
     }
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(icp_vel_x, icp_vel_y, "vel_icp");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing icp velocity");
+  ROS_INFO_ONCE("[Odometry]: Fusing icp velocity");
 
   double hdg_rate;
   {
@@ -5827,7 +5841,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     // Apply correction step to all heading estimators
     headingEstimatorsCorrection(hdg_rate, "rate_icp");
 
-    ROS_WARN_ONCE("[Odometry]: Fusing icp hdg rate");
+    ROS_INFO_ONCE("[Odometry]: Fusing icp hdg rate");
 
   } else {
 
@@ -6054,7 +6068,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     }
     //}
 
-    ROS_WARN_ONCE("[Odometry]: Fusing RTK position");
+    ROS_INFO_ONCE("[Odometry]: Fusing RTK position");
   }
 }
 //}
@@ -6068,77 +6082,74 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVioOdometry");
 
-  if (got_vio) {
+  nav_msgs::Odometry odom_vio_previous;
 
-    {
-      std::scoped_lock lock(mutex_odom_vio);
+  if (got_vio_) {
 
-      odom_vio_previous = odom_vio;
-      odom_vio          = *msg;
-    }
+    odom_vio_previous = odom_vio_;
+    mrs_lib::set_mutexed(mutex_odom_vio_previous_, odom_vio_previous, odom_vio_previous_);
+    mrs_lib::set_mutexed(mutex_odom_vio_, *msg, odom_vio_);
+    odom_vio_last_update_ = ros::Time::now();
 
   } else {
 
-    {
-      std::scoped_lock lock(mutex_odom_vio);
-
-      odom_vio_previous = *msg;
-      odom_vio          = *msg;
-      try {
-        vio_hdg_previous = mrs_lib::AttitudeConverter(odom_vio.pose.pose.orientation).getHeading();
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg_previous)");
-      }
-    }
-
-    got_vio              = true;
-    odom_vio_last_update = ros::Time::now();
-    return;
-  }
-
-  odom_vio_last_update = ros::Time::now();
-
-  if (!got_range) {
+    mrs_lib::set_mutexed(mutex_odom_vio_previous_, *msg, odom_vio_previous_);
+    mrs_lib::set_mutexed(mutex_odom_vio_, *msg, odom_vio_);
+    odom_vio_last_update_ = ros::Time::now();
+    got_vio_              = true;
 
     return;
   }
+
 
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  if (!isTimestampOK(odom_vio.header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
+  if (!isTimestampOK(msg->header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction.");
     return;
   }
 
   /* fuse vio hdg //{ */
-
-  double hdg_vio;
+  double vio_hdg_previous;
   try {
-    hdg_vio = mrs_lib::AttitudeConverter(odom_vio.pose.pose.orientation).getHeading();
+    vio_hdg_previous = mrs_lib::AttitudeConverter(odom_vio_previous_.pose.pose.orientation).getHeading();
+    mrs_lib::set_mutexed(mutex_vio_hdg_previous_, vio_hdg_previous, vio_hdg_previous_);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg_previous_)");
+  }
+
+  double vio_hdg;
+  try {
+    vio_hdg = mrs_lib::AttitudeConverter(msg->pose.pose.orientation).getHeading();
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (hdg_vio)");
-    hdg_vio = hdg_previous;
   }
 
-  hdg_vio          = mrs_lib::unwrapAngle(hdg_vio, vio_hdg_previous);
-  vio_hdg_previous = hdg_vio;
+  vio_hdg = mrs_lib::unwrapAngle(vio_hdg, vio_hdg_previous);
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(hdg_vio, "hdg_vio");
+  headingEstimatorsCorrection(vio_hdg, "vio_hdg");
 
-  hdg_vio = mrs_lib::wrapAngle(hdg_vio);
+  // Publish VIO heading correction
+  if (_debug_publish_corrections_) {
+    vio_hdg = mrs_lib::wrapAngle(vio_hdg);
+    mrs_msgs::Float64Stamped vio_hdg_out;
+    vio_hdg_out.header.stamp    = ros::Time::now();
+    vio_hdg_out.header.frame_id = local_origin_frame_id_;
+    vio_hdg_out.value           = vio_hdg;
+    try {
+      pub_vio_hdg_corr_.publish(vio_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_vio_hdg_corr_.getTopic().c_str());
+    }
+  }
 
-  mrs_msgs::Float64Stamped vio_hdg_out;
-  vio_hdg_out.header.stamp    = ros::Time::now();
-  vio_hdg_out.header.frame_id = local_origin_frame_id_;
-  vio_hdg_out.value           = hdg_vio;
-  pub_vio_hdg_.publish(vio_hdg_out);
-
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from VIO");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from VIO");
 
   //}
 
@@ -6147,21 +6158,22 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   //////////////////// Filter out vio height measurement ////////////////////
 
   bool   vio_altitude_ok = true;
-  double measurement     = odom_vio.pose.pose.position.z;
+  double measurement     = msg->pose.pose.position.z;
+
+  // Median filter
   if (isUavFlying()) {
     if (!alt_mf_vio_->isValid(measurement)) {
-      /* double filtered = alt_mf_vio_->getMedian(); */
       ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
       vio_altitude_ok = false;
     }
   }
 
-  //////////////////// Fuse main altitude kalman ////////////////////
-
+  // Value gate
   if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
     vio_altitude_ok = false;
-    return;
   }
+
+  //////////////////// Fuse main altitude kalman ////////////////////
 
   // Fuse vio measurement for each altitude estimator
   for (auto &estimator : m_altitude_estimators) {
@@ -6182,7 +6194,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing height from VIO pose");
+  ROS_INFO_ONCE("[Odometry]: Fusing height from VIO");
 
   //}
 
@@ -6191,110 +6203,75 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse vio velocity */
 
   double vel_vio_x, vel_vio_y;
+  vel_vio_x = msg->twist.twist.linear.x;
+  vel_vio_y = msg->twist.twist.linear.y;
 
-  {
-    std::scoped_lock lock(mutex_odom_vio);
-
-    vel_vio_x = odom_vio.twist.twist.linear.x;
-    vel_vio_y = odom_vio.twist.twist.linear.y;
-  }
-
-  // Set innoation variable if ccurnet estimator is VIO
+  // Set innovation variable if current estimator is VIO
   if (current_estimator->getName() == "VIO") {
     Vec2 vel_vec, innovation;
     current_estimator->getState(1, vel_vec);
 
     innovation(0) = vel_vio_x - vel_vec(0);
     innovation(1) = vel_vio_y - vel_vec(1);
-    {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
-    }
+
+    mrs_lib::set_mutexed(mutex_odom_main_inno_, innovation(0), odom_main_inno_.twist.twist.linear.x);
+    mrs_lib::set_mutexed(mutex_odom_main_inno_, innovation(1), odom_main_inno_.twist.twist.linear.y);
   }
 
-  if (vio_reliable && (vel_vio_x > 10 || vel_vio_y > 10)) {
+  if (vio_reliable_ && (vel_vio_x > 10 || vel_vio_y > 10)) {
     ROS_WARN("[Odometry]: Estimated VIO velocity > 10. VIO is not reliable.");
-    vio_reliable = false;
-    return;
+    vio_reliable_ = false;
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing VIO velocity");
+  ROS_INFO_ONCE("[Odometry]: Fusing VIO velocity");
   //}
 
   /* //{ fuse vio position */
 
   double vio_pos_x, vio_pos_y;
+  vio_pos_x = msg->pose.pose.position.x;
+  vio_pos_y = msg->pose.pose.position.y;
 
-  {
-    std::scoped_lock lock(mutex_odom_vio);
-
-    // Correct the position by the current heading
-    vio_pos_x = odom_vio.pose.pose.position.x;
-    vio_pos_y = odom_vio.pose.pose.position.y;
+  if (!std::isfinite(vio_pos_x) || !std::isfinite(vio_pos_y)) {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_x\" or \"vio_pos_y\", returning!!!");
+    return;
   }
 
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (estimator.first == "VIO") {
 
-      Vec2 pos_vec, innovation;
+      Vec2 pos_vec, correction;
       estimator.second->getState(0, pos_vec);
 
-      innovation(0) = vio_pos_x - pos_vec(0);
-      innovation(1) = vio_pos_y - pos_vec(1);
+      correction(0) = vio_pos_x - pos_vec(0);
+      correction(1) = vio_pos_y - pos_vec(1);
 
       // X position
-      if (!std::isfinite(vio_pos_x)) {
-        vio_pos_x = 0;
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_x\", setting it to 0 and returning!!!");
-        return;
-      } else if (innovation(0) > _max_vio_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), _max_vio_pos_correction_);
-        vio_pos_x = pos_vec(0) + _max_vio_pos_correction_;
-      } else if (innovation(0) < -_max_vio_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO X pos correction %f -> %f", innovation(0), -_max_vio_pos_correction_);
-        vio_pos_x = pos_vec(0) - _max_vio_pos_correction_;
-      }
+      vio_pos_x += saturateCorrection(correction(0), _max_vio_pos_correction_, "vio_pos_x");
+      vio_pos_y += saturateCorrection(correction(1), _max_vio_pos_correction_, "vio_pos_y");
 
-      // Y position
-      if (!std::isfinite(vio_pos_y)) {
-        vio_pos_y = 0;
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_y\", setting it to 0 and returning!!!");
-        return;
-      } else if (innovation(1) > _max_vio_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), _max_vio_pos_correction_);
-        vio_pos_y = pos_vec(1) + _max_vio_pos_correction_;
-      } else if (innovation(1) < -_max_vio_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VIO Y pos correction %f -> %f", innovation(1), -_max_vio_pos_correction_);
-        vio_pos_y = pos_vec(1) - _max_vio_pos_correction_;
-      }
-
-      // Set innoation variable if ccurnet estimator is VIO
+      // Set innovation variable if current estimator is VIO
       if (current_estimator->getName() == "VIO") {
-        {
-          std::scoped_lock lock(mutex_odom_main_inno);
-          odom_main_inno.pose.pose.position.x = innovation(0);
-          odom_main_inno.pose.pose.position.y = innovation(1);
-          odom_main_inno.pose.pose.position.z = 0;
-        }
+        mrs_lib::set_mutexed(mutex_odom_main_inno_, correction(0), odom_main_inno_.pose.pose.position.x);
+        mrs_lib::set_mutexed(mutex_odom_main_inno_, correction(1), odom_main_inno_.pose.pose.position.y);
       }
     }
   }
 
-  if (vio_reliable && (std::fabs(odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) > 10 ||
-                       std::fabs(odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) > 10)) {
-    ROS_WARN("[Odometry]: Estimated difference between VIO positions > 10. VIO is not reliable.");
-    vio_reliable = false;
+  if (vio_reliable_ && (std::fabs(msg->pose.pose.position.x - odom_vio_previous.pose.pose.position.x) > 10 ||
+                        std::fabs(msg->pose.pose.position.y - odom_vio_previous.pose.pose.position.y) > 10)) {
+    ROS_WARN("[Odometry]: Estimated difference between successive VIO positions > 10. VIO is not reliable.");
+    vio_reliable_ = false;
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing VIO position");
+  ROS_INFO_ONCE("[Odometry]: Fusing VIO position");
   //}
 }
 
@@ -6310,38 +6287,21 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVslamPose");
 
-  if (got_vslam) {
+  geometry_msgs::PoseWithCovarianceStamped pose_vslam_previous;
 
-    {
-      std::scoped_lock lock(mutex_pose_vslam);
+  if (got_vslam_) {
 
-      pose_vslam_previous = pose_vslam;
-      pose_vslam          = *msg;
-    }
+    pose_vslam_previous = pose_vslam_;
+    mrs_lib::set_mutexed(mutex_pose_vslam_previous_, pose_vslam_previous, pose_vslam_previous_);
+    mrs_lib::set_mutexed(mutex_pose_vslam_, *msg, pose_vslam_);
+    pose_vslam_last_update_ = ros::Time::now();
 
   } else {
 
-    {
-      std::scoped_lock lock(mutex_pose_vslam);
-
-      pose_vslam_previous = *msg;
-      pose_vslam          = *msg;
-      try {
-        vslam_hdg_previous = mrs_lib::AttitudeConverter(pose_vslam.pose.pose.orientation).getHeading();
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during getting heading (vslam_hdg_previous)");
-      }
-    }
-
-    got_vslam              = true;
-    pose_vslam_last_update = ros::Time::now();
-    return;
-  }
-
-  pose_vslam_last_update = ros::Time::now();
-
-  if (!got_range) {
+    mrs_lib::set_mutexed(mutex_pose_vslam_previous_, *msg, pose_vslam_previous_);
+    mrs_lib::set_mutexed(mutex_pose_vslam_, *msg, pose_vslam_);
+    pose_vslam_last_update_ = ros::Time::now();
+    got_vslam_              = true;
 
     return;
   }
@@ -6350,101 +6310,89 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  if (!isTimestampOK(pose_vslam.header.stamp.toSec(), pose_vslam_previous.header.stamp.toSec())) {
+  if (!isTimestampOK(msg->header.stamp.toSec(), pose_vslam_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VSLAM timestamp not OK, not fusing correction.");
     return;
   }
 
-  double hdg_vslam;
+  /* fuse VSLAM heading //{ */
+
+  double vslam_hdg_previous;
   try {
-    hdg_vslam = mrs_lib::AttitudeConverter(pose_vslam.pose.pose.orientation).getHeading();
+    vslam_hdg_previous = mrs_lib::AttitudeConverter(msg->pose.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during getting heading (hdg_vslam)");
-    hdg_vslam = vslam_hdg_previous;
+    ROS_ERROR("[Odometry]: Exception caught during getting heading (vslam_hdg_previous)");
   }
 
-  hdg_vslam          = mrs_lib::unwrapAngle(hdg_vslam, vslam_hdg_previous);
-  vslam_hdg_previous = hdg_vslam;
+  double vslam_hdg;
+  try {
+    vslam_hdg = mrs_lib::AttitudeConverter(msg->pose.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during getting heading (vslam_hdg)");
+  }
+
+  vslam_hdg          = mrs_lib::unwrapAngle(vslam_hdg, vslam_hdg_previous);
+  vslam_hdg_previous = vslam_hdg;
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(hdg_vslam, "hdg_vslam");
+  headingEstimatorsCorrection(vslam_hdg, "vslam_hdg");
 
-  hdg_vslam = mrs_lib::wrapAngle(hdg_vslam);
+  if (_debug_publish_corrections_) {
+    vslam_hdg = mrs_lib::wrapAngle(vslam_hdg);
 
-  mrs_msgs::Float64Stamped vslam_hdg_out;
-  vslam_hdg_out.header.stamp    = ros::Time::now();
-  vslam_hdg_out.header.frame_id = local_origin_frame_id_;
-  vslam_hdg_out.value           = hdg_vslam;
-  pub_vslam_hdg_.publish(vslam_hdg_out);
+    mrs_msgs::Float64Stamped vslam_hdg_out;
+    vslam_hdg_out.header.stamp    = ros::Time::now();
+    vslam_hdg_out.header.frame_id = local_origin_frame_id_;
+    vslam_hdg_out.value           = vslam_hdg;
+    try {
+      pub_vslam_hdg_corr_.publish(vslam_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_vslam_hdg_corr_.getTopic().c_str());
+    }
+  }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from VSLAM");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from VSLAM");
+
+  //}
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
-  /* //{ fuse vslam position */
+  /* //{ fuse VSLAM position */
 
   double vslam_pos_x, vslam_pos_y;
+  vslam_pos_x = msg->pose.pose.position.x;
+  vslam_pos_y = msg->pose.pose.position.y;
 
-  {
-    std::scoped_lock lock(mutex_pose_vslam);
-
-    // Correct the position by the current heading
-    vslam_pos_x = pose_vslam.pose.pose.position.x;
-    vslam_pos_y = pose_vslam.pose.pose.position.y;
+  if (!std::isfinite(vslam_pos_x) || !std::isfinite(vslam_pos_y)) {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_x\" or \"vslam_pos_y\", returning!!!");
+    return;
   }
 
   // Saturate correction
   for (auto &estimator : m_state_estimators) {
     if (estimator.first == "VSLAM") {
-      Vec2 pos_vec, innovation;
+      Vec2 pos_vec, correction;
       current_estimator->getState(0, pos_vec);
 
-      innovation(0) = vslam_pos_x - pos_vec(0);
-      innovation(1) = vslam_pos_y - pos_vec(1);
+      correction(0) = vslam_pos_x - pos_vec(0);
+      correction(1) = vslam_pos_y - pos_vec(1);
 
-      // X position
-      if (!std::isfinite(vslam_pos_x)) {
-        vslam_pos_x = 0;
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_x\", setting it to 0 and returning!!!");
-        return;
-      } else if (innovation(0) > _max_vslam_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), _max_vslam_pos_correction_);
-        vslam_pos_x = pos_vec(0) + _max_vslam_pos_correction_;
-      } else if (innovation(0) < -_max_vslam_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM X pos correction %f -> %f", innovation(0), -_max_vslam_pos_correction_);
-        vslam_pos_x = pos_vec(0) - _max_vslam_pos_correction_;
-      }
+      vslam_pos_x += saturateCorrection(correction(0), _max_vslam_pos_correction_, "vio_pos_x");
+      vslam_pos_y += saturateCorrection(correction(1), _max_vslam_pos_correction_, "vio_pos_y");
 
-      // Y position
-      if (!std::isfinite(vslam_pos_y)) {
-        vslam_pos_y = 0;
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vslam_pos_y\", setting it to 0 and returning!!!");
-        return;
-      } else if (innovation(1) > _max_vslam_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), _max_vslam_pos_correction_);
-        vslam_pos_y = pos_vec(1) + _max_vslam_pos_correction_;
-      } else if (innovation(1) < -_max_vslam_pos_correction_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating VSLAM Y pos correction %f -> %f", innovation(1), -_max_vslam_pos_correction_);
-        vslam_pos_y = pos_vec(1) - _max_vslam_pos_correction_;
-      }
-
-      // Set innoation variable if ccurnet estimator is VSLAM
+      // Set innovation variable if current estimator is VSLAM
       if (current_estimator->getName() == "VSLAM") {
-        {
-          std::scoped_lock lock(mutex_odom_main_inno);
-          odom_main_inno.pose.pose.position.x = innovation(0);
-          odom_main_inno.pose.pose.position.y = innovation(1);
-          odom_main_inno.pose.pose.position.z = 0;
-          odom_main_inno.twist.twist.linear.x = 0;
-          odom_main_inno.twist.twist.linear.y = 0;
-        }
+        mrs_lib::set_mutexed(mutex_odom_main_inno_, correction(0), odom_main_inno_.pose.pose.position.x);
+        mrs_lib::set_mutexed(mutex_odom_main_inno_, correction(1), odom_main_inno_.pose.pose.position.y);
       }
     }
   }
 
-  if (vslam_reliable && (std::fabs(pose_vslam.pose.pose.position.x - pose_vslam_previous.pose.pose.position.x) > 10 ||
-                         std::fabs(pose_vslam.pose.pose.position.y - pose_vslam_previous.pose.pose.position.y) > 10)) {
+  if (vslam_reliable && (std::fabs(msg->pose.pose.position.x - pose_vslam_previous.pose.pose.position.x) > 10 ||
+                         std::fabs(msg->pose.pose.position.y - pose_vslam_previous.pose.pose.position.y) > 10)) {
     ROS_WARN("[Odometry]: Estimated difference between VSLAM positions > 10. VSLAM is not reliable.");
     vslam_reliable = false;
   }
@@ -6452,10 +6400,10 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vslam_pos_x, vslam_pos_y, "pos_vslam");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing VSLAM position");
+  ROS_INFO_ONCE("[Odometry]: Fusing VSLAM position");
   //}
-}
 
+}
 
 //}
 
@@ -6665,22 +6613,30 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
 
   brick_hdg_previous = hdg_brick;
 
-  if (std::isfinite(hdg_brick)) {
-    // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(hdg_brick, "hdg_brick");
+  if (!std::isfinite(hdg_brick)) {
+    ROS_WARN("[Odometry]: NaN in brick hdg");
+    return;
+  }
 
+  // Apply correction step to all heading estimators
+  headingEstimatorsCorrection(hdg_brick, "hdg_brick");
+
+  if (_debug_publish_corrections_) {
     hdg_brick = mrs_lib::wrapAngle(hdg_brick);
 
     mrs_msgs::Float64Stamped brick_hdg_out;
     brick_hdg_out.header.stamp    = ros::Time::now();
     brick_hdg_out.header.frame_id = local_origin_frame_id_;
     brick_hdg_out.value           = hdg_brick;
-    pub_brick_hdg_.publish(brick_hdg_out);
-  } else {
-    ROS_WARN("[Odometry]: NaN in brick hdg");
+    try {
+      pub_brick_hdg_corr_.publish(brick_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_brick_hdg_corr_.getTopic().c_str());
+    }
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from brick pose");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from brick pose");
 
   //////////////////// Filter out brick height measurement ////////////////////
   // do not fuse brick height measurements when a height jump is detected - most likely the UAV is flying above an obstacle
@@ -6719,7 +6675,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
       }
     }
 
-    ROS_WARN_ONCE("[Odometry]: Brick height from brick pose");
+    ROS_INFO_ONCE("[Odometry]: Brick height from brick pose");
   }
 
   //////////////////// Fuse Lateral Kalman ////////////////////
@@ -6757,12 +6713,12 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     innovation(0) = pos_brick_x - pos_vec(0);
     innovation(1) = pos_brick_y - pos_vec(1);
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = innovation(0);
-      odom_main_inno.pose.pose.position.y = innovation(1);
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = 0;
-      odom_main_inno.twist.twist.linear.y = 0;
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = innovation(0);
+      odom_main_inno_.pose.pose.position.y = innovation(1);
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = 0;
+      odom_main_inno_.twist.twist.linear.y = 0;
     }
   }
 
@@ -6772,7 +6728,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     ROS_INFO_THROTTLE(1.0, "[Odometry]: fusing brick: x: %f, y: %f", pos_brick_x, pos_brick_y);
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing brick position");
+  ROS_INFO_ONCE("[Odometry]: Fusing brick position");
 }
 //}
 
@@ -6840,15 +6796,22 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(hdg_lidar, "hdg_lidar");
 
-  hdg_lidar = mrs_lib::wrapAngle(hdg_lidar);
+  if (_debug_publish_corrections_) {
+    hdg_lidar = mrs_lib::wrapAngle(hdg_lidar);
 
-  mrs_msgs::Float64Stamped lidar_hdg_out;
-  lidar_hdg_out.header.stamp    = ros::Time::now();
-  lidar_hdg_out.header.frame_id = local_origin_frame_id_;
-  lidar_hdg_out.value           = hdg_lidar;
-  pub_lidar_hdg_.publish(lidar_hdg_out);
+    mrs_msgs::Float64Stamped lidar_hdg_out;
+    lidar_hdg_out.header.stamp    = ros::Time::now();
+    lidar_hdg_out.header.frame_id = local_origin_frame_id_;
+    lidar_hdg_out.value           = hdg_lidar;
+    try {
+      pub_lidar_hdg_corr_.publish(lidar_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_lidar_hdg_corr_.getTopic().c_str());
+    }
+  }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from Lidar SLAM");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from Lidar SLAM");
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -6892,16 +6855,16 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     innovation(1) = vel_lidar_y - vel_vec(1);
 
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.twist.twist.linear.x = innovation(0);
+      odom_main_inno_.twist.twist.linear.y = innovation(1);
     }
   }
 
   // Apply correction step to all state estimators
   stateEstimatorsCorrection(vel_lidar_x, vel_lidar_y, "vel_lidar");
 
-  ROS_WARN_ONCE("[Odometry]: Fusing LIDAR velocity");
+  ROS_INFO_ONCE("[Odometry]: Fusing LIDAR velocity");
 
   // Current orientation
   double hdg_state;
@@ -6935,13 +6898,13 @@ void Odometry::callbackLidarOdom(const nav_msgs::OdometryConstPtr &msg) {
     innovation(1) = pos_lidar_y - pos_vec(1);
 
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.twist.twist.linear.x = innovation(0);
-      odom_main_inno.twist.twist.linear.y = innovation(1);
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.twist.twist.linear.x = innovation(0);
+      odom_main_inno_.twist.twist.linear.y = innovation(1);
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing LIDAR position");
+  ROS_INFO_ONCE("[Odometry]: Fusing LIDAR position");
 }
 //}
 
@@ -7056,15 +7019,22 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(hdg_hector, "hdg_hector");
 
-  hdg_hector = mrs_lib::wrapAngle(hdg_hector);
+  if (_debug_publish_corrections_) {
+    hdg_hector = mrs_lib::wrapAngle(hdg_hector);
 
-  mrs_msgs::Float64Stamped hector_hdg_out;
-  hector_hdg_out.header.stamp    = ros::Time::now();
-  hector_hdg_out.header.frame_id = local_origin_frame_id_;
-  hector_hdg_out.value           = hdg_hector;
-  pub_hector_hdg_.publish(hector_hdg_out);
+    mrs_msgs::Float64Stamped hector_hdg_out;
+    hector_hdg_out.header.stamp    = ros::Time::now();
+    hector_hdg_out.header.frame_id = local_origin_frame_id_;
+    hector_hdg_out.value           = hdg_hector;
+    try {
+      pub_hector_hdg_corr_.publish(hector_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_hector_hdg_corr_.getTopic().c_str());
+    }
+  }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from Hector SLAM");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from Hector SLAM");
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
@@ -7108,16 +7078,16 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     }
 
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = innovation(0);
-      odom_main_inno.pose.pose.position.y = innovation(1);
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = 0;
-      odom_main_inno.twist.twist.linear.y = 0;
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = innovation(0);
+      odom_main_inno_.pose.pose.position.y = innovation(1);
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = 0;
+      odom_main_inno_.twist.twist.linear.y = 0;
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing Hector position");
+  ROS_INFO_ONCE("[Odometry]: Fusing Hector position");
 }
 //}
 
@@ -7228,15 +7198,22 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(hdg_aloam, "hdg_aloam");
 
-  hdg_aloam = mrs_lib::wrapAngle(hdg_aloam);
+  if (_debug_publish_corrections_) {
+    hdg_aloam = mrs_lib::wrapAngle(hdg_aloam);
 
-  mrs_msgs::Float64Stamped aloam_hdg_out;
-  aloam_hdg_out.header.stamp    = ros::Time::now();
-  aloam_hdg_out.header.frame_id = local_origin_frame_id_;
-  aloam_hdg_out.value           = hdg_aloam;
-  pub_aloam_hdg_.publish(aloam_hdg_out);
+    mrs_msgs::Float64Stamped aloam_hdg_out;
+    aloam_hdg_out.header.stamp    = ros::Time::now();
+    aloam_hdg_out.header.frame_id = local_origin_frame_id_;
+    aloam_hdg_out.value           = hdg_aloam;
+    try {
+      pub_aloam_hdg_corr_.publish(aloam_hdg_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_aloam_hdg_corr_.getTopic().c_str());
+    }
+  }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing hdg from ALOAM SLAM");
+  ROS_INFO_ONCE("[Odometry]: Fusing hdg from ALOAM SLAM");
 
   /*//}*/
 
@@ -7277,16 +7254,16 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     innovation(1) = pos_aloam_y - pos_vec(1);
 
     {
-      std::scoped_lock lock(mutex_odom_main_inno);
-      odom_main_inno.pose.pose.position.x = innovation(0);
-      odom_main_inno.pose.pose.position.y = innovation(1);
-      odom_main_inno.pose.pose.position.z = 0;
-      odom_main_inno.twist.twist.linear.x = 0;
-      odom_main_inno.twist.twist.linear.y = 0;
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = innovation(0);
+      odom_main_inno_.pose.pose.position.y = innovation(1);
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = 0;
+      odom_main_inno_.twist.twist.linear.y = 0;
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: Fusing ALOAM position");
+  ROS_INFO_ONCE("[Odometry]: Fusing ALOAM position");
   /*//}*/
 }
 //}
@@ -7476,7 +7453,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: fusing Garmin rangefinder");
+  ROS_INFO_ONCE("[Odometry]: Fusing Garmin rangefinder");
 }
 
 //}
@@ -7623,7 +7600,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: fusing sonar rangefinder");
+  ROS_INFO_ONCE("[Odometry]: Fusing sonar rangefinder");
 }
 
 //}
@@ -7703,7 +7680,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  ROS_WARN_ONCE("[Odometry]: fusing Plane rangefinder");
+  ROS_INFO_ONCE("[Odometry]: Fusing Plane rangefinder");
 }
 
 //}
@@ -9801,7 +9778,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!got_vio && is_ready_to_takeoff_) {
+    if (!got_vio_ && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to VIO type. No new vio msgs received.");
       return false;
     }
@@ -9817,7 +9794,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
       return false;
     }
 
-    if (!got_vslam && is_ready_to_takeoff_) {
+    if (!got_vslam_ && is_ready_to_takeoff_) {
       ROS_ERROR("[Odometry]: Cannot transition to VSLAM type. No new VSLAM msgs received.");
       return false;
     }
@@ -10428,6 +10405,22 @@ bool Odometry::isValidGate(const double &value, const double &min_value, const d
   return true;
 }
 /*//}*/
+
+/* saturateCorrection() //{ */
+
+double Odometry::saturateCorrection(const double &correction, const double max_correction, const std::string &correction_name) {
+
+  if (correction > max_correction) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating %s correction %f -> %f", correction_name.c_str(), correction, max_correction);
+    return max_correction;
+  } else if (correction < -max_correction) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating %s correction %f -> %f", correction_name.c_str(), correction, -max_correction);
+    return -max_correction;
+  }
+  return correction;
+}
+
+//}
 
 // | ------------------ Call service routines ----------------- |
 

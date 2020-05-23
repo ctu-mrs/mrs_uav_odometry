@@ -108,7 +108,10 @@
       <remap from="~gps_covariance_in" to="mavros/global_position/local" />
 
       <!-- Publishers -->
+      <!-- UAV state used for control -->
       <remap from="~uav_state_out" to="~uav_state" />
+
+      <!-- Odometry publishers -->
       <remap from="~odom_main_out" to="~odom_main" />
       <remap from="~odom_main_inno_out" to="~odom_main_innovation" />
       <remap from="~odom_local_out" to="~odom_local" />
@@ -127,6 +130,7 @@
       <remap from="~rtk_local_out" to="~rtk_local" />
       <remap from="~rtk_local_odom_out" to="~rtk_local_odom" />
       <remap from="~gps_local_odom_out" to="~gps_local_odom" />
+
       <remap from="~odometry_diag_out" to="~diagnostics" />
       <remap from="~altitude_out" to="~altitude" />
       <remap from="~height_out" to="~height" />
@@ -141,7 +145,20 @@
       <remap from="~compass_yaw_out" to="~compass_yaw" />
       <remap from="~brick_diag_out" to="~brick_diag" />
       <remap from="~imu_untilted_out" to="~imu_untilted" />
+
+      <!-- Debug publishers -->
       <remap from="~profiler" to="profiler" />
+
+      <!-- Debug publishers of estimator corrections -->
+      <remap from="~debug_compass_hdg_corr_out" to="~debug_comppass_hdg_corr" />
+      <remap from="~debug_hector_hdg_corr_out" to="~debug_hector_hdg_corr" />
+      <remap from="~debug_lidar_hdg_corr_out" to="~debug_lidar_hdg_corr" />
+      <remap from="~debug_aloam_hdg_corr_out" to="~debug_aloam_hdg_corr" />
+      <remap from="~debug_brick_hdg_corr_out" to="~debug_brick_hdg_corr" />
+      <remap from="~debug_vio_hdg_corr_out" to="~debug_vio_hdg_corr" />
+      <remap from="~debug_vslam_hdg_corr_out" to="~debug_vslam_hdg_corr" />
+      <remap from="~debug_cmd_hdg_input_out" to="~debug_cmd_hdg_input" />
+      <remap from="~debug_cmd_hdg_rate_input_out" to="~debug_cmd_hdg_rate_input" />
 
       <!-- Services -->
       <remap from="~average_current_position_in" to="~average_current_position" />
