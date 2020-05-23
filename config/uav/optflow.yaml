@@ -18,16 +18,6 @@ state_estimators:
 heading_estimators:
   active: ["GYRO", "OPTFLOW"]
 
-# Available localization methods
-gps_available: false
-optflow_available: true
-vio_available: false
-rtk_available: false
-lidar_available: false
-brick_available: false
-t265_available: false
-
 lateral:
-
   Q:
     vel_optflow: [0.1]

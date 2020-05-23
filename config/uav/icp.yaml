@@ -18,16 +18,6 @@ state_estimators:
 heading_estimators:
   active: ["ICP", "GYRO"]
 
-# Available localization methods
-gps_available: false
-optflow_available: false
-vio_available: false
-rtk_available: false
-lidar_available: true
-brick_available: false
-t265_available: false
-icp_available: true
-
 heading:
 
   # The system matrix 

@@ -16,12 +16,3 @@ state_estimators:
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS"]
-
-# Available localization methods
-gps_available: true
-optflow_available: false
-vio_available: true
-rtk_available: true
-lidar_available: false
-object_available: false
-t265_available: false

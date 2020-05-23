@@ -28,7 +28,6 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
-lateral:
   gps_fallback:
     allowed: false
     fallback_estimator: "OPTFLOW"

@@ -2,7 +2,7 @@ version: "0.0.5.0"
 
 # Estimators used during takeoff
 # Lateral state estimator:
-# OPTFLOW, GPS, OPTFLOWGPS, RTK, VIO, VSLAM,  HECTOR, TOWER
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, VIO, VSLAM,  HECTOR
 lateral_estimator: "GPS"
 
 # Altitude state estimator:
@@ -10,7 +10,7 @@ lateral_estimator: "GPS"
 altitude_estimator: "HEIGHT"
 
 # Heading state estimator:
-# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam, TOWER - gyro, tower slam
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
 heading_estimator: "PIXHAWK" 
 
 # Active estimators are started at node launch and can be switched to during flight
@@ -20,17 +20,6 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
-# Available localization methods
-gps_available: true
-optflow_available: true
-vio_available: true
-rtk_available: true
-lidar_available: true
-aloam_available: false
-brick_available: true
-t265_available: false
-vslam_available: true
-
 # Rates of publishers
 publish_rate:
   main: 100 # [Hz] main and aux odometry
@@ -39,7 +28,7 @@ publish_rate:
   max_altitude: 10 # [Hz] maximum allowed altitude
   est_states: 10 # [Hz] inner states of estimators
 
-# Debug paramters
+# Debug parameters
 debug:
   publish_corrections: true # publish debug topics of measurement corrections that are not essential for the functioning of the system
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
