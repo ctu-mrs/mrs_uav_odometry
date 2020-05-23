@@ -823,17 +823,17 @@ private:
 
   double     max_altitude_ = 10;
   std::mutex mutex_max_altitude_;
-  bool       gps_reliable_    = false;
-  bool       hector_reliable_ = false;
-  bool       aloam_reliable_  = false;
-  bool       vio_reliable_    = false;
-  bool       vslam_reliable   = false;
-  bool       optflow_reliable = false;
-  bool       rtk_reliable_    = false;
-  bool       t265_reliable_   = false;
-  bool       brick_reliable_  = false;
-  bool       icp_reliable_    = false;
-  bool       plane_reliable_  = false;
+  bool       gps_reliable_     = false;
+  bool       hector_reliable_  = false;
+  bool       aloam_reliable_   = false;
+  bool       vio_reliable_     = false;
+  bool       vslam_reliable_   = false;
+  bool       optflow_reliable_ = false;
+  bool       rtk_reliable_     = false;
+  bool       t265_reliable_    = false;
+  bool       brick_reliable_   = false;
+  bool       icp_reliable_     = false;
+  bool       plane_reliable_   = false;
 
   // Active lateral estimators
   bool gps_active_        = false;
@@ -1434,37 +1434,47 @@ void Odometry::onInit() {
     /* set active estimators //{ */
 
     if (*it == "GPS") {
-      gps_active_ = true;
+      gps_active_   = true;
+      gps_reliable_ = true;
     }
     if (*it == "RTK") {
-      rtk_active_ = true;
+      rtk_active_   = true;
+      rtk_reliable_ = true;
     }
     if (*it == "OPTFLOW") {
-      optflow_active_ = true;
+      optflow_active_   = true;
+      optflow_reliable_ = true;
     }
     if (*it == "OPTFLOWGPS") {
       optflowgps_active_ = true;
     }
     if (*it == "HECTOR") {
-      hector_active_ = true;
+      hector_active_   = true;
+      hector_reliable_ = true;
     }
     if (*it == "ALOAM") {
-      aloam_active_ = true;
+      aloam_active_   = true;
+      aloam_reliable_ = true;
     }
     if (*it == "ICP") {
-      icp_active_ = true;
+      icp_active_   = true;
+      icp_reliable_ = true;
     }
     if (*it == "VIO") {
-      vio_active_ = true;
+      vio_active_   = true;
+      vio_reliable_ = true;
     }
     if (*it == "VSLAM") {
-      vslam_active_ = true;
+      vslam_active_   = true;
+      vslam_reliable_ = true;
     }
     if (*it == "BRICK") {
-      brick_active_ = true;
+      brick_active_   = true;
+      brick_reliable_ = true;
     }
     if (*it == "T265") {
-      t265_active_ = true;
+      t265_active_   = true;
+      t265_reliable_ = true;
     }
 
     //}
@@ -2107,6 +2117,10 @@ void Odometry::onInit() {
     ros::shutdown();
   }
 
+  //}
+
+  /* switch to takeoff estimator //{ */
+
   bool success;
 
   success = changeCurrentHeadingEstimator(_hdg_estimator_type_takeoff);
@@ -2140,63 +2154,63 @@ void Odometry::onInit() {
     std::scoped_lock lock(mutex_current_estimator);
 
     // Lateral position measurement covariances
-    current_estimator->getR(last_drs_config.R_pos_mavros, map_measurement_name_id.find("pos_mavros")->second);
-    current_estimator->getR(last_drs_config.R_pos_vio, map_measurement_name_id.find("pos_vio")->second);
-    current_estimator->getR(last_drs_config.R_pos_vslam, map_measurement_name_id.find("pos_vslam")->second);
-    current_estimator->getR(last_drs_config.R_pos_brick, map_measurement_name_id.find("pos_brick")->second);
-    current_estimator->getR(last_drs_config.R_pos_rtk, map_measurement_name_id.find("pos_rtk")->second);
-    current_estimator->getR(last_drs_config.R_pos_hector, map_measurement_name_id.find("pos_hector")->second);
-    current_estimator->getR(last_drs_config.R_pos_aloam, map_measurement_name_id.find("pos_aloam")->second);
+    last_drs_config.R_pos_mavros = map_measurement_covariance.find("pos_mavros")->second(0);
+    last_drs_config.R_pos_vio    = map_measurement_covariance.find("pos_vio")->second(0);
+    last_drs_config.R_pos_vslam  = map_measurement_covariance.find("pos_vslam")->second(0);
+    last_drs_config.R_pos_brick  = map_measurement_covariance.find("pos_brick")->second(0);
+    last_drs_config.R_pos_rtk    = map_measurement_covariance.find("pos_rtk")->second(0);
+    last_drs_config.R_pos_hector = map_measurement_covariance.find("pos_hector")->second(0);
+    last_drs_config.R_pos_aloam  = map_measurement_covariance.find("pos_aloam")->second(0);
 
     // Lateral velocity measurement covariances
-    current_estimator->getR(last_drs_config.R_vel_mavros, map_measurement_name_id.find("vel_mavros")->second);
-    current_estimator->getR(last_drs_config.R_vel_vio, map_measurement_name_id.find("vel_vio")->second);
-    current_estimator->getR(last_drs_config.R_vel_icp, map_measurement_name_id.find("vel_icp")->second);
-    current_estimator->getR(last_drs_config.R_vel_optflow, map_measurement_name_id.find("vel_optflow")->second);
-    current_estimator->getR(last_drs_config.R_vel_rtk, map_measurement_name_id.find("vel_rtk")->second);
+    last_drs_config.R_vel_mavros  = map_measurement_covariance.find("vel_mavros")->second(0);
+    last_drs_config.R_vel_vio     = map_measurement_covariance.find("vel_vio")->second(0);
+    last_drs_config.R_vel_icp     = map_measurement_covariance.find("vel_icp")->second(0);
+    last_drs_config.R_vel_optflow = map_measurement_covariance.find("vel_optflow")->second(0);
+    last_drs_config.R_vel_rtk     = map_measurement_covariance.find("vel_rtk")->second(0);
 
     // Lateral imu accelerations measurement covariances
-    current_estimator->getR(last_drs_config.R_acc_imu_lat, map_measurement_name_id.find("acc_imu")->second);
+    last_drs_config.R_acc_imu_lat = map_measurement_covariance.find("acc_imu")->second(0);
 
     // Lateral process covariances
-    current_estimator->getQ(last_drs_config.Q_pos, Eigen::Vector2i(0, 0));
-    current_estimator->getQ(last_drs_config.Q_vel, Eigen::Vector2i(1, 1));
-    current_estimator->getQ(last_drs_config.Q_acc, Eigen::Vector2i(2, 2));
+    last_drs_config.Q_pos = _R_lat_(0, 0);
+    last_drs_config.Q_vel = _R_lat_(1, 1);
+    last_drs_config.Q_acc = _R_lat_(2, 2);
   }
 
   {
     std::scoped_lock lock(mutex_current_alt_estimator);
 
     // Altitude measurement covariances
-    current_alt_estimator->getR(last_drs_config.R_height_range, map_alt_measurement_name_id.find("height_range")->second);
-    current_alt_estimator->getR(last_drs_config.R_height_plane, map_alt_measurement_name_id.find("height_plane")->second);
-    current_alt_estimator->getR(last_drs_config.R_height_brick, map_alt_measurement_name_id.find("height_brick")->second);
-    current_alt_estimator->getR(last_drs_config.R_height_vio, map_alt_measurement_name_id.find("height_vio")->second);
-    current_alt_estimator->getR(last_drs_config.R_height_aloam, map_alt_measurement_name_id.find("height_aloam")->second);
-    current_alt_estimator->getR(last_drs_config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
+    last_drs_config.R_height_range = map_measurement_covariance.find("height_range")->second(0);
+    last_drs_config.R_height_plane = map_measurement_covariance.find("height_plane")->second(0);
+    last_drs_config.R_height_brick = map_measurement_covariance.find("height_brick")->second(0);
+    last_drs_config.R_height_vio   = map_measurement_covariance.find("height_vio")->second(0);
+    last_drs_config.R_height_aloam = map_measurement_covariance.find("height_aloam")->second(0);
+    last_drs_config.R_height_baro  = map_measurement_covariance.find("height_baro")->second(0);
 
     // Altitude velocity measurement covariances
-    current_alt_estimator->getR(last_drs_config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
+    last_drs_config.R_vel_baro = map_measurement_covariance.find("vel_baro")->second(0);
 
     // Altitude acceleration measurement covariances
-    current_alt_estimator->getR(last_drs_config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+    last_drs_config.R_acc_imu = map_measurement_covariance.find("acc_imu")->second(0);
   }
 
   {
     std::scoped_lock lock(mutex_current_hdg_estimator);
 
     // Heading measurement covariances
-    current_hdg_estimator->getR(last_drs_config.R_hdg_compass, map_hdg_measurement_name_id.find("hdg_compass")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_hector, map_hdg_measurement_name_id.find("hdg_hector")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_aloam, map_hdg_measurement_name_id.find("hdg_aloam")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_brick, map_hdg_measurement_name_id.find("hdg_brick")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_vio, map_hdg_measurement_name_id.find("hdg_vio")->second);
-    current_hdg_estimator->getR(last_drs_config.R_hdg_vslam, map_hdg_measurement_name_id.find("hdg_vslam")->second);
+    last_drs_config.R_hdg_compass = map_measurement_covariance.find("hdg_compass")->second(0);
+    last_drs_config.R_hdg_hector  = map_measurement_covariance.find("hdg_hector")->second(0);
+    last_drs_config.R_hdg_aloam   = map_measurement_covariance.find("hdg_aloam")->second(0);
+    last_drs_config.R_hdg_brick   = map_measurement_covariance.find("hdg_brick")->second(0);
+    last_drs_config.R_hdg_vio     = map_measurement_covariance.find("hdg_vio")->second(0);
+    last_drs_config.R_hdg_vslam   = map_measurement_covariance.find("hdg_vslam")->second(0);
 
     // Heading rate measurement covariances
-    current_hdg_estimator->getR(last_drs_config.R_rate_gyro, map_hdg_measurement_name_id.find("rate_gyro")->second);
-    current_hdg_estimator->getR(last_drs_config.R_rate_optflow, map_hdg_measurement_name_id.find("rate_optflow")->second);
-    current_hdg_estimator->getR(last_drs_config.R_rate_icp, map_hdg_measurement_name_id.find("rate_icp")->second);
+    last_drs_config.R_rate_gyro    = map_measurement_covariance.find("rate_gyro")->second(0);
+    last_drs_config.R_rate_optflow = map_measurement_covariance.find("rate_optflow")->second(0);
+    last_drs_config.R_rate_icp     = map_measurement_covariance.find("rate_icp")->second(0);
   }
 
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh));
@@ -2387,6 +2401,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     first_main_timer_tick_ = false;
     return;
   }
+
 
   /* height estimator prediction //{ */
 
@@ -3007,7 +3022,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW) {
     if (gps_reliable_) {
 
-      if (!optflow_reliable) {
+      if (!optflow_reliable_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: OTPFLOW heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
@@ -3053,7 +3068,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     if (gps_reliable_) {
 
-      if (!optflow_reliable) {
+      if (!optflow_reliable_) {
         ROS_WARN("[Odometry]: BRICKFLOW not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -3125,7 +3140,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     // Fallback from VSLAM
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::VSLAM) {
-    if (!vslam_reliable && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+    if (!vslam_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3135,7 +3150,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
       }
-    } else if (!vslam_reliable && gps_reliable_ && got_odom_pixhawk_) {
+    } else if (!vslam_reliable_ && gps_reliable_ && got_odom_pixhawk_) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -4229,8 +4244,8 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (got_optflow_ && interval.toSec() > 0.1) {
     ROS_WARN("[Odometry]: Optflow twist not received for %f seconds.", interval.toSec());
     if (got_optflow_ && interval.toSec() > 1.0) {
-      got_optflow_     = false;
-      optflow_reliable = false;
+      got_optflow_      = false;
+      optflow_reliable_ = false;
     }
   }
 
@@ -5288,8 +5303,8 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
       optflow_twist_previous = *msg;
       optflow_twist          = *msg;
 
-      got_optflow_     = true;
-      optflow_reliable = true;
+      got_optflow_      = true;
+      optflow_reliable_ = true;
 
       return;
     }
@@ -5502,8 +5517,8 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
       optflow_twist_previous = *msg;
       optflow_twist          = *msg;
 
-      got_optflow_     = true;
-      optflow_reliable = true;
+      got_optflow_      = true;
+      optflow_reliable_ = true;
 
       return;
     }
@@ -6334,10 +6349,10 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
     }
   }
 
-  if (vslam_reliable && (std::fabs(msg->pose.pose.position.x - pose_vslam_previous.pose.pose.position.x) > 10 ||
-                         std::fabs(msg->pose.pose.position.y - pose_vslam_previous.pose.pose.position.y) > 10)) {
+  if (vslam_reliable_ && (std::fabs(msg->pose.pose.position.x - pose_vslam_previous.pose.pose.position.x) > 10 ||
+                          std::fabs(msg->pose.pose.position.y - pose_vslam_previous.pose.pose.position.y) > 10)) {
     ROS_WARN("[Odometry]: Estimated difference between VSLAM positions > 10. VSLAM is not reliable.");
-    vslam_reliable = false;
+    vslam_reliable_ = false;
   }
 
   // Apply correction step to all state estimators
