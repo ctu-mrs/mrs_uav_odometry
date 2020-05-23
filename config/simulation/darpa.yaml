@@ -20,21 +20,23 @@ heading_estimators:
 
 lateral:
   # Covariances of measurements
-  Q:
+  R:
     pos_aloam: [10]
 
 heading:
   # Covariances of measurements
-  Q:
+  R:
     yaw_aloam: [0.1]
 
 altitude:
-  Q:
+  R:
     height_aloam: [1]
 
-garmin_z_offset: -0.01 # [m]
-fcu_height: 0.0 # [m]
+  median_filter:
+    garmin:
+      buffer_size: 200
+      max_diff: 2.0
 
-aloamHeightFilterBufferSize: 200
-aloamHeightFilterMaxValidAltitude: 40.0
-aloamHeightFilterMaxDifference: 2.0
+offset:
+  garmin: -0.01 # [m]
+  fcu_height: 0.0 # [m]

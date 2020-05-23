@@ -1,15 +1,4 @@
-
 altitude:
-
-  # The input matrix
-  B: [0,
-      0,
-      0]
-
-  # Process covariance
-  Q: [0.1, 0, 0,
-      0, 1, 0,
-      0, 0, 0.1]
 
   # Covariances of measurements
   R:
@@ -40,24 +29,9 @@ lateral:
 
   # Covariances of measurements
   R:
-    vel_optflow: [1]
+    vel_optflow: [0.1]
 
 heading:
-
-  # The system matrix 
-  A: [1, 0.01, 0,  # yaw
-      0, 1.0, 1,     # yaw rate
-      0, 0, 1]     # gyro bias
-
-  # The input matrix (yaw rate or yaw + yaw rate?)
-  B: [0, 0,
-      0, 0.0,
-      0, 0]
-
-  # Process covariance
-  Q: [0.001, 0, 0,
-      0, 0.001, 0,
-      0, 0, 0.00001]
 
   # Covariances of measurements
   R:
