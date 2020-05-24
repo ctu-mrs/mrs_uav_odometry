@@ -20,35 +20,36 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
 
-# Rates of publishers
+# rates of publishers# #{
 publish_rate:
   main: 100 # [Hz] main and aux odometry
   slow: 2 # [Hz] throttled main odometry
   diag: 10 # [Hz] diagnostics
   max_altitude: 10 # [Hz] maximum allowed altitude
   est_states: 10 # [Hz] inner states of estimators
+# # #}
 
-# Debug parameters
+# debug parameters# #{
 debug:
   publish_corrections: true # publish debug topics of measurement corrections that are not essential for the functioning of the system
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
   publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
   pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!
+# # #}
 
-# Sensor z offsets (fallback when TF not available)
+# sensor z offset# #{
+# (fallback when TF not available)
 offset:
   garmin: -0.03 # [m]
   sonar: -0.03 # [m]
   fcu_height: 0.2 # [m] (above ground)
+# # #}
 
-# Time between mainTimer ticks to be considered as hiccup
-hiccup_time_threshold: 0.03 # [s] 
-
-# altitude# #{
-# Parameters concerning altitude estimation
+# altitude estimation parameters# #{
+ 
 altitude:
 
-  # do not fuse rangefinder measurements when the UAV is tilted more than this angle
+  # Do not fuse rangefinder measurements when the UAV is tilted more than this angle
   excessive_tilt: deg(30)
 
   # Max value of correction when corrections are being saturated (typically after toggling garmin corrections on)
@@ -75,6 +76,7 @@ altitude:
     height_baro: [1] 
     vel_baro: [0.01]
     acc_imu: [100] 
+
 # # #}
 
 # median filters# #{
@@ -140,70 +142,10 @@ altitude:
 
 # # #}
 
+# lateral estimation parameters# #{
 lateral:
 
-  saturate_mavros_position: false
-  max_mavros_pos_correction: 0.5
-  max_vio_pos_correction: 0.5
-  max_object_pos_correction: 0.5
-  max_brick_pos_correction: 1.0
-  max_rtk_pos_correction: 0.5
-  max_vslam_pos_correction: 0.2
-  max_t265_vel: 10.0
-  rtk_fuse_sps: true
-  max_safe_brick_jump: 0.3
-  max_safe_brick_hdg_jump: deg(20)
-
-  gps_fallback:
-    allowed: false
-    fallback_estimator: "OPTFLOW"
-    cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
-    bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
-    altitude: 4.0 # go to altitude before fallback (optflow should work up to 10 m)
-    altitude_wait_time: 5.0 # [s] timeout for reaching target altitude
-    return_after_ok: true # return to GPS when covariance is back to normal
-    cov_ok: 6.0 # threshold covariance for return from fallback
-    good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
-
-  optflow:
-    optimized_low: false # use optimized optflow for takeoff and landing
-
-  dynamic_optflow_cov: false
-  dynamic_optflow_cov_scale: 1
-
-  optflow_median_filter: true
-  optflow_filter_buffer_size: 10
-  optflow_filter_max_valid: 5.0
-  optflow_filter_max_diff: 2.0
-
-  icp_twist_median_filter: true
-  icp_twist_filter_buffer_size: 20
-  icp_twist_filter_max_valid: 5.0
-  icp_twist_filter_max_diff: 2.0
-
-  hector_pos_median_filter: true
-  hector_pos_filter_buffer_size: 50
-  hector_pos_filter_max_valid: 8.0
-  hector_pos_filter_max_diff: 3.0
-  
-  tower_pos_median_filter: true
-  tower_pos_filter_buffer_size: 50
-  tower_pos_filter_max_valid: 8.0
-  tower_pos_filter_max_diff: 3.0
-  
-  aloam_pos_median_filter: false
-  aloam_pos_filter_buffer_size: 50
-  aloam_pos_filter_max_valid: 8.0
-  aloam_pos_filter_max_diff: 3.0
-
-  brick_pos_median_filter: false
-  brick_pos_filter_buffer_size: 50
-  brick_pos_filter_max_valid: 8.0
-  brick_pos_filter_max_diff: 3.0
-
-  brick_timeout: 0.5 # [s] timeout until fallback from BRICK after loosing detections
-
-  # Covariances of measurements
+# covariances# #{
   R:
     vel_optflow: [1]
     pos_mavros: [0.01]
@@ -250,10 +192,86 @@ lateral:
     P: [1, 0,
         0, 1]
 
+# # #}
+
+# median filters# #{
+  # Parameters of lateral median filters - buffer_size [samples], max_diff [m] (difference of input value from median to be considered valid)
+  median_filter:
+
+    optflow:
+      use: true
+      buffer_size: 10
+      max_diff: 2.0
+
+    icp:
+      use: true
+      buffer_size: 20
+      max_diff: 2.0
+
+# # #}
+
+# gates# #{
+  # Gate for max absolute twist values of measurements in each axis (x, y) [m]
+  gate:
+
+    optflow: 
+      max: 5.0
+
+    icp:
+      max: 5.0
+
+# # #}
+
+# correction saturation # #{
+  saturate_mavros_position: false
+  max_mavros_pos_correction: 0.5
+  max_vio_pos_correction: 0.5
+  max_object_pos_correction: 0.5
+  max_brick_pos_correction: 1.0
+  max_rtk_pos_correction: 0.5
+  max_vslam_pos_correction: 0.2
+  max_t265_vel: 10.0
+  rtk_fuse_sps: true
+  max_safe_brick_jump: 0.3
+
+# # #}
+
+# gps fallback# #{
+  gps_fallback:
+    allowed: false
+    fallback_estimator: "OPTFLOW"
+    cov_limit: 10.0 # limit covariance in lateral axes to toggle fallback
+    bad_samples: 300 # samples with large covariance before fallback (100 samples ~ 1 second)
+    altitude: 4.0 # go to altitude before fallback (optflow should work up to 10 m)
+    altitude_wait_time: 5.0 # [s] timeout for reaching target altitude
+    return_after_ok: true # return to GPS when covariance is back to normal
+    cov_ok: 6.0 # threshold covariance for return from fallback
+    good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
+
+# # #}
+
+# optflow# #{
+  optflow:
+    optimized_low: false # use optimized optflow for takeoff and landing
+    dynamic_cov: false # use dynamic measurement covariance estimated based on the altitude
+    dynamic_cov_scale: 1 # scale the estimated covariance by this factor
+
+# # #}
+
+# hector# #{
   hector:
     reset_after_takeoff: false # Gets rid of map clutter accumulated during takeoff tilting
     reset_routine: false # Switches to ICP or OPTFLOW, stores offset, resets map, switches back to HECTOR
 
+# # #}
+
+# brick# #{
+  brick:
+    timeout: 0.5 # [s] timeout until fallback from BRICK after loosing detections# #}
+
+# # #}
+
+# heading estimation parameters# #{
 heading:
 
   gyro_fallback: true
@@ -294,6 +312,7 @@ heading:
   brick_hdg_filter_max_diff: deg(10)
   max_brick_hdg_correction: deg(5)
   accum_hdg_brick_alpha: 0.1
+  max_safe_brick_hdg_jump: deg(20)
 
   # Process covariance
   Q: [0.1, 0, 0,
@@ -312,3 +331,9 @@ heading:
     rate_gyro: [0.1]
     rate_optflow: [10]
     rate_icp: [10]
+
+# # #}
+
+# Time between mainTimer ticks to be considered as hiccup
+hiccup_time_threshold: 0.03 # [s] 
+

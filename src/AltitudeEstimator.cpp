@@ -396,21 +396,21 @@ bool AltitudeEstimator::setR(double R, int measurement_type) {
 
   // Check for NaNs
   if (!std::isfinite(R)) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setcovariance(double R=" << R << ", int measurement_type=" << measurement_type
               << "): NaN detected in variable \"R\"." << std::endl;
     return false;
   }
 
-  // Check for non-positive Rariance
+  // Check for non-positive covariance
   if (R <= 0) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setcovariance(double R=" << R << ", int measurement_type=" << measurement_type
               << "): \"R\" should be > 0." << std::endl;
     return false;
   }
 
   // Check for invalid measurement type
   if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setRariance(double R=" << R << ", int measurement_type=" << measurement_type
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setcovariance(double R=" << R << ", int measurement_type=" << measurement_type
               << "): invalid value of \"measurement_type\"." << std::endl;
     return false;
   }
@@ -425,8 +425,8 @@ bool AltitudeEstimator::setR(double R, int measurement_type) {
     m_R_multi[measurement_type](0, 0) = R;
   }
 
-  std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setQ(double R=" << R << ", int measurement_type=" << measurement_type << ")"
-            << " Changed Rariance from: " << old_R << " to: " << m_R_multi[measurement_type](0, 0) << std::endl;
+  std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setR(double R=" << R << ", int measurement_type=" << measurement_type << ")"
+            << " Changed covariance from: " << old_R << " to: " << m_R_multi[measurement_type](0, 0) << std::endl;
 
   return true;
 }
