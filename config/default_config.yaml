@@ -142,10 +142,6 @@ altitude:
 
 lateral:
 
-  numberOfVariables: 3
-  numberOfInputs: 1
-  numberOfMeasurements: 1
-
   saturate_mavros_position: false
   max_mavros_pos_correction: 0.5
   max_vio_pos_correction: 0.5
@@ -208,7 +204,7 @@ lateral:
   brick_timeout: 0.5 # [s] timeout until fallback from BRICK after loosing detections
 
   # Covariances of measurements
-  Q:
+  R:
     vel_optflow: [1]
     pos_mavros: [0.01]
     vel_mavros: [100]
@@ -229,18 +225,7 @@ lateral:
     vel_icp: [10]
     acc_imu: [1000000000] # turned off in estimators
 
-  # The system matrix
-  # pos, vel, acc
-  A: [1, 0.01, 0.0002,
-      0, 1, 0.01,
-      0, 0, 1]
-
-  # The input matrix
-  B: [0,
-      0,
-      0.01]
-
-  R: [0.001, 0, 0,
+  Q: [0.001, 0, 0,
       0, 0.01, 0,
       0, 0, 0.01]
 

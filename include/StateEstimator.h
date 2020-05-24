@@ -28,7 +28,7 @@ using H_t = mrs_lib::LKF_MRS_odom::H_t;
   class StateEstimator {
 
   public:
-    StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const LatMat &A, const LatStateCol1D &B, const LatMat &Q, const std::vector<LatStateCol1D> &H, const std::vector<LatStateCol1D> &R_arr);
+    StateEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const LatMat &Q, const std::vector<LatStateCol1D> &H, const std::vector<LatStateCol1D> &R_arr);
 
     bool        doPrediction(const Vec2 &input, double dt);
     bool        doCorrection(const Vec2 &measurement, int measurement_type);
@@ -48,8 +48,6 @@ using H_t = mrs_lib::LKF_MRS_odom::H_t;
   private:
     std::string                  m_estimator_name;
     std::vector<bool>            m_fusing_measurement;
-    LatMat              m_A;
-    LatState1D              m_B;
     LatMat              m_Q;
     std::vector<LatStateCol1D>              m_H;
     std::vector<LatStateCol1D> m_R_arr;

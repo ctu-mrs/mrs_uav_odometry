@@ -9,16 +9,12 @@ namespace mrs_uav_odometry
 StateEstimator::StateEstimator(
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
-    const LatMat &A,
-    const LatStateCol1D &B,
     const LatMat &Q,
     const std::vector<LatStateCol1D> &H,
     const std::vector<LatStateCol1D> &R_arr)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
-    m_A(A),
-    m_B(B),
     m_Q(Q),
     m_H(H),
     m_R_arr(R_arr)
@@ -27,27 +23,12 @@ StateEstimator::StateEstimator(
   // clang-format on
 
   // Number of states
-  m_n_states = m_A.rows();
+  m_n_states = sc_x.x.size();
 
   // Number of measurement types
   m_n_measurement_types = m_fusing_measurement.size();
 
   /*  //{ sanity checks */
-
-
-  // Check size of m_A
-  if (m_A.cols() != m_n_states) {
-    std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-              << "): wrong size of \"A\". Should be: " << m_n_states << " is:" << m_A.cols() << std::endl;
-    return;
-  }
-
-  // Check size of m_B
-  if (m_B.rows() != m_n_states) {
-    std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-              << "): wrong size of \"B\". Should be: " << m_n_states << " is:" << m_B.cols() << std::endl;
-    return;
-  }
 
   // Check size of m_Q
   if (m_Q.rows() != m_n_states) {
@@ -83,14 +64,12 @@ StateEstimator::StateEstimator(
   //}
 
 
-  /* mp_lkf_x = std::make_unique<mrs_lib::Lkf>(m_n_states, 1, 1, m_A, m_B, m_Q, R_zero, P_zero); */
-  /* mp_lkf_y = std::make_unique<mrs_lib::Lkf>(m_n_states, 1, 1, m_A, m_B, m_Q, R_zero, P_zero); */
   mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
   mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
 
-  sc_x.x = sc_x.x.Ones() * 0;
+  sc_x.x = sc_x.x.Zero();
   sc_x.P = sc_x.P.Identity() * 1000;
-  sc_y.x = sc_y.x.Ones() * 0;
+  sc_y.x = sc_y.x.Zero();
   sc_y.P = sc_y.P.Identity() * 1000;
 
 
@@ -108,7 +87,7 @@ StateEstimator::StateEstimator(
   for (size_t i = 0; i < m_H.size(); i++) {
     std::cout << m_H[i] << std::endl;
   }
-  std::cout << std::endl << " A: " << std::endl << m_A << std::endl << " B: " << std::endl << m_B << std::endl << " Q: " << std::endl << m_Q << std::endl;
+  std::cout << std::endl << " Q: " << std::endl << m_Q << std::endl;
 
   m_is_initialized = true;
 }

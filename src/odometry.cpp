@@ -799,8 +799,7 @@ private:
   double max_safe_brick_jump_sq_;
   double max_safe_brick_hdg_jump_sq_;
 
-  int           _lateral_n_, _lateral_m_, _lateral_p_;
-  LatMat        _A_lat_, _R_lat_;
+  LatMat        _A_lat_, _Q_lat_;
   LatStateCol1D _B_lat_;
 
   // RTK LKF
@@ -1350,17 +1349,11 @@ void Odometry::onInit() {
 
   /*  //{ load parameters of state estimators */
 
-  param_loader.loadParam("lateral/numberOfVariables", _lateral_n_);
-  param_loader.loadParam("lateral/numberOfInputs", _lateral_m_);
-  param_loader.loadParam("lateral/numberOfMeasurements", _lateral_p_);
-
   param_loader.loadParam("state_estimators/state_estimators", _state_estimators_names_);
   param_loader.loadParam("state_estimators/active", _active_state_estimators_names_);
   param_loader.loadParam("state_estimators/model_states", _model_state_names_);
   param_loader.loadParam("state_estimators/measurements", _measurement_names_);
-  param_loader.loadMatrixStatic("lateral/A", _A_lat_);
-  param_loader.loadMatrixStatic("lateral/B", _B_lat_);
-  param_loader.loadMatrixStatic("lateral/R", _R_lat_);
+  param_loader.loadMatrixStatic("lateral/Q", _Q_lat_);
 
   param_loader.loadMatrixStatic("lateral/rtk/A", _A_lat_rtk_);
   param_loader.loadMatrixStatic("lateral/rtk/B", _B_lat_rtk_);
@@ -1534,7 +1527,7 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     std::vector<bool>          fusing_measurement;
-    std::vector<LatStateCol1D> P_arr_lat, Q_arr_lat;
+    std::vector<LatStateCol1D> P_arr_lat, R_arr_lat;
 
     // Find measurements fused by the estimator
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
@@ -1559,15 +1552,15 @@ void Odometry::onInit() {
       // Find measurement covariance
       std::map<std::string, Mat1>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
       if (*it2 == "vel_optflow") {
-        Q_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0) * 1000);
+        R_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0) * 1000);
       } else {
-        Q_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0));
+        R_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0));
       }
     }
 
     // Add state estimator to array
     m_state_estimators.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _A_lat_, _B_lat_, _R_lat_, P_arr_lat, Q_arr_lat)));
+        *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
 
     estimator_rtk_ = std::make_unique<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
 
@@ -2173,9 +2166,9 @@ void Odometry::onInit() {
     last_drs_config.R_acc_imu_lat = map_measurement_covariance.find("acc_imu")->second(0);
 
     // Lateral process covariances
-    last_drs_config.Q_pos = _R_lat_(0, 0);
-    last_drs_config.Q_vel = _R_lat_(1, 1);
-    last_drs_config.Q_acc = _R_lat_(2, 2);
+    last_drs_config.Q_pos = _Q_lat_(0, 0);
+    last_drs_config.Q_vel = _Q_lat_(1, 1);
+    last_drs_config.Q_acc = _Q_lat_(2, 2);
   }
 
   {
@@ -9278,7 +9271,7 @@ void Odometry::rotateLateralStates(const double hdg_new, const double hdg_old) {
     }
 
     LatState2D new_state;
-    for (int i = 0; i < _lateral_n_; i++) {
+    for (int i = 0; i < new_state.size(); i++) {
       new_state(i, 0) = old_state(i, 0) * cy - old_state(i, 1) * sy;
       new_state(i, 1) = old_state(i, 0) * sy + old_state(i, 1) * cy;
     }
