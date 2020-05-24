@@ -60,6 +60,7 @@ altitude:
   max_optflow: 10.0 # Do not allow switching to optflow above this altitude
 
 # covariances# #{
+
   # Process covariance
   Q: [0.01, 0, 0,
       0, 0.01, 0,
@@ -146,6 +147,13 @@ altitude:
 lateral:
 
 # covariances# #{
+
+# Process covariance
+  Q: [0.001, 0, 0,
+      0, 0.01, 0,
+      0, 0, 0.01]
+
+# Covariances of measurements
   R:
     vel_optflow: [1]
     pos_mavros: [0.01]
@@ -166,10 +174,6 @@ lateral:
     pos_aloam: [10]
     vel_icp: [10]
     acc_imu: [1000000000] # turned off in estimators
-
-  Q: [0.001, 0, 0,
-      0, 0.01, 0,
-      0, 0, 0.01]
 
   # RTK estimator must have a different model
   rtk:
@@ -195,7 +199,7 @@ lateral:
 # # #}
 
 # median filters# #{
-  # Parameters of lateral median filters - buffer_size [samples], max_diff [m] (difference of input value from median to be considered valid)
+  # Parameters of lateral median filters - buffer_size [samples], max_diff [m/s] (difference of input value from median to be considered valid)
   median_filter:
 
     optflow:
@@ -211,7 +215,7 @@ lateral:
 # # #}
 
 # gates# #{
-  # Gate for max absolute twist values of measurements in each axis (x, y) [m]
+  # Gate for max absolute twist values of measurements in each axis (x, y) [m/s]
   gate:
 
     optflow: 
@@ -276,43 +280,7 @@ heading:
 
   gyro_fallback: true
 
-  numberOfVariables: 3
-  numberOfInputs: 2
-  numberOfMeasurements: 1
-
-  optflow_hdg_rate_filter_buffer_size: 100
-  optflow_hdg_rate_filter_max_valid: 3.0
-  optflow_hdg_rate_filter_max_diff: 3.0
-
-  icp_hdg_rate_filter_buffer_size: 100
-  icp_hdg_rate_filter_max_valid: 3.0
-  icp_hdg_rate_filter_max_diff: 2.0
-
-  compass_hdg_filter_buffer_size: 100
-  compass_hdg_filter_max_diff: deg(45)
-
-  hector_hdg_median_filter: true
-  hector_hdg_filter_buffer_size: 100
-  hector_hdg_filter_max_diff: deg(10)
-  
-  tower_hdg_median_filter: true
-  tower_hdg_filter_buffer_size: 100
-  tower_hdg_filter_max_diff: deg(10)
-  
-  aloam_hdg_median_filter: true
-  aloam_hdg_filter_buffer_size: 100
-  aloam_hdg_filter_max_diff: deg(10)
-
-  vio_hdg_median_filter: true
-  vio_hdg_filter_buffer_size: 100
-  vio_hdg_filter_max_diff: deg(10)
-
-  brick_hdg_median_filter: true
-  brick_hdg_filter_buffer_size: 200
-  brick_hdg_filter_max_diff: deg(10)
-  max_brick_hdg_correction: deg(5)
-  accum_hdg_brick_alpha: 0.1
-  max_safe_brick_hdg_jump: deg(20)
+# covariances# #{
 
   # Process covariance
   Q: [0.1, 0, 0,
@@ -331,6 +299,42 @@ heading:
     rate_gyro: [0.1]
     rate_optflow: [10]
     rate_icp: [10]
+# # #}
+
+# median filters# #{
+  # Parameters of heading median filters - buffer_size [samples], max_diff [m] (difference of input value from median to be considered valid)
+  median_filter:
+
+    optflow:
+      use: true
+      buffer_size: 100
+      max_diff: 2.0
+
+    icp:
+      use: true
+      buffer_size: 100
+      max_diff: 2.0
+
+# # #}
+
+# gates# #{
+  # Gate for max absolute hdg rate values of measurements [rad/s]
+  gate:
+
+    optflow: 
+      max: 2.0
+
+    icp:
+      max: 2.0
+
+# # #}
+
+# correction saturation # #{
+  max_brick_hdg_correction: deg(5)
+  accum_hdg_brick_alpha: 0.1
+  max_safe_brick_hdg_jump: deg(20)
+
+# # #}
 
 # # #}
 

@@ -329,15 +329,9 @@ private:
   double                        hector_hdg_previous;
   std::mutex                    mutex_hector_hdg;
   ros::Time                     hector_hdg_last_update;
-  std::shared_ptr<MedianFilter> hector_hdg_filter;
-  bool                          _hector_hdg_median_filter;
-  int                           _hector_hdg_filter_buffer_size_;
-  double                        _hector_hdg_filter_max_valid;
-  double                        _hector_hdg_filter_max_diff_;
 
   // ALOAM heading msgs
   double                        aloam_hdg_previous;
-  std::shared_ptr<MedianFilter> aloam_hdg_filter;
   int                           _aloam_hdg_filter_buffer_size_;
   double                        _aloam_hdg_filter_max_diff_;
 
@@ -355,11 +349,6 @@ private:
   double                        brick_hdg_previous;
   std::mutex                    mutex_brick_hdg;
   ros::Time                     brick_hdg_last_update;
-  std::shared_ptr<MedianFilter> brick_hdg_filter;
-  bool                          _brick_hdg_median_filter;
-  int                           _brick_hdg_filter_buffer_size_;
-  double                        _brick_hdg_filter_max_valid;
-  double                        _brick_hdg_filter_max_diff_;
   double                        accum_hdg_brick_;
   double                        _accum_hdg_brick_alpha_;
 
@@ -369,20 +358,12 @@ private:
   std::mutex                    mutex_vio_hdg_previous_;
   ros::Time                     vio_hdg_last_update;
   std::shared_ptr<MedianFilter> vio_hdg_filter;
-  bool                          _vio_hdg_median_filter;
-  int                           _vio_hdg_filter_buffer_size;
-  double                        _vio_hdg_filter_max_valid;
-  double                        _vio_hdg_filter_max_diff;
 
   // VSLAM heading msgs
   double                        vslam_hdg_previous;
   std::mutex                    mutex_vslam_hdg;
   ros::Time                     vslam_hdg_last_update;
   std::shared_ptr<MedianFilter> vslam_hdg_filter;
-  bool                          _vslam_hdg_median_filter;
-  int                           _vslam_hdg_filter_buffer_size;
-  double                        _vslam_hdg_filter_max_valid;
-  double                        _vslam_hdg_filter_max_diff;
 
   geometry_msgs::Vector3Stamped orientation_mavros;
   geometry_msgs::Vector3Stamped orientation_gt;
@@ -417,7 +398,7 @@ private:
   int                        c_hector_msg_;
   int                        c_hector_init_msgs_;
 
-  // VIO messages
+  // ICP messages
   std::mutex                                mutex_icp_twist;
   geometry_msgs::TwistWithCovarianceStamped icp_twist;
   geometry_msgs::TwistWithCovarianceStamped icp_twist_previous;
@@ -427,10 +408,9 @@ private:
   std::unique_ptr<MedianFilter>             lat_mf_icp_twist_y_;
   double                                    _icp_max_valid_twist_;
 
-  std::shared_ptr<MedianFilter> icp_hdg_rate_filter;
-  int                           _icp_hdg_rate_filter_buffer_size_;
-  double                        _icp_hdg_rate_filter_max_valid_;
-  double                        _icp_hdg_rate_filter_max_diff_;
+  std::unique_ptr<MedianFilter> hdg_mf_icp_rate_;
+  bool _use_hdg_mf_icp_rate_;
+  double _icp_max_valid_hdg_rate_;
   double                        icp_hdg_rate_inconsistent_samples;
 
   // brick messages
@@ -685,7 +665,6 @@ private:
   double init_pose_hdg = 0.0;
 
   // heading estimation
-  int                                                      _heading_n_, _heading_m_, _heading_p_;
   hdg_Q_t                                                  _Q_hdg_;
   std::mutex                                               mutex_heading_estimator;
   std::mutex                                               mutex_hdg_estimator_type;
@@ -708,9 +687,6 @@ private:
   std::vector<std::string>                                 _heading_type_names;
   std::string                                              _heading_estimator_name_;
   std::mutex                                               mutex_current_hdg_estimator;
-  int                                                      _optflow_hdg_rate_filter_buffer_size_;
-  double                                                   _optflow_hdg_rate_filter_max_valid_;
-  double                                                   _optflow_hdg_rate_filter_max_diff_;
   bool                                                     init_hdg_avg_done;
   int                                                      init_hdg_avg_samples;
   double                                                   init_hdg_avg;
@@ -718,8 +694,9 @@ private:
   int    _compass_hdg_filter_buffer_size_;
   double _compass_hdg_filter_max_diff_;
 
-  std::shared_ptr<MedianFilter> optflow_hdg_rate_filter;
-  std::shared_ptr<MedianFilter> compass_hdg_filter;
+  std::unique_ptr<MedianFilter> hdg_mf_optflow_rate_;
+  bool _use_hdg_mf_optflow_rate_;
+  double _optflow_max_valid_hdg_rate_;
   int                           compass_inconsistent_samples;
   int                           optflow_inconsistent_samples;
   bool                          is_heading_estimator_initialized = false;
@@ -978,6 +955,11 @@ void Odometry::onInit() {
   pixhawk_odom_offset_y = 0;
 
   counter_odom_brick = 0;
+
+  accum_hdg_brick_ = 0.0;
+  compass_inconsistent_samples      = 0;
+  optflow_inconsistent_samples      = 0;
+  icp_hdg_rate_inconsistent_samples = 0;
 
   odom_pixhawk_last_update = ros::Time::now();
 
@@ -1616,6 +1598,14 @@ void Odometry::onInit() {
 
   //}
 
+  /* lateral measurements mapping (name to id) //{ */
+  
+  for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it < _measurement_names_.end(); it++) {
+    map_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names_.begin(), it)));
+  }
+  
+  //}
+  
   /* lateral measurement covariances (R matrices) //{ */
 
   for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it != _measurement_names_.end(); ++it) {
@@ -1626,13 +1616,9 @@ void Odometry::onInit() {
     map_measurement_covariance.insert(std::pair<std::string, Mat1>(*it, temp_matrix));
   }
 
-  for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it < _measurement_names_.end(); it++) {
-    map_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names_.begin(), it)));
-  }
-
   //}
 
-  /* the lateral process covariance (Q matrix) //{ */
+  /* lateral process covariance (Q matrix) //{ */
 
   param_loader.loadMatrixStatic("lateral/Q", _Q_lat_);
 
@@ -1706,78 +1692,83 @@ void Odometry::onInit() {
 
   /* //{ heading estimation parameters */
 
-  param_loader.loadParam("heading/numberOfVariables", _heading_n_);
-  param_loader.loadParam("heading/numberOfInputs", _heading_m_);
-  param_loader.loadParam("heading/numberOfMeasurements", _heading_p_);
+  ROS_INFO("[Odometry]: Loading heading estimation parameters");
 
-  param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
+  param_loader.loadParam("heading/gyro_fallback", _gyro_fallback_);
 
+  /* heading estimators string names //{ */
+  
   param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names_);
   param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names_);
   param_loader.loadParam("heading_estimators/heading_estimators", _heading_estimators_names_);
   param_loader.loadParam("heading_estimators/active", _active_heading_estimators_names_);
-
-  param_loader.loadParam("heading/optflow_hdg_rate_filter_buffer_size", _optflow_hdg_rate_filter_buffer_size_);
-  param_loader.loadParam("heading/optflow_hdg_rate_filter_max_valid", _optflow_hdg_rate_filter_max_valid_);
-  param_loader.loadParam("heading/optflow_hdg_rate_filter_max_diff", _optflow_hdg_rate_filter_max_diff_);
-
-  param_loader.loadParam("heading/icp_hdg_rate_filter_buffer_size", _icp_hdg_rate_filter_buffer_size_);
-  param_loader.loadParam("heading/icp_hdg_rate_filter_max_valid", _icp_hdg_rate_filter_max_valid_);
-  param_loader.loadParam("heading/icp_hdg_rate_filter_max_diff", _icp_hdg_rate_filter_max_diff_);
-
-  param_loader.loadParam("heading/compass_hdg_filter_buffer_size", _compass_hdg_filter_buffer_size_);
-  param_loader.loadParam("heading/compass_hdg_filter_max_diff", _compass_hdg_filter_max_diff_);
-
-  param_loader.loadParam("heading/hector_hdg_filter_buffer_size", _hector_hdg_filter_buffer_size_);
-  param_loader.loadParam("heading/hector_hdg_filter_max_diff", _hector_hdg_filter_max_diff_);
-
-  param_loader.loadParam("heading/aloam_hdg_filter_buffer_size", _aloam_hdg_filter_buffer_size_);
-  param_loader.loadParam("heading/aloam_hdg_filter_max_diff", _aloam_hdg_filter_max_diff_);
-
-  param_loader.loadParam("heading/brick_hdg_filter_buffer_size", _brick_hdg_filter_buffer_size_);
-  param_loader.loadParam("heading/brick_hdg_filter_max_diff", _brick_hdg_filter_max_diff_);
+  
+  //}
+  
+  /* heading correction saturation //{ */
+  
   param_loader.loadParam("heading/max_brick_hdg_correction", _max_brick_hdg_correction_);
   param_loader.loadParam("heading/accum_hdg_brick_alpha", _accum_hdg_brick_alpha_);
-  accum_hdg_brick_ = 0.0;
-
   double max_safe_brick_hdg_jump_tmp = 0.0;
   param_loader.loadParam("heading/max_safe_brick_hdg_jump", max_safe_brick_hdg_jump_tmp);
   max_safe_brick_hdg_jump_sq_ = std::pow(max_safe_brick_hdg_jump_tmp, 2);
+  
+  //}
 
+  /* heading rate median filters //{ */
+  
+  // We want to gate the measurements before median filtering to prevent the median becoming an invalid value
+  min_valid = -1000.0;
+  max_valid = 1000.0;
+  
+  // Optflow heading rate median filter
+  param_loader.loadParam("heading/median_filter/optflow/use", _use_hdg_mf_optflow_rate_);
+  param_loader.loadParam("heading/median_filter/optflow/buffer_size", buffer_size);
+  param_loader.loadParam("heading/median_filter/optflow/max_diff", max_diff);
+  hdg_mf_optflow_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  
+  // ICP heading rate median filter
+  param_loader.loadParam("heading/median_filter/icp/use", _use_hdg_mf_icp_rate_);
+  param_loader.loadParam("heading/median_filter/icp/buffer_size", buffer_size);
+  param_loader.loadParam("heading/median_filter/icp/max_diff", max_diff);
+  hdg_mf_icp_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  
+  //}
+  
+  /* heading rate min and max value gates //{ */
+
+  param_loader.loadParam("heading/gate/optflow/max", _optflow_max_valid_hdg_rate_);
+
+  param_loader.loadParam("heading/gate/icp/max", _icp_max_valid_hdg_rate_);
+
+  //}
+
+  /* takeoff estimator //{ */
+  
   param_loader.loadParam("heading_estimator", _heading_estimator_name_);
-  param_loader.loadParam("heading/gyro_fallback", _gyro_fallback_);
-
-  optflow_hdg_rate_filter = std::make_shared<MedianFilter>(_optflow_hdg_rate_filter_buffer_size_, _optflow_hdg_rate_filter_max_valid_,
-                                                           -_optflow_hdg_rate_filter_max_valid_, _optflow_hdg_rate_filter_max_diff_);
-  icp_hdg_rate_filter     = std::make_shared<MedianFilter>(_icp_hdg_rate_filter_buffer_size_, _icp_hdg_rate_filter_max_valid_, -_icp_hdg_rate_filter_max_valid_,
-                                                       _icp_hdg_rate_filter_max_diff_);
-  hector_hdg_filter       = std::make_shared<MedianFilter>(_hector_hdg_filter_buffer_size_, 1000000, -1000000, _hector_hdg_filter_max_diff_);
-  brick_hdg_filter        = std::make_shared<MedianFilter>(_brick_hdg_filter_buffer_size_, 1000000, -1000000, _brick_hdg_filter_max_diff_);
-  aloam_hdg_filter        = std::make_shared<MedianFilter>(_aloam_hdg_filter_buffer_size_, 1000000, -1000000, _aloam_hdg_filter_max_diff_);
-
-  compass_hdg_filter                = std::make_shared<MedianFilter>(_compass_hdg_filter_buffer_size_, 1000000, -1000000, _compass_hdg_filter_max_diff_);
-  compass_inconsistent_samples      = 0;
-  optflow_inconsistent_samples      = 0;
-  icp_hdg_rate_inconsistent_samples = 0;
-
+  
   size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), _heading_estimator_name_));
-
+  
   _hdg_estimator_type_takeoff.name = _heading_estimator_name_;
   _hdg_estimator_type_takeoff.type = (int)pos_hdg;
-
+  
   // Check whether PIXHAWK is active
   if (!stringInVector("PIXHAWK", _active_heading_estimators_names_)) {
     gps_active_ = false;
     ROS_INFO("[Odometry]: PIXHAWK is not in the list of active heading estimators.");
   }
-
-  // Load the measurements fused by each heading estimator
+  
+  
+  //}
+  
+  /* heading measurements to estimators mapping //{ */
+  
   for (std::vector<std::string>::iterator it = _active_heading_estimators_names_.begin(); it != _active_heading_estimators_names_.end(); ++it) {
-
+  
     if (*it == "COMPASS") {
       compass_active_ = true;
     }
-
+  
     if (!stringInVector(*it, _heading_estimators_names_)) {
       ROS_ERROR("[Odometry]: %s in the list of active heading estimators is not a valid heading estimator.", it->c_str());
       if (*it == "GPS") {
@@ -1785,58 +1776,79 @@ void Odometry::onInit() {
       }
       ros::shutdown();
     }
-
+  
     std::vector<std::string> temp_vector;
     param_loader.loadParam("heading_estimators/fused_measurements/" + *it, temp_vector);
-
+  
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _hdg_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
     }
-
+  
     map_hdg_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
   }
+  
+  //}
 
-  // Load the model state of each measurement
+  /* heading measurements to model states mapping //{ */
+  
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
-
+  
     std::string temp_value;
     param_loader.loadParam("heading_estimators/measurement_states/" + *it, temp_value);
-
+  
     if (!stringInVector(temp_value, _hdg_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
-
+  
     map_hdg_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
   }
+  
+  //}
 
-  // Load the model state mapping
+  /* heading model state mapping (name to id) //{ */
+  
   for (std::vector<std::string>::iterator it = _hdg_model_state_names_.begin(); it != _hdg_model_state_names_.end(); ++it) {
-
+  
     hdg_H_t hdg_H;
     param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, hdg_H);
-
+  
     map_hdg_states.insert(std::pair<std::string, hdg_H_t>(*it, hdg_H));
   }
-
-  // Load the covariances of each measurement
-  for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
-
-    hdg_R_t hdg_R;
-    param_loader.loadMatrixStatic("heading/R/" + *it, hdg_R);
-
-    map_hdg_measurement_covariance.insert(std::pair<std::string, hdg_R_t>(*it, hdg_R));
-  }
-
+  
+  //}
+  
+  /* heading measurements mapping (name to id) //{ */
+  
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it < _hdg_measurement_names_.end(); it++) {
     map_hdg_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_hdg_measurement_names_.begin(), it)));
   }
   for (auto &it : map_hdg_measurement_name_id) {
     ROS_INFO("[Odometry]: heading measurement mapping: %s - %d", it.first.c_str(), it.second);
   }
+  
+  //}
+
+  /* heading measurement covariances (R matrices) //{ */
+  
+  for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
+  
+    hdg_R_t hdg_R;
+    param_loader.loadMatrixStatic("heading/R/" + *it, hdg_R);
+  
+    map_hdg_measurement_covariance.insert(std::pair<std::string, hdg_R_t>(*it, hdg_R));
+  }
+  
+  //}
+
+  /* heading process covariance (Q matrix) //{ */
+  
+  param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
+  
+  //}
 
   //}
 
@@ -1893,10 +1905,7 @@ void Odometry::onInit() {
     map_hdg_estimator_pub.insert(std::pair<std::string, ros::Publisher>(*it, pub));
   }
 
-  ROS_INFO_STREAM("[Odometry]: heading estimator was initiated with following parameters: n: " << _heading_n_ << ", m: " << _heading_m_
-                                                                                               << ", p: " << _heading_p_ << ", Q: " << _Q_hdg_);
-
-  ROS_INFO("[Odometry]: heading estimator prepared");
+  ROS_INFO("[Odometry]: Heading estimators initialized");
 
   //}
 
@@ -4223,7 +4232,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
       current_hdg_estimator->getCovariance(hdg_covariance);
     }
     hdg_state(0, 0) = mrs_lib::wrapAngle(hdg_state(0, 0));
-    for (int i = 0; i < _heading_n_; i++) {
+    for (int i = 0; i < hdg_state.size(); i++) {
       hdg_state_msg.state.push_back(hdg_state(i, 0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i, i));
     }
@@ -5302,10 +5311,6 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   hdg_previous = hdg;
   hdg          = M_PI / 2 - hdg;  // TODO is the compass heading still this weird?
 
-  if (!compass_hdg_filter->isValid(hdg) && compass_hdg_filter->isFilled()) {
-    compass_inconsistent_samples++;
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass hdg inconsistent: %f. Not fusing.", hdg);
-
     if (toUppercase(current_hdg_estimator_name) == "COMPASS" && _gyro_fallback_ && compass_inconsistent_samples > 20) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
       mrs_msgs::HeadingType desired_estimator;
@@ -5315,7 +5320,6 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
       compass_inconsistent_samples = 0;
     }
     return;
-  }
 
   if (!std::isfinite(hdg)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"hdg\", not fusing!!!");
@@ -5529,13 +5533,11 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
 
   double hdg_rate = mrs_lib::get_mutexed(mutex_optflow, optflow_twist.twist.twist.angular.z);
 
-  if (!optflow_hdg_rate_filter->isValid(hdg_rate)) {
-
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: hdg rate from optic flow is inconsistent. Not fusing.");
+  if (!isValidGate(hdg_rate, -_optflow_max_valid_hdg_rate_, _optflow_max_valid_hdg_rate_, "optflow hdg rate")) {
     return;
   }
 
-  if (!optflow_hdg_rate_filter->isValid(hdg_rate) && optflow_hdg_rate_filter->isFilled()) {
+  if (!hdg_mf_optflow_rate_->isValid(hdg_rate) && hdg_mf_optflow_rate_->isFilled()) {
     optflow_inconsistent_samples++;
     ROS_WARN("[Odometry]: Optflow hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -5854,19 +5856,13 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     ROS_INFO_ONCE("[Odometry]: Fusing icp velocity");
   }
 
-  double hdg_rate;
-  {
-    std::scoped_lock lock(mutex_icp_twist);
-    hdg_rate = icp_twist.twist.twist.angular.z;
-  }
+  double hdg_rate = msg->twist.twist.angular.z;
 
-  if (!icp_hdg_rate_filter->isValid(hdg_rate)) {
-
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: hdg rate from ICP is inconsistent. Not fusing.");
+  if (!isValidGate(hdg_rate, -_icp_max_valid_hdg_rate_, _icp_max_valid_hdg_rate_, "icp hdg rate")) {
     return;
   }
 
-  if (!icp_hdg_rate_filter->isValid(hdg_rate) && icp_hdg_rate_filter->isFilled()) {
+  if (!hdg_mf_icp_rate_->isValid(hdg_rate) && hdg_mf_icp_rate_->isFilled()) {
     icp_hdg_rate_inconsistent_samples++;
     ROS_WARN("[Odometry]: icp hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -5881,7 +5877,6 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     }
     return;
   }
-
 
   if (std::isfinite(hdg_rate)) {
 
