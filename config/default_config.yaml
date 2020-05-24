@@ -86,7 +86,7 @@ altitude:
 
     garmin:
       buffer_size: 100
-      max_diff: 1.0
+      max_diff: 2.0
 
     sonar:
       buffer_size: 200
