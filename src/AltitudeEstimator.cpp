@@ -293,26 +293,6 @@ bool AltitudeEstimator::getStates(alt_x_t &x) {
   std::scoped_lock lock(mutex_lkf);
 
   x = m_sc.x;
-==
-  states = mp_lkf_x->getStates();
-
-  return true;
-}
-
-//}
-
-/*  //{ getN() */
-
-bool AltitudeEstimator::getN(int &n) {
-
-  /*  //{ sanity checks */
-
-  if (!m_is_initialized)
-    return false;
-
-  //}
-
-  n = m_n_states;
 
   return true;
 }

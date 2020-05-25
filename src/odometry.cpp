@@ -4968,7 +4968,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       }
     }
 
-    if (_rtk_available_) {
+    if (rtk_active_) {
       Eigen::VectorXd rtk_input(2);
       rtk_input << vel_mavros_x, vel_mavros_y;
 
@@ -4984,6 +4984,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       }
       catch (const std::exception &e) {
         ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+      }
       }
     }
   }
