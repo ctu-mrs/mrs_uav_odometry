@@ -1,5 +1,5 @@
 <launch>
-    <!-- other args -->
+  <!-- other args -->
   <arg name="standalone" default="true" />
   <arg name="debug" default="false" />
 
@@ -15,13 +15,12 @@
 
     <rosparam file="$(find mrs_uav_odometry)/config/tf_connector_dummy.yaml" />
 
-    <!-- Subscribers -->
+      <!-- Subscribers -->
     <remap from="~tf_in" to="/tf" />
 
-    <!-- Publishers -->
+      <!-- Publishers -->
     <remap from="~tf_out" to="/tf" />
 
   </node>
 
 </launch>
-

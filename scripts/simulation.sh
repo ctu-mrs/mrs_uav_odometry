@@ -50,7 +50,7 @@ input=(
 "
   'Bumper' "waitForOdometry; roslaunch mrs_bumper bumper.launch
 "
-  'Localization' "waitForOdometry; $LAUNCH_NODES
+'Localization' "waitForOdometry; $LAUNCH_NODES
 "
   "Takeoff" "waitForControl; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
@@ -65,8 +65,7 @@ input=(
   "
   'rviz_interface' "waitForOdometry; roslaunch mrs_rviz_interface mrs_rviz_interface.launch
 "
-  'Juggler' "waitForOdometry; roscd mrs_uav_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml
-"
+  'Juggler' "waitForOdometry; roscd mrs_uav_odometry; ./scripts/change_uav.sh $UAV_NAME; i3 workspace "9"; rosrun plotjuggler PlotJuggler -l plot_juggler/odometry.xml"
   'reconfigure' " waitForOdometry; rosrun rqt_reconfigure rqt_reconfigure"
   # 'Layout' "waitForControl; i3 workspace "9"; ~/.i3/layout_manager.sh rviz_rqt_juggler
   # "

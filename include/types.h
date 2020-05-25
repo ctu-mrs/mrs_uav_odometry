@@ -1,6 +1,6 @@
 #pragma once
-#ifndef MRS_ODOMETRY_TYPES_H
-#define MRS_ODOMETRY_TYPES_H
+#ifndef MRS_UAV_ODOMETRY_TYPES_H
+#define MRS_UAV_ODOMETRY_TYPES_H
 
 #include <Eigen/Eigen>
 
@@ -66,6 +66,5 @@ typedef lkf_hdg_t::Q_t hdg_Q_t;
 typedef lkf_hdg_t::P_t hdg_P_t; 
 
 //}
-
 
 #endif

@@ -1497,7 +1497,6 @@ void Odometry::onInit() {
   //}
 
   /* lateral measurements to estimators mapping //{ */
-
   for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     /* set active estimators //{ */
@@ -2567,7 +2566,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_y);
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
     }
-
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
   }
@@ -4970,12 +4968,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       }
     }
 
-    Eigen::VectorXd rtk_input(2);
-    rtk_input << vel_mavros_x, vel_mavros_y;
+    if (_rtk_available_) {
+      Eigen::VectorXd rtk_input(2);
+      rtk_input << vel_mavros_x, vel_mavros_y;
 
-    // RTK estimator prediction step
-    {
-      std::scoped_lock lock(mutex_rtk_est_);
+      // RTK estimator prediction step
+      {
+        std::scoped_lock lock(mutex_rtk_est_);
 
       lkf_rtk_t::B_t B_new;
       B_new << dt, 0, 0, dt;
