@@ -3,7 +3,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_lib/lkf_legacy.h>
+#include <mrs_lib/lkf.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
@@ -14,49 +14,73 @@
 #include <vector>
 #include <mutex>
 
+#include "types.h"
+
+#define ALT_DT 0.01
+#define ALT_INPUT_COEFF 0.1
+
 namespace mrs_uav_odometry
 {
 
-class AltitudeEstimator {
 
-public:
-  AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<Eigen::MatrixXd> &P_arr,
-                    const std::vector<Eigen::MatrixXd> &Q_arr, const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, const Eigen::MatrixXd &R);
+  class AltitudeEstimator {
 
-  bool        doPrediction(const Eigen::VectorXd &input, double dt);
-  bool        doPrediction(const Eigen::VectorXd &input);
-  bool        doCorrection(const Eigen::VectorXd &measurement, int measurement_type);
-  bool        getStates(Eigen::MatrixXd &states);
-  bool        getN(int &n);
-  bool        getState(int state_id, Eigen::VectorXd &state);
-  std::string getName(void);
-  bool        setState(int state_id, const Eigen::VectorXd &state);
-  bool        setR(double cov, int measurement_type);
-  bool        getR(double &cov, int measurement_type);
-  bool        getCovariance(Eigen::MatrixXd &cov);
-  bool        setCovariance(const Eigen::MatrixXd &cov);
-  bool        getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd &innovation);
-  bool        getInnovationCovariance(int measurement_type, Eigen::MatrixXd &innovation_cov);
-  bool        reset(const Eigen::MatrixXd &states);
+  public:
+    AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<alt_H_t> &H_multi, const alt_Q_t &Q,
+                      const std::vector<alt_R_t> &R_multi);
 
-private:
-  std::string                  m_estimator_name;
-  std::vector<bool>            m_fusing_measurement;
-  std::vector<Eigen::MatrixXd> m_P_arr;
-  std::vector<Eigen::MatrixXd> m_Q_arr;
-  Eigen::MatrixXd              m_A;
-  Eigen::MatrixXd              m_B;
-  Eigen::MatrixXd              m_R;
+    bool        doPrediction(const double input, const double dt);
+    bool        doPrediction(const double input);
+    bool        doCorrection(const double &measurement, int measurement_type);
+    bool        getStates(alt_x_t &x);
+    bool        getState(int state_id, double &state_val);
+    std::string getName(void);
+    bool        setState(int state_id, const double &state_val);
+    bool        setR(double R, int measurement_type);
+    bool        getR(double &R, int measurement_type);
+    bool        getCovariance(alt_P_t &P);
+    bool        setCovariance(const alt_P_t &P);
+    bool        reset(const alt_x_t &states);
 
-  int    m_n_states;
-  size_t m_n_measurement_types;
+  private:
+    std::string                  m_estimator_name;
+    std::vector<bool>            m_fusing_measurement;
+    int    m_n_states;
+    size_t m_n_measurement_types;
 
-  mrs_lib::Lkf *mp_lkf_x;
+    // State transition matrix
+    alt_A_t              m_A;
 
-  std::mutex mutex_lkf;
+    // Input matrix
+    alt_B_t              m_B;
 
-  bool m_is_initialized = false;
-};
+    // Input coefficient
+    double m_b = ALT_INPUT_COEFF;
+
+    // Array with mapping matrices for each fused measurement
+    std::vector<alt_H_t> m_H_multi;
+
+    // Process covariance matrix
+    alt_Q_t              m_Q;
+
+    // Array with covariances of each fused measurement
+    std::vector<alt_R_t> m_R_multi;
+
+
+    // Default dt
+    double m_dt = ALT_DT;
+    double m_dt_sq = m_dt*m_dt/2;
+
+    // Kalman filter - the core of the estimator 
+    std::unique_ptr<lkf_alt_t> mp_lkf;
+
+    // Variable for holding the current state and covariance 
+    alt_statecov_t m_sc;
+
+    std::mutex mutex_lkf;
+
+    bool m_is_initialized = false;
+  };
 
 }  // namespace mrs_uav_odometry
 

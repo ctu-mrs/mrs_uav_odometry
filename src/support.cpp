@@ -1,31 +1,5 @@
 #include "support.h"
 
-/* addRPY() //{ */
-
-void mrs_uav_odometry::addRPY(geometry_msgs::Quaternion& q_msg, const double& roll_add, const double& pitch_add, const double& yaw_add) {
-
-  auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(q_msg);
-
-  roll += roll_add;
-  pitch += pitch_add;
-  yaw += yaw_add;
-
-  q_msg = mrs_lib::AttitudeConverter(roll, pitch, yaw);
-}
-
-//}
-
-/* addYaw() //{ */
-void mrs_uav_odometry::addYaw(geometry_msgs::Quaternion& q_msg, const double& yaw_add) {
-
-  double yaw = mrs_lib::AttitudeConverter(q_msg).getYaw();
-
-  yaw += yaw_add;
-
-  q_msg = mrs_lib::AttitudeConverter(q_msg).setYaw(yaw);
-}
-//}
-
 /* tf2FromPose() //{ */
 
 tf2::Transform mrs_uav_odometry::tf2FromPose(const geometry_msgs::Pose& pose_in) {

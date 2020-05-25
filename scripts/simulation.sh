@@ -6,7 +6,6 @@ ESTIMATOR=$1
 SENSORS=
 LAUNCH_NODES=
 WORLD='grass_plane'
-# WORLD='worlds/cathedral.world'
 
 if [ "$#" == 0 ]; then
   ESTIMATOR=gps
@@ -15,7 +14,6 @@ fi
 if [ "$ESTIMATOR" == "optflow" ]; then
   SENSORS="$SENSORS --enable-bluefox-camera"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_optic_flow optic_flow.launch'
-  WORLD='worlds/grass_plane.world'
 # elif [ "$ESTIMATOR" == "gps" ]; then
 #   SENSORS="$SENSORS --enable-rplidar"
 #   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
@@ -23,15 +21,15 @@ if [ "$ESTIMATOR" == "optflow" ]; then
 elif [ "$ESTIMATOR" == "hector" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch hector_mapping uav.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='forest'
 elif [ "$ESTIMATOR" == "icp" ]; then
   SENSORS="$SENSORS --enable-rplidar"
   LAUNCH_NODES='waitForOdometry; roslaunch mrs_icp2d uav.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='worlds/forest.world'
 elif [ "$ESTIMATOR" == "lidar" ]; then
   SENSORS="$SENSORS --enable-velodyne"
   LAUNCH_NODES='waitForOdometry; roslaunch aloam_velodyne velodyne_odometry_simulation.launch'
-  WORLD='worlds/cathedral.world'
+  WORLD='worlds/forest.world'
 fi
 
 # following commands will be executed first, in each window
@@ -46,13 +44,15 @@ input=(
 "
   'Spawn' "waitForSimulation; rosrun mrs_simulation spawn 1 --run --delete --$UAV_TYPE --enable-rangefinder --enable-ground-truth $SENSORS --file ~/mrs_workspace/src/uav_core/ros_packages/mrs_uav_odometry/config/init_pose/init_pose.csv
 "
-  'MRS_control' "waitForOdometry; roslaunch mrs_uav_general core.launch
+  'Status' "waitForOdometry; roslaunch mrs_uav_status status.launch
+"
+  'Core' "waitForOdometry; roslaunch mrs_uav_general core.launch
 "
   'Bumper' "waitForOdometry; roslaunch mrs_bumper bumper.launch
 "
-  'Localization' "waitForOdometry; $LAUNCH_NODES
+'Localization' "waitForOdometry; $LAUNCH_NODES
 "
-  "PrepareUAV" "waitForControl; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
+  "Takeoff" "waitForControl; rosservice call /$UAV_NAME/control_manager/motors 1; rosservice call /$UAV_NAME/mavros/cmd/arming 1; rosservice call /$UAV_NAME/mavros/set_mode 0 offboard; rosservice call /$UAV_NAME/uav_manager/takeoff;
 "
   'ChangeEstimator' "rosservice call /$UAV_NAME/odometry/change_estimator_type_string GPS"
   'ChangeHdgEstimator' "rosservice call /$UAV_NAME/odometry/change_hdg_estimator_type_string GPS"

@@ -18,33 +18,25 @@ state_estimators:
 heading_estimators:
   active: ["GYRO", "ALOAM"]
 
-# Available localization methods
-gps_available: false
-optflow_available: false
-vio_available: false
-rtk_available: false
-lidar_available: false
-aloam_available: true
-brick_available: false
-t265_available: false
-
 lateral:
   # Covariances of measurements
-  Q:
+  R:
     pos_aloam: [10]
 
 heading:
   # Covariances of measurements
-  Q:
+  R:
     yaw_aloam: [0.1]
 
 altitude:
-  Q:
+  R:
     height_aloam: [1]
 
-garmin_z_offset: -0.01 # [m]
-fcu_height: 0.0 # [m]
+  median_filter:
+    aloam:
+      buffer_size: 200
+      max_diff: 2.0
 
-aloamHeightFilterBufferSize: 200
-aloamHeightFilterMaxValidAltitude: 40.0
-aloamHeightFilterMaxDifference: 2.0
+offset:
+  garmin: -0.01 # [m]
+  fcu_height: 0.0 # [m]

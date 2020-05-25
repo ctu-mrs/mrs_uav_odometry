@@ -1,8 +1,5 @@
 altitude_estimators:
 
-  # The number of model states
-  n_model_states: 3
-
   # The available altitude estimators
   altitude_estimators: [
     "HEIGHT",
@@ -60,33 +57,7 @@ altitude_estimators:
     VELOCITY: [0.0, 1.0, 0.0]
     ACCELERATION: [0.0, 0.0, 1.0]
 
-  n_A:
-    HEIGHT: 3
-    PLANE: 3
-    BRICK: 3
-    VIO: 3
-    ALOAM: 3
-    BARO: 3
-
-  A:
-    HEIGHT: [1, 0.01, 0.000,
-             0, 1, 0.00,
-             0, 0, 0.9]
-    PLANE: [1, 0.01, 0.0000,
-             0, 1, 0.00,
-             0, 0, 0]
-    BRICK: [1, 0.01, 0.0000,
-             0, 1, 0.00,
-             0, 0, 0]
-    VIO: [1, 0.01, 0.0000,
-             0, 1, 0.00,
-             0, 0, 0]
-    ALOAM: [1, 0.01, 0.0000,
-             0, 1, 0.00,
-             0, 0, 0]
-    BARO: [1, 0.01, 0.0000,
-             0, 1, 0.00,
-             0, 0, 0]
+# Untilted garmin filter (true height above terrain unsuitable for control)
 height:
   Q: [0.1]
   R: [0.1]

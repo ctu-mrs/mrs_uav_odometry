@@ -9,19 +9,15 @@ namespace mrs_uav_odometry
 HeadingEstimator::HeadingEstimator(
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
-    const std::vector<Eigen::MatrixXd> &P_arr,
-    const std::vector<Eigen::MatrixXd> &Q_arr,
-    const Eigen::MatrixXd &A,
-    const Eigen::MatrixXd &B,
-    const Eigen::MatrixXd &R)
+    const std::vector<hdg_H_t> &H_multi,
+    const hdg_Q_t &Q,
+    const std::vector<hdg_R_t> &R_multi)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
-    m_P_arr(P_arr),
-    m_Q_arr(Q_arr),
-    m_A(A),
-    m_B(B),
-    m_R(R)
+    m_H_multi(H_multi),
+    m_Q(Q),
+    m_R_multi(R_multi)
   {
 
   // clang-format on
@@ -29,106 +25,100 @@ HeadingEstimator::HeadingEstimator(
   // Number of states
   m_n_states = m_A.rows();
 
-  // Number of inputs
-  m_n_inputs = m_B.cols();
-
-  // Measurement mapping matrix is changing with every measurement
-  m_n_measurements = 1;
-
   // Number of measurement types
   m_n_measurement_types = m_fusing_measurement.size();
 
   /*  //{ sanity checks */
 
-
-  // Check size of m_A
-  if (m_A.cols() != m_n_states) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"A\". Should be: " << m_n_states << " is:" << m_A.cols() << std::endl;
-    return;
-  }
-
-  // Check size of m_B
-  if (m_B.rows() != m_n_states || m_B.cols() != m_n_inputs) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"B\". Should be: " << m_n_states << "," << m_n_inputs << " is:" << m_B.rows() << "," << m_B.cols() << std::endl;
-    return;
-  }
-
   // Check size of m_R
-  if (m_R.rows() != m_n_states) {
+  if (m_Q.rows() != m_n_states) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"R.rows()\". Should be: " << m_n_states << " is:" << m_R.rows() << std::endl;
+              << "): wrong size of \"R.rows()\". Should be: " << m_n_states << " is:" << m_Q.rows() << std::endl;
     return;
   }
 
-  if (m_R.cols() != m_n_states) {
+  if (m_Q.cols() != m_n_states) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"R.cols()\". Should be: " << m_n_states << " is:" << m_R.cols() << std::endl;
+              << "): wrong size of \"R.cols()\". Should be: " << m_n_states << " is:" << m_Q.cols() << std::endl;
     return;
   }
 
-  // Check size of m_P_arr
-  if (m_P_arr.size() != m_n_measurement_types) {
+  // Check size of m_H_multi
+  if (m_H_multi.size() != m_n_measurement_types) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"m_P_arr\". Should be: " << m_n_measurement_types << " is:" << m_P_arr.size() << std::endl;
+              << "): wrong size of \"m_H_multi\". Should be: " << m_n_measurement_types << " is:" << m_H_multi.size() << std::endl;
     return;
   }
 
-  // Check size of m_P_arr elements
-  for (size_t i = 0; i < m_P_arr.size(); i++) {
-    if (m_P_arr[i].rows() != 1 || m_P_arr[i].cols() != m_n_states) {
+  // Check size of m_H_multi elements
+  for (size_t i = 0; i < m_H_multi.size(); i++) {
+    if (m_H_multi[i].rows() != 1 || m_H_multi[i].cols() != m_n_states) {
       std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-                << "): wrong size of \"m_P_arr[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_P_arr[i].rows() << ", " << m_P_arr[i].cols()
+                << "): wrong size of \"m_H_multi[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_H_multi[i].rows() << ", " << m_H_multi[i].cols()
                 << ")" << std::endl;
       return;
     }
   }
 
-  // Check size of m_Q_arr
-  if (m_Q_arr.size() != m_n_measurement_types) {
+  // Check size of m_R_multi
+  if (m_R_multi.size() != m_n_measurement_types) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-              << "): wrong size of \"m_Q_arr\". Should be: " << m_n_measurement_types << " is:" << m_Q_arr.size() << std::endl;
+              << "): wrong size of \"m_R_multi\". Should be: " << m_n_measurement_types << " is:" << m_R_multi.size() << std::endl;
     return;
   }
 
-  // Check size of m_Q_arr elements
-  for (size_t i = 0; i < m_Q_arr.size(); i++) {
-    if (m_Q_arr[i].rows() != 1 || m_Q_arr[i].cols() != 1) {
+  // Check size of m_R_multi elements
+  for (size_t i = 0; i < m_R_multi.size(); i++) {
+    if (m_R_multi[i].rows() != 1 || m_R_multi[i].cols() != 1) {
       std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-                << "): wrong size of \"m_Q_arr[" << i << "]\". Should be: (1, 1) is: (" << m_Q_arr[i].rows() << ", " << m_Q_arr[i].cols() << ")" << std::endl;
+                << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (1, 1) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")" << std::endl;
       return;
     }
   }
 
-
   //}
+  
+// clang-format off
+  m_A << 
+      1.0, m_dt, m_dt_sq,
+      0, 1-m_b, m_dt,
+      0, 0, 1.0;
 
-  Eigen::MatrixXd Q_zero = Eigen::MatrixXd::Zero(1, 1);
-  Eigen::MatrixXd P_zero = Eigen::MatrixXd::Zero(1, m_n_states);
+  m_B << 0, 0, // TODO try with heading input 
+         0, m_b,
+         0, 0;
+  // clang-format on
 
-  mp_lkf_x = new mrs_lib::Lkf(m_n_states, 1, 1, m_A, m_B, m_R, Q_zero, P_zero);
+  // set measurement mapping matrix H to zero, it will be set later during each correction step
+  hdg_H_t m_H_zero = m_H_zero.Zero();
+
+  mp_lkf = std::make_unique<lkf_hdg_t>(m_A, m_B, m_H_zero);
 
   // Initialize all states to 0
-  for (int i = 0; i < m_n_states; i++) {
-    mp_lkf_x->setState(i, 0.0);
-  }
+  const hdg_x_t x0 = hdg_x_t::Zero();
+  hdg_P_t P_tmp = hdg_P_t::Identity();
+  const hdg_P_t P0 = 1000.0*P_tmp*P_tmp.transpose();
+  const hdg_statecov_t sc0({x0, P0});
+  m_sc = sc0;
+
 
   std::cout << "[HeadingEstimator]: New HeadingEstimator initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
+  
   std::cout << " fusing measurements: " << std::endl;
   for (size_t i = 0; i < m_fusing_measurement.size(); i++) {
     std::cout << m_fusing_measurement[i] << " ";
   }
-  std::cout << std::endl << " P_arr: " << std::endl;
-  for (size_t i = 0; i < m_P_arr.size(); i++) {
-    std::cout << m_P_arr[i] << std::endl;
+
+  std::cout << std::endl << " H_multi: " << std::endl;
+  for (size_t i = 0; i < m_H_multi.size(); i++) {
+    std::cout << m_H_multi[i] << std::endl;
   }
-  std::cout << std::endl << " Q_arr: " << std::endl;
-  for (size_t i = 0; i < m_Q_arr.size(); i++) {
-    std::cout << m_Q_arr[i] << std::endl;
+  std::cout << std::endl << " R_multi: " << std::endl;
+  for (size_t i = 0; i < m_R_multi.size(); i++) {
+    std::cout << m_R_multi[i] << std::endl;
   }
-  std::cout << std::endl << " A: " << std::endl << m_A << std::endl << " B: " << std::endl << m_B << std::endl << " R: " << std::endl << m_R << std::endl;
+  std::cout << std::endl << " A: " << std::endl << m_A << std::endl << " B: " << std::endl << m_B << std::endl << " Q: " << std::endl << m_Q << std::endl;
 
   m_is_initialized = true;
 }
@@ -137,25 +127,21 @@ HeadingEstimator::HeadingEstimator(
 
 /*  //{ doPrediction() */
 
-bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
+bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check size of input
-  if (input.size() != m_n_inputs) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input << ", double dt=" << dt
-              << "): wrong size of \"input\". Should be: " << m_n_inputs << " is:" << input.size() << std::endl;
-    return false;
-  }
 
   // Check for NaNs
-  if (!std::isfinite(input(0))) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input << ", double dt=" << dt
+  for (int i = 0; i < input.size(); i++) {
+  if (!std::isfinite(input(i))) {
+    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input(i) << ", double dt=" << dt
               << "): NaN detected in variable \"input(0)\"." << std::endl;
     return false;
+  }
   }
 
   if (!std::isfinite(dt)) {
@@ -173,65 +159,73 @@ bool HeadingEstimator::doPrediction(const Eigen::VectorXd &input, double dt) {
 
   //}
 
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing input: " << input << " with time step: " << dt << std::endl; */
 
-  Eigen::MatrixXd newA = m_A;
-  newA(0, 1)           = dt;
+  hdg_A_t A = m_A;
+  /* hdg_B_t B = m_B; */
 
-  /* newA(0, 2)           = std::pow(dt, 2)/2; */
-  /* newA(1, 2)           = dt; */
+  double dt_sq = std::pow(dt, 2)/2;;
 
-  /* newA(3, 1)           = dt; */
-  /* newA(3, 2)           = std::pow(dt, 2)/2; */
+  /* B(0, 0)           = dt; */
+  /* B(1, 1)           = dt; */
 
-  /* std::cout << newA << std::endl; */
+  A(0, 1)           = dt;
+  A(1, 2)           = dt;
+
+  A(0, 2)           = dt_sq;
 
   {
     std::scoped_lock lock(mutex_lkf);
 
-    mp_lkf_x->setA(newA);
-    mp_lkf_x->setInput(input);
-    mp_lkf_x->iterateWithoutCorrection();
+    try {
+      // Apply the prediction step
+    mp_lkf->A = A;
+    /* mp_lkf->B = B; */
+    m_sc = mp_lkf->predict(m_sc, input, m_Q, dt);
   }
-
+    catch (const std::exception &e) {
+      // In case of error, alert the user
+      ROS_ERROR("[HeadingEstimator]: LKF prediction step failed: %s", e.what());
+    }
+  }
   return true;
+}
+
+//}
+
+/*  //{ doPrediction() */
+
+bool HeadingEstimator::doPrediction(const hdg_u_t &input) {
+
+  return doPrediction(input, m_dt);
 }
 
 //}
 
 /*  //{ doCorrection() */
 
-bool HeadingEstimator::doCorrection(const Eigen::VectorXd &measurement, int measurement_type) {
+bool HeadingEstimator::doCorrection(const double measurement, int measurement_type) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check size of measurement
-  if (measurement.size() != 1) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): wrong size of \"measurement\". Should be: " << 2 << " is:" << measurement.size()
-              << std::endl;
-    return false;
-  }
-
   // Check for NaNs
-  if (!std::isfinite(measurement(0))) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
+  if (!std::isfinite(measurement)) {
+    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const double measurement=" << measurement
+              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement\"." << std::endl;
     return false;
   }
 
   if (!std::isfinite(measurement_type)) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
+    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const double &measurement=" << measurement
+              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement\"." << std::endl;
     return false;
   }
 
   // Check for valid value of measurement
   if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const Eigen::VectorXd &measurement=" << measurement
+    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doCorrection(const double &measurement=" << measurement
               << ", int measurement_type=" << measurement_type << "): invalid value of \"measurement_type\"." << std::endl;
     return false;
   }
@@ -243,125 +237,25 @@ bool HeadingEstimator::doCorrection(const Eigen::VectorXd &measurement, int meas
 
   //}
 
-  Eigen::VectorXd mes_vec = Eigen::VectorXd::Zero(1);
+  // Prepare the measurement vector
+  hdg_z_t z;
+  z << measurement;
 
-  mes_vec << measurement(0);
+  hdg_R_t R;
+  R << m_R_multi[measurement_type];
 
-  // Fuse the measurement if this estimator allows it
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: "
-   */
-  /* <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
-  {
+  // Fuse the measurement
     std::scoped_lock lock(mutex_lkf);
+    {
 
-    Eigen::VectorXd states = Eigen::VectorXd::Zero(m_n_states);
-    states                 = mp_lkf_x->getStates();
-    mp_lkf_x->setP(m_P_arr[measurement_type]);
-    mp_lkf_x->setMeasurement(mes_vec, m_Q_arr[measurement_type]);
-    mp_lkf_x->doCorrection();
-  }
-
-  return true;
-}
-
-//}
-
-/*  //{ getInnovation() */
-
-bool HeadingEstimator::getInnovation(const Eigen::VectorXd &measurement, int measurement_type, Eigen::VectorXd &innovation) {
-
-  /*  //{ sanity checks */
-
-  if (!m_is_initialized)
-    return false;
-
-  // Check size of measurement
-  if (measurement.size() != 1) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovation(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): wrong size of \"input\". Should be: " << 2 << " is:" << measurement.size() << std::endl;
-    return false;
-  }
-
-  // Check for NaNs
-  if (!std::isfinite(measurement(0))) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovation(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
-    return false;
-  }
-
-  if (!std::isfinite(measurement_type)) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovation(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): NaN detected in variable \"measurement(0)\"." << std::endl;
-    return false;
-  }
-
-  // Check for valid value of measurement
-  if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovation(const Eigen::VectorXd &measurement=" << measurement
-              << ", int measurement_type=" << measurement_type << "): invalid value of \"measurement_type\"." << std::endl;
-    return false;
-  }
-
-  // Check whether the measurement type is fused by this estimator
-  if (!m_fusing_measurement[measurement_type]) {
-    return false;
-  }
-
-  //}
-
-  // Fuse the measurement if this estimator allows it
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: "
-   * <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
-  {
-    std::scoped_lock lock(mutex_lkf);
-
-    Eigen::VectorXd states = Eigen::VectorXd::Zero(m_n_states);
-    states                 = mp_lkf_x->getStates();
-    innovation             = measurement - (m_P_arr[measurement_type] * states);
-  }
-
-  return true;
-}
-
-//}
-
-/*  //{ getInnovationCovariance() */
-
-bool HeadingEstimator::getInnovationCovariance(int measurement_type, Eigen::MatrixXd &innovation_cov) {
-
-  /*  //{ sanity checks */
-
-  if (!m_is_initialized)
-    return false;
-
-  // Check for NaNs
-  if (!std::isfinite(measurement_type)) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovationCovariance(int measurement_type=" << measurement_type
-              << "): NaN detected in variable \"measurement_type\"." << std::endl;
-    return false;
-  }
-
-  // Check for valid value of measurement
-  if (measurement_type > (int)m_fusing_measurement.size() || measurement_type < 0) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".getInnovationCovariance(int measurement_type=" << measurement_type
-              << "): invalid value of \"measurement_type\"." << std::endl;
-    return false;
-  }
-
-  // Check whether the measurement type is fused by this estimator
-  if (!m_fusing_measurement[measurement_type]) {
-    return false;
-  }
-
-  //}
-
-  // Fuse the measurement if this estimator allows it
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " fusing correction: " << measurement << " of type: " << measurement_type << " with mapping: "
-   * <<  m_P_arr[measurement_type] << " and covariance" <<  m_Q_arr[measurement_type] << std::endl; */
-  {
-    std::scoped_lock lock(mutex_lkf);
-
-    innovation_cov = m_Q_arr[measurement_type] + (m_P_arr[measurement_type] * mp_lkf_x->getCovariance() * m_P_arr[measurement_type].transpose());
+    try {
+      mp_lkf->H = m_H_multi[measurement_type];
+      m_sc = mp_lkf->correct(m_sc, z, R);
+    }
+    catch (const std::exception &e) {
+      // In case of error, alert the user
+      ROS_ERROR("[HeadingEstimator]: LKF correction step failed: %s", e.what());
+    }
   }
 
   return true;
@@ -371,7 +265,7 @@ bool HeadingEstimator::getInnovationCovariance(int measurement_type, Eigen::Matr
 
 /*  //{ getStates() */
 
-bool HeadingEstimator::getStates(Eigen::MatrixXd &states) {
+bool HeadingEstimator::getStates(hdg_x_t &states) {
 
   /*  //{ sanity checks */
 
@@ -382,7 +276,7 @@ bool HeadingEstimator::getStates(Eigen::MatrixXd &states) {
 
   std::scoped_lock lock(mutex_lkf);
 
-  states = mp_lkf_x->getStates();
+  states = m_sc.x;
 
   return true;
 }
@@ -391,7 +285,7 @@ bool HeadingEstimator::getStates(Eigen::MatrixXd &states) {
 
 /*  //{ getState() */
 
-bool HeadingEstimator::getState(int state_id, Eigen::VectorXd &state) {
+bool HeadingEstimator::getState(int state_id, double &state) {
 
   /*  //{ sanity checks */
 
@@ -417,10 +311,7 @@ bool HeadingEstimator::getState(int state_id, Eigen::VectorXd &state) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " getting value: " << mp_lkf_x->getState(state_id) << " of state: " << state_id <<
-     * std::endl;
-     */
-    state(0) = mp_lkf_x->getState(state_id);
+    state = m_sc.x(state_id);
   }
 
   return true;
@@ -438,24 +329,17 @@ std::string HeadingEstimator::getName(void) {
 
 /*  //{ setState() */
 
-bool HeadingEstimator::setState(int state_id, const Eigen::VectorXd &state) {
+bool HeadingEstimator::setState(int state_id, const double state) {
 
   /*  //{ sanity checks */
 
   if (!m_is_initialized)
     return false;
 
-  // Check the size of state
-  if (state.size() != 1) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
-              << "): wrong size of \"state.size()\". Should be: " << 2 << " is:" << state.size() << std::endl;
-    return false;
-  }
-
   // Check for NaNs
-  if (!std::isfinite(state(0))) {
+  if (!std::isfinite(state)) {
     std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".setState(int state_id=" << state_id << ", const Eigen::VectorXd &state=" << state
-              << "): NaN detected in variable \"state(0)\"." << std::endl;
+              << "): NaN detected in variable \"state\"." << std::endl;
     return false;
   }
 
@@ -477,7 +361,7 @@ bool HeadingEstimator::setState(int state_id, const Eigen::VectorXd &state) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    mp_lkf_x->setState(state_id, state(0));
+    m_sc.x(state_id) = state;
   }
 
   return true;
@@ -517,16 +401,16 @@ bool HeadingEstimator::setR(double cov, int measurement_type) {
 
   //}
 
-  double old_cov = m_Q_arr[measurement_type](0, 0);
+  double old_cov = m_R_multi[measurement_type](0, 0);
 
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_Q_arr[measurement_type](0, 0) = cov;
+    m_R_multi[measurement_type](0, 0) = cov;
   }
 
   std::cout << "[HeadingEstimator]: " << m_estimator_name << ".setQ(double cov=" << cov << ", int measurement_type=" << measurement_type << ")"
-            << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl;
+            << " Changed covariance from: " << old_cov << " to: " << m_R_multi[measurement_type](0, 0) << std::endl;
 
   return true;
 }
@@ -561,7 +445,7 @@ bool HeadingEstimator::getR(double &cov, int measurement_type) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = m_Q_arr[measurement_type](0, 0);
+    cov = m_R_multi[measurement_type](0, 0);
   }
 
   return true;
@@ -571,7 +455,7 @@ bool HeadingEstimator::getR(double &cov, int measurement_type) {
 
 /*  //{ getCovariance() */
 
-bool HeadingEstimator::getCovariance(Eigen::MatrixXd &cov) {
+bool HeadingEstimator::getCovariance(hdg_P_t &cov) {
 
   /*  //{ sanity checks */
 
@@ -583,7 +467,7 @@ bool HeadingEstimator::getCovariance(Eigen::MatrixXd &cov) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    cov = mp_lkf_x->getCovariance();
+    cov = m_sc.P;
   }
 
   return true;
@@ -593,7 +477,7 @@ bool HeadingEstimator::getCovariance(Eigen::MatrixXd &cov) {
 
 /*  //{ setCovariance() */
 
-bool HeadingEstimator::setCovariance(const Eigen::MatrixXd &cov) {
+bool HeadingEstimator::setCovariance(const hdg_P_t &cov) {
 
   /*  //{ sanity checks */
 
@@ -619,11 +503,10 @@ bool HeadingEstimator::setCovariance(const Eigen::MatrixXd &cov) {
   //}
 
   // Set the covariance
-  /* std::cout << "[HeadingEstimator]: " << m_estimator_name << " setting covariance: " << cov << std::endl; */
   {
     std::scoped_lock lock(mutex_lkf);
 
-    mp_lkf_x->setCovariance(cov);
+    m_sc.P = cov;
   }
 
   return true;
@@ -632,7 +515,7 @@ bool HeadingEstimator::setCovariance(const Eigen::MatrixXd &cov) {
 
 /*  //{ reset() */
 
-bool HeadingEstimator::reset(const Eigen::MatrixXd &states) {
+bool HeadingEstimator::reset(const hdg_x_t &states) {
 
   /*  //{ sanity checks */
 
@@ -667,7 +550,7 @@ bool HeadingEstimator::reset(const Eigen::MatrixXd &states) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    mp_lkf_x->reset(states.col(0));
+    m_sc.x = (states.col(0));
   }
 
   return true;

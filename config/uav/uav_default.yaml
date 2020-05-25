@@ -1,18 +1,7 @@
-
 altitude:
 
-  # The input matrix
-  B: [0,
-      0,
-      0]
-
-  # Process covariance
-  R: [0.1, 0, 0,
-      0, 1, 0,
-      0, 0, 0.1]
-
   # Covariances of measurements
-  Q:
+  R:
     height_range: [10] # 0.04 stddev in simulation
     height_sonar: [1000] # 0.04 stddev in simulation
     height_plane: [10] 
@@ -28,7 +17,6 @@ lateral:
   optflow_filter_max_valid: 5.0
   optflow_filter_max_diff: 1.0
 
-lateral:
   gps_fallback:
     allowed: false
     fallback_estimator: "OPTFLOW"
@@ -40,28 +28,13 @@ lateral:
     good_samples: 300 # samples with normal covariance before returning from fallback (100 samples ~ 1 second)
 
   # Covariances of measurements
-  Q:
-    vel_optflow: [1]
+  R:
+    vel_optflow: [0.1]
 
 heading:
 
-  # The system matrix 
-  A: [1, 0.01, 0,  # yaw
-      0, 1.0, 1,     # yaw rate
-      0, 0, 1]     # gyro bias
-
-  # The input matrix (yaw rate or yaw + yaw rate?)
-  B: [0, 0,
-      0, 0.0,
-      0, 0]
-
-  # Process covariance
-  R: [0.001, 0, 0,
-      0, 0.001, 0,
-      0, 0, 0.00001]
-
   # Covariances of measurements
-  Q:
+  R:
     yaw_compass: [0.1]
     yaw_hector: [0.01]
     yaw_brick: [1]

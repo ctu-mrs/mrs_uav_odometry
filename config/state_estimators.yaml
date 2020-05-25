@@ -9,7 +9,6 @@ state_estimators:
     "GPS", 
     "OPTFLOWGPS",
     "RTK",
-    "LIDAR",
     "VIO",
     "BRICK",
     "T265",
@@ -18,7 +17,6 @@ state_estimators:
     "VSLAM",
     "ICP",
     "ALOAM",
-    "TOWER",
   ] 
 
   # The measured states of the model
@@ -35,8 +33,6 @@ state_estimators:
     "vel_mavros",
     "pos_rtk",
     "vel_rtk",
-    "pos_lidar",
-    "vel_lidar",
     "pos_vio",
     "vel_vio",
     "pos_brick",
@@ -45,7 +41,6 @@ state_estimators:
     "pos_vslam",
     "vel_icp",
     "pos_aloam",
-    "pos_tower",
     "acc_imu",
   ]
 
@@ -55,7 +50,6 @@ state_estimators:
     GPS: ["pos_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros"]
     RTK: ["pos_mavros", "pos_rtk"]
-    LIDAR: ["pos_lidar"]
     HECTOR: ["pos_hector"]
     VIO: ["pos_vio", "vel_vio"]
     VSLAM: ["pos_vslam"]
@@ -64,7 +58,6 @@ state_estimators:
     T265: []
     ICP: ["vel_icp"]
     ALOAM: ["pos_aloam", "vel_icp"]
-    TOWER: ["pos_tower"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -73,8 +66,6 @@ state_estimators:
     vel_mavros: VELOCITY
     pos_rtk: POSITION
     vel_rtk: VELOCITY
-    pos_lidar: POSITION
-    vel_lidar: VELOCITY
     pos_vio: POSITION
     vel_vio: VELOCITY
     pos_brick: POSITION
@@ -83,7 +74,6 @@ state_estimators:
     pos_vslam: POSITION
     vel_icp: VELOCITY
     pos_aloam: POSITION
-    pos_tower: POSITION
     acc_imu: ACCELERATION
 
   # Mapping states to model

@@ -28,7 +28,7 @@
   <arg unless="$(arg debug)" name="script_type" value="gzserver"/>
   <arg     if="$(arg debug)" name="script_type" value="debug"/>
 
-    <!-- specify additional model path -->
+  <!-- specify additional model path -->
   <env name="GAZEBO_MODEL_PATH" value="$(env GAZEBO_MODEL_PATH):$(find mrs_uav_odometry)/gazebo_files/models" />
 
     <!-- start gazebo server-->
