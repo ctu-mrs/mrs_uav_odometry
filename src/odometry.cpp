@@ -326,14 +326,14 @@ private:
   ros::Time         compass_hdg_last_update;
 
   // Hector heading msgs
-  double                        hector_hdg_previous;
-  std::mutex                    mutex_hector_hdg;
-  ros::Time                     hector_hdg_last_update;
+  double     hector_hdg_previous;
+  std::mutex mutex_hector_hdg;
+  ros::Time  hector_hdg_last_update;
 
   // ALOAM heading msgs
-  double                        aloam_hdg_previous;
-  int                           _aloam_hdg_filter_buffer_size_;
-  double                        _aloam_hdg_filter_max_diff_;
+  double aloam_hdg_previous;
+  int    _aloam_hdg_filter_buffer_size_;
+  double _aloam_hdg_filter_max_diff_;
 
   // Aloam heading messages
   std::mutex         mutex_aloam;
@@ -346,11 +346,11 @@ private:
   double             aloam_offset_hdg_;
 
   // brick heading msgs
-  double                        brick_hdg_previous;
-  std::mutex                    mutex_brick_hdg;
-  ros::Time                     brick_hdg_last_update;
-  double                        accum_hdg_brick_;
-  double                        _accum_hdg_brick_alpha_;
+  double     brick_hdg_previous;
+  std::mutex mutex_brick_hdg;
+  ros::Time  brick_hdg_last_update;
+  double     accum_hdg_brick_;
+  double     _accum_hdg_brick_alpha_;
 
   // VIO heading msgs
   double                        vio_hdg_previous_;
@@ -409,8 +409,8 @@ private:
   double                                    _icp_max_valid_twist_;
 
   std::unique_ptr<MedianFilter> hdg_mf_icp_rate_;
-  bool _use_hdg_mf_icp_rate_;
-  double _icp_max_valid_hdg_rate_;
+  bool                          _use_hdg_mf_icp_rate_;
+  double                        _icp_max_valid_hdg_rate_;
   double                        icp_hdg_rate_inconsistent_samples;
 
   // brick messages
@@ -695,8 +695,8 @@ private:
   double _compass_hdg_filter_max_diff_;
 
   std::unique_ptr<MedianFilter> hdg_mf_optflow_rate_;
-  bool _use_hdg_mf_optflow_rate_;
-  double _optflow_max_valid_hdg_rate_;
+  bool                          _use_hdg_mf_optflow_rate_;
+  double                        _optflow_max_valid_hdg_rate_;
   int                           compass_inconsistent_samples;
   int                           optflow_inconsistent_samples;
   bool                          is_heading_estimator_initialized = false;
@@ -956,7 +956,7 @@ void Odometry::onInit() {
 
   counter_odom_brick = 0;
 
-  accum_hdg_brick_ = 0.0;
+  accum_hdg_brick_                  = 0.0;
   compass_inconsistent_samples      = 0;
   optflow_inconsistent_samples      = 0;
   icp_hdg_rate_inconsistent_samples = 0;
@@ -1450,7 +1450,7 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/max_t265_vel", _max_t265_vel_);
   double max_safe_brick_jump_tmp = 0.0;
   param_loader.loadParam("lateral/max_safe_brick_jump", max_safe_brick_jump_tmp);
-  max_safe_brick_jump_sq_            = std::pow(max_safe_brick_jump_tmp, 2);
+  max_safe_brick_jump_sq_ = std::pow(max_safe_brick_jump_tmp, 2);
 
   //}
 
@@ -1559,7 +1559,6 @@ void Odometry::onInit() {
     }
 
     map_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
-
   }
 
   if (_pass_rtk_as_odom_ && !rtk_active_) {
@@ -1599,13 +1598,13 @@ void Odometry::onInit() {
   //}
 
   /* lateral measurements mapping (name to id) //{ */
-  
+
   for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it < _measurement_names_.end(); it++) {
     map_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names_.begin(), it)));
   }
-  
+
   //}
-  
+
   /* lateral measurement covariances (R matrices) //{ */
 
   for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it != _measurement_names_.end(); ++it) {
@@ -1697,44 +1696,44 @@ void Odometry::onInit() {
   param_loader.loadParam("heading/gyro_fallback", _gyro_fallback_);
 
   /* heading estimators string names //{ */
-  
+
   param_loader.loadParam("heading_estimators/model_states", _hdg_model_state_names_);
   param_loader.loadParam("heading_estimators/measurements", _hdg_measurement_names_);
   param_loader.loadParam("heading_estimators/heading_estimators", _heading_estimators_names_);
   param_loader.loadParam("heading_estimators/active", _active_heading_estimators_names_);
-  
+
   //}
-  
+
   /* heading correction saturation //{ */
-  
+
   param_loader.loadParam("heading/max_brick_hdg_correction", _max_brick_hdg_correction_);
   param_loader.loadParam("heading/accum_hdg_brick_alpha", _accum_hdg_brick_alpha_);
   double max_safe_brick_hdg_jump_tmp = 0.0;
   param_loader.loadParam("heading/max_safe_brick_hdg_jump", max_safe_brick_hdg_jump_tmp);
   max_safe_brick_hdg_jump_sq_ = std::pow(max_safe_brick_hdg_jump_tmp, 2);
-  
+
   //}
 
   /* heading rate median filters //{ */
-  
+
   // We want to gate the measurements before median filtering to prevent the median becoming an invalid value
   min_valid = -1000.0;
   max_valid = 1000.0;
-  
+
   // Optflow heading rate median filter
   param_loader.loadParam("heading/median_filter/optflow/use", _use_hdg_mf_optflow_rate_);
   param_loader.loadParam("heading/median_filter/optflow/buffer_size", buffer_size);
   param_loader.loadParam("heading/median_filter/optflow/max_diff", max_diff);
   hdg_mf_optflow_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
-  
+
   // ICP heading rate median filter
   param_loader.loadParam("heading/median_filter/icp/use", _use_hdg_mf_icp_rate_);
   param_loader.loadParam("heading/median_filter/icp/buffer_size", buffer_size);
   param_loader.loadParam("heading/median_filter/icp/max_diff", max_diff);
   hdg_mf_icp_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
-  
+
   //}
-  
+
   /* heading rate min and max value gates //{ */
 
   param_loader.loadParam("heading/gate/optflow/max", _optflow_max_valid_hdg_rate_);
@@ -1744,31 +1743,31 @@ void Odometry::onInit() {
   //}
 
   /* takeoff estimator //{ */
-  
+
   param_loader.loadParam("heading_estimator", _heading_estimator_name_);
-  
+
   size_t pos_hdg = std::distance(_heading_type_names.begin(), std::find(_heading_type_names.begin(), _heading_type_names.end(), _heading_estimator_name_));
-  
+
   _hdg_estimator_type_takeoff.name = _heading_estimator_name_;
   _hdg_estimator_type_takeoff.type = (int)pos_hdg;
-  
+
   // Check whether PIXHAWK is active
   if (!stringInVector("PIXHAWK", _active_heading_estimators_names_)) {
     gps_active_ = false;
     ROS_INFO("[Odometry]: PIXHAWK is not in the list of active heading estimators.");
   }
-  
-  
+
+
   //}
-  
+
   /* heading measurements to estimators mapping //{ */
-  
+
   for (std::vector<std::string>::iterator it = _active_heading_estimators_names_.begin(); it != _active_heading_estimators_names_.end(); ++it) {
-  
+
     if (*it == "COMPASS") {
       compass_active_ = true;
     }
-  
+
     if (!stringInVector(*it, _heading_estimators_names_)) {
       ROS_ERROR("[Odometry]: %s in the list of active heading estimators is not a valid heading estimator.", it->c_str());
       if (*it == "GPS") {
@@ -1776,78 +1775,78 @@ void Odometry::onInit() {
       }
       ros::shutdown();
     }
-  
+
     std::vector<std::string> temp_vector;
     param_loader.loadParam("heading_estimators/fused_measurements/" + *it, temp_vector);
-  
+
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _hdg_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
     }
-  
+
     map_hdg_estimator_measurement.insert(std::pair<std::string, std::vector<std::string>>(*it, temp_vector));
   }
-  
+
   //}
 
   /* heading measurements to model states mapping //{ */
-  
+
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
-  
+
     std::string temp_value;
     param_loader.loadParam("heading_estimators/measurement_states/" + *it, temp_value);
-  
+
     if (!stringInVector(temp_value, _hdg_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
-  
+
     map_hdg_measurement_state.insert(std::pair<std::string, std::string>(*it, temp_value));
   }
-  
+
   //}
 
   /* heading model state mapping (name to id) //{ */
-  
+
   for (std::vector<std::string>::iterator it = _hdg_model_state_names_.begin(); it != _hdg_model_state_names_.end(); ++it) {
-  
+
     hdg_H_t hdg_H;
     param_loader.loadMatrixStatic("heading_estimators/state_mapping/" + *it, hdg_H);
-  
+
     map_hdg_states.insert(std::pair<std::string, hdg_H_t>(*it, hdg_H));
   }
-  
+
   //}
-  
+
   /* heading measurements mapping (name to id) //{ */
-  
+
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it < _hdg_measurement_names_.end(); it++) {
     map_hdg_measurement_name_id.insert(std::pair<std::string, int>(*it, (int)std::distance(_hdg_measurement_names_.begin(), it)));
   }
   for (auto &it : map_hdg_measurement_name_id) {
     ROS_INFO("[Odometry]: heading measurement mapping: %s - %d", it.first.c_str(), it.second);
   }
-  
+
   //}
 
   /* heading measurement covariances (R matrices) //{ */
-  
+
   for (std::vector<std::string>::iterator it = _hdg_measurement_names_.begin(); it != _hdg_measurement_names_.end(); ++it) {
-  
+
     hdg_R_t hdg_R;
     param_loader.loadMatrixStatic("heading/R/" + *it, hdg_R);
-  
+
     map_hdg_measurement_covariance.insert(std::pair<std::string, hdg_R_t>(*it, hdg_R));
   }
-  
+
   //}
 
   /* heading process covariance (Q matrix) //{ */
-  
+
   param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
-  
+
   //}
 
   //}
@@ -3573,7 +3572,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   odom_main                  = odom_pixhawk_shifted_local;
   uav_state.pose.position    = odom_pixhawk_shifted_local.pose.pose.position;
-  uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.linear;
+  uav_state.velocity.linear  = odom_pixhawk_shifted_local.twist.twist.linear;
   uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
   uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.angular;
 
@@ -3628,9 +3627,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (toUppercase(current_estimator_name) != "GPS" && toUppercase(current_estimator_name) != "RTK") {
-      odom_main.pose.pose.position.x  = _local_origin_x_;
-      odom_main.pose.pose.position.y  = _local_origin_y_;
-      odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setYaw(0.0);
+      odom_main.pose.pose.position.x = _local_origin_x_;
+      odom_main.pose.pose.position.y = _local_origin_y_;
     }
 
     // initialize stable odometry
@@ -5311,15 +5309,15 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   hdg_previous = hdg;
   hdg          = M_PI / 2 - hdg;  // TODO is the compass heading still this weird?
 
-    if (toUppercase(current_hdg_estimator_name) == "COMPASS" && _gyro_fallback_ && compass_inconsistent_samples > 20) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
-      mrs_msgs::HeadingType desired_estimator;
-      desired_estimator.type = mrs_msgs::HeadingType::GYRO;
-      desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-      changeCurrentHeadingEstimator(desired_estimator);
-      compass_inconsistent_samples = 0;
-    }
-    return;
+  if (toUppercase(current_hdg_estimator_name) == "COMPASS" && _gyro_fallback_ && compass_inconsistent_samples > 20) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Compass inconsistent. Swtiching to GYRO heading estimator.");
+    mrs_msgs::HeadingType desired_estimator;
+    desired_estimator.type = mrs_msgs::HeadingType::GYRO;
+    desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+    changeCurrentHeadingEstimator(desired_estimator);
+    compass_inconsistent_samples = 0;
+  }
+  return;
 
   if (!std::isfinite(hdg)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in PixHawk compass variable \"hdg\", not fusing!!!");

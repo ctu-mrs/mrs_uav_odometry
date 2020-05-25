@@ -146,9 +146,9 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   alt_A_t A    = m_A;
 
   A(0, 1) = dt;
-  A(1, 2) = dtsq;
+  A(1, 2) = dt;
 
-  A(0, 2) = dt;
+  A(0, 2) = dtsq;
 
   {
     std::scoped_lock lock(mutex_lkf);
@@ -188,7 +188,7 @@ bool AltitudeEstimator::doPrediction(const double input) {
   //}
 
   alt_u_t u = u.Zero();
-  u(2)      = input;
+  u(0)      = input;
 
   double dt   = m_dt;
   double dtsq = m_dt_sq;
