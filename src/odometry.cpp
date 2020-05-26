@@ -10259,7 +10259,7 @@ bool Odometry::isValidGate(const double &value, const double &min_value, const d
   // Min value check
   if (value < min_value) {
     if (value_name != "") {
-      ROS_WARN("[Odometry]: %s value %f < %f is not valid.", value_name.c_str(), value, min_value);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: %s value %f < %f is not valid.", value_name.c_str(), value, min_value);
     }
     return false;
   }
@@ -10267,7 +10267,7 @@ bool Odometry::isValidGate(const double &value, const double &min_value, const d
   // Max value check
   if (value > max_value) {
     if (value_name != "") {
-      ROS_WARN("[Odometry]: %s value %f > %f is not valid.", value_name.c_str(), value, max_value);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: %s value %f > %f is not valid.", value_name.c_str(), value, max_value);
     }
     return false;
   }
