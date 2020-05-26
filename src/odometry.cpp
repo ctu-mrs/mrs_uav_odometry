@@ -3510,7 +3510,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     mrs_msgs::Float64ArrayStamped heading_aux;
 
-    heading_aux.header.frame_id = local_origin_frame_id_;
+    heading_aux.header.frame_id = _uav_name_ + "/" + toLowercase(estimator.first) + "_origin";
     heading_aux.header.stamp    = time_now;
 
     hdg_x_t current_heading = current_heading.Zero();
@@ -3567,6 +3567,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   nav_msgs::Odometry odom_main;
 
   auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted);
+
+  geometry_msgs::Quaternion mavros_orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
 
   odom_main                  = odom_pixhawk_shifted_local;
   uav_state.pose.position    = odom_pixhawk_shifted_local.pose.pose.position;
@@ -3641,12 +3643,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_stable_rot_offset_ = mrs_lib::AttitudeConverter(0, 0, 0);
 
     // initialize local odometry
-    odom_local       = odom_main;
+    if (toUppercase(current_estimator_name) == "GPS" || toUppercase(current_estimator_name) == "RTK") {
+      odom_local = odom_main;
+      m_pos_odom_offset.setX(odom_main.pose.pose.position.x);
+      m_pos_odom_offset.setY(odom_main.pose.pose.position.y);
+      m_pos_odom_offset.setZ(odom_main.pose.pose.position.z);
+    } else {
+      odom_local.header = odom_main.header;
+      m_pos_odom_offset.setX(0.0);
+      m_pos_odom_offset.setY(0.0);
+      m_pos_odom_offset.setZ(0.0);
+    }
     last_local_name_ = odom_main.header.frame_id;
-
-    // initialize offset of local_origin
-    m_pos_odom_offset.setX(odom_main.pose.pose.position.x);
-    m_pos_odom_offset.setY(odom_main.pose.pose.position.y);
 
     {
       std::scoped_lock lock(mutex_altitude_estimator);
@@ -3659,15 +3667,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     m_pos_odom_offset.setZ(alt_x(mrs_msgs::AltitudeStateNames::HEIGHT));
 
-    double hdg_tmp;
-    try {
-      hdg_tmp = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).getHeading();
+    if (toUppercase(current_estimator_name) == "GPS" || toUppercase(current_estimator_name) == "RTK") {
+      double hdg_tmp;
+      try {
+        hdg_tmp = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).getHeading();
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during obtaining heading (initialization of m_rot_odom_offset)");
+      }
+      m_rot_odom_offset = mrs_lib::AttitudeConverter(0, 0, 0).setHeading(hdg_tmp);
+    } else {
+      m_rot_odom_offset = mrs_lib::AttitudeConverter(0, 0, 0);
     }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during obtaining heading (initialization of m_rot_odom_offset)");
-    }
-
-    m_rot_odom_offset = mrs_lib::AttitudeConverter(0, 0, 0).setHeading(hdg_tmp);
 
     ROS_INFO("[Odometry]: Initialized the states of all estimators");
   }
@@ -3757,18 +3768,20 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         current_hdg_estimator->getState(0, hdg);
       }
 
-      try {
-        odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_main.pose.pose.orientation).setHeading(hdg);
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_main orientation)");
-      }
-      try {
-        uav_state.pose.orientation = mrs_lib::AttitudeConverter(uav_state.pose.orientation).setHeading(hdg);
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during setting heading (uav_state orientation)");
-      }
+        // Obtain mavros orientation
+        tf2::Quaternion tf2_mavros_orient= mrs_lib::AttitudeConverter(mavros_orientation);
+
+        // Obtain heading from mavros orientation
+        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+
+        // Build rotation matrix from difference between new heading nad mavros heading
+        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg-mavros_hdg, Eigen::Vector3d::UnitZ()));
+
+        // Transform the mavros orientation by the rotation matrix
+        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+
+        odom_main.pose.pose.orientation = new_orientation;
+        uav_state.pose.orientation = new_orientation;
     }
 
     //}
@@ -3862,12 +3875,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: pos_diff: x: %f y: %f z: %f", pos_diff.getX(), pos_diff.getY(), pos_diff.getZ());
     }
 
-    /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_local.pose.pose.orientation.x, odom_local.pose.pose.orientation.y,
-     * odom_local.pose.pose.orientation.z, odom_local.pose.pose.orientation.w); */
+    /* ROS_WARN("[Odometry]: before stable_q: %f, %f, %f, %f", odom_local.pose.pose.orientation.x, odom_local.pose.pose.orientation.y, */
+    /*  odom_local.pose.pose.orientation.z, odom_local.pose.pose.orientation.w); */
     odom_local = applyOdomOffset(odom_main, m_pos_odom_offset, m_rot_odom_offset);
-    /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_local.pose.pose.orientation.x, odom_local.pose.pose.orientation.y,
-     * odom_local.pose.pose.orientation.z, odom_local.pose.pose.orientation.w); */
+    /* ROS_WARN("[Odometry]: after stable_q: %f, %f, %f, %f", odom_local.pose.pose.orientation.x, odom_local.pose.pose.orientation.y, */
+    /* odom_local.pose.pose.orientation.z, odom_local.pose.pose.orientation.w); */
     odom_local.header.frame_id = local_origin_frame_id_;
+    /* ROS_INFO_THROTTLE(1.0, "[Odometry]: pos offset: x: %f y: %f z: %f rot offset: x: %f y: %f z: %f w: %f", m_pos_odom_offset.getX(),
+     * m_pos_odom_offset.getY(), m_pos_odom_offset.getZ(), m_rot_odom_offset.getX(), m_rot_odom_offset.getY(), m_rot_odom_offset.getZ(),
+     * m_rot_odom_offset.getW()); */
 
     //}
 
@@ -4976,15 +4992,15 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       {
         std::scoped_lock lock(mutex_rtk_est_);
 
-      lkf_rtk_t::B_t B_new;
-      B_new << dt, 0, 0, dt;
-      estimator_rtk_->B = B_new;
-      try {
-        sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
-      }
-      catch (const std::exception &e) {
-        ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
-      }
+        lkf_rtk_t::B_t B_new;
+        B_new << dt, 0, 0, dt;
+        estimator_rtk_->B = B_new;
+        try {
+          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+        }
+        catch (const std::exception &e) {
+          ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+        }
       }
     }
   }
