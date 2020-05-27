@@ -439,6 +439,8 @@ private:
   std::mutex               mutex_estimator_type;
   std::mutex               mutex_alt_estimator_type;
   int                      estimator_iteration_;
+  std::mutex               mutex_alt_input_;
+  double                   alt_input_ = 0;
 
   std::string child_frame_id;
   std::mutex  mutex_odom_local;
@@ -2513,6 +2515,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* altitude estimator prediction //{ */
 
+  double alt_input = mrs_lib::get_mutexed(mutex_alt_input_, alt_input_);
+  altitudeEstimatorsPrediction(alt_input, dt);
 
   //}
 
@@ -4678,9 +4682,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   //}
 
-  double input = attitude_command.desired_acceleration.z;  // TODO untilt?
-
-  altitudeEstimatorsPrediction(input, dt);
+  mrs_lib::set_mutexed(mutex_alt_input_, attitude_command.desired_acceleration.z, alt_input_); // TODO untilt?
 }
 
 //}

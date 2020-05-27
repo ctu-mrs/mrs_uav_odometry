@@ -7,7 +7,7 @@ altitude:
     height_plane: [10] 
     height_brick: [1] 
     height_vio: [1] 
-    vel_baro: [1]
+    vel_baro: [0.01]
     acc_imu: [1]
 
 lateral:
