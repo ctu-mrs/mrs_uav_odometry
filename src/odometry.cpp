@@ -158,6 +158,8 @@ private:
   ros::Publisher pub_brick_hdg_corr_;
   ros::Publisher pub_vio_hdg_corr_;
   ros::Publisher pub_vslam_hdg_corr_;
+  ros::Publisher pub_vel_baro_corr_;
+
 
   ros::Publisher pub_cmd_hdg_input_;
   ros::Publisher pub_cmd_hdg_rate_input_;
@@ -963,7 +965,7 @@ void Odometry::onInit() {
 
   odom_pixhawk_last_update = ros::Time::now();
 
-  garmin_enabled       = false;
+  garmin_enabled       = true;
   sonar_enabled        = true;
   rtk_altitude_enabled = false;
 
@@ -1978,6 +1980,8 @@ void Odometry::onInit() {
     pub_vslam_hdg_corr_     = nh.advertise<mrs_msgs::Float64Stamped>("debug_vslam_hdg_corr_out", 1);
     pub_cmd_hdg_input_      = nh.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_input_out", 1);
     pub_cmd_hdg_rate_input_ = nh.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_rate_input_out", 1);
+
+    pub_vel_baro_corr_ = nh.advertise<mrs_msgs::Float64Stamped>("debug_vel_baro_out", 1);
   }
 
   //}
@@ -3768,21 +3772,20 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         current_hdg_estimator->getState(0, hdg);
       }
 
-        // Obtain mavros orientation
-        tf2::Quaternion tf2_mavros_orient= mrs_lib::AttitudeConverter(mavros_orientation);
+      // Obtain mavros orientation
+      tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
-        // Obtain heading from mavros orientation
-        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      // Obtain heading from mavros orientation
+      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
 
-        // Build rotation matrix from difference between new heading nad mavros heading
-        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg-mavros_hdg, Eigen::Vector3d::UnitZ()));
+      // Build rotation matrix from difference between new heading nad mavros heading
+      tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
 
-        // Transform the mavros orientation by the rotation matrix
-        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+      // Transform the mavros orientation by the rotation matrix
+      geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
 
-        odom_main.pose.pose.orientation = new_orientation;
-        uav_state.pose.orientation = new_orientation;
-
+      odom_main.pose.pose.orientation = new_orientation;
+      uav_state.pose.orientation      = new_orientation;
     }
 
     //}
@@ -4844,10 +4847,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   /* altitude estimator update //{ */
 
-  // Initialize the input vector
-  alt_u_t input;
-  input = input.Zero();
-
   /* publish covariance of altitude states //{ */
 
   alt_P_t P = P.Zero();
@@ -4905,6 +4904,20 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     std::scoped_lock lock(mutex_altitude_estimator);
     altitudeEstimatorCorrection(twist_z, "vel_baro");
     altitudeEstimatorCorrection(altitude, "height_baro");
+  }
+
+  if (_debug_publish_corrections_) {
+
+    mrs_msgs::Float64Stamped vel_baro_corr_out;
+    vel_baro_corr_out.header.stamp    = ros::Time::now();
+    vel_baro_corr_out.header.frame_id = local_origin_frame_id_;
+    vel_baro_corr_out.value           = twist_z;
+    try {
+      pub_vel_baro_corr_.publish(vel_baro_corr_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_vel_baro_corr_.getTopic().c_str());
+    }
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing barometer altitude");
