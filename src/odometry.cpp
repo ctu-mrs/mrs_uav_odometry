@@ -963,7 +963,7 @@ void Odometry::onInit() {
 
   odom_pixhawk_last_update = ros::Time::now();
 
-  garmin_enabled       = true;
+  garmin_enabled       = false;
   sonar_enabled        = true;
   rtk_altitude_enabled = false;
 
@@ -2575,7 +2575,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   //}
 
   // return without publishing when pixhawk or rangefinder measurements are missing
-  if (!got_odom_pixhawk_ || !got_range_) {
+  if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled)) {
     ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for altitude data from sensors - received? pixhawk: %s, ranger: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                       got_range_ ? "TRUE" : "FALSE");
     return;
@@ -2772,7 +2772,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE", got_rtk_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called) {
@@ -2797,7 +2797,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called) {
@@ -2822,7 +2822,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_optflow_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_optflow_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                         got_optflow_ ? "TRUE" : "FALSE");
@@ -2859,7 +2859,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_odom_t265_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_odom_t265_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                         got_odom_t265_ ? "TRUE" : "FALSE");
@@ -2938,7 +2938,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           failsafe_called = true;
         }
       } else {
-        if (!got_odom_pixhawk_ || !got_range_ || !got_hector_pose_) {
+        if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_hector_pose_) {
           ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, hector: %s",
                             got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                             got_hector_pose_ ? "TRUE" : "FALSE");
@@ -3008,7 +3008,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_aloam_odom_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_aloam_odom_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, aloam: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                         got_aloam_odom_ ? "TRUE" : "FALSE");
@@ -3062,7 +3062,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_icp_twist_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_icp_twist_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, icp: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                         got_hector_pose_ ? "TRUE" : "FALSE");
@@ -3115,7 +3115,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (!got_odom_pixhawk_ || !got_range_ || !got_optflow_) {
+      } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_optflow_) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                           got_optflow_ ? "TRUE" : "FALSE");
@@ -3129,7 +3129,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
 
     } else {
-      if (!got_odom_pixhawk_ || !got_range_ || !got_optflow_) {
+      if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_optflow_) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                           got_range_ ? "TRUE" : "FALSE", got_optflow_ ? "TRUE" : "FALSE");
         if (got_lateral_sensors_ && !failsafe_called) {
@@ -3156,7 +3156,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (!got_odom_pixhawk_ || !got_range_ || !got_optflow_) {
+      } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_optflow_) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, optflow: %s",
                           got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
                           got_optflow_ ? "TRUE" : "FALSE");
@@ -3170,7 +3170,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
 
     } else {
-      if (!got_odom_pixhawk_ || !got_range_ || !got_optflow_) {
+      if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_optflow_) {
         ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, optflow: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                           got_range_ ? "TRUE" : "FALSE", got_optflow_ ? "TRUE" : "FALSE");
         if (got_lateral_sensors_ && !failsafe_called) {
@@ -3205,7 +3205,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_vio_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_vio_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vio: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                         got_range_ ? "TRUE" : "FALSE", got_vio_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called) {
@@ -3239,7 +3239,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called = true;
       }
     }
-    if (!got_odom_pixhawk_ || !got_range_ || !got_vslam_) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled) || !got_vslam_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, vslam: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                         got_range_ ? "TRUE" : "FALSE", got_vslam_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called) {
@@ -3782,6 +3782,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         odom_main.pose.pose.orientation = new_orientation;
         uav_state.pose.orientation = new_orientation;
+
     }
 
     //}
@@ -4821,7 +4822,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     got_init_heading_ = true;
   }
 
-  if (!got_range_) {
+  if (!got_range_ && garmin_enabled) {
 
     return;
   }
@@ -5400,7 +5401,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     }
   }
 
-  if (!got_range_) {
+  if (!got_range_ && garmin_enabled) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing optic flow. No range msgs.");
     return;
   }
@@ -5619,7 +5620,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     }
   }
 
-  if (!got_range_) {
+  if (!got_range_ && garmin_enabled) {
     return;
   }
 
@@ -5794,7 +5795,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     }
   }
 
-  if (!got_range_) {
+  if (!got_range_ && garmin_enabled) {
     return;
   }
 
@@ -7160,6 +7161,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
+  if (!garmin_enabled)
+    return;
+
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGarmin");
 
   if (got_range_) {
@@ -7952,7 +7956,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     got_init_heading_ = true;
   }
 
-  if (!got_range_) {
+  if (!got_range_ && garmin_enabled) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for rangefinder.");
     return;
   }
