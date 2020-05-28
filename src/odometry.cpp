@@ -5015,7 +5015,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
         }
         catch (const std::exception &e) {
-          ROS_ERROR("[Odometry]: RTK LKF prediction step failed: %s", e.what());
+          ROS_ERROR_THROTTLE(1.0,"[Odometry]: RTK LKF prediction step failed: %s", e.what());
         }
       }
     }
