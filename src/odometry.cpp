@@ -331,6 +331,7 @@ private:
   double     hector_hdg_previous;
   std::mutex mutex_hector_hdg;
   ros::Time  hector_hdg_last_update;
+  double hdg_hector_corr_;
 
   // ALOAM heading msgs
   double aloam_hdg_previous;
@@ -346,6 +347,7 @@ private:
   Vec2               aloam_offset_;
   Vec2               aloam_vel_state_;
   double             aloam_offset_hdg_;
+  bool aloam_corr_ready_ = false;
 
   // brick heading msgs
   double     brick_hdg_previous;
@@ -399,6 +401,7 @@ private:
   double                     hector_offset_hdg_;
   int                        c_hector_msg_;
   int                        c_hector_init_msgs_;
+  bool hector_corr_ready_ = false;
 
   // ICP messages
   std::mutex                                mutex_icp_twist;
@@ -2562,14 +2565,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // correction step for hector
-    if (got_hector_pose_) {
+    if (got_hector_pose_ && hector_corr_ready_) {
       auto pos_hector_x_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_x);
       auto pos_hector_y_tmp = mrs_lib::get_mutexed(mutex_hector, pos_hector_y);
       stateEstimatorsCorrection(pos_hector_x_tmp, pos_hector_y_tmp, "pos_hector");
+      auto hdg_hector_corr_tmp = mrs_lib::get_mutexed(mutex_hector, hdg_hector_corr_);
+      headingEstimatorsCorrection(hdg_hector_corr_tmp, "hdg_hector");
+
     }
 
     // correction step for aloam
-    if (got_aloam_odom_) {
+    if (got_aloam_odom_ && aloam_corr_ready_) {
       auto pos_aloam_x_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_x);
       auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam, pos_aloam_y);
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
@@ -4764,6 +4770,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     try {
       /* q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setHeading(0.0); */
       q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setYaw(0.0);  // TODO which one is correct in this case?
+
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during setting heading (fcu_untilted)");
@@ -6884,7 +6891,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
         Vec2 vel_vec;
         current_estimator->getState(1, vel_vec);
         if (vel_vec(0) > 5 || vel_vec(1) > 5) {
-          ROS_WARN("[Odometry]: Hector Slam velocity too large. Not reliable.");
+          ROS_WARN("[Odometry]: Hector Slam velocity too large - x: %f, y: %f. Not reliable.", vel_vec(0), vel_vec(1));
 
           hector_reliable_ = false;
         }
@@ -6916,8 +6923,7 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   hdg_hector += hector_offset_hdg_;
   hector_hdg_previous = hdg_hector;
 
-  // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(hdg_hector, "hdg_hector");
+  mrs_lib::set_mutexed(mutex_hector, hdg_hector, hdg_hector_corr_);
 
   if (_debug_publish_corrections_) {
     hdg_hector = mrs_lib::wrapAngle(hdg_hector);
@@ -6948,25 +6954,10 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
 
     pos_hector_x = hector_pose.pose.position.x + hector_offset_(0);
     pos_hector_y = hector_pose.pose.position.y + hector_offset_(1);
+    hector_corr_ready_ = true;
   }
 
-  // Current orientation
-  double hdg_state;
-
-  if (current_hdg_estimator->getName() == "PIXHAWK") {
-
-    std::scoped_lock lock(mutex_odom_pixhawk);
-    hdg_state = orientation_mavros.vector.z;
-
-  } else {
-
-    std::scoped_lock lock(mutex_current_hdg_estimator);
-
-    current_hdg_estimator->getState(0, hdg_state);
-  }
-
-
-  // Set innoation variable if ccurnet estimator is HECTOR
+  // Set innovation variable if current estimator is HECTOR
   if (current_estimator->getName() == "HECTOR") {
     Vec2 pos_vec, innovation;
     current_estimator->getState(0, pos_vec);
@@ -7129,6 +7120,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
     pos_aloam_x = aloam_odom.pose.pose.position.x + aloam_offset_(0);
     pos_aloam_y = aloam_odom.pose.pose.position.y + aloam_offset_(1);
+
+    aloam_corr_ready_ = true;
   }
 
   // Current orientation
