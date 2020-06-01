@@ -2238,15 +2238,13 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   /* pass current covariances to dynamic reconfigure //{ */
-  {
-    std::scoped_lock lock(mutex_current_estimator);
 
     // Lateral position measurement covariances
     last_drs_config.R_pos_mavros = map_measurement_covariance.find("pos_mavros")->second(0);
     last_drs_config.R_pos_vio    = map_measurement_covariance.find("pos_vio")->second(0);
     last_drs_config.R_pos_vslam  = map_measurement_covariance.find("pos_vslam")->second(0);
-    last_drs_config.R_pos_brick  = map_measurement_covariance.find("pos_brick")->second(0);
     last_drs_config.R_pos_rtk    = map_measurement_covariance.find("pos_rtk")->second(0);
+    last_drs_config.R_pos_brick  = map_measurement_covariance.find("pos_brick")->second(0);
     last_drs_config.R_pos_hector = map_measurement_covariance.find("pos_hector")->second(0);
     last_drs_config.R_pos_aloam  = map_measurement_covariance.find("pos_aloam")->second(0);
 
@@ -2264,42 +2262,33 @@ void Odometry::onInit() {
     last_drs_config.Q_pos = _Q_lat_(0, 0);
     last_drs_config.Q_vel = _Q_lat_(1, 1);
     last_drs_config.Q_acc = _Q_lat_(2, 2);
-  }
-
-  {
-    std::scoped_lock lock(mutex_current_alt_estimator);
 
     // Altitude measurement covariances
-    last_drs_config.R_height_range = map_measurement_covariance.find("height_range")->second(0);
-    last_drs_config.R_height_plane = map_measurement_covariance.find("height_plane")->second(0);
-    last_drs_config.R_height_brick = map_measurement_covariance.find("height_brick")->second(0);
-    last_drs_config.R_height_vio   = map_measurement_covariance.find("height_vio")->second(0);
-    last_drs_config.R_height_aloam = map_measurement_covariance.find("height_aloam")->second(0);
-    last_drs_config.R_height_baro  = map_measurement_covariance.find("height_baro")->second(0);
+    last_drs_config.R_height_range = map_alt_measurement_covariance.find("height_range")->second(0);
+    last_drs_config.R_height_plane = map_alt_measurement_covariance.find("height_plane")->second(0);
+    last_drs_config.R_height_brick = map_alt_measurement_covariance.find("height_brick")->second(0);
+    last_drs_config.R_height_vio   = map_alt_measurement_covariance.find("height_vio")->second(0);
+    last_drs_config.R_height_aloam = map_alt_measurement_covariance.find("height_aloam")->second(0);
+    last_drs_config.R_height_baro  = map_alt_measurement_covariance.find("height_baro")->second(0);
 
     // Altitude velocity measurement covariances
-    last_drs_config.R_vel_baro = map_measurement_covariance.find("vel_baro")->second(0);
+    last_drs_config.R_vel_baro = map_alt_measurement_covariance.find("vel_baro")->second(0);
 
     // Altitude acceleration measurement covariances
-    last_drs_config.R_acc_imu = map_measurement_covariance.find("acc_imu")->second(0);
-  }
-
-  {
-    std::scoped_lock lock(mutex_current_hdg_estimator);
+    last_drs_config.R_acc_imu = map_alt_measurement_covariance.find("acc_imu")->second(0);
 
     // Heading measurement covariances
-    last_drs_config.R_hdg_compass = map_measurement_covariance.find("hdg_compass")->second(0);
-    last_drs_config.R_hdg_hector  = map_measurement_covariance.find("hdg_hector")->second(0);
-    last_drs_config.R_hdg_aloam   = map_measurement_covariance.find("hdg_aloam")->second(0);
-    last_drs_config.R_hdg_brick   = map_measurement_covariance.find("hdg_brick")->second(0);
-    last_drs_config.R_hdg_vio     = map_measurement_covariance.find("hdg_vio")->second(0);
-    last_drs_config.R_hdg_vslam   = map_measurement_covariance.find("hdg_vslam")->second(0);
+    last_drs_config.R_hdg_compass = map_hdg_measurement_covariance.find("hdg_compass")->second(0);
+    last_drs_config.R_hdg_hector  = map_hdg_measurement_covariance.find("hdg_hector")->second(0);
+    last_drs_config.R_hdg_aloam   = map_hdg_measurement_covariance.find("hdg_aloam")->second(0);
+    last_drs_config.R_hdg_brick   = map_hdg_measurement_covariance.find("hdg_brick")->second(0);
+    last_drs_config.R_hdg_vio     = map_hdg_measurement_covariance.find("hdg_vio")->second(0);
+    last_drs_config.R_hdg_vslam   = map_hdg_measurement_covariance.find("hdg_vslam")->second(0);
 
     // Heading rate measurement covariances
-    last_drs_config.R_rate_gyro    = map_measurement_covariance.find("rate_gyro")->second(0);
-    last_drs_config.R_rate_optflow = map_measurement_covariance.find("rate_optflow")->second(0);
-    last_drs_config.R_rate_icp     = map_measurement_covariance.find("rate_icp")->second(0);
-  }
+    last_drs_config.R_rate_gyro    = map_hdg_measurement_covariance.find("rate_gyro")->second(0);
+    last_drs_config.R_rate_optflow = map_hdg_measurement_covariance.find("rate_optflow")->second(0);
+    last_drs_config.R_rate_icp     = map_hdg_measurement_covariance.find("rate_icp")->second(0);
 
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh));
   reconfigure_server_->updateConfig(last_drs_config);
