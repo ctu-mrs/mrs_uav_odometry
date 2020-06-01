@@ -2,7 +2,7 @@ altitude:
 
   # Covariances of measurements
   R:
-    height_range: [10] # 0.04 stddev in simulation
+    height_range: [0.1] # 0.04 stddev in simulation
     height_sonar: [1000] # 0.04 stddev in simulation
     height_plane: [10] 
     height_brick: [1] 
