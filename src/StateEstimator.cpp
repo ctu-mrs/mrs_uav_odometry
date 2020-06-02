@@ -52,10 +52,10 @@ StateEstimator::StateEstimator(
 
   // Check size of m_R_arr elements
   for (size_t i = 0; i < m_R_arr.size(); i++) {
-    if (m_R_arr[i].rows() != 1 || m_R_arr[i].cols() != m_n_states) {
+    if (m_R_arr[i].rows() != 1 || m_R_arr[i].cols() != 1) {
       std::cerr << "[StateEstimator]: " << m_estimator_name << ".StateEstimator()"
-                << "): wrong size of \"m_R_arr[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_R_arr[i].rows() << ", " << m_R_arr[i].cols()
-                << ")" << std::endl;
+                << "): wrong size of \"m_R_arr[" << i << "]\". Should be: (1, " << 1 << ") is: (" << m_R_arr[i].rows() << ", " << m_R_arr[i].cols() << ")"
+                << std::endl;
       return;
     }
   }
@@ -343,8 +343,10 @@ bool StateEstimator::setState(int state_id, const Vec2 &state) {
 
   /*  //{ sanity checks */
 
-  if (!m_is_initialized)
+  if (!m_is_initialized) {
+    /* ROS_WARN("[%s]: Lateral estimator %s method setState() called before init.", ros::this_node::getName().c_str(), m_estimator_name.c_str()); */
     return false;
+  }
 
   // Check the size of state
   if (state.size() != 2) {
@@ -387,6 +389,8 @@ bool StateEstimator::setState(int state_id, const Vec2 &state) {
     sc_x.x(state_id) = state(0);
     sc_y.x(state_id) = state(1);
   }
+  /* ROS_INFO("[%s]: Set state %d of %s to x: %f y: %f. State after x: %f y: %f", ros::this_node::getName().c_str(), state_id, m_estimator_name.c_str(),
+   * state(0), state(1), sc_x.x(state_id), sc_y.x(state_id)); */
 
   return true;
 }

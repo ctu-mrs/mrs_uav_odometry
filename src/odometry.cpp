@@ -331,7 +331,7 @@ private:
   double     hector_hdg_previous;
   std::mutex mutex_hector_hdg;
   ros::Time  hector_hdg_last_update;
-  double hdg_hector_corr_;
+  double     hdg_hector_corr_;
 
   // ALOAM heading msgs
   double aloam_hdg_previous;
@@ -347,7 +347,7 @@ private:
   Vec2               aloam_offset_;
   Vec2               aloam_vel_state_;
   double             aloam_offset_hdg_;
-  bool aloam_corr_ready_ = false;
+  bool               aloam_corr_ready_ = false;
 
   // brick heading msgs
   double     brick_hdg_previous;
@@ -401,7 +401,7 @@ private:
   double                     hector_offset_hdg_;
   int                        c_hector_msg_;
   int                        c_hector_init_msgs_;
-  bool hector_corr_ready_ = false;
+  bool                       hector_corr_ready_ = false;
 
   // ICP messages
   std::mutex                                mutex_icp_twist;
@@ -730,6 +730,7 @@ private:
   mrs_msgs::AltitudeType                                    _alt_estimator_type_takeoff;
   std::mutex                                                mutex_current_alt_estimator;
   bool                                                      is_lateral_estimator_initialized = false;
+  bool                                                      lat_gps_est_pos_init_            = false;
   int                                                       counter_altitude                 = 0;
   double                                                    _excessive_tilt_sq_;
 
@@ -1638,8 +1639,8 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     std::vector<bool>          fusing_measurement;
-    std::vector<LatStateCol1D> P_arr_lat; 
-    std::vector<Mat1> R_arr_lat;
+    std::vector<LatStateCol1D> P_arr_lat;
+    std::vector<Mat1>          R_arr_lat;
 
     // Find measurements fused by the estimator
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
@@ -2240,56 +2241,56 @@ void Odometry::onInit() {
 
   /* pass current covariances to dynamic reconfigure //{ */
 
-    // Lateral position measurement covariances
-    last_drs_config.R_pos_mavros = map_measurement_covariance.find("pos_mavros")->second(0);
-    last_drs_config.R_pos_vio    = map_measurement_covariance.find("pos_vio")->second(0);
-    last_drs_config.R_pos_vslam  = map_measurement_covariance.find("pos_vslam")->second(0);
-    last_drs_config.R_pos_rtk    = map_measurement_covariance.find("pos_rtk")->second(0);
-    last_drs_config.R_pos_brick  = map_measurement_covariance.find("pos_brick")->second(0);
-    last_drs_config.R_pos_hector = map_measurement_covariance.find("pos_hector")->second(0);
-    last_drs_config.R_pos_aloam  = map_measurement_covariance.find("pos_aloam")->second(0);
+  // Lateral position measurement covariances
+  last_drs_config.R_pos_mavros = map_measurement_covariance.find("pos_mavros")->second(0);
+  last_drs_config.R_pos_vio    = map_measurement_covariance.find("pos_vio")->second(0);
+  last_drs_config.R_pos_vslam  = map_measurement_covariance.find("pos_vslam")->second(0);
+  last_drs_config.R_pos_rtk    = map_measurement_covariance.find("pos_rtk")->second(0);
+  last_drs_config.R_pos_brick  = map_measurement_covariance.find("pos_brick")->second(0);
+  last_drs_config.R_pos_hector = map_measurement_covariance.find("pos_hector")->second(0);
+  last_drs_config.R_pos_aloam  = map_measurement_covariance.find("pos_aloam")->second(0);
 
-    // Lateral velocity measurement covariances
-    last_drs_config.R_vel_mavros  = map_measurement_covariance.find("vel_mavros")->second(0);
-    last_drs_config.R_vel_vio     = map_measurement_covariance.find("vel_vio")->second(0);
-    last_drs_config.R_vel_icp     = map_measurement_covariance.find("vel_icp")->second(0);
-    last_drs_config.R_vel_optflow = map_measurement_covariance.find("vel_optflow")->second(0);
-    last_drs_config.R_vel_rtk     = map_measurement_covariance.find("vel_rtk")->second(0);
+  // Lateral velocity measurement covariances
+  last_drs_config.R_vel_mavros  = map_measurement_covariance.find("vel_mavros")->second(0);
+  last_drs_config.R_vel_vio     = map_measurement_covariance.find("vel_vio")->second(0);
+  last_drs_config.R_vel_icp     = map_measurement_covariance.find("vel_icp")->second(0);
+  last_drs_config.R_vel_optflow = map_measurement_covariance.find("vel_optflow")->second(0);
+  last_drs_config.R_vel_rtk     = map_measurement_covariance.find("vel_rtk")->second(0);
 
-    // Lateral imu accelerations measurement covariances
-    last_drs_config.R_acc_imu_lat = map_measurement_covariance.find("acc_imu")->second(0);
+  // Lateral imu accelerations measurement covariances
+  last_drs_config.R_acc_imu_lat = map_measurement_covariance.find("acc_imu")->second(0);
 
-    // Lateral process covariances
-    last_drs_config.Q_pos = _Q_lat_(0, 0);
-    last_drs_config.Q_vel = _Q_lat_(1, 1);
-    last_drs_config.Q_acc = _Q_lat_(2, 2);
+  // Lateral process covariances
+  last_drs_config.Q_pos = _Q_lat_(0, 0);
+  last_drs_config.Q_vel = _Q_lat_(1, 1);
+  last_drs_config.Q_acc = _Q_lat_(2, 2);
 
-    // Altitude measurement covariances
-    last_drs_config.R_height_range = map_alt_measurement_covariance.find("height_range")->second(0);
-    last_drs_config.R_height_plane = map_alt_measurement_covariance.find("height_plane")->second(0);
-    last_drs_config.R_height_brick = map_alt_measurement_covariance.find("height_brick")->second(0);
-    last_drs_config.R_height_vio   = map_alt_measurement_covariance.find("height_vio")->second(0);
-    last_drs_config.R_height_aloam = map_alt_measurement_covariance.find("height_aloam")->second(0);
-    last_drs_config.R_height_baro  = map_alt_measurement_covariance.find("height_baro")->second(0);
+  // Altitude measurement covariances
+  last_drs_config.R_height_range = map_alt_measurement_covariance.find("height_range")->second(0);
+  last_drs_config.R_height_plane = map_alt_measurement_covariance.find("height_plane")->second(0);
+  last_drs_config.R_height_brick = map_alt_measurement_covariance.find("height_brick")->second(0);
+  last_drs_config.R_height_vio   = map_alt_measurement_covariance.find("height_vio")->second(0);
+  last_drs_config.R_height_aloam = map_alt_measurement_covariance.find("height_aloam")->second(0);
+  last_drs_config.R_height_baro  = map_alt_measurement_covariance.find("height_baro")->second(0);
 
-    // Altitude velocity measurement covariances
-    last_drs_config.R_vel_baro = map_alt_measurement_covariance.find("vel_baro")->second(0);
+  // Altitude velocity measurement covariances
+  last_drs_config.R_vel_baro = map_alt_measurement_covariance.find("vel_baro")->second(0);
 
-    // Altitude acceleration measurement covariances
-    last_drs_config.R_acc_imu = map_alt_measurement_covariance.find("acc_imu")->second(0);
+  // Altitude acceleration measurement covariances
+  last_drs_config.R_acc_imu = map_alt_measurement_covariance.find("acc_imu")->second(0);
 
-    // Heading measurement covariances
-    last_drs_config.R_hdg_compass = map_hdg_measurement_covariance.find("hdg_compass")->second(0);
-    last_drs_config.R_hdg_hector  = map_hdg_measurement_covariance.find("hdg_hector")->second(0);
-    last_drs_config.R_hdg_aloam   = map_hdg_measurement_covariance.find("hdg_aloam")->second(0);
-    last_drs_config.R_hdg_brick   = map_hdg_measurement_covariance.find("hdg_brick")->second(0);
-    last_drs_config.R_hdg_vio     = map_hdg_measurement_covariance.find("hdg_vio")->second(0);
-    last_drs_config.R_hdg_vslam   = map_hdg_measurement_covariance.find("hdg_vslam")->second(0);
+  // Heading measurement covariances
+  last_drs_config.R_hdg_compass = map_hdg_measurement_covariance.find("hdg_compass")->second(0);
+  last_drs_config.R_hdg_hector  = map_hdg_measurement_covariance.find("hdg_hector")->second(0);
+  last_drs_config.R_hdg_aloam   = map_hdg_measurement_covariance.find("hdg_aloam")->second(0);
+  last_drs_config.R_hdg_brick   = map_hdg_measurement_covariance.find("hdg_brick")->second(0);
+  last_drs_config.R_hdg_vio     = map_hdg_measurement_covariance.find("hdg_vio")->second(0);
+  last_drs_config.R_hdg_vslam   = map_hdg_measurement_covariance.find("hdg_vslam")->second(0);
 
-    // Heading rate measurement covariances
-    last_drs_config.R_rate_gyro    = map_hdg_measurement_covariance.find("rate_gyro")->second(0);
-    last_drs_config.R_rate_optflow = map_hdg_measurement_covariance.find("rate_optflow")->second(0);
-    last_drs_config.R_rate_icp     = map_hdg_measurement_covariance.find("rate_icp")->second(0);
+  // Heading rate measurement covariances
+  last_drs_config.R_rate_gyro    = map_hdg_measurement_covariance.find("rate_gyro")->second(0);
+  last_drs_config.R_rate_optflow = map_hdg_measurement_covariance.find("rate_optflow")->second(0);
+  last_drs_config.R_rate_icp     = map_hdg_measurement_covariance.find("rate_icp")->second(0);
 
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh));
   reconfigure_server_->updateConfig(last_drs_config);
@@ -2561,7 +2562,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       stateEstimatorsCorrection(pos_hector_x_tmp, pos_hector_y_tmp, "pos_hector");
       auto hdg_hector_corr_tmp = mrs_lib::get_mutexed(mutex_hector, hdg_hector_corr_);
       headingEstimatorsCorrection(hdg_hector_corr_tmp, "hdg_hector");
-
     }
 
     // correction step for aloam
@@ -4678,7 +4678,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   //}
 
-  mrs_lib::set_mutexed(mutex_alt_input_, attitude_command.desired_acceleration.z, alt_input_); // TODO untilt?
+  mrs_lib::set_mutexed(mutex_alt_input_, attitude_command.desired_acceleration.z, alt_input_);  // TODO untilt?
 }
 
 //}
@@ -4760,7 +4760,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     try {
       /* q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setHeading(0.0); */
       q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setYaw(0.0);  // TODO which one is correct in this case?
-
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during setting heading (fcu_untilted)");
@@ -5012,7 +5011,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
           sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
         }
         catch (const std::exception &e) {
-          ROS_ERROR_THROTTLE(1.0,"[Odometry]: RTK LKF prediction step failed: %s", e.what());
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: RTK LKF prediction step failed: %s", e.what());
         }
       }
     }
@@ -5039,6 +5038,28 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       pos_mavros_y    = odom_pixhawk_shifted.pose.pose.position.y;
     }
 
+    if (!lat_gps_est_pos_init_) {
+
+      // Set estimator to correct position before first correction
+      Vec2 zero_state = zero_state.Zero();
+      Vec2 pos;
+      pos << pos_mavros_x, pos_mavros_y;
+      ROS_INFO("[Odometry]: Initializing GPS and RTK estimators to x: %f y: %f", pos(0), pos(1));
+      for (auto &estimator : m_state_estimators) {
+        if (estimator.first == "GPS" || estimator.first == "RTK") {
+
+          estimator.second->setState(0, pos);
+          estimator.second->setState(1, zero_state);
+          estimator.second->setState(2, zero_state);
+
+          Vec2 pos_init;
+          estimator.second->getState(0, pos_init);
+          ROS_INFO("[Odometry]: Initialized %s estimator to x: %f y: %f", estimator.first.c_str(), pos_init(0), pos_init(1));
+        }
+      }
+      lat_gps_est_pos_init_ = true;
+    }
+
     try {
       pub_odom_mavros_.publish(odom_mavros_out);
     }
@@ -5054,6 +5075,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
         innovation(0) = pos_mavros_x - pos_vec(0);
         innovation(1) = pos_mavros_y - pos_vec(1);
+
+        ROS_INFO_THROTTLE(1.0, "[Odometry]: innovation x: %f y: %f", innovation(0), innovation(1));
 
         if (_saturate_mavros_position_) {
 
@@ -6847,9 +6870,11 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
       Vec2 pos;
       pos << hector_pose.pose.position.x, hector_pose.pose.position.y;
       for (auto &estimator : m_state_estimators) {
-        estimator.second->setState(0, pos);
-        estimator.second->setState(1, zero_state);
-        estimator.second->setState(2, zero_state);
+        if (estimator.first == "HECTOR") {
+          estimator.second->setState(0, pos);
+          estimator.second->setState(1, zero_state);
+          estimator.second->setState(2, zero_state);
+        }
       }
 
       got_hector_pose_ = true;
@@ -6942,8 +6967,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   {
     std::scoped_lock lock(mutex_hector);
 
-    pos_hector_x = hector_pose.pose.position.x + hector_offset_(0);
-    pos_hector_y = hector_pose.pose.position.y + hector_offset_(1);
+    pos_hector_x       = hector_pose.pose.position.x + hector_offset_(0);
+    pos_hector_y       = hector_pose.pose.position.y + hector_offset_(1);
     hector_corr_ready_ = true;
   }
 
