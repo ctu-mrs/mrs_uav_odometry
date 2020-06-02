@@ -37,14 +37,15 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg if="$(eval not arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range" />
-  <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
-
-  <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
-  <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
-
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
+
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="range_topic" value="garmin/range" />
+
+  <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin" />
+
+  <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="garmin/range_filtered" />
+  <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/simulation/simulation_default.yaml" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/uav/uav_default.yaml" />
