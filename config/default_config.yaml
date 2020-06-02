@@ -159,8 +159,6 @@ lateral:
     pos_mavros: [0.01]
     vel_mavros: [100]
     tilt_mavros: [100]
-    pos_rtk: [10]
-    vel_rtk: [1000]
     pos_vslam: [1]
     pos_vio: [0.1] #0.1
     vel_vio: [10] #10
@@ -173,6 +171,8 @@ lateral:
     pos_tower: [1000]
     pos_aloam: [10]
     vel_icp: [10]
+    pos_rtk: [1]
+    vel_rtk: [1]
     acc_imu: [1000000000] # turned off in estimators
 
   # RTK estimator must have a different model
@@ -187,11 +187,11 @@ lateral:
     H: [1, 0,
         0, 1]
 
-    R: [0.01, 0,
+    Q: [0.01, 0,
         0, 0.01]
 
-    Q: [10, 0,
-        0, 10]
+    R: [1, 0,
+        0, 1]
 
     P: [1, 0,
         0, 1]

@@ -11,7 +11,7 @@ StateEstimator::StateEstimator(
     const std::vector<bool> &fusing_measurement,
     const LatMat &Q,
     const std::vector<LatStateCol1D> &H,
-    const std::vector<LatStateCol1D> &R_arr)
+    const std::vector<Mat1> &R_arr)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),

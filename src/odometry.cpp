@@ -1638,7 +1638,8 @@ void Odometry::onInit() {
   for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
 
     std::vector<bool>          fusing_measurement;
-    std::vector<LatStateCol1D> P_arr_lat, R_arr_lat;
+    std::vector<LatStateCol1D> P_arr_lat; 
+    std::vector<Mat1> R_arr_lat;
 
     // Find measurements fused by the estimator
     std::map<std::string, std::vector<std::string>>::iterator temp_vec = map_estimator_measurement.find(*it);
@@ -1663,9 +1664,9 @@ void Odometry::onInit() {
       // Find measurement covariance
       std::map<std::string, Mat1>::iterator pair_measurement_covariance = map_measurement_covariance.find(*it2);
       if (*it2 == "vel_optflow") {
-        R_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0) * 1000);
+        R_arr_lat.push_back(Mat1::Ones() * pair_measurement_covariance->second(0) * 1000);
       } else {
-        R_arr_lat.push_back(LatStateCol1D::Ones() * pair_measurement_covariance->second(0));
+        R_arr_lat.push_back(Mat1::Ones() * pair_measurement_covariance->second(0));
       }
     }
 
