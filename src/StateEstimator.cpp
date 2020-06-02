@@ -64,8 +64,8 @@ StateEstimator::StateEstimator(
   //}
 
 
-  mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
-  mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.903, 0.097, 6.3512, 0.01);
+  mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
+  mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
 
   sc_x.x = sc_x.x.Zero();
   sc_x.P = sc_x.P.Identity() * 1000;
