@@ -142,7 +142,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   alt_u_t u = u.Zero();
   u(0)      = input;
 
-  double  dtsq = pow(dt, 2);
+  double  dtsq = pow(dt, 2)/2;
   alt_A_t A    = m_A;
 
   A(0, 1) = dt;

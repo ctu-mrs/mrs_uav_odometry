@@ -4972,8 +4972,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     {
       std::scoped_lock lock(mutex_odom_pixhawk);
 
-      vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous_shifted.pose.pose.position.x) / dt;
-      vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous_shifted.pose.pose.position.y) / dt;
+      /* vel_mavros_x = (odom_pixhawk_shifted.pose.pose.position.x - odom_pixhawk_previous_shifted.pose.pose.position.x) / dt; */
+      /* vel_mavros_y = (odom_pixhawk_shifted.pose.pose.position.y - odom_pixhawk_previous_shifted.pose.pose.position.y) / dt; */
+      vel_mavros_x = odom_pixhawk_shifted.twist.twist.linear.x;
+      vel_mavros_y = odom_pixhawk_shifted.twist.twist.linear.y;
     }
 
     // Apply correction step to all state estimators
@@ -7234,6 +7236,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   if (!isValidGate(range_garmin_tmp.range, _garmin_min_valid_alt_, _garmin_max_valid_alt_, "garmin range")) {
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: garmin measurement not passed through gate: %f", range_garmin_tmp.range);
     return;
   }
 

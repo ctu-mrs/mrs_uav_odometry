@@ -2,12 +2,12 @@ altitude:
 
   # Covariances of measurements
   R:
-    height_range: [0.1] # 0.04 stddev in simulation
-    height_sonar: [1000] # 0.04 stddev in simulation
+    height_range: [0.1]
+    height_sonar: [1000]
     height_plane: [10] 
     height_brick: [1] 
     height_vio: [1] 
-    vel_baro: [0.01]
+    vel_baro: [0.0001]
     acc_imu: [1]
 
 lateral:
