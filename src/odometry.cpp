@@ -7728,11 +7728,9 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
   if (cov_tmp > _gps_fallback_covariance_limit_ && c_gps_cov_over_lim_ < _gps_fallback_bad_samples_ + 1) {
     c_gps_cov_over_lim_++;
     c_gps_cov_ok_ = 0;
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: c_bad %d, c_good %d", c_gps_cov_over_lim_, c_gps_cov_ok_);
   } else if (cov_tmp < _gps_fallback_covariance_ok_ && c_gps_cov_ok_ < _gps_fallback_good_samples_ + 1) {
     c_gps_cov_ok_++;
     c_gps_cov_over_lim_ = 0;
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: c_bad %d, c_good %d", c_gps_cov_over_lim_, c_gps_cov_ok_);
   }
 
   // Fallback when GPS covariance over threshold
