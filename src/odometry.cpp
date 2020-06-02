@@ -5076,8 +5076,6 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         innovation(0) = pos_mavros_x - pos_vec(0);
         innovation(1) = pos_mavros_y - pos_vec(1);
 
-        ROS_INFO_THROTTLE(1.0, "[Odometry]: innovation x: %f y: %f", innovation(0), innovation(1));
-
         if (_saturate_mavros_position_) {
 
           // X position
