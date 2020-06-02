@@ -52,7 +52,7 @@ AltitudeEstimator::AltitudeEstimator(
 
   // Check size of m_R_multi elements
   for (size_t i = 0; i < m_R_multi.size(); i++) {
-    if (m_R_multi[i].rows() != ALT_N_MEASUREMENTS || m_R_multi[i].cols() != ALT_N_MEASUREMENTS) {
+    if (m_R_multi[i].rows() != ALT_P_MEASUREMENTS || m_R_multi[i].cols() != ALT_P_MEASUREMENTS) {
       std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".AltitudeEstimator()"
                 << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (3, 3) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")"
                 << std::endl;
