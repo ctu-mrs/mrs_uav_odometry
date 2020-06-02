@@ -60,4 +60,4 @@ altitude_estimators:
 # Untilted garmin filter (true height above terrain unsuitable for control)
 height:
   Q: [0.1]
-  R: [0.1]
+  R: [0.01]
