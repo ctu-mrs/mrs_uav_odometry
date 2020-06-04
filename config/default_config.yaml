@@ -31,7 +31,8 @@ publish_rate:
 
 # debug parameters# #{
 debug:
-  publish_corrections: true # publish debug topics of measurement corrections that are not essential for the functioning of the system
+  publish_corrections: true # publish debug topics of measurement corrections
+  publish_estimator_states: true # publish debug topics of measurement estimator states
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
   publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
   pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!
@@ -63,19 +64,19 @@ altitude:
 
   # Process covariance
   Q: [0.01, 0, 0,
-      0, 0.01, 0,
-      0, 0, 0.01]
+      0, 100, 0,
+      0, 0, 1]
 
   # Covariances of measurements
   R:
-    height_range: [0.1]
+    height_range: [10]
     height_sonar: [1]
     height_plane: [10] 
     height_brick: [10] 
     height_vio: [1] 
     height_aloam: [1] 
     height_baro: [1] 
-    vel_baro: [0.01]
+    vel_baro: [100]
     acc_imu: [100] 
 
 # # #}
@@ -85,7 +86,7 @@ altitude:
   median_filter:
 
     garmin:
-      buffer_size: 100
+      buffer_size: 200
       max_diff: 2.0
 
     sonar:

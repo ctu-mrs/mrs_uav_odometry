@@ -17,7 +17,7 @@
 #include "types.h"
 
 #define ALT_DT 0.01
-#define ALT_INPUT_COEFF 0.0
+#define ALT_INPUT_COEFF 0.01
 
 namespace mrs_uav_odometry
 {
