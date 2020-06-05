@@ -2261,9 +2261,9 @@ void Odometry::onInit() {
   last_drs_config.R_acc_imu_lat = map_measurement_covariance.find("acc_imu")->second(0);
 
   // Lateral process covariances
-  last_drs_config.Q_pos = _Q_lat_(0, 0);
-  last_drs_config.Q_vel = _Q_lat_(1, 1);
-  last_drs_config.Q_acc = _Q_lat_(2, 2);
+  last_drs_config.Q_lat_pos = _Q_lat_(0, 0);
+  last_drs_config.Q_lat_vel = _Q_lat_(1, 1);
+  last_drs_config.Q_lat_acc = _Q_lat_(2, 2);
 
   // Altitude measurement covariances
   last_drs_config.R_height_range = map_alt_measurement_covariance.find("height_range")->second(0);
@@ -2273,11 +2273,19 @@ void Odometry::onInit() {
   last_drs_config.R_height_aloam = map_alt_measurement_covariance.find("height_aloam")->second(0);
   last_drs_config.R_height_baro  = map_alt_measurement_covariance.find("height_baro")->second(0);
 
+  // Altitude process covariances
+  last_drs_config.Q_alt_pos = _Q_alt_(0, 0);
+  last_drs_config.Q_alt_vel = _Q_alt_(1, 1);
+  last_drs_config.Q_alt_acc = _Q_alt_(2, 2);
+
   // Altitude velocity measurement covariances
   last_drs_config.R_vel_baro = map_alt_measurement_covariance.find("vel_baro")->second(0);
 
   // Altitude acceleration measurement covariances
   last_drs_config.R_acc_imu = map_alt_measurement_covariance.find("acc_imu")->second(0);
+
+  // Altitude input coefficient
+  last_drs_config.alt_input_coeff = 0.1;
 
   // Heading measurement covariances
   last_drs_config.R_hdg_compass = map_hdg_measurement_covariance.find("hdg_compass")->second(0);
@@ -9033,11 +9041,11 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
         "Position (0,0): %f\n"
         "Velocity (1,1): %f\n"
         "Acceleration (2,2): %f\n",
-        config.Q_pos, config.Q_vel, config.Q_acc);
+        config.Q_lat_pos, config.Q_lat_vel, config.Q_lat_acc);
 
-    estimator.second->setQ(config.Q_pos, Eigen::Vector2i(0, 0));
-    estimator.second->setQ(config.Q_vel, Eigen::Vector2i(1, 1));
-    estimator.second->setQ(config.Q_acc, Eigen::Vector2i(2, 2));
+    estimator.second->setQ(config.Q_lat_pos, Eigen::Vector2i(0, 0));
+    estimator.second->setQ(config.Q_lat_vel, Eigen::Vector2i(1, 1));
+    estimator.second->setQ(config.Q_lat_acc, Eigen::Vector2i(2, 2));
   }
 
   ROS_INFO(
@@ -9059,6 +9067,20 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
     estimator.second->setR(config.R_height_baro, map_alt_measurement_name_id.find("height_baro")->second);
     estimator.second->setR(config.R_vel_baro, map_alt_measurement_name_id.find("vel_baro")->second);
     estimator.second->setR(config.R_acc_imu, map_alt_measurement_name_id.find("acc_imu")->second);
+
+    ROS_INFO(
+        "Altitude process covariance:\n"
+        "Position (0,0): %f\n"
+        "Velocity (1,1): %f\n"
+        "Acceleration (2,2): %f\n",
+        config.Q_alt_pos, config.Q_alt_vel, config.Q_alt_acc);
+
+    estimator.second->setQ(config.Q_alt_pos, Eigen::Vector2i(0, 0));
+    estimator.second->setQ(config.Q_alt_vel, Eigen::Vector2i(1, 1));
+    estimator.second->setQ(config.Q_alt_acc, Eigen::Vector2i(2, 2));
+
+    ROS_INFO("Altitude input coefficient: %f\n", config.alt_input_coeff);
+    estimator.second->setInputCoeff(config.alt_input_coeff);
   }
 
   ROS_INFO(

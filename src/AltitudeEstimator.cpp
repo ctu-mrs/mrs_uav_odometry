@@ -142,7 +142,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
   alt_u_t u = u.Zero();
   u(0)      = input;
 
-  double  dtsq = pow(dt, 2)/2;
+  double  dtsq = pow(dt, 2) / 2;
   alt_A_t A    = m_A;
 
   A(0, 1) = dt;
@@ -156,7 +156,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
     try {
       // Apply the prediction step
       mp_lkf->A = A;
-      m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
+      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -204,7 +204,7 @@ bool AltitudeEstimator::doPrediction(const double input) {
     try {
       // Apply the prediction step
       mp_lkf->A = A;
-      m_sc = mp_lkf->predict(m_sc, u, m_Q, dt);
+      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -469,6 +469,130 @@ bool AltitudeEstimator::getR(double &R, int measurement_type) {
 
 //}
 
+/*  //{ getQ() */
+
+bool AltitudeEstimator::getQ(double &cov, const Eigen::Vector2i &idx) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for index validity
+  if (idx(0) > m_n_states || idx(1) > m_n_states || idx(0) < 0 || idx(1) < 0) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"idx\" should be < " << m_n_states << "." << std::endl;
+    return false;
+  }
+
+  //}
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+    cov = m_Q(idx(0), idx(1));
+  }
+
+  return true;
+}
+
+//}
+
+/*  //{ setQ() */
+
+bool AltitudeEstimator::setQ(double cov, const Eigen::Vector2i &idx) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for NaNs
+  if (!std::isfinite(cov)) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): NaN detected in variable \"cov\"." << std::endl;
+    return false;
+  }
+
+  // Check for non-positive covariance
+  if (cov <= 0) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"cov\" should be > 0." << std::endl;
+    return false;
+  }
+
+  // Check for index validity
+  if (idx(0) > m_n_states || idx(1) > m_n_states || idx(0) < 0 || idx(1) < 0) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setR(double cov=" << cov << ", int"
+              << "): \"idx\" should be < " << m_n_states << "." << std::endl;
+    return false;
+  }
+
+  //}
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+
+    m_Q(idx(0), idx(1)) = cov;
+  }
+
+  /* std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(double cov=" << cov << ", int measurement_type=" << measurement_type << ")" */
+  /* << " Changed covariance from: " << old_cov << " to: " << m_Q_arr[measurement_type](0, 0) << std::endl; */
+
+  return true;
+}
+
+//}
+
+/*  //{ setInputCoeff() */
+
+bool AltitudeEstimator::setInputCoeff(double coeff) {
+
+  /*  //{ sanity checks */
+
+  if (!m_is_initialized)
+    return false;
+
+  // Check for NaNs
+  if (!std::isfinite(coeff)) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff << "): NaN detected in variable \"coeff\"."
+              << std::endl;
+    return false;
+  }
+
+  // Check for non-positive coefficient
+  if (coeff <= 0) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff << "): \"coeff\" should be > 0." << std::endl;
+    return false;
+  }
+
+  // Check for larger than 1 coefficient
+  if (coeff >= 1) {
+    std::cerr << "[AltitudeEstimator]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff << "): \"coeff\" should be < 1." << std::endl;
+    return false;
+  }
+
+  //}
+
+  double old_coeff;
+
+  {
+    std::scoped_lock lock(mutex_lkf);
+    old_coeff = m_B(2, 0);
+    m_A(2, 2) = 1.0 - coeff;
+    mp_lkf->A = m_A;
+    m_B(2, 0) = coeff;
+    mp_lkf->B = m_B;
+  }
+
+  std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff << " Changed input coefficient from: " << old_coeff
+            << " to: " << coeff << std::endl;
+
+  return true;
+}
+
+//}
+
 /*  //{ getCovariance() */
 
 bool AltitudeEstimator::getCovariance(alt_P_t &P) {
@@ -503,8 +627,8 @@ bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
   // Check for NaNs
   for (int i = 0; i < m_n_states; i++) {
     if (!std::isfinite(P(i, i))) {
-      ROS_ERROR_STREAM("[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(const Eigen::MatrixXd &P=" << P << "): NaN detected in variable \"P("
-                << i << "," << i << ")\".");
+      ROS_ERROR_STREAM("[AltitudeEstimator]: " << m_estimator_name << ".setCovariance(const Eigen::MatrixXd &P=" << P << "): NaN detected in variable \"P(" << i
+                                               << "," << i << ")\".");
       return false;
     }
   }
