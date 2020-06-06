@@ -1,15 +1,3 @@
-altitude:
-
-  # Covariances of measurements
-  R:
-    height_range: [0.1]
-    height_sonar: [1000]
-    height_plane: [10] 
-    height_brick: [1] 
-    height_vio: [1] 
-    vel_baro: [0.0001]
-    acc_imu: [1]
-
 lateral:
 
   optflow_median_filter: true
