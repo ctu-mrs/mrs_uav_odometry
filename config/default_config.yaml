@@ -63,20 +63,20 @@ altitude:
 # covariances# #{
 
   # Process covariance
-  Q: [0.01, 0, 0,
+  Q: [1.0, 0, 0,
       0, 100, 0,
-      0, 0, 0.1]
+      0, 0, 10.0]
 
   # Covariances of measurements
   R:
-    height_range: [10]
-    height_sonar: [1]
-    height_plane: [10] 
-    height_brick: [10] 
-    height_vio: [1] 
-    height_aloam: [1] 
-    height_baro: [1] 
-    vel_baro: [100]
+    height_range: [1.0]
+    height_sonar: [1.0]
+    height_plane: [1.0] 
+    height_brick: [1.0] 
+    height_vio: [1.0] 
+    height_aloam: [1.0] 
+    height_baro: [1.0] 
+    vel_baro: [10.0]
     acc_imu: [100] 
 
 # # #}
@@ -165,7 +165,6 @@ lateral:
     vel_vio: [10] #10
     pos_object: [100]
     vel_object: [10000]
-    # pos_brick: [100]
     pos_brick: [0.01]
     vel_brick: [100]
     pos_hector: [1]

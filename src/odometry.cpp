@@ -4686,7 +4686,29 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   //}
 
-  mrs_lib::set_mutexed(mutex_alt_input_, attitude_command.desired_acceleration.z, alt_input_);  // TODO untilt?
+  /* altitude acceleration command //{ */
+
+  {
+    if (got_odom_pixhawk_) {
+
+      std::scoped_lock lock(mutex_odom_pixhawk);
+
+      nav_msgs::Odometry odom_pixhawk_local = odom_pixhawk;
+
+      Eigen::Matrix3d uav_orientation = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation);
+
+      Eigen::Vector3d desired_acceleration_fcu;
+      desired_acceleration_fcu[0] = attitude_command.desired_acceleration.x;
+      desired_acceleration_fcu[1] = attitude_command.desired_acceleration.y;
+      desired_acceleration_fcu[2] = attitude_command.desired_acceleration.z;
+
+      Eigen::Vector3d desired_acceleration_fcu_untilted = uav_orientation * desired_acceleration_fcu;
+
+      mrs_lib::set_mutexed(mutex_alt_input_, desired_acceleration_fcu_untilted[2], alt_input_);
+    }
+  }
+
+  //}
 }
 
 //}
@@ -7284,20 +7306,42 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   }
 
 
-  double range_fcu = 0;
-  try {
-    geometry_msgs::TransformStamped tf_fcu2garmin = m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, ros::Time(0));
-    range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) +
-                tf_fcu2garmin.transform.translation.y * tan(roll);
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN_ONCE("Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                  range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
-    range_fcu = range_garmin_tmp.range + _garmin_z_offset_;
-  }
+  // the old conversion of "garmin's range" to "uav height"
+  // TODO: delete when really not needed
+  /* double range_fcu = 0; */
+  /* try { */
+  /*   geometry_msgs::TransformStamped tf_fcu2garmin = m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, ros::Time(0)); */
+  /*   range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) + */
+  /*               tf_fcu2garmin.transform.translation.y * tan(roll); */
+  /* } */
+  /* catch (tf2::TransformException &ex) { */
+  /*   ROS_WARN_ONCE("Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s", */
+  /*                 range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what()); */
+  /*   range_fcu = range_garmin_tmp.range + _garmin_z_offset_; */
+  /* } */
+
+  // the new way of converting "garmin's range" to "uav height"
+  // Create a point in the garmin FCU that correspond to the measured place
+  // and then normally transform it to fcu_untilted. Later, extract the
+  // negative z-component out of it.
+  geometry_msgs::PoseStamped garmin_point;
+
+  garmin_point.header           = msg->header;
+  garmin_point.pose.position.x  = msg->range;
+  garmin_point.pose.position.y  = 0;
+  garmin_point.pose.position.z  = 0;
+  garmin_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
+
+  auto res = transformer_.transformSingle("fcu_untilted", garmin_point);
 
   double measurement;
-  measurement = range_fcu * cos(roll) * cos(pitch);
+
+  if (res) {
+    measurement = -res.value().pose.position.z;
+  } else {
+    ROS_ERROR_THROTTLE(1.0, "[OdomTest]: could not transform garmin measurement to the fcu_untilted");
+    return;
+  }
 
   if (!std::isfinite(measurement)) {
 

@@ -17,7 +17,7 @@
 #include "types.h"
 
 #define ALT_DT 0.01
-#define ALT_INPUT_COEFF 0.1
+#define ALT_INPUT_COEFF 0.95
 
 namespace mrs_uav_odometry
 {
@@ -68,7 +68,6 @@ private:
 
   // Array with covariances of each fused measurement
   std::vector<alt_R_t> m_R_multi;
-
 
   // Default dt
   double m_dt    = ALT_DT;
