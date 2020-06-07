@@ -7321,7 +7321,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   /* } */
 
   // the new way of converting "garmin's range" to "uav height"
-  // Create a point in the garmin FCU that correspond to the measured place
+  // Create a point in the garmin frame that correspond to the measured place
   // and then normally transform it to fcu_untilted. Later, extract the
   // negative z-component out of it.
   geometry_msgs::PoseStamped garmin_point;
