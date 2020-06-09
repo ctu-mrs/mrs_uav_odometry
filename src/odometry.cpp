@@ -3316,6 +3316,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
+  // Prepare mavros odometry for later use
+  auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted);
+
+  geometry_msgs::Quaternion mavros_orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
+
   /* publish aux odometry //{ */
 
   // Loop through each estimator
@@ -3428,7 +3433,20 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW")) {
 
         hdg_estimator.second->getState(0, hdg);
-        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(odom_aux->second.pose.pose.orientation).setHeading(hdg);
+
+        // Obtain mavros orientation
+        tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+
+        // Obtain heading from mavros orientation
+        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+
+        // Build rotation matrix from difference between new heading nad mavros heading
+        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
+
+        // Transform the mavros orientation by the rotation matrix
+        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+
+        odom_aux->second.pose.pose.orientation = new_orientation;
       }
     }
 
@@ -3577,10 +3595,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // initialized odom_main from pixhawk odometry to obtain attitude and angular rate which is not estimated by us
   nav_msgs::Odometry odom_main;
-
-  auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted, odom_pixhawk_shifted);
-
-  geometry_msgs::Quaternion mavros_orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
 
   odom_main                  = odom_pixhawk_shifted_local;
   uav_state.pose.position    = odom_pixhawk_shifted_local.pose.pose.position;
