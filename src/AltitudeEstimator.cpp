@@ -60,7 +60,6 @@ AltitudeEstimator::AltitudeEstimator(
     }
   }
 
-
   //}
 
   // clang-format off
