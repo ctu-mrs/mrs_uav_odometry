@@ -7353,7 +7353,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (res) {
     measurement = -res.value().pose.position.z;
   } else {
-    ROS_ERROR_THROTTLE(1.0, "[OdomTest]: could not transform garmin measurement to the fcu_untilted");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform garmin measurement to the fcu_untilted");
     return;
   }
 
