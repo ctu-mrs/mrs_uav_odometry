@@ -21,6 +21,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(mavros_msgs REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
+
+# please, NEVER commit those alternative flags with specific overrides of optimization
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -O0 -g")
 
 # include Eigen3
