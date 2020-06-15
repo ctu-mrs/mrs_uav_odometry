@@ -1971,7 +1971,7 @@ void Odometry::onInit() {
   // publisher for tf
   broadcaster_ = new tf2_ros::TransformBroadcaster();
 
-  // publishers for roll pitch yaw orientations in local_origin frame
+  // publishers for orientations in local_origin frame
   pub_des_attitude_global_ = nh.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
   pub_orientation_gt_      = nh.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
   pub_orientation_mavros_  = nh.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
@@ -4795,19 +4795,27 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-
   // Publish transform of fcu_untilted frame
   tf2::Quaternion q;
   {
     std::scoped_lock lock(mutex_odom_pixhawk);
 
+    double heading;
+
     try {
-      /* q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setHeading(0.0); */
-      q = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).setYaw(0.0);  // TODO which one is correct in this case?
+      heading = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation).getHeading();
     }
     catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during setting heading (fcu_untilted)");
+      ROS_ERROR("[Odometry]: Exception caught during getting heading");
+      return;
     }
+
+    // we need to undo the heading
+
+    Eigen::Matrix3d odom_pixhawk_R = mrs_lib::AttitudeConverter(odom_pixhawk.pose.pose.orientation);
+    Eigen::Matrix3d undo_heading_R = mrs_lib::AttitudeConverter(Eigen::AngleAxis(-heading, Eigen::Vector3d(0, 0, 1)));
+
+    q = mrs_lib::AttitudeConverter(undo_heading_R * odom_pixhawk_R);
   }
   q = q.inverse();
 
@@ -4985,15 +4993,14 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     orientation_mavros.header = odom_pixhawk_shifted.header;
   }
 
-  [[maybe_unused]] double hdg = getCurrentHeading();
+  [[maybe_unused]] double hdg = getCurrentHeading(); // TODO unused?
 
-  // Rotate the tilt into the current estimation frame
-  auto [rot_x, rot_y, rot_z] = mrs_lib::AttitudeConverter(orient);
+  auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(orient);
 
   // publish orientation for debugging
-  orientation_mavros.vector.x = rot_x;
-  orientation_mavros.vector.y = rot_y;
-  orientation_mavros.vector.z = rot_z;
+  orientation_mavros.vector.x = roll;
+  orientation_mavros.vector.y = pitch;
+  orientation_mavros.vector.z = yaw;
   try {
     pub_orientation_mavros_.publish(orientation_mavros);
   }
@@ -7299,40 +7306,25 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     }
   }
 
-  auto odom_pixhawk_local        = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
-  auto [roll, pitch, yaw_unused] = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
+  auto            odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+  Eigen::Matrix3d odom_pixhawk_R     = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
 
-  std::ignore = yaw_unused;  // stops the compiler from yelling about not using this variable
+  double tilt = mrs_lib::vectorAngle(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
 
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
   double excessive_tilt = false;
-  if (std::pow(roll, 2) > _excessive_tilt_sq_ || std::pow(pitch, 2) > _excessive_tilt_sq_) {
+  if (std::pow(tilt, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
     excessive_tilt = false;
   }
 
   if (excessive_tilt) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing.", roll, pitch);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected: %.2f rad. Not fusing.", tilt);
     return;
   }
-
-
-  // the old conversion of "garmin's range" to "uav height"
-  // TODO: delete when really not needed
-  /* double range_fcu = 0; */
-  /* try { */
-  /*   geometry_msgs::TransformStamped tf_fcu2garmin = m_tf_buffer.lookupTransform(fcu_frame_id_, range_garmin_tmp.header.frame_id, ros::Time(0)); */
-  /*   range_fcu = range_garmin_tmp.range - tf_fcu2garmin.transform.translation.z + tf_fcu2garmin.transform.translation.x * tan(pitch) + */
-  /*               tf_fcu2garmin.transform.translation.y * tan(roll); */
-  /* } */
-  /* catch (tf2::TransformException &ex) { */
-  /*   ROS_WARN_ONCE("Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s", */
-  /*                 range_garmin_tmp.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what()); */
-  /*   range_fcu = range_garmin_tmp.range + _garmin_z_offset_; */
-  /* } */
 
   // the new way of converting "garmin's range" to "uav height"
   // Create a point in the garmin frame that correspond to the measured place
@@ -7474,40 +7466,43 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  auto odom_pixhawk_local        = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
-  auto [roll, pitch, yaw_unused] = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
+  auto            odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk, odom_pixhawk);
+  Eigen::Matrix3d odom_pixhawk_R     = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
 
-  std::ignore = yaw_unused;  // stops the compiler from yelling about not using this variable
+  double tilt = mrs_lib::vectorAngle(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
 
   // Check for excessive tilts
   // we do not want to fuse sonar with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
   double excessive_tilt = false;
-  if (std::pow(roll, 2) > _excessive_tilt_sq_ || std::pow(pitch, 2) > _excessive_tilt_sq_) {
+  if (std::pow(tilt, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
     excessive_tilt = false;
   }
 
+  // the new way of converting "sonar's range" to "uav height"
+  // Create a point in the sonar frame that correspond to the measured place
+  // and then normally transform it to fcu_untilted. Later, extract the
+  // negative z-component out of it.
+  geometry_msgs::PoseStamped sonar_point;
 
-  double range_fcu = 0;
-  {
-    std::scoped_lock lock(mutex_range_sonar);
-    try {
-      const ros::Duration             timeout(1.0 / 1000.0);
-      geometry_msgs::TransformStamped tf_fcu2sonar = m_tf_buffer.lookupTransform(fcu_frame_id_, range_sonar.header.frame_id, range_sonar.header.stamp, timeout);
-      range_fcu = range_sonar.range - tf_fcu2sonar.transform.translation.z + tf_fcu2sonar.transform.translation.x * tan(pitch) +
-                  tf_fcu2sonar.transform.translation.y * tan(roll);
-    }
-    catch (tf2::TransformException &ex) {
-      ROS_WARN_THROTTLE(10.0, "Error during transform from \"%s\" frame to \"%s\" frame. Using offset from config file instead. \n\tMSG: %s",
-                        range_sonar.header.frame_id.c_str(), (fcu_frame_id_).c_str(), ex.what());
-      range_fcu = range_sonar.range + _sonar_z_offset_;
-    }
+  sonar_point.header           = range_sonar.header;
+  sonar_point.pose.position.x  = range_sonar.range;
+  sonar_point.pose.position.y  = 0;
+  sonar_point.pose.position.z  = 0;
+  sonar_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
+
+  auto res = transformer_.transformSingle("fcu_untilted", sonar_point);
+
+  double measurement;
+
+  if (res) {
+    measurement = -res.value().pose.position.z;
+  } else {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform sonar measurement to the fcu_untilted");
+    return;
   }
-
-  // calculate the vertical component of range measurement
-  double measurement = range_fcu * cos(roll) * cos(pitch);
 
   if (!std::isfinite(measurement)) {
 
@@ -7538,7 +7533,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   }
 
   if (excessive_tilt) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected - roll: %f, pitch: %f. Not fusing sonar.", roll, pitch);
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected: %.2f. Not fusing sonar.", tilt);
     return;
   }
 
@@ -9437,17 +9432,24 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
 /* //{ getGlobalRot() */
 void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz) {
 
-  // Get roll, pitch, yaw in body frame
-  double r_new, p_new;
+  double heading;
+  try {
+    heading = mrs_lib::AttitudeConverter(q_msg).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR("exception caught, could not calculate heading.");
+    return;
+  }
 
-  auto [r, p, y] = mrs_lib::AttitudeConverter(q_msg);
+  Eigen::Matrix3d original_R     = mrs_lib::AttitudeConverter(q_msg);
+  Eigen::Matrix3d undo_heading_R = mrs_lib::AttitudeConverter(Eigen::AngleAxis(-heading, Eigen::Vector3d(0, 0, 1)));
 
-  p_new = p * cos(-y) - r * sin(-y);
-  r_new = r * cos(-y) + p * sin(-y);
+  // undo the heading
+  Eigen::Matrix3d R_no_heading = mrs_lib::AttitudeConverter(undo_heading_R * original_R);
 
-  rx = r_new;
-  ry = p_new;
-  rz = y;
+  rx = mrs_lib::vectorAngle(Eigen::Vector3d(1, 0, 0), R_no_heading.col(0));
+  ry = mrs_lib::vectorAngle(Eigen::Vector3d(0, 1, 0), R_no_heading.col(1));
+  rz = heading;
 }
 //}
 
