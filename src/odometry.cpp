@@ -4993,7 +4993,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     orientation_mavros.header = odom_pixhawk_shifted.header;
   }
 
-  [[maybe_unused]] double hdg = getCurrentHeading(); // TODO unused?
+  [[maybe_unused]] double hdg = getCurrentHeading();  // TODO unused?
 
   auto [roll, pitch, yaw] = mrs_lib::AttitudeConverter(orient);
 
@@ -7345,8 +7345,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (res) {
     measurement = -res.value().pose.position.z;
   } else {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform garmin measurement to the fcu_untilted");
-    return;
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform garmin measurement to the fcu_untilted, using fallback");
+    measurement = msg->range - _garmin_z_offset_;
   }
 
   if (!std::isfinite(measurement)) {
@@ -7500,8 +7500,8 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   if (res) {
     measurement = -res.value().pose.position.z;
   } else {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform sonar measurement to the fcu_untilted");
-    return;
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: could not transform sonar measurement to the fcu_untilted, using fallback");
+    measurement = range_sonar.range - _sonar_z_offset_;
   }
 
   if (!std::isfinite(measurement)) {
