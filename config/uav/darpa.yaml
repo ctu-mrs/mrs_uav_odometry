@@ -26,7 +26,7 @@ lateral:
 heading:
   # Covariances of measurements
   R:
-    yaw_aloam: [0.1]
+    hdg_aloam: [0.1]
 
 altitude:
   R:
