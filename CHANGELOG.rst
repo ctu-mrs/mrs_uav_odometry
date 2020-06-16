@@ -24,7 +24,7 @@ Changelog for package mrs_uav_odometry
 * fallback to optflow from gps
 * lowered covariance of icp
 * fixed taking off with plane estimator
-* fixed brick yaw deadlock
+* fixed brick heading deadlock
 * updated dynamic reconfigure sequence
 * removed covariances overrding default ones
 * not fusing mavros velocity
@@ -39,7 +39,7 @@ Changelog for package mrs_uav_odometry
 * switching to garmin when plane height above 4 m
 * add aloam_available to diagnostics msg
 * fixed awiting for tf in callbackGramin, rmeove timeouts
-* max yaw brick jump
+* max heading brick jump
 * hiccup detected is now a warning
 * sanitized garmin callback
 * better mutexing in mainTimer
@@ -49,7 +49,7 @@ Changelog for package mrs_uav_odometry
 * publishing imu in fcu untilted
 * using attitude command from control manager instead of mavros target att
 * detecting max brick jump
-* saturating brick yaw, slower fusion
+* saturating brick heading, slower fusion
 * odom stable using transformer
 * stable origin tf
 * moved odom_stable transform after tf is publshed
@@ -129,7 +129,7 @@ Changelog for package mrs_uav_odometry
 * fixed altitude in aux estimators
 * hopefully pass_rtk_as_odom works now
 * fixed tf when using ground truth
-* untilted is not unyawed anymore
+* untilted is not unheadinged anymore
 * publishing fcu_untilted transform
 * fixed origin of GPS and RTK
 * fixed pass_rtk_as_odom
@@ -140,7 +140,7 @@ Changelog for package mrs_uav_odometry
 * plane height estimator
 * using correct function for fusing tilts
 * fallback from BRICK cannot be BRICK
-* removed disambiguate brick yaw
+* removed disambiguate brick heading
 * fixed inverse of tranform bug
 * new reference frames
 * fixed heading in odom_aux
@@ -233,7 +233,7 @@ Changelog for package mrs_uav_odometry
 * Calling failsafe when no fallback odometry available
 * + monitor script
 * changed rinfo frequency of disturbance force
-* Fixed sign of target yaw body rate from mavros
+* Fixed sign of target heading body rate from mavros
 * Printing disturbance force values to terminal
 * Simplified configs
 * Improved tilt fusion, disturbance acceleration
