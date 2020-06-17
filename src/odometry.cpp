@@ -3868,10 +3868,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       odom_main.header.frame_id       = _uav_name_ + "/rtk_origin";
       odom_main.child_frame_id        = fcu_frame_id_;
 
-      uav_state.header.frame_id    = _uav_name_ + "/rtk_origin";
-      uav_state.pose.position      = rtk_local_odom_tmp.pose.pose.position;
-      uav_state.pose.orientation   = rtk_local_odom_tmp.pose.pose.orientation;
-      uav_state.velocity = rtk_local_odom_tmp.twist.twist;
+      uav_state.header.frame_id  = _uav_name_ + "/rtk_origin";
+      uav_state.pose.position    = rtk_local_odom_tmp.pose.pose.position;
+      uav_state.pose.orientation = rtk_local_odom_tmp.pose.pose.orientation;
+      uav_state.velocity         = rtk_local_odom_tmp.twist.twist;
     }
 
     //}
@@ -6061,6 +6061,10 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       if (!got_rtk_local_origin_z_) {
         rtk_local_origin_z_ = 0.0;
       }
+    }
+
+    if (_pass_rtk_as_odom_) {
+      rtk_local_origin_z_ = 0.0;
     }
 
     got_rtk_        = true;
