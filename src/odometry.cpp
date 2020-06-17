@@ -3395,10 +3395,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
-
-      mrs_lib::set_mutexed(mutex_rtk_local_odom, rtk_local_odom.pose.pose.position.z, odom_aux->second.pose.pose.position.z);
-    }
 
     if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) == _fcu_height_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
@@ -3448,6 +3444,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         odom_aux->second.pose.pose.orientation = new_orientation;
       }
+    }
+
+    // Pass RTK through
+    if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
+
+      mrs_lib::set_mutexed(mutex_rtk_local_odom, rtk_local_odom, odom_aux->second);
     }
 
     // Get inverse trasnform
@@ -3861,13 +3863,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto rtk_local_odom_tmp = mrs_lib::get_mutexed(mutex_rtk_local_odom, rtk_local_odom);
 
       // TODO transform twist to body frame
-      odom_main                 = rtk_local_odom_tmp;
-      odom_main.header.frame_id = _uav_name_ + "/rtk_origin";  // TODO does this not cause problems?
-      odom_main.child_frame_id  = fcu_frame_id_;
+      odom_main.pose.pose.position    = rtk_local_odom_tmp.pose.pose.position;
+      odom_main.pose.pose.orientation = rtk_local_odom_tmp.pose.pose.orientation;
+      odom_main.header.frame_id       = _uav_name_ + "/rtk_origin";
+      odom_main.child_frame_id        = fcu_frame_id_;
 
-      uav_state.header.frame_id = _uav_name_ + "/rtk_origin";
-      uav_state.pose            = rtk_local_odom_tmp.pose.pose;
-      uav_state.velocity        = rtk_local_odom_tmp.twist.twist;
+      uav_state.header.frame_id    = _uav_name_ + "/rtk_origin";
+      uav_state.pose.position      = rtk_local_odom_tmp.pose.pose.position;
+      uav_state.pose.orientation   = rtk_local_odom_tmp.pose.pose.orientation;
+      uav_state.velocity = rtk_local_odom_tmp.twist.twist;
     }
 
     //}
@@ -7697,6 +7701,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   }
 
   got_pixhawk_utm_ = true;
+  ROS_INFO_ONCE("[Odometry]: Got Pixhawk UTM.");
 
   nav_msgs::Odometry gps_local_odom;
   gps_local_odom.header          = msg->header;
