@@ -3,7 +3,7 @@ version: "0.0.5.0"
 # Estimators used during takeoff
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, VIO, VSLAM,  HECTOR
-lateral_estimator: "GPS"
+lateral_estimator: "RTK"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder, PLANE - height above plane estimated from realsense, BRICK - height above BRICK
@@ -35,7 +35,7 @@ debug:
   publish_estimator_states: true # publish debug topics of measurement estimator states
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
   publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
-  pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!
+  pass_rtk_as_odom: true # publish rtk instead of odometry dangerous outside simulation!
 # # #}
 
 # sensor z offset# #{
