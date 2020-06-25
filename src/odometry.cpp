@@ -9317,6 +9317,11 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
 
 void Odometry::altitudeEstimatorsPrediction(const double input, const double dt) {
 
+  if (dt <= 0.0) {
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Altitude estimator prediction dt=%f, skipping prediction.", dt);
+    return;
+  }
+
   for (auto &estimator : m_altitude_estimators) {
     estimator.second->doPrediction(input, dt);
   }
