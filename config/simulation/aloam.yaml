@@ -1,19 +1,33 @@
 # Estimators used during takeoff
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
-lateral_estimator: "GPS"
+lateral_estimator: "ALOAM"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder
-altitude_estimator: "HEIGHT"
+altitude_estimator: "ALOAM"
 
 # Heading state estimator:
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
-heading_estimator: "PIXHAWK" 
+heading_estimator: "ALOAM" 
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["GPS", "ALOAM"]
+  active: ["ALOAM", "GPS"]
 
 heading_estimators:
-  active: ["PIXHAWK", "ALOAM"]
+  active: ["GYRO", "ALOAM"]
+
+lateral:
+  # Covariances of measurements
+  R:
+    pos_aloam: [10]
+
+heading:
+  # Covariances of measurements
+  R:
+    hdg_aloam: [0.1]
+
+altitude:
+  R:
+    height_aloam: [1]
