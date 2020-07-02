@@ -29,7 +29,7 @@ Changelog for package mrs_uav_odometry
 * removed covariances overrding default ones
 * not fusing mavros velocity
 * add icp2d to allowed state estimators for aloam
-* gps, optflow, hector work reasonably well with so3 in simulation
+* gps, optflow, hector work reasonably well with se3 in simulation
 * three states
 * reset hector service
 * diagonal matrices
