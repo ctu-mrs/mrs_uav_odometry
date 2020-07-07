@@ -808,10 +808,10 @@ private:
   bool t265_active_       = false;
   bool aloam_active_      = false;
   bool brick_active_      = false;
-  bool height_active_     = false;
   bool icp_active_        = false;
 
   // Active altitude estimators
+  bool height_active_ = false;
   // TODO so far all are active
 
   // Active heading estimators
@@ -4150,22 +4150,38 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
     }
   }
 
-  // TODO refactor the OdometryDiag msg
   mrs_msgs::OdometryDiag odometry_diag;
 
   odometry_diag.header.stamp = ros::Time::now();
 
   odometry_diag.estimator_type = _estimator_type;
+  odometry_diag.altitude_type  = _alt_estimator_type;
 
-  odometry_diag.max_altitude      = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
-  odometry_diag.gps_reliable      = gps_reliable_;
-  odometry_diag.gps_available     = gps_active_;
-  odometry_diag.optflow_available = optflow_active_;
-  odometry_diag.rtk_available     = rtk_active_;
-  odometry_diag.lidar_available   = aloam_active_;  // TODO get rid of this in the msg
-  odometry_diag.aloam_available   = aloam_active_;
-  odometry_diag.height_available  = height_active_;
+  odometry_diag.available_lat_estimators = _active_state_estimators_names_;
 
+
+  std::vector<std::string> active_alt_estimators;
+  if (stringInVector("HEIGHT", _altitude_estimators_names_) && height_active_) {
+    active_alt_estimators.push_back("HEIGHT");
+  }
+  if (stringInVector("PLANE", _altitude_estimators_names_) && plane_reliable_) {
+    active_alt_estimators.push_back("PLANE");
+  }
+  if (stringInVector("BRICK", _altitude_estimators_names_) && brick_active_) {
+    active_alt_estimators.push_back("BRICK");
+  }
+  if (stringInVector("VIO", _altitude_estimators_names_) && vio_active_) {
+    active_alt_estimators.push_back("VIO");
+  }
+  if (stringInVector("ALOAM", _altitude_estimators_names_) && aloam_active_) {
+    active_alt_estimators.push_back("ALOAM");
+  }
+  if (stringInVector("BARO", _altitude_estimators_names_)) {
+    active_alt_estimators.push_back("BARO");
+  }
+  odometry_diag.available_alt_estimators = active_alt_estimators;
+
+  odometry_diag.max_altitude = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
   try {
     pub_odometry_diag_.publish(odometry_diag);
