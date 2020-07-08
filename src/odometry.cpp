@@ -112,6 +112,7 @@ private:
   bool        _simulation_ = false;
 
   bool   _debug_publish_corrections_;
+  bool   _debug_publish_servoing_;
   bool   _publish_fused_odom_;
   bool   _publish_pixhawk_velocity_;
   bool   _dynamic_optflow_cov_       = false;
@@ -1078,6 +1079,7 @@ void Odometry::onInit() {
   param_loader.loadParam("debug/publish_corrections", _debug_publish_corrections_);
   param_loader.loadParam("debug/publish_fused_odom", _publish_fused_odom_);
   param_loader.loadParam("debug/publish_pixhawk_velocity", _publish_pixhawk_velocity_);
+  param_loader.loadParam("debug/publish_servoing", _debug_publish_servoing_);
   param_loader.loadParam("debug/pass_rtk_as_odom", _pass_rtk_as_odom_);
 
   //}
@@ -4190,21 +4192,23 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
   }
 
-  mrs_msgs::ReferenceStamped servoing_diag_out;
+  if (_debug_publish_servoing_) {
+    mrs_msgs::ReferenceStamped servoing_diag_out;
 
-  servoing_diag_out.header.stamp    = ros::Time::now();
-  servoing_diag_out.header.frame_id = "visual_servoing_debug";
+    servoing_diag_out.header.stamp    = ros::Time::now();
+    servoing_diag_out.header.frame_id = "visual_servoing_debug";
 
-  servoing_diag_out.reference.position.x = c_failed_brick_x_;
-  servoing_diag_out.reference.position.y = c_failed_brick_y_;
-  servoing_diag_out.reference.position.z = c_failed_brick_timeout_;
-  servoing_diag_out.reference.heading    = c_failed_brick_hdg_;
+    servoing_diag_out.reference.position.x = c_failed_brick_x_;
+    servoing_diag_out.reference.position.y = c_failed_brick_y_;
+    servoing_diag_out.reference.position.z = c_failed_brick_timeout_;
+    servoing_diag_out.reference.heading    = c_failed_brick_hdg_;
 
-  try {
-    pub_brick_diag_.publish(servoing_diag_out);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_brick_diag_.getTopic().c_str());
+    try {
+      pub_brick_diag_.publish(servoing_diag_out);
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_brick_diag_.getTopic().c_str());
+    }
   }
 }
 
