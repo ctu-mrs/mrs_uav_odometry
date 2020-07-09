@@ -35,6 +35,7 @@ debug:
   publish_estimator_states: true # publish debug topics of measurement estimator states
   publish_fused_odom: true # otherwise publish unfused pixhawk odometry instead
   publish_pixhawk_velocity: false # pixhawk velocity instead of estimated velocity
+  publish_servoing: false # publish diagnostics about visual servoing
   pass_rtk_as_odom: false # publish rtk instead of odometry dangerous outside simulation!
 # # #}
 
