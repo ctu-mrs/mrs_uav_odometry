@@ -2970,7 +2970,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Fallback from ALOAM Slam
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::ALOAM) {
     if (!got_aloam_odom_ || !aloam_reliable_) {
-      if (aloam_active_ && got_icp_twist_) {
+      if (icp_active_ && got_icp_twist_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
@@ -3006,7 +3006,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
         desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to PIXHAWK type.");
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
         if (!changeCurrentEstimator(gps_type)) {
@@ -4452,6 +4452,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (got_icp_twist_ && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: ICP velocities not received for %f seconds.", interval.toSec());
     got_icp_twist_ = false;
+  }
+
+  //  aloam odometry (corrections of lateral kf)
+  interval = ros::Time::now() - aloam_odom_last_update;
+  if (got_aloam_odom_ && interval.toSec() > 0.5) {
+    ROS_WARN("[Odometry]: ALOAM odometry not received for %f seconds.", interval.toSec());
+    got_aloam_odom_ = false;
   }
 }
 
