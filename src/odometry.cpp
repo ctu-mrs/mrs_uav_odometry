@@ -2862,7 +2862,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
       }
-    } else if ((!got_odom_t265_ || !t265_reliable_) && gps_reliable_ && got_odom_pixhawk_) {
+    } else if ((!got_odom_t265_ || !t265_reliable_) && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
       ROS_WARN("[Odometry]: T265 not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -2936,7 +2936,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
             failsafe_called = true;
           }
         }
-      } else if (gps_reliable_ && got_odom_pixhawk_) {
+      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Hector heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
@@ -3000,10 +3000,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (gps_reliable_ && got_odom_pixhawk_) {
+      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
         desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
         ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
@@ -3016,7 +3016,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           failsafe_called = true;
         }
       } else if (!failsafe_called) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry not available. Triggering failsafe.");
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
         std_srvs::Trigger failsafe_out;
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
@@ -3054,7 +3054,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called = true;
         }
-      } else if (gps_reliable_ && got_odom_pixhawk_) {
+      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
@@ -3112,7 +3112,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from OPTFLOW
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::OPTFLOW) {
-    if (gps_reliable_) {
+    if (gps_active_ && gps_reliable_) {
 
       if (!optflow_reliable_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: OTPFLOW heading not reliable. Switching to PIXHAWK heading estimator.");
@@ -3158,7 +3158,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Fallback from BRICKFLOW
   } else if (_estimator_type.type == mrs_msgs::EstimatorType::BRICKFLOW) {
-    if (gps_reliable_) {
+    if (gps_active_ && gps_reliable_) {
 
       if (!optflow_reliable_) {
         ROS_WARN("[Odometry]: BRICKFLOW not reliable. Switching to GPS type.");
@@ -3208,7 +3208,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
       }
-    } else if (!vio_reliable_ && gps_reliable_ && got_odom_pixhawk_) {
+    } else if (!vio_reliable_ && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
       ROS_WARN("[Odometry]: VIO not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
@@ -3242,7 +3242,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called = true;
       }
-    } else if (!vslam_reliable_ && gps_reliable_ && got_odom_pixhawk_) {
+    } else if (!vslam_reliable_ && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
       ROS_WARN("[Odometry]: VSLAM not reliable. Switching to GPS type.");
       mrs_msgs::EstimatorType gps_type;
       gps_type.type = mrs_msgs::EstimatorType::GPS;
