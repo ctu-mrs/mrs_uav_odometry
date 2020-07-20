@@ -3362,6 +3362,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
       }
     } else if (estimator.first == "ALOAM") {
+      // Prevent publishing of TF before corrections are available
+      if (!got_aloam_odom_) {
+        continue;
+      }
       for (auto &alt_estimator : _altitude_estimators_) {
         if (alt_estimator.first == "ALOAM") {
           alt_estimator.second->getState(0, alt);
