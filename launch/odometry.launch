@@ -42,13 +42,9 @@
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="range_topic" value="garmin/range" />
 
-  <group if="$(eval 'garmin_down' in arg('SENSORS') or 'garmin_up' in arg('SENSORS') or arg('PIXGARM'))">
-    <arg name="garmin_enabled" value="true" />
-  </group>
+  <arg if="$(eval 'garmin_down' in env('SENSORS') or 'garmin_up' in env('SENSORS') or arg('PIXGARM') or arg(simulation))" name="garmin_enabled" value="true" />
+  <arg unless="$(eval 'garmin_down' in env('SENSORS') or 'garmin_up' in env('SENSORS') or arg('PIXGARM') or arg(simulation))" name="garmin_enabled" value="false" />
 
-  <group if="$(eval not 'garmin_down' in arg('SENSORS') and not 'garmin_up' in arg('SENSORS') and not arg('PIXGARM'))">
-    <arg name="garmin_enabled" value="false" />
-  </group>
 
   <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin" />
 
@@ -89,7 +85,7 @@
       <param name="uav_mass" type="double" value="$(arg UAV_MASS)" />
       <param name="simulation" type="bool" value="$(arg simulation)" />
       <param name="use_gt_orientation" type="bool" value="false" />
-      <param name="garmin_enabled" type="bool" value="$(arg garmin_enabled)" />
+      <param name="altitude/garmin_enabled" type="bool" value="$(arg garmin_enabled)" />
 
       <!-- Subscribers -->
       <remap from="~attitude_command_in" to="control_manager/attitude_cmd" />
