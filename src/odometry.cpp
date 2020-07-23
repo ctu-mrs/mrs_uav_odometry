@@ -3366,7 +3366,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     } else if (estimator.first == "VIO") {
       for (auto &alt_estimator : m_altitude_estimators) {
-        if (alt_estimator.first == "VIO") {
+        if (alt_estimator.first == "HEIGHT") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
         }

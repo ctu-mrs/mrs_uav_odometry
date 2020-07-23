@@ -162,8 +162,8 @@ lateral:
     vel_mavros: [100]
     tilt_mavros: [100]
     pos_vslam: [1]
-    pos_vio: [0.1] #0.1
-    vel_vio: [10] #10
+    pos_vio: [0.01] #0.1
+    vel_vio: [0.1] #10
     pos_object: [100]
     vel_object: [10000]
     pos_brick: [0.01]
