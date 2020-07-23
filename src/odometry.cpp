@@ -1306,6 +1306,12 @@ void Odometry::onInit() {
 
   //}
 
+  /* garmin enabled //{ */
+  
+  param_loader.loadParam("altitude/garmin_enabled", garmin_enabled_);
+  
+  //}
+
   //}
 
   /* create altitude estimator //{ */
