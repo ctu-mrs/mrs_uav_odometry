@@ -7,13 +7,16 @@
   <arg name="UAV_NAME" default="$(env UAV_NAME)" />
   <arg name="PIXGARM" default="$(optenv PIXGARM false)" />
   <arg name="PROFILER" default="$(optenv PROFILER false)" />
-  <arg name="WORLD_FILE" default="$(optenv WORLD_FILE)" />
-  <arg name="WORLD_NAME" default="$(optenv WORLD_NAME)" />
+  <arg name="WORLD_FILE" default="$(env WORLD_FILE)" />
+  <arg name="WORLD_NAME" default="$(env WORLD_NAME)" />
   <arg name="SENSORS" default="$(env SENSORS)" />
   <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
 
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
+  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
+
   <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') != '')" name="world_file" value="$(find mrs_uav_general)/config/worlds/world_$(env WORLD_NAME).yaml" />
-  <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') == '' and arg('RUN_TYPE') == 'simulation')" name="world_file" value="$(find mrs_uav_general)/config/worlds/world_simulation.yaml" />
+  <arg if="$(eval arg('WORLD_FILE') == '' and arg('WORLD_NAME') == '' and arg('simulation'))" name="world_file" value="$(find mrs_uav_general)/config/worlds/world_simulation.yaml" />
   <arg if="$(eval arg('WORLD_FILE') != '')" name="world_file" value="$(arg WORLD_FILE)" />
 
     <!-- other args -->
@@ -21,11 +24,11 @@
   <arg name="debug" default="false" />
   <arg name="standalone" default="true" />
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="3.5" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.3" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="3.5" />
+  <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
+  <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.3" />
+  <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
 
   <arg name="config_file" default="$(find mrs_uav_odometry)/config/$(arg RUN_TYPE)/$(arg ODOMETRY_TYPE).yaml" />
@@ -38,22 +41,19 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
-  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
-
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="range_topic" value="garmin/range" />
-
   <arg if="$(eval 'garmin_down' in arg('SENSORS') or 'garmin_up' in arg('SENSORS') or arg('PIXGARM') or arg('simulation'))" name="garmin_enabled" value="true" />
   <arg unless="$(eval 'garmin_down' in arg('SENSORS') or 'garmin_up' in arg('SENSORS') or arg('PIXGARM') or arg('simulation'))" name="garmin_enabled" value="false" />
 
-  <arg if="$(eval arg('PIXGARM') and not arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin" />
+  <arg if="$(eval arg('simulation') and not arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range" />
+  <arg if="$(eval arg('simulation') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
 
-  <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="garmin/range_filtered" />
-  <arg if="$(eval not arg('PIXGARM') and not arg('simulation'))" name="range_topic" value="garmin/range" />
-  <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
+  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
+  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/simulation/simulation_default.yaml" />
-  <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="default_config_file" value="$(find mrs_uav_odometry)/config/uav/uav_default.yaml" />
+  <arg if="$(eval not arg('simulation') and not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
+
+  <arg if="$(eval arg('simulation'))" name="default_config_file" value="$(find mrs_uav_odometry)/config/simulation/simulation_default.yaml" />
+  <arg unless="$(eval arg('simulation'))" name="default_config_file" value="$(find mrs_uav_odometry)/config/uav/uav_default.yaml" />
 
   <include file="$(find mrs_uav_odometry)/launch/rtk_republisher.launch">
 
