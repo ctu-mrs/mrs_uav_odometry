@@ -3455,7 +3455,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // publish TF
     geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = ros::Time::now();
+    tf.header.stamp          = time_now;
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = odom_aux->second.header.frame_id;
     tf.transform.translation = pointToVector3(pose_inv.position);
@@ -3932,7 +3932,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = ros::Time::now();
+    tf.header.stamp          = time_now;
     tf.header.frame_id       = fcu_frame_id_;
     tf.child_frame_id        = local_origin_frame_id_;
     tf.transform.translation = mrs_uav_odometry::pointToVector3(pose_inv.position);
@@ -4036,7 +4036,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     geometry_msgs::Pose pose_stable_inv = mrs_uav_odometry::poseFromTf2(tf_stable_inv);
 
     geometry_msgs::TransformStamped tf_stable;
-    tf_stable.header.stamp          = ros::Time::now();
+    tf_stable.header.stamp          = time_now;
     tf_stable.header.frame_id       = fcu_frame_id_;
     tf_stable.child_frame_id        = stable_origin_frame_id_;
     tf_stable.transform.translation = mrs_uav_odometry::pointToVector3(pose_stable_inv.position);
@@ -4847,7 +4847,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   q = q.inverse();
 
   geometry_msgs::TransformStamped tf;
-  tf.header.stamp            = ros::Time::now();
+  tf.header.stamp            = ros::Time::now(); // TODO test whether odom_pixhawk_.header.stamp is more stable
   tf.header.frame_id         = fcu_frame_id_;
   tf.child_frame_id          = fcu_untilted_frame_id_;
   tf.transform.translation.x = 0.0;
