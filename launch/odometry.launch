@@ -9,7 +9,7 @@
   <arg name="PROFILER" default="$(optenv PROFILER false)" />
   <arg name="WORLD_FILE" default="$(optenv WORLD_FILE)" />
   <arg name="WORLD_NAME" default="$(optenv WORLD_NAME)" />
-  <arg name="SENSORS" default="$(env SENSORS)" />
+  <arg name="SENSORS" default="$(optenv SENSORS)" />
   <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
