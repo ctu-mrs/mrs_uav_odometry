@@ -9,7 +9,7 @@
   <arg name="PROFILER" default="$(optenv PROFILER false)" />
   <arg name="WORLD_FILE" default="$(optenv WORLD_FILE)" />
   <arg name="WORLD_NAME" default="$(optenv WORLD_NAME)" />
-  <arg name="SENSORS" default="$(env SENSORS)" />
+  <arg name="SENSORS" default="$(optenv SENSORS)" />
   <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
@@ -50,6 +50,11 @@
   <arg if="$(eval not arg('simulation') and arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
   <arg if="$(eval not arg('simulation') and arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
 
+<<<<<<< HEAD
+  <arg if="$(eval not arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="garmin/range_filtered" />
+  <arg if="$(eval not arg('PIXGARM') and not arg('simulation'))" name="range_topic" value="garmin/range" />
+  <arg if="$(eval arg('PIXGARM') and arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
+  <arg if="$(eval not arg('PIXGARM') and not arg('GARMIN_FILTERED') and not arg('simulation'))" name="range_topic" value="garmin/range" />
   <arg if="$(eval not arg('simulation') and not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
 
   <arg if="$(eval arg('simulation'))" name="default_config_file" value="$(find mrs_uav_odometry)/config/simulation/simulation_default.yaml" />
