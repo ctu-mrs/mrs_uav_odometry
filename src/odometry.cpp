@@ -350,6 +350,9 @@ private:
   double             aloam_offset_hdg_;
   bool               aloam_corr_ready_ = false;
 
+  ros::Time aloam_timestamp_;
+  bool aloam_updated_mapping_tf_ = false;
+
   // brick heading msgs
   double     brick_hdg_previous_;
   std::mutex mutex_brick_hdg_;
@@ -446,6 +449,7 @@ private:
   std::string fcu_untilted_frame_id_;
   std::string local_origin_frame_id_;
   std::string stable_origin_frame_id_;
+  std::string aloam_mapping_origin_frame_id_;
   std::string last_stable_name_;
   std::string last_local_name_;
   std::string first_frame_;
@@ -1080,6 +1084,7 @@ void Odometry::onInit() {
   fcu_untilted_frame_id_  = _uav_name_ + "/fcu_untilted";
   local_origin_frame_id_  = _uav_name_ + "/local_origin";
   stable_origin_frame_id_ = _uav_name_ + "/stable_origin";
+  aloam_mapping_origin_frame_id_ = _uav_name_ + "/aloam_mapping_origin";
   last_local_name_        = _uav_name_ + "/null_origin";
   last_stable_name_       = _uav_name_ + "/null_origin";
 
@@ -4058,6 +4063,60 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf_stable.header.frame_id.c_str(),
                         tf_stable.child_frame_id.c_str());
     }
+  }
+
+  //}
+  
+  /* publish aloam mapping origin tf //{ */
+
+  if (got_stable && got_aloam_odom_ && aloam_updated_mapping_tf_) {
+
+    // Copy aloam odometry
+    nav_msgs::Odometry aloam_odom_tmp;
+    aloam_odom_tmp = aloam_odom_;
+
+    // Obtain mavros orientation
+    tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+
+    // Obtain heading from mavros orientation
+    double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+
+    // Build rotation matrix from difference between new heading nad mavros heading
+    tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
+
+    // Transform the mavros orientation by the rotation matrix
+    geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+
+    // Set mavros orientation
+    aloam_odom_tmp.pose.pose.orientation = new_orientation;
+
+    // Set z-coordinate from stable odometry
+    aloam_odom_tmp.pose.pose.position.z = odom_stable_tmp.pose.pose.position.z;
+
+    // Get inverse transform
+    tf2::Transform tf_aloam_inv        = mrs_uav_odometry::tf2FromPose(aloam_odom_tmp.pose.pose);
+    tf_aloam_inv                       = tf_aloam_inv.inverse();
+    geometry_msgs::Pose pose_aloam_inv = mrs_uav_odometry::poseFromTf2(tf_aloam_inv);
+
+    geometry_msgs::TransformStamped tf_mapping;
+    tf_mapping.header.stamp          = aloam_timestamp_;
+    tf_mapping.header.frame_id       = fcu_frame_id_;
+    tf_mapping.child_frame_id        = aloam_mapping_origin_frame_id_;
+    tf_mapping.transform.translation = mrs_uav_odometry::pointToVector3(pose_aloam_inv.position);
+    tf_mapping.transform.rotation    = pose_aloam_inv.orientation;
+    if (noNans(tf_mapping)) {
+      try {
+        broadcaster_->sendTransform(tf_mapping);
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf_mapping.child_frame_id.c_str(), tf_mapping.header.frame_id.c_str());
+      }
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf_mapping.header.frame_id.c_str(),
+                        tf_mapping.child_frame_id.c_str());
+    }
+
+    aloam_updated_mapping_tf_ = false;
   }
 
   //}
@@ -7129,6 +7188,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
+
   /* fuse aloam height //{ */
 
   //////////////////// Filter out aloam height measurement ////////////////////
@@ -7261,6 +7321,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing ALOAM position");
+  aloam_timestamp_ = aloam_odom_.header.stamp;
+  aloam_updated_mapping_tf_ = true;
   /*//}*/
 }
 //}
@@ -8242,6 +8304,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
     }
     ROS_INFO_ONCE("[Odometry]: Publishing odometry");
+
 
     //}
   }
