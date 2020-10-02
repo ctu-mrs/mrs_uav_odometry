@@ -623,6 +623,13 @@ private:
   bool got_control_accel_    = false;
   bool got_icp_twist_        = false;
 
+  // Last send tf message
+  ros::Time last_time_tf_stable_;
+  ros::Time last_time_tf_untilted_;
+  ros::Time last_time_tf_utm_origin_;
+  ros::Time last_time_tf_rtk_;
+  ros::Time last_time_tf_local_;
+
   bool failsafe_called_ = false;
 
   int  got_rtk_counter_;
@@ -1312,9 +1319,9 @@ void Odometry::onInit() {
   //}
 
   /* garmin enabled //{ */
-  
+
   param_loader.loadParam("altitude/garmin_enabled", garmin_enabled_);
-  
+
   //}
 
   //}
@@ -2303,10 +2310,10 @@ void Odometry::onInit() {
   last_drs_config_.R_rate_optflow = map_hdg_measurement_covariance_.find("rate_optflow")->second(0);
   last_drs_config_.R_rate_icp     = map_hdg_measurement_covariance_.find("rate_icp")->second(0);
 
-  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
-  reconfigure_server_->updateConfig(last_drs_config_);
-  ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2);
-  reconfigure_server_->setCallback(f);
+  /* reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_)); */
+  /* reconfigure_server_->updateConfig(last_drs_config_); */
+  /* ReconfigureServer::CallbackType f = boost::bind(&Odometry::callbackReconfigure, this, _1, _2); */
+  /* reconfigure_server_->setCallback(f); */
 
   //}
 
@@ -3472,17 +3479,19 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.transform.translation = pointToVector3(pose_inv.position);
     tf.transform.rotation    = pose_inv.orientation;
 
-
-    if (noNans(tf)) {
-      try {
-        broadcaster_->sendTransform(tf);
+    if (time_now > last_time_tf_rtk_) {
+      if (noNans(tf)) {
+        try {
+          broadcaster_->sendTransform(tf);
+        }
+        catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+        }
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
+                          fcu_frame_id_.c_str());
       }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-      }
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
-                        fcu_frame_id_.c_str());
+      last_time_tf_rtk_ = time_now;
     }
 
     // Transform global velocity to twist in fcu frame
@@ -3518,12 +3527,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // publish the static transform between utm and local gps origin
-  if (gps_active_) {
+  ros::Time current_time = ros::Time::now();
+  if (gps_active_ && (current_time > last_time_tf_utm_origin_)) {
 
     // publish TF
     geometry_msgs::TransformStamped tf;
 
-    tf.header.stamp            = ros::Time::now();
+    tf.header.stamp            = current_time;
     tf.header.frame_id         = _uav_name_ + "/gps_origin";
     tf.child_frame_id          = _uav_name_ + "/utm_origin";
     tf.transform.translation.x = -_utm_origin_x_;
@@ -3542,6 +3552,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
       }
     }
+    last_time_tf_utm_origin_ = current_time;
   }
 
   // Loop through each heading estimator
@@ -3937,27 +3948,30 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish local origin tf //{ */
 
-    // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_local_.pose.pose);
-    tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
+    // Get inverse transform
+    if ((time_now > last_time_tf_local_)) {
+      tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_local_.pose.pose);
+      tf_inv                       = tf_inv.inverse();
+      geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
-    geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = time_now;
-    tf.header.frame_id       = fcu_frame_id_;
-    tf.child_frame_id        = local_origin_frame_id_;
-    tf.transform.translation = mrs_uav_odometry::pointToVector3(pose_inv.position);
-    tf.transform.rotation    = pose_inv.orientation;
-    if (noNans(tf)) {
-      try {
-        broadcaster_->sendTransform(tf);
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = time_now;
+      tf.header.frame_id       = fcu_frame_id_;
+      tf.child_frame_id        = local_origin_frame_id_;
+      tf.transform.translation = mrs_uav_odometry::pointToVector3(pose_inv.position);
+      tf.transform.rotation    = pose_inv.orientation;
+      if (noNans(tf)) {
+        try {
+          broadcaster_->sendTransform(tf);
+        }
+        catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+        }
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf.header.frame_id.c_str(),
+                          tf.child_frame_id.c_str());
       }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-      }
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf.header.frame_id.c_str(),
-                        tf.child_frame_id.c_str());
+      last_time_tf_local_ = time_now;
     }
 
     //}
@@ -4040,7 +4054,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish stable origin tf //{ */
 
-  if (got_stable) {
+  if (got_stable && (time_now > last_time_tf_stable_)) {
     // Get inverse trasnform
     tf2::Transform tf_stable_inv        = mrs_uav_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
     tf_stable_inv                       = tf_stable_inv.inverse();
@@ -4063,6 +4077,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", tf_stable.header.frame_id.c_str(),
                         tf_stable.child_frame_id.c_str());
     }
+    last_time_tf_stable_ = time_now;
   }
 
   //}
@@ -4911,22 +4926,26 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   q = q.inverse();
 
-  geometry_msgs::TransformStamped tf;
-  tf.header.stamp            = ros::Time::now(); // TODO test whether odom_pixhawk_.header.stamp is more stable
-  tf.header.frame_id         = fcu_frame_id_;
-  tf.child_frame_id          = fcu_untilted_frame_id_;
-  tf.transform.translation.x = 0.0;
-  tf.transform.translation.y = 0.0;
-  tf.transform.translation.z = 0.0;
-  tf.transform.rotation      = mrs_lib::AttitudeConverter(q);
-  if (noNans(tf)) {
-    try {
-      broadcaster_->sendTransform(tf);
-      got_fcu_untilted_ = true;
+  ros::Time current_time = ros::Time::now();
+  if ((current_time > last_time_tf_untilted_)) {
+    geometry_msgs::TransformStamped tf;
+    tf.header.stamp            = ros::Time::now();  // TODO test whether odom_pixhawk_.header.stamp is more stable
+    tf.header.frame_id         = fcu_frame_id_;
+    tf.child_frame_id          = fcu_untilted_frame_id_;
+    tf.transform.translation.x = 0.0;
+    tf.transform.translation.y = 0.0;
+    tf.transform.translation.z = 0.0;
+    tf.transform.rotation      = mrs_lib::AttitudeConverter(q);
+    if (noNans(tf)) {
+      try {
+        broadcaster_->sendTransform(tf);
+        got_fcu_untilted_ = true;
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+      }
     }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-    }
+    last_time_tf_untilted_ = current_time;
   }
   double dt;
   {
