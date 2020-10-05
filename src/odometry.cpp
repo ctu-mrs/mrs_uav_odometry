@@ -265,6 +265,9 @@ private:
 
   std::vector<nav_msgs::Odometry> vec_odom_aux_;
 
+  std::vector<nav_msgs::Odometry> vec_odom_mavros_;
+  std::mutex mutex_vec_odom_mavros_;
+
   // OPTFLOW
   geometry_msgs::TwistWithCovarianceStamped optflow_twist_;
   std::mutex                                mutex_optflow_;
@@ -4069,17 +4072,66 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   
   /* publish aloam mapping origin tf //{ */
 
+  // Mavros orientation cache
+  float mavros_cache_size = 0.3;
+  bool clear_needed = false;
+  if(got_stable && got_aloam_odom_){
+    std::scoped_lock lock(mutex_vec_odom_mavros_);
+    // Add new data
+    vec_odom_mavros_.push_back(odom_pixhawk_shifted_local);
+    // Delete old data
+    size_t index_delete = 0;
+    for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
+      if(time_now - vec_odom_mavros_.at(i).header.stamp > ros::Duration(mavros_cache_size)){
+        index_delete = i;
+        clear_needed = true;
+      }else{
+        break;
+      }
+    }
+    if(clear_needed){
+      for(int i = (int)index_delete; i >= 0; i--){
+        vec_odom_mavros_.erase(vec_odom_mavros_.begin()+i);
+      }
+    }
+    /* ROS_INFO_THROTTLE(1.0,"Mavros odom cache size: %d", (int)vec_odom_mavros_.size()); */
+  }
+
   if (got_stable && got_aloam_odom_ && aloam_updated_mapping_tf_) {
+    std::scoped_lock lock(mutex_vec_odom_mavros_);
 
     // Copy aloam odometry
     nav_msgs::Odometry aloam_odom_tmp;
     aloam_odom_tmp = aloam_odom_;
 
-    // Obtain mavros orientation
-    tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+    // Find corresponding mavros orientation
+    tf2::Quaternion tf2_mavros_orient;
+    geometry_msgs::Quaternion mavros_orientation_temp = mavros_orientation;
+    for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
+      if(aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp){
+        // Choose mavros orientation with closest timestamp
+        float time_diff = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        float time_diff_prev = 999999;
+        if(i > 0){
+          time_diff_prev = std::fabs(vec_odom_mavros_.at(i-1).header.stamp.toSec() - aloam_timestamp_.toSec());
+        }
+        if(time_diff_prev < time_diff){
+          i = i - 1;
+        }
+        // Cache is too small if it is full and its oldest element is used
+        if(clear_needed && i == 0){
+          ROS_WARN_THROTTLE(1.0, "[Odometry] Mavros orientation cache is too small.");
+        }
+        mavros_orientation_temp = vec_odom_mavros_.at(i).pose.pose.orientation;
+        tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation_temp);
+        /* ROS_INFO("aloam_timestamp: %.6f, using mavros stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec(), time_now.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
+        ROS_INFO_THROTTLE(1.0, "[Odometry] ALOAM delay: %.6f", time_now.toSec() - aloam_timestamp_.toSec());
+        break;
+      }
+    }
 
     // Obtain heading from mavros orientation
-    double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+    double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
 
     // Build rotation matrix from difference between new heading nad mavros heading
     tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
@@ -4087,7 +4139,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Transform the mavros orientation by the rotation matrix
     geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
 
-    // Set mavros orientation
+    // Set new orientation
     aloam_odom_tmp.pose.pose.orientation = new_orientation;
 
     // Set z-coordinate from stable odometry
