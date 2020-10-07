@@ -44,6 +44,8 @@
   <arg if="$(eval 'garmin_down' in arg('SENSORS') or 'garmin_up' in arg('SENSORS') or arg('PIXGARM') or arg('simulation'))" name="garmin_enabled" value="true" />
   <arg unless="$(eval 'garmin_down' in arg('SENSORS') or 'garmin_up' in arg('SENSORS') or arg('PIXGARM') or arg('simulation'))" name="garmin_enabled" value="false" />
 
+  <arg if="$(eval arg('simulation') name="range_topic" value="garmin/range" />
+
   <arg if="$(eval not arg('simulation') and arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
   <arg if="$(eval not arg('simulation') and arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
 
