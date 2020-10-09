@@ -11,6 +11,7 @@
   <arg name="WORLD_NAME" default="$(optenv WORLD_NAME)" />
   <arg name="SENSORS" default="$(optenv SENSORS)" />
   <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
+  <arg name="LOGGER_DEBUG" default="$(optenv LOGGER_DEBUG false)" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
@@ -23,6 +24,8 @@
   <arg name="custom_config" default="" />
   <arg name="debug" default="false" />
   <arg name="standalone" default="true" />
+
+  <env name="ROSCONSOLE_CONFIG_FILE" if="$(eval arg('LOGGER_DEBUG'))" value="$(find mrs_uav_odometry)/config/debug_verbosity.yaml" />
 
   <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="3.5" />
   <arg if="$(eval arg('simulation') and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
