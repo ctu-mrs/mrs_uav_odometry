@@ -223,9 +223,6 @@ private:
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
   mrs_lib::Transformer                        transformer_;
 
-  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>               odometry_dynparam_server_;
-  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server_;
-
   double         init_magnetic_heading_ = 0.0;
   double         init_brick_hdg_        = 0.0;
   double         hdg_diff_              = 0.0;
@@ -351,7 +348,7 @@ private:
   bool               aloam_corr_ready_ = false;
 
   ros::Time aloam_timestamp_;
-  bool aloam_updated_mapping_tf_ = false;
+  bool      aloam_updated_mapping_tf_ = false;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -1080,13 +1077,13 @@ void Odometry::onInit() {
 
   /* frame ids //{ */
 
-  fcu_frame_id_           = _uav_name_ + "/fcu";
-  fcu_untilted_frame_id_  = _uav_name_ + "/fcu_untilted";
-  local_origin_frame_id_  = _uav_name_ + "/local_origin";
-  stable_origin_frame_id_ = _uav_name_ + "/stable_origin";
+  fcu_frame_id_                  = _uav_name_ + "/fcu";
+  fcu_untilted_frame_id_         = _uav_name_ + "/fcu_untilted";
+  local_origin_frame_id_         = _uav_name_ + "/local_origin";
+  stable_origin_frame_id_        = _uav_name_ + "/stable_origin";
   aloam_mapping_origin_frame_id_ = _uav_name_ + "/aloam_mapping_origin";
-  last_local_name_        = _uav_name_ + "/null_origin";
-  last_stable_name_       = _uav_name_ + "/null_origin";
+  last_local_name_               = _uav_name_ + "/null_origin";
+  last_stable_name_              = _uav_name_ + "/null_origin";
 
   //}
 
@@ -1312,9 +1309,9 @@ void Odometry::onInit() {
   //}
 
   /* garmin enabled //{ */
-  
+
   param_loader.loadParam("altitude/garmin_enabled", garmin_enabled_);
-  
+
   //}
 
   //}
@@ -4066,7 +4063,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   //}
-  
+
   /* publish aloam mapping origin tf //{ */
 
   if (got_stable && got_aloam_odom_ && aloam_updated_mapping_tf_) {
@@ -4912,7 +4909,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   q = q.inverse();
 
   geometry_msgs::TransformStamped tf;
-  tf.header.stamp            = ros::Time::now(); // TODO test whether odom_pixhawk_.header.stamp is more stable
+  tf.header.stamp            = ros::Time::now();  // TODO test whether odom_pixhawk_.header.stamp is more stable
   tf.header.frame_id         = fcu_frame_id_;
   tf.child_frame_id          = fcu_untilted_frame_id_;
   tf.transform.translation.x = 0.0;
@@ -7321,7 +7318,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing ALOAM position");
-  aloam_timestamp_ = aloam_odom_.header.stamp;
+  aloam_timestamp_          = aloam_odom_.header.stamp;
   aloam_updated_mapping_tf_ = true;
   /*//}*/
 }
