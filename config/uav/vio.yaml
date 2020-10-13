@@ -4,7 +4,7 @@ lateral_estimator: "VIO"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder
-altitude_estimator: "HEIGHT"
+altitude_estimator: "VIO"
 
 # Heading state estimator:
 # GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
@@ -12,7 +12,8 @@ heading_estimator: "VIO"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["GPS", "VIO"]
+  active: ["VIO"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "VIO"]
+  # active: ["PIXHAWK", "GYRO", "VIO"]
+  active: ["VIO"]
