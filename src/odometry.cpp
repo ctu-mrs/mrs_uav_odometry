@@ -3364,7 +3364,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     } else if (estimator.first == "VIO") {
       for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "HEIGHT") {
+        if (alt_estimator.first == "VIO") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
         }
@@ -6395,45 +6395,75 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //////////////////// Filter out vio height measurement ////////////////////
 
-  bool   vio_altitude_ok = true;
-  double measurement     = msg->pose.pose.position.z;
-
-
-  // Value gate
-  if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
-    vio_altitude_ok = false;
-  }
-
-  // Median filter
-  if (isUavFlying() && vio_altitude_ok) {
-    if (!alt_mf_vio_->isValid(measurement)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+  {
+    bool   vio_altitude_ok = true;
+    double measurement     = msg->pose.pose.position.z;
+    
+    // Value gate
+    if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
       vio_altitude_ok = false;
     }
-  }
-
-  //////////////////// Fuse main altitude kalman ////////////////////
-
-  // Fuse vio measurement for each altitude estimator
-  for (auto &estimator : _altitude_estimators_) {
-    alt_x_t alt_x = alt_x.Zero();
-    if (!estimator.second->getStates(alt_x)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-      vio_altitude_ok = false;
+    
+    // Median filter
+    if (isUavFlying() && vio_altitude_ok) {
+      if (!alt_mf_vio_->isValid(measurement)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+        vio_altitude_ok = false;
+      }
     }
-
-    if (vio_altitude_ok) {
-      {
-        std::scoped_lock lock(mutex_altitude_estimator_);
-        altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
-        if (fabs(measurement) > 100) {
-          ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+    
+    //////////////////// Fuse main altitude kalman ////////////////////
+    
+    // Fuse vio measurement for each altitude estimator
+    for (auto &estimator : _altitude_estimators_) {
+      alt_x_t alt_x = alt_x.Zero();
+      if (!estimator.second->getStates(alt_x)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+        vio_altitude_ok = false;
+      }
+    
+      if (vio_altitude_ok) {
+        {
+          std::scoped_lock lock(mutex_altitude_estimator_);
+          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+          if (fabs(measurement) > 100) {
+            ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+          }
         }
       }
     }
+    
+    ROS_INFO_ONCE("[Odometry]: Fusing height from VIO");
   }
 
-  ROS_INFO_ONCE("[Odometry]: Fusing height from VIO");
+  {
+    // TODO Matej check after TOMAS
+    
+    double measurement     = msg->twist.twist.linear.z;
+    bool vio_altitude_speed_ok = true;
+    
+    //////////////////// Fuse main altitude speed kalman ////////////////////
+    
+    // Fuse vio measurement for each altitude estimator
+    for (auto &estimator : _altitude_estimators_) {
+
+      alt_x_t alt_x = alt_x.Zero();
+
+      if (!estimator.second->getStates(alt_x)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+        vio_altitude_speed_ok = false;
+      }
+    
+      if (vio_altitude_speed_ok) {
+        {
+          std::scoped_lock lock(mutex_altitude_estimator_);
+          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second);
+        }
+      }
+    }
+    
+    ROS_INFO_ONCE("[Odometry]: Fusing height speed from VIO");
+  }
 
   //}
 

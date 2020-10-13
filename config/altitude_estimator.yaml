@@ -27,6 +27,7 @@ altitude_estimators:
     "height_aloam",
     "height_baro",
     "vel_baro",
+    "vel_vio",
     "acc_imu"
   ]
 
@@ -49,6 +50,7 @@ altitude_estimators:
     height_aloam: HEIGHT
     height_baro: HEIGHT
     vel_baro: VELOCITY
+    vel_vio: VELOCITY
     acc_imu: ACCELERATION
 
   # Mapping states to model
