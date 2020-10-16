@@ -3,6 +3,8 @@
   <arg name="standalone" default="true" />
   <arg name="debug" default="false" />
 
+  <arg name="custom_config" default="" />
+
   <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="standalone" />
   <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="load" />
   <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="" />
@@ -13,7 +15,10 @@
 
   <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_uav_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
-    <rosparam file="$(find mrs_uav_odometry)/config/tf_connector_dummy.yaml" />
+    <rosparam file="$(find mrs_uav_odometry)/config/tf_connector.yaml" />
+
+    <!-- Load a user param file -->
+    <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
       <!-- Subscribers -->
     <remap from="~tf_in" to="/tf" />
