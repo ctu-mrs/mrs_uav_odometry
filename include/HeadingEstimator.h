@@ -3,7 +3,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_lib/lkf_legacy.h>
+#include <mrs_lib/lkf.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
