@@ -98,7 +98,7 @@
       <remap from="~pixhawk_odom_in" to="mavros/local_position/odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_low_in" to="optic_flow/velocity_longrange" />
-      <remap from="~vio_in" to="/vins_estimator/odometry_tf" />
+      <remap from="~vio_in" to="vins_republisher/odom" />
       <remap from="~vslam_in" to="ground_truth_pose" />
       <remap from="~t265_odom_in" to="ground_truth" />
       <remap from="~brick_pose_in" to="brick_grasping/current_target_uav_odom" />
