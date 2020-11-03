@@ -1209,7 +1209,9 @@ void Odometry::onInit() {
   /* maximum altitude //{ */
 
   param_loader.loadParam("altitude/max_optflow", _max_optflow_altitude_);
-  param_loader.loadParam("altitude/max_default", _max_default_altitude_);
+  double max_default_altitude;
+  param_loader.loadParam("altitude/max_default", max_default_altitude);
+  param_loader.loadParam("safety_area/max_height", _max_default_altitude_, max_default_altitude);
 
   //}
 
