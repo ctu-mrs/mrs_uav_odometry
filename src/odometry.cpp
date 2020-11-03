@@ -223,9 +223,6 @@ private:
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
   mrs_lib::Transformer                        transformer_;
 
-  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>               odometry_dynparam_server_;
-  dynamic_reconfigure::Server<mrs_uav_odometry::odometry_dynparamConfig>::CallbackType callback_odometry_dynparam_server_;
-
   double         init_magnetic_heading_ = 0.0;
   double         init_brick_hdg_        = 0.0;
   double         hdg_diff_              = 0.0;
@@ -354,7 +351,7 @@ private:
   bool               aloam_corr_ready_ = false;
 
   ros::Time aloam_timestamp_;
-  bool aloam_updated_mapping_tf_ = false;
+  bool      aloam_updated_mapping_tf_ = false;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -740,6 +737,7 @@ private:
   std::vector<std::string>                               _model_state_names_;
   std::vector<std::string>                               _measurement_names_;
   std::map<std::string, std::vector<std::string>>        map_estimator_measurement_;
+  std::map<std::string, bool>                            map_estimator_publish_tf_;
   std::map<std::string, Mat1>                            map_measurement_covariance_;
   std::map<std::string, std::string>                     map_measurement_state_;
   std::map<std::string, int>                             map_measurement_name_id_;
@@ -1083,13 +1081,13 @@ void Odometry::onInit() {
 
   /* frame ids //{ */
 
-  fcu_frame_id_           = _uav_name_ + "/fcu";
-  fcu_untilted_frame_id_  = _uav_name_ + "/fcu_untilted";
-  local_origin_frame_id_  = _uav_name_ + "/local_origin";
-  stable_origin_frame_id_ = _uav_name_ + "/stable_origin";
+  fcu_frame_id_                  = _uav_name_ + "/fcu";
+  fcu_untilted_frame_id_         = _uav_name_ + "/fcu_untilted";
+  local_origin_frame_id_         = _uav_name_ + "/local_origin";
+  stable_origin_frame_id_        = _uav_name_ + "/stable_origin";
   aloam_mapping_origin_frame_id_ = _uav_name_ + "/aloam_mapping_origin";
-  last_local_name_        = _uav_name_ + "/null_origin";
-  last_stable_name_       = _uav_name_ + "/null_origin";
+  last_local_name_               = _uav_name_ + "/null_origin";
+  last_stable_name_              = _uav_name_ + "/null_origin";
 
   //}
 
@@ -1214,7 +1212,9 @@ void Odometry::onInit() {
   /* maximum altitude //{ */
 
   param_loader.loadParam("altitude/max_optflow", _max_optflow_altitude_);
-  param_loader.loadParam("altitude/max_default", _max_default_altitude_);
+  double max_default_altitude;
+  param_loader.loadParam("altitude/max_default", max_default_altitude);
+  param_loader.loadParam("safety_area/max_height", _max_default_altitude_, max_default_altitude);
 
   //}
 
@@ -1315,9 +1315,9 @@ void Odometry::onInit() {
   //}
 
   /* garmin enabled //{ */
-  
+
   param_loader.loadParam("altitude/garmin_enabled", garmin_enabled_);
-  
+
   //}
 
   //}
@@ -1614,6 +1614,19 @@ void Odometry::onInit() {
 
   for (std::vector<std::string>::iterator it = _measurement_names_.begin(); it < _measurement_names_.end(); it++) {
     map_measurement_name_id_.insert(std::pair<std::string, int>(*it, (int)std::distance(_measurement_names_.begin(), it)));
+  }
+
+  //}
+
+  /* list of estimators that should publish tf //{ */
+
+
+  for (std::vector<std::string>::iterator it = _state_estimators_names_.begin(); it != _state_estimators_names_.end(); ++it) {
+
+    bool publish_tf;
+    param_loader.loadParam("state_estimators/publish_tf/" + *it, publish_tf, true);
+
+    map_estimator_publish_tf_.insert(std::pair<std::string, bool>(*it, publish_tf));
   }
 
   //}
@@ -2322,7 +2335,7 @@ void Odometry::onInit() {
   is_initialized_ = true;
 
   ROS_INFO("[Odometry]: initialized, version %s", VERSION);
-}
+}  // namespace mrs_uav_odometry
 
 //}
 
@@ -3370,7 +3383,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     } else if (estimator.first == "VIO") {
       for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "HEIGHT") {
+        if (alt_estimator.first == "VIO") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
         }
@@ -3468,24 +3481,24 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
-    geometry_msgs::TransformStamped tf;
-    tf.header.stamp          = time_now;
-    tf.header.frame_id       = fcu_frame_id_;
-    tf.child_frame_id        = odom_aux->second.header.frame_id;
-    tf.transform.translation = pointToVector3(pose_inv.position);
-    tf.transform.rotation    = pose_inv.orientation;
-
-
-    if (noNans(tf)) {
-      try {
-        broadcaster_->sendTransform(tf);
+    if (map_estimator_publish_tf_.find(estimator.second->getName())->second) {
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp          = time_now;
+      tf.header.frame_id       = fcu_frame_id_;
+      tf.child_frame_id        = odom_aux->second.header.frame_id;
+      tf.transform.translation = pointToVector3(pose_inv.position);
+      tf.transform.rotation    = pose_inv.orientation;
+      if (noNans(tf)) {
+        try {
+          broadcaster_->sendTransform(tf);
+        }
+        catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+        }
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
+                          fcu_frame_id_.c_str());
       }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
-      }
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
-                        fcu_frame_id_.c_str());
     }
 
     // Transform global velocity to twist in fcu frame
@@ -4069,7 +4082,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   //}
-  
+
   /* publish aloam mapping origin tf //{ */
 
   // Mavros orientation cache
@@ -4964,7 +4977,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   q = q.inverse();
 
   geometry_msgs::TransformStamped tf;
-  tf.header.stamp            = ros::Time::now(); // TODO test whether odom_pixhawk_.header.stamp is more stable
+  tf.header.stamp            = ros::Time::now();  // TODO test whether odom_pixhawk_.header.stamp is more stable
   tf.header.frame_id         = fcu_frame_id_;
   tf.child_frame_id          = fcu_untilted_frame_id_;
   tf.transform.translation.x = 0.0;
@@ -6450,45 +6463,75 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   //////////////////// Filter out vio height measurement ////////////////////
 
-  bool   vio_altitude_ok = true;
-  double measurement     = msg->pose.pose.position.z;
+  {
+    bool   vio_altitude_ok = true;
+    double measurement     = msg->pose.pose.position.z;
 
-
-  // Value gate
-  if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
-    vio_altitude_ok = false;
-  }
-
-  // Median filter
-  if (isUavFlying() && vio_altitude_ok) {
-    if (!alt_mf_vio_->isValid(measurement)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
-      vio_altitude_ok = false;
-    }
-  }
-
-  //////////////////// Fuse main altitude kalman ////////////////////
-
-  // Fuse vio measurement for each altitude estimator
-  for (auto &estimator : _altitude_estimators_) {
-    alt_x_t alt_x = alt_x.Zero();
-    if (!estimator.second->getStates(alt_x)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+    // Value gate
+    if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
       vio_altitude_ok = false;
     }
 
-    if (vio_altitude_ok) {
-      {
-        std::scoped_lock lock(mutex_altitude_estimator_);
-        altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
-        if (fabs(measurement) > 100) {
-          ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+    // Median filter
+    if (isUavFlying() && vio_altitude_ok) {
+      if (!alt_mf_vio_->isValid(measurement)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+        vio_altitude_ok = false;
+      }
+    }
+
+    //////////////////// Fuse main altitude kalman ////////////////////
+
+    // Fuse vio measurement for each altitude estimator
+    for (auto &estimator : _altitude_estimators_) {
+      alt_x_t alt_x = alt_x.Zero();
+      if (!estimator.second->getStates(alt_x)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+        vio_altitude_ok = false;
+      }
+
+      if (vio_altitude_ok) {
+        {
+          std::scoped_lock lock(mutex_altitude_estimator_);
+          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+          if (fabs(measurement) > 100) {
+            ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
+          }
         }
       }
     }
+
+    ROS_INFO_ONCE("[Odometry]: Fusing height from VIO");
   }
 
-  ROS_INFO_ONCE("[Odometry]: Fusing height from VIO");
+  {
+    // TODO Matej check after TOMAS
+
+    double measurement           = msg->twist.twist.linear.z;
+    bool   vio_altitude_speed_ok = true;
+
+    //////////////////// Fuse main altitude speed kalman ////////////////////
+
+    // Fuse vio measurement for each altitude estimator
+    for (auto &estimator : _altitude_estimators_) {
+
+      alt_x_t alt_x = alt_x.Zero();
+
+      if (!estimator.second->getStates(alt_x)) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+        vio_altitude_speed_ok = false;
+      }
+
+      if (vio_altitude_speed_ok) {
+        {
+          std::scoped_lock lock(mutex_altitude_estimator_);
+          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second);
+        }
+      }
+    }
+
+    ROS_INFO_ONCE("[Odometry]: Fusing height speed from VIO");
+  }
 
   //}
 
@@ -7373,7 +7416,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing ALOAM position");
-  aloam_timestamp_ = aloam_odom_.header.stamp;
+  aloam_timestamp_          = aloam_odom_.header.stamp;
   aloam_updated_mapping_tf_ = true;
   /*//}*/
 }
