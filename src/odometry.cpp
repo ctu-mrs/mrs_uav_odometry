@@ -1616,15 +1616,12 @@ void Odometry::onInit() {
   /* list of estimators that should publish tf //{ */
 
 
-  for (std::vector<std::string>::iterator it = _active_state_estimators_names_.begin(); it != _active_state_estimators_names_.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _state_estimators_names_.begin(); it != _state_estimators_names_.end(); ++it) {
 
     bool publish_tf;
     param_loader.loadParam("state_estimators/publish_tf/" + *it, publish_tf, true);
 
     map_estimator_publish_tf_.insert(std::pair<std::string, bool>(*it, publish_tf));
-    if (!publish_tf) {
-      ROS_WARN("[Odometry]: Not publishing TF of %s estimator", it->c_str());
-    }
   }
 
   //}
@@ -3479,7 +3476,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
     // publish TF
-    if (map_estimator_publish_tf_.find(estimator_name)->second) {
+    if (map_estimator_publish_tf_.find(estimator.second->getName())->second) {
       geometry_msgs::TransformStamped tf;
       tf.header.stamp          = time_now;
       tf.header.frame_id       = fcu_frame_id_;
