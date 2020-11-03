@@ -31,3 +31,7 @@ heading:
 altitude:
   R:
     height_aloam: [1]
+
+# Publishing of TF od each estimator can be disabled (default is enabled):
+publish_tf:
+  RTK: false
