@@ -2512,15 +2512,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mrs_msgs::Float64Stamped height_msg;
   height_msg.header.frame_id = fcu_untilted_frame_id_;
   height_msg.header.stamp    = ros::Time::now();
-  {
+
+
+  // publish estimated height only when we have garmin
+  // otherwise publish -1, which is invalid height value
+  // control will recognize this invalid value and will not use height for landing
+ if (garmin_enabled_) {
     std::scoped_lock lock(mutex_estimator_height_);
 
     lkf_height_t::u_t u;
     u << 0;
     sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
     height_msg.value = sc_height_.x(0);
-  }
 
+  } else {
+    height_msg.value = -1;
+  }
 
   try {
     pub_height_.publish(height_msg);
