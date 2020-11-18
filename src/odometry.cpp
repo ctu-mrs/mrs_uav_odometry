@@ -65,8 +65,9 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/transformer.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/geometry/cyclic.h>
+#include <mrs_lib/geometry/misc.h>
 
 #include <types.h>
 #include <support.h>
@@ -88,8 +89,24 @@
 
 //}
 
+/* defines //{ */
+
 #define btoa(x) ((x) ? "true" : "false")
 #define NAME_OF(v) #v
+
+//}
+
+/* using //{ */
+
+using namespace Eigen;
+
+using vec2_t = mrs_lib::geometry::vec_t<2>;
+using vec3_t = mrs_lib::geometry::vec_t<3>;
+
+using radians  = mrs_lib::geometry::radians;
+using sradians = mrs_lib::geometry::sradians;
+
+//}
 
 namespace mrs_uav_odometry
 {
@@ -2515,15 +2532,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   mrs_msgs::Float64Stamped height_msg;
   height_msg.header.frame_id = fcu_untilted_frame_id_;
   height_msg.header.stamp    = ros::Time::now();
-  {
+
+
+  // publish estimated height only when we have garmin
+  // otherwise publish -1, which is invalid height value
+  // control will recognize this invalid value and will not use height for landing
+  if (garmin_enabled_) {
     std::scoped_lock lock(mutex_estimator_height_);
 
     lkf_height_t::u_t u;
     u << 0;
     sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
     height_msg.value = sc_height_.x(0);
-  }
 
+  } else {
+    height_msg.value = -1;
+  }
 
   try {
     pub_height_.publish(height_msg);
@@ -2745,7 +2769,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       current_hdg_estimator_->getState(1, hdg_rate);
     }
 
-    hdg                               = mrs_lib::wrapAngle(hdg);
+    hdg                               = radians::wrap(hdg);
     orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setHeading(hdg);
     {
       std::scoped_lock lock(mutex_current_hdg_estimator_);
@@ -3578,7 +3602,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
 
-    current_heading(0) = mrs_lib::wrapAngle(current_heading(0));
+    current_heading(0) = radians::wrap(current_heading(0));
 
     for (int i = 0; i < current_heading.rows(); i++) {
       heading_aux.values.push_back(current_heading(i));
@@ -4419,7 +4443,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
       current_hdg_estimator_->getStates(hdg_state);
       current_hdg_estimator_->getCovariance(hdg_covariance);
     }
-    hdg_state(0, 0) = mrs_lib::wrapAngle(hdg_state(0, 0));
+    hdg_state(0, 0) = radians::wrap(hdg_state(0, 0));
     for (int i = 0; i < hdg_state.size(); i++) {
       hdg_state_msg.state.push_back(hdg_state(i, 0));
       hdg_state_msg.covariance.push_back(hdg_covariance(i, i));
@@ -5177,11 +5201,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (gps_active_) {
 
     double vel_mavros_x, vel_mavros_y;
+    double diff_mavros_x, diff_mavros_y;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_);
 
-      /* vel_mavros_x = (odom_pixhawk_shifted_.pose.pose.position.x - odom_pixhawk_previous_shifted_.pose.pose.position.x) / dt; */
-      /* vel_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt; */
+      diff_mavros_x = (odom_pixhawk_shifted_.pose.pose.position.x - odom_pixhawk_previous_shifted_.pose.pose.position.x) / dt;
+      diff_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt;
       vel_mavros_x = odom_pixhawk_shifted_.twist.twist.linear.x;
       vel_mavros_y = odom_pixhawk_shifted_.twist.twist.linear.y;
     }
@@ -5208,7 +5233,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (rtk_active_) {
       Eigen::VectorXd rtk_input(2);
-      rtk_input << vel_mavros_x, vel_mavros_y;
+      rtk_input << diff_mavros_x, diff_mavros_y;
 
       // RTK estimator prediction step
       {
@@ -5535,7 +5560,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     hdg = hdg / 180 * M_PI;
 
     if (got_compass_hdg_) {
-      hdg = mrs_lib::unwrapAngle(hdg, hdg_previous_);
+      hdg = radians::unwrap(hdg, hdg_previous_);
     }
 
     init_hdg_avg_ += M_PI / 2 - hdg;
@@ -5565,7 +5590,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   double hdg = mrs_lib::get_mutexed(mutex_compass_hdg_, compass_hdg_.data);
 
   hdg           = hdg / 180 * M_PI;
-  hdg           = mrs_lib::unwrapAngle(hdg, hdg_previous_);
+  hdg           = radians::unwrap(hdg, hdg_previous_);
   hdg_previous_ = hdg;
   hdg           = M_PI / 2 - hdg;  // TODO is the compass heading still this weird?
 
@@ -5590,7 +5615,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   headingEstimatorsCorrection(hdg, "hdg_compass");
 
   if (_debug_publish_corrections_) {
-    hdg = mrs_lib::wrapAngle(hdg);
+    hdg = radians::wrap(hdg);
     mrs_msgs::Float64Stamped compass_hdg_out;
     compass_hdg_out.header.stamp    = ros::Time::now();
     compass_hdg_out.header.frame_id = local_origin_frame_id_;
@@ -6425,6 +6450,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg_previous_)");
+    return;
   }
 
   double vio_hdg;
@@ -6433,16 +6459,17 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (hdg_vio)");
+    return;
   }
 
-  vio_hdg = mrs_lib::unwrapAngle(vio_hdg, vio_hdg_previous);
+  vio_hdg = radians::unwrap(vio_hdg, vio_hdg_previous);
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(vio_hdg, "hdg_vio");
 
   // Publish VIO heading correction
   if (_debug_publish_corrections_) {
-    vio_hdg = mrs_lib::wrapAngle(vio_hdg);
+    vio_hdg = radians::wrap(vio_hdg);
     mrs_msgs::Float64Stamped vio_hdg_out;
     vio_hdg_out.header.stamp    = ros::Time::now();
     vio_hdg_out.header.frame_id = local_origin_frame_id_;
@@ -6660,6 +6687,7 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (vslam_hdg_previous_)");
+    return;
   }
 
   double vslam_hdg;
@@ -6668,16 +6696,17 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (vslam_hdg)");
+    return;
   }
 
-  vslam_hdg           = mrs_lib::unwrapAngle(vslam_hdg, vslam_hdg_previous_);
+  vslam_hdg           = radians::unwrap(vslam_hdg, vslam_hdg_previous_);
   vslam_hdg_previous_ = vslam_hdg;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(vslam_hdg, "hdg_vslam");
 
   if (_debug_publish_corrections_) {
-    vslam_hdg = mrs_lib::wrapAngle(vslam_hdg);
+    vslam_hdg = radians::wrap(vslam_hdg);
 
     mrs_msgs::Float64Stamped vslam_hdg_out;
     vslam_hdg_out.header.stamp    = ros::Time::now();
@@ -6933,9 +6962,10 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during getting heading (hdg_tmp)");
+    return;
   }
 
-  double hdg_brick = mrs_lib::unwrapAngle(hdg_tmp, brick_hdg_previous_);
+  double hdg_brick = radians::unwrap(hdg_tmp, brick_hdg_previous_);
 
   double diff_hdg = std::pow(hdg_brick - brick_hdg_previous_, 2);
   if (diff_hdg > max_safe_brick_hdg_jump_sq_) {
@@ -6959,7 +6989,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   headingEstimatorsCorrection(hdg_brick, "hdg_brick");
 
   if (_debug_publish_corrections_) {
-    hdg_brick = mrs_lib::wrapAngle(hdg_brick);
+    hdg_brick = radians::wrap(hdg_brick);
 
     mrs_msgs::Float64Stamped brick_hdg_out;
     brick_hdg_out.header.stamp    = ros::Time::now();
@@ -7176,14 +7206,14 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     hdg_hector = mrs_lib::AttitudeConverter(hector_pose_.pose.orientation).getHeading();
   }
 
-  hdg_hector = mrs_lib::unwrapAngle(hdg_hector, hector_hdg_previous_);
+  hdg_hector = radians::unwrap(hdg_hector, hector_hdg_previous_);
   hdg_hector += hector_offset_hdg_;
   hector_hdg_previous_ = hdg_hector;
 
   mrs_lib::set_mutexed(mutex_hector_, hdg_hector, hdg_hector_corr_);
 
   if (_debug_publish_corrections_) {
-    hdg_hector = mrs_lib::wrapAngle(hdg_hector);
+    hdg_hector = radians::wrap(hdg_hector);
 
     mrs_msgs::Float64Stamped hector_hdg_out;
     hector_hdg_out.header.stamp    = ros::Time::now();
@@ -7338,10 +7368,11 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_aux orientation)");
+      return;
     }
   }
 
-  hdg_aloam = mrs_lib::unwrapAngle(hdg_aloam, aloam_hdg_previous_);
+  hdg_aloam = radians::unwrap(hdg_aloam, aloam_hdg_previous_);
   hdg_aloam += aloam_offset_hdg_;
   aloam_hdg_previous_ = hdg_aloam;
 
@@ -7349,7 +7380,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   headingEstimatorsCorrection(hdg_aloam, "hdg_aloam");
 
   if (_debug_publish_corrections_) {
-    hdg_aloam = mrs_lib::wrapAngle(hdg_aloam);
+    hdg_aloam = radians::wrap(hdg_aloam);
 
     mrs_msgs::Float64Stamped aloam_hdg_out;
     aloam_hdg_out.header.stamp    = ros::Time::now();
@@ -7503,7 +7534,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   auto            odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
   Eigen::Matrix3d odom_pixhawk_R     = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
 
-  double tilt = mrs_lib::vectorAngle(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
+  double tilt = mrs_lib::geometry::angleBetween(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
 
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
@@ -7663,7 +7694,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   auto            odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
   Eigen::Matrix3d odom_pixhawk_R     = mrs_lib::AttitudeConverter(odom_pixhawk_local.pose.pose.orientation);
 
-  double tilt = mrs_lib::vectorAngle(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
+  double tilt = mrs_lib::geometry::angleBetween(Eigen::Vector3d(0, 0, 1), odom_pixhawk_R.col(2));
 
   // Check for excessive tilts
   // we do not want to fuse sonar with large tilts as the range will be too unreliable
@@ -9590,7 +9621,7 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
 
     double current_hdg;
     estimator.second->getState(0, current_hdg);
-    input(0) = mrs_lib::unwrapAngle(input(0), current_hdg);
+    input(0) = radians::unwrap(input(0), current_hdg);
     estimator.second->doPrediction(input, dt);
   }
 }
@@ -9621,7 +9652,7 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
       double current_hdg;
       estimator.second->getState(0, current_hdg);
 
-      z = mrs_lib::unwrapAngle(z, current_hdg);
+      z = radians::unwrap(z, current_hdg);
     }
 
     estimator.second->doCorrection(z, it_measurement_id->second);
@@ -9648,8 +9679,8 @@ void Odometry::getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, 
   // undo the heading
   Eigen::Matrix3d R_no_heading = mrs_lib::AttitudeConverter(undo_heading_R * original_R);
 
-  rx = mrs_lib::vectorAngle(Eigen::Vector3d(1, 0, 0), R_no_heading.col(0));
-  ry = mrs_lib::vectorAngle(Eigen::Vector3d(0, 1, 0), R_no_heading.col(1));
+  rx = mrs_lib::geometry::angleBetween(Eigen::Vector3d(1, 0, 0), R_no_heading.col(0));
+  ry = mrs_lib::geometry::angleBetween(Eigen::Vector3d(0, 1, 0), R_no_heading.col(1));
   rz = heading;
 }
 //}
