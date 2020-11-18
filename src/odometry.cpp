@@ -5149,11 +5149,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (gps_active_) {
 
     double vel_mavros_x, vel_mavros_y;
+    double diff_mavros_x, diff_mavros_y;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_);
 
-      /* vel_mavros_x = (odom_pixhawk_shifted_.pose.pose.position.x - odom_pixhawk_previous_shifted_.pose.pose.position.x) / dt; */
-      /* vel_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt; */
+      diff_mavros_x = (odom_pixhawk_shifted_.pose.pose.position.x - odom_pixhawk_previous_shifted_.pose.pose.position.x) / dt;
+      diff_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt;
       vel_mavros_x = odom_pixhawk_shifted_.twist.twist.linear.x;
       vel_mavros_y = odom_pixhawk_shifted_.twist.twist.linear.y;
     }
@@ -5180,7 +5181,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     if (rtk_active_) {
       Eigen::VectorXd rtk_input(2);
-      rtk_input << vel_mavros_x, vel_mavros_y;
+      rtk_input << diff_mavros_x, diff_mavros_y;
 
       // RTK estimator prediction step
       {
