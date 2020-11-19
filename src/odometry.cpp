@@ -819,6 +819,7 @@ private:
   bool vslam_active_      = false;
   bool t265_active_       = false;
   bool aloam_active_      = false;
+  bool aloamgarm_active_      = false;
   bool brick_active_      = false;
   bool icp_active_        = false;
 
@@ -1007,6 +1008,7 @@ void Odometry::onInit() {
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::VSLAM));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ICP));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAM));
+  _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMGARM));
 
   ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
@@ -1552,6 +1554,10 @@ void Odometry::onInit() {
       aloam_active_   = true;
       aloam_reliable_ = true;
     }
+    if (*it == "ALOAMGARM") {
+      aloamgarm_active_   = true;
+      aloam_reliable_ = true;
+    }
     if (*it == "ICP") {
       icp_active_   = true;
       icp_reliable_ = true;
@@ -2089,7 +2095,7 @@ void Odometry::onInit() {
   }
 
   // subscriber for aloam odometry
-  if (aloam_active_) {
+  if (aloam_active_ || aloamgarm_active_) {
     sub_aloam_odom_ = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
@@ -2215,6 +2221,11 @@ void Odometry::onInit() {
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAM && !aloam_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
+    ros::shutdown();
+  }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMGARM && !aloamgarm_active_) {
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMGARM estimator not active. Shutting down.",
+              _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ICP && !icp_active_) {
@@ -2420,6 +2431,14 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAM) {
+    if (got_aloam_odom_) {
+      return true;
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for ALOAM odometry msg to initialize takeoff estimator");
+      return false;
+    }
+  }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMGARM) {
     if (got_aloam_odom_) {
       return true;
     } else {
@@ -3073,6 +3092,74 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
+    // Fallback from ALOAMGARM Slam
+  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+    if (!got_aloam_odom_ || !aloam_reliable_) {
+      if (icp_active_ && got_icp_twist_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to ICP type.");
+        mrs_msgs::EstimatorType icp_type;
+        icp_type.type = mrs_msgs::EstimatorType::ICP;
+        if (!changeCurrentEstimator(icp_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to OPTFLOW heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to OPTFLOW type.");
+        mrs_msgs::EstimatorType optflow_type;
+        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+        if (!changeCurrentEstimator(optflow_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
+        mrs_msgs::EstimatorType gps_type;
+        gps_type.type = mrs_msgs::EstimatorType::GPS;
+        if (!changeCurrentEstimator(gps_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (!failsafe_called_) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+    }
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || !got_aloam_odom_) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, aloam: %s",
+                        got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
+                        got_aloam_odom_ ? "TRUE" : "FALSE");
+      if (got_lateral_sensors_ && !failsafe_called_) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+      return;
+    }
+
     // Fallback from ICP
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -3420,6 +3507,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           odom_aux->second.pose.pose.position.z = alt;
         }
       }
+    } else if (estimator.first == "ALOAMGARM") {
+      // Prevent publishing of TF before corrections are available
+      if (!got_aloam_odom_) {
+        continue;
+      }
+      for (auto &alt_estimator : _altitude_estimators_) {
+        if (alt_estimator.first == "HEIGHT") {
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt;
+        }
+      }
       // we might want other than height estimator when in GPS (baro)
     } else if (estimator.first == "GPS") {
       {
@@ -3470,7 +3568,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     double hdg;
     for (auto &hdg_estimator : heading_estimators_) {
 
-      if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW")) {
+      if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") || (hdg_estimator.first == "ALOAM" && estimator.first == "ALOAMGARM")) {
 
         hdg_estimator.second->getState(0, hdg);
 
@@ -3670,8 +3768,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       // estimators not based on GNSS
       if (estimator.second->getName() == "OPTFLOW" || estimator.second->getName() == "HECTOR" || estimator.second->getName() == "ALOAM" ||
-          estimator.second->getName() == "BRICK" || estimator.second->getName() == "VIO" || estimator.second->getName() == "VSLAM" ||
-          estimator.second->getName() == "BRICKFLOW" || estimator.second->getName() == "ICP") {
+          estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "BRICK" || estimator.second->getName() == "VIO" ||
+          estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" || estimator.second->getName() == "ICP") {
 
         pos_state << _local_origin_x_, _local_origin_y_;
         estimator.second->setState(0, pos_state);
@@ -5155,8 +5253,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       diff_mavros_x = (odom_pixhawk_shifted_.pose.pose.position.x - odom_pixhawk_previous_shifted_.pose.pose.position.x) / dt;
       diff_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt;
-      vel_mavros_x = odom_pixhawk_shifted_.twist.twist.linear.x;
-      vel_mavros_y = odom_pixhawk_shifted_.twist.twist.linear.y;
+      vel_mavros_x  = odom_pixhawk_shifted_.twist.twist.linear.x;
+      vel_mavros_y  = odom_pixhawk_shifted_.twist.twist.linear.y;
     }
 
     // Apply correction step to all state estimators
@@ -7377,7 +7475,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Set innoation variable if ccurnet estimator is ALOAM
-  if (current_lat_estimator_->getName() == "ALOAM") {
+  if (current_lat_estimator_->getName() == "ALOAM" || current_lat_estimator_->getName() == "ALOAMGARM") {
     Vec2 pos_vec, innovation;
     current_lat_estimator_->getState(0, pos_vec);
 
@@ -8458,6 +8556,10 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_estimator.type     = mrs_msgs::EstimatorType::ICP;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ICP;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+  } else if (type == "ALOAMGARM") {
+    desired_estimator.type     = mrs_msgs::EstimatorType::ALOAM;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -8627,6 +8729,8 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     desired_estimator.type = mrs_msgs::EstimatorType::HECTOR;
   } else if (type == "ALOAM") {
     desired_estimator.type = mrs_msgs::EstimatorType::ALOAM;
+  } else if (type == "ALOAMGARM") {
+    desired_estimator.type = mrs_msgs::EstimatorType::ALOAMGARM;
   } else if (type == "BRICKFLOW") {
     desired_estimator.type = mrs_msgs::EstimatorType::BRICKFLOW;
   } else if (type == "ICP") {
@@ -9917,6 +10021,27 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     //}
 
+    /* ALOAMGARM //{ */
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+
+    if (!aloamgarm_active_) {
+      ROS_ERROR("[Odometry]: Cannot transition to ALOAMGARM type. ALOAMGARM estimator not active.");
+      return false;
+    }
+
+    if (!got_aloam_odom_ && is_ready_to_takeoff_) {
+      ROS_ERROR("[Odometry]: Cannot transition to ALOAMGARM type. No new aloam msgs received.");
+      return false;
+    }
+
+    aloam_reliable_ = true;
+
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
+
+
+    //}
+    
     /* ICP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -10280,7 +10405,7 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
   if (type.type == mrs_msgs::EstimatorType::OPTFLOW || type.type == mrs_msgs::EstimatorType::GPS || type.type == mrs_msgs::EstimatorType::OPTFLOWGPS ||
       type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO || type.type == mrs_msgs::EstimatorType::VSLAM ||
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
-      type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM) {
+      type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM || type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
     return true;
   }
 
@@ -10392,6 +10517,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "HECTOR";
   } else if (type.type == mrs_msgs::EstimatorType::ALOAM) {
     s_diag += "ALOAM";
+  } else if (type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+    s_diag += "ALOAMGARM";
   } else if (type.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     s_diag += "BRICKFLOW";
   } else if (type.type == mrs_msgs::EstimatorType::ICP) {
