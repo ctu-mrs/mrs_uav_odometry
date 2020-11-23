@@ -819,7 +819,7 @@ private:
   bool vslam_active_      = false;
   bool t265_active_       = false;
   bool aloam_active_      = false;
-  bool aloamgarm_active_      = false;
+  bool aloamgarm_active_  = false;
   bool brick_active_      = false;
   bool icp_active_        = false;
 
@@ -1555,8 +1555,8 @@ void Odometry::onInit() {
       aloam_reliable_ = true;
     }
     if (*it == "ALOAMGARM") {
-      aloamgarm_active_   = true;
-      aloam_reliable_ = true;
+      aloamgarm_active_ = true;
+      aloam_reliable_   = true;
     }
     if (*it == "ICP") {
       icp_active_   = true;
@@ -3568,7 +3568,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     double hdg;
     for (auto &hdg_estimator : heading_estimators_) {
 
-      if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") || (hdg_estimator.first == "ALOAM" && estimator.first == "ALOAMGARM")) {
+      if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") ||
+          (hdg_estimator.first == "ALOAM" && estimator.first == "ALOAMGARM")) {
 
         hdg_estimator.second->getState(0, hdg);
 
@@ -6459,29 +6460,41 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVioOdometry");
 
-  nav_msgs::Odometry odom_vio_previous;
+  {
+    std::scoped_lock lock(mutex_odom_vio_);
 
-  if (got_vio_) {
-
-    odom_vio_previous = odom_vio_;
-    mrs_lib::set_mutexed(mutex_odom_vio_previous_, odom_vio_previous, odom_vio_previous_);
-    mrs_lib::set_mutexed(mutex_odom_vio_, *msg, odom_vio_);
     odom_vio_last_update_ = ros::Time::now();
 
-  } else {
+    if (got_vio_) {
 
-    mrs_lib::set_mutexed(mutex_odom_vio_previous_, *msg, odom_vio_previous_);
-    mrs_lib::set_mutexed(mutex_odom_vio_, *msg, odom_vio_);
-    odom_vio_last_update_ = ros::Time::now();
-    got_vio_              = true;
+      odom_vio_previous_ = odom_vio_;
+      odom_vio_          = *msg;
 
-    return;
+    } else {
+
+      odom_vio_previous_ = *msg;
+      odom_vio_          = *msg;
+
+      try {
+        vio_hdg_previous_ = mrs_lib::AttitudeConverter(odom_vio_.pose.pose.orientation).getHeading();
+      }
+      catch (...) {
+        ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg_previous_)");
+      }
+
+      got_vio_      = true;
+      vio_reliable_ = true;
+
+      return;
+    }
   }
-
 
   // --------------------------------------------------------------
   // |                        callback body                       |
   // --------------------------------------------------------------
+
+  auto odom_vio_previous = mrs_lib::get_mutexed(mutex_odom_vio_, odom_vio_previous_);
+  auto odom_vio          = mrs_lib::get_mutexed(mutex_odom_vio_, odom_vio_);
 
   if (!isTimestampOK(msg->header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction.");
@@ -6489,26 +6502,17 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   /* fuse vio hdg //{ */
-  double vio_hdg_previous;
-  try {
-    vio_hdg_previous = mrs_lib::AttitudeConverter(odom_vio_previous_.pose.pose.orientation).getHeading();
-    mrs_lib::set_mutexed(mutex_vio_hdg_previous_, vio_hdg_previous, vio_hdg_previous_);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg_previous_)");
-    return;
-  }
-
   double vio_hdg;
   try {
-    vio_hdg = mrs_lib::AttitudeConverter(msg->pose.pose.orientation).getHeading();
+    vio_hdg = mrs_lib::AttitudeConverter(odom_vio.pose.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during getting heading (hdg_vio)");
+    ROS_ERROR("[Odometry]: Exception caught during getting heading (vio_hdg)");
     return;
   }
 
-  vio_hdg = radians::unwrap(vio_hdg, vio_hdg_previous);
+  vio_hdg           = radians::unwrap(vio_hdg, vio_hdg_previous_);
+  vio_hdg_previous_ = vio_hdg;
 
   // Apply correction step to all heading estimators
   headingEstimatorsCorrection(vio_hdg, "hdg_vio");
@@ -7324,12 +7328,13 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackAloamOdom");
 
-  aloam_odom_last_update_ = ros::Time::now();
-
   {
     std::scoped_lock lock(mutex_aloam_);
 
+    aloam_odom_last_update_ = ros::Time::now();
+
     if (got_aloam_odom_) {
+
       aloam_odom_previous_ = aloam_odom_;
       aloam_odom_          = *msg;
 
@@ -7337,6 +7342,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
       aloam_odom_previous_ = *msg;
       aloam_odom_          = *msg;
+
       try {
         aloam_hdg_previous_ = mrs_lib::AttitudeConverter(aloam_odom_.pose.pose.orientation).getHeading();
       }
@@ -7354,11 +7360,13 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   // |                        callback body                       |
   // --------------------------------------------------------------
 
-  if (!isTimestampOK(aloam_odom_.header.stamp.toSec(), aloam_odom_previous_.header.stamp.toSec())) {
+  auto aloam_odom_previous = mrs_lib::get_mutexed(mutex_aloam_, aloam_odom_previous_);
+  auto aloam_odom          = mrs_lib::get_mutexed(mutex_aloam_, aloam_odom_);
+
+  if (!isTimestampOK(aloam_odom_.header.stamp.toSec(), aloam_odom_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: ALOAM odom timestamp not OK, not fusing correction.");
     return;
   }
-
 
   /* fuse aloam height //{ */
 
@@ -7407,15 +7415,12 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
   /*//{ fuse aloam heading*/
   double hdg_aloam;
-  {
-    std::scoped_lock lock(mutex_aloam_);
-    try {
-      hdg_aloam = mrs_lib::AttitudeConverter(aloam_odom_.pose.pose.orientation).getHeading();
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during setting heading (odom_aux orientation)");
-      return;
-    }
+  try {
+    hdg_aloam = mrs_lib::AttitudeConverter(aloam_odom.pose.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during setting heading (hdg_aloam)");
+    return;
   }
 
   hdg_aloam = radians::unwrap(hdg_aloam, aloam_hdg_previous_);
@@ -10041,7 +10046,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
 
     //}
-    
+
     /* ICP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -10405,7 +10410,8 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
   if (type.type == mrs_msgs::EstimatorType::OPTFLOW || type.type == mrs_msgs::EstimatorType::GPS || type.type == mrs_msgs::EstimatorType::OPTFLOWGPS ||
       type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO || type.type == mrs_msgs::EstimatorType::VSLAM ||
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
-      type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM || type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+      type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM ||
+      type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
     return true;
   }
 
