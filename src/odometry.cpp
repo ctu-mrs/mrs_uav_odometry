@@ -8557,7 +8557,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ICP;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (type == "ALOAMGARM") {
-    desired_estimator.type     = mrs_msgs::EstimatorType::ALOAM;
+    desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMGARM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else {
