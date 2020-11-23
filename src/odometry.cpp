@@ -10200,6 +10200,12 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     return false;
   }
 
+  if (target_estimator.type == mrs_msgs::AltitudeType::HEIGHT && !garmin_enabled_) {
+
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Tried to switch altitude estimator to HEIGHT without garmin_enabled_. Do you have garmin_down in SENSORS in .bashrc?");
+    return false;
+  }
+
   // Return if already active
   if (toUppercase(current_alt_estimator_name_) == toUppercase(target_estimator.name)) {
     ROS_INFO("[Odometry]: Desired altitue estimator %s already active. Not switching.", target_estimator.name.c_str());
