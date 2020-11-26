@@ -36,7 +36,7 @@ altitude_estimators:
     HEIGHT: ["height_range", "vel_baro"]
     PLANE: ["height_plane", "vel_baro"]
     BRICK: ["height_brick", "vel_baro"]
-    VIO: ["height_vio"]
+    VIO: ["height_vio", "vel_vio"]
     ALOAM: ["height_aloam", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
 

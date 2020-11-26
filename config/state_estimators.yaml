@@ -17,6 +17,7 @@ state_estimators:
     "VSLAM",
     "ICP",
     "ALOAM",
+    "ALOAMGARM"
   ] 
 
   # The measured states of the model
@@ -58,6 +59,7 @@ state_estimators:
     T265: []
     ICP: ["vel_icp"]
     ALOAM: ["pos_aloam", "vel_icp"]
+    ALOAMGARM: ["pos_aloam", "vel_icp"]
 
   # Mapping of measurements to states
   measurement_states:
