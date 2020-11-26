@@ -4279,7 +4279,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     aloam_odom_tmp.pose.pose.orientation = new_orientation;
 
     // Set z-coordinate from stable odometry
-    aloam_odom_tmp.pose.pose.position.z = odom_stable_tmp.pose.pose.position.z;
+    aloam_odom_tmp.pose.pose.position.z = odom_local_.pose.pose.position.z;
 
     // Get inverse transform
     tf2::Transform tf_aloam_inv        = mrs_uav_odometry::tf2FromPose(aloam_odom_tmp.pose.pose);
