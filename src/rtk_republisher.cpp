@@ -18,8 +18,19 @@
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/timer.h>
 
 #include <support.h>
+
+//}
+
+/* using //{ */
+
+#ifdef ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -70,7 +81,7 @@ private:
   std::mutex mutex_odom_;
   std::mutex mutex_tersus_;
 
-  ros::Timer timer_main_;
+  Timer timer_main_;
 
   // global odometry from gazebo
   nav_msgs::Odometry odom_;
@@ -128,7 +139,7 @@ void RtkRepublisher::onInit() {
 
   // | ------------------------- timers ------------------------- |
 
-  timer_main_ = nh_.createTimer(ros::Rate(_rate_), &RtkRepublisher::timerMain, this);
+  timer_main_ = Timer(nh_, ros::Rate(_rate_), &RtkRepublisher::timerMain, this);
 
   // | ------------------------ services ------------------------ |
 
