@@ -26,7 +26,7 @@
 
 /* using //{ */
 
-#ifdef ROS_VERSION_MINIMUM(1, 15, 8)
+#if ROS_VERSION_MINIMUM(1, 15, 8)
 using Timer = mrs_lib::ThreadTimer;
 #else
 using Timer = mrs_lib::ROSTimer;
