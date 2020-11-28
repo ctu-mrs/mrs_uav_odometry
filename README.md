@@ -1,4 +1,4 @@
-# MRS UAV Odometry [![Build Status](https://travis-ci.com/ctu-mrs/mrs_uav_odometry.svg?branch=master)](https://travis-ci.com/ctu-mrs/mrs_uav_odometry)
+# MRS UAV Odometry [![Build Status](https://github.com/ctu-mrs/mrs_uav_odometry/workflows/CI/badge.svg)](https://github.com/ctu-mrs/mrs_uav_odometry/actions)
 
 ![](.fig/thumbnail.jpg)
 
