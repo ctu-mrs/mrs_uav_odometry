@@ -68,7 +68,6 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
-#include <mrs_lib/timer.h>
 
 #include <types.h>
 #include <support.h>
@@ -106,12 +105,6 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 
 using radians  = mrs_lib::geometry::radians;
 using sradians = mrs_lib::geometry::sradians;
-
-#if ROS_VERSION_MINIMUM(1, 15, 8)
-using Timer = mrs_lib::ThreadTimer;
-#else
-using Timer = mrs_lib::ROSTimer;
-#endif
 
 //}
 
@@ -853,12 +846,12 @@ private:
   bool garmin_enabled_;
   bool sonar_enabled_;
 
-  Timer slow_odom_timer_;
-  Timer diag_timer_;
-  Timer lat_states_timer_;
-  Timer max_altitude_timer_;
-  Timer topic_watcher_timer_;
-  Timer hector_reset_routine_timer_;
+  ros::Timer slow_odom_timer_;
+  ros::Timer diag_timer_;
+  ros::Timer lat_states_timer_;
+  ros::Timer max_altitude_timer_;
+  ros::Timer topic_watcher_timer_;
+  ros::Timer hector_reset_routine_timer_;
   bool       hector_reset_routine_running_;
   bool       _perform_hector_reset_routine_;
   int        _slow_odom_rate_;
@@ -892,13 +885,13 @@ private:
   // for fusing rtk altitude
   bool       rtk_altitude_enabled_;
   double     rtk_altitude_integral_;
-  Timer rtk_rate_timer_;
+  ros::Timer rtk_rate_timer_;
   double     rtkQ_;
   double     rtk_max_down_difference_;
   double     rtk_max_abs_difference_;
 
 private:
-  Timer main_timer_;
+  ros::Timer main_timer_;
   void       mainTimer(const ros::TimerEvent &event);
 
 private:
@@ -2194,13 +2187,13 @@ void Odometry::onInit() {
 
   /* timers //{ */
 
-  main_timer_                 = Timer(nh_, ros::Rate(_main_rate_), &Odometry::mainTimer, this);
-  slow_odom_timer_            = Timer(nh_, ros::Rate(_slow_odom_rate_), &Odometry::slowOdomTimer, this);
-  diag_timer_                 = Timer(nh_, ros::Rate(_diag_rate_), &Odometry::diagTimer, this);
-  lat_states_timer_           = Timer(nh_, ros::Rate(_lkf_states_rate_), &Odometry::lkfStatesTimer, this);
-  max_altitude_timer_         = Timer(nh_, ros::Rate(_max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
-  topic_watcher_timer_        = Timer(nh_, ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
-  hector_reset_routine_timer_ = Timer(nh_, ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
+  main_timer_                 = nh_.createTimer(ros::Rate(_main_rate_), &Odometry::mainTimer, this);
+  slow_odom_timer_            = nh_.createTimer(ros::Rate(_slow_odom_rate_), &Odometry::slowOdomTimer, this);
+  diag_timer_                 = nh_.createTimer(ros::Rate(_diag_rate_), &Odometry::diagTimer, this);
+  lat_states_timer_           = nh_.createTimer(ros::Rate(_lkf_states_rate_), &Odometry::lkfStatesTimer, this);
+  max_altitude_timer_         = nh_.createTimer(ros::Rate(_max_altitude_rate_), &Odometry::maxAltitudeTimer, this);
+  topic_watcher_timer_        = nh_.createTimer(ros::Rate(topic_watcher_rate_), &Odometry::topicWatcherTimer, this);
+  hector_reset_routine_timer_ = nh_.createTimer(ros::Duration(0.00001), &Odometry::callbackTimerHectorResetRoutine, this, true, false);
 
   //}
 
