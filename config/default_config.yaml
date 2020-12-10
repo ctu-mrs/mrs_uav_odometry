@@ -15,7 +15,7 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM", "ALOAMGARM"]
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
@@ -76,7 +76,7 @@ altitude:
     height_brick: [100.0]
     height_vio: [0.001]
     vel_vio: [0.01]
-    height_aloam: [100.0]
+    height_aloam: [10.0]
     height_baro: [100.0]
     vel_baro: [100.0]
     acc_imu: [100.0]

@@ -281,9 +281,9 @@ private:
 
   // Mavros odometry and local odometry cache for aloam mapping tf
   std::vector<nav_msgs::Odometry> vec_odom_mavros_;
-  std::mutex mutex_vec_odom_mavros_;
+  std::mutex                      mutex_vec_odom_mavros_;
   std::vector<nav_msgs::Odometry> vec_odom_local_;
-  std::mutex mutex_vec_odom_local_;
+  std::mutex                      mutex_vec_odom_local_;
 
   // OPTFLOW
   geometry_msgs::TwistWithCovarianceStamped optflow_twist_;
@@ -372,6 +372,12 @@ private:
 
   ros::Time aloam_timestamp_;
   bool      aloam_updated_mapping_tf_ = false;
+
+  // ALOAMGARM altitude
+  bool  altitude_fusing_aloam_     = true;
+  bool  aloamgarm_fusion_switched_ = false;
+  float aloamgarm_last_altitude_   = 0;
+  float aloamgarm_altitude_offset_ = 0;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -1030,6 +1036,7 @@ void Odometry::onInit() {
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::BRICK));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::VIO));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAM));
+  _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAMGARM));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::BARO));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
@@ -2691,6 +2698,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAM) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAMGARM) {
+      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::BARO) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
@@ -3519,7 +3528,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         continue;
       }
       for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "HEIGHT") {
+        if (alt_estimator.first == "ALOAMGARM") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
         }
@@ -4076,7 +4085,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     //}
-     
+
     /* publish local origin tf //{ */
 
     // Get inverse trasnform
@@ -4211,9 +4220,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish aloam mapping origin tf //{ */
 
-  float cache_size = 0.3;
-  bool clear_needed = false;
-  if(got_stable && got_aloam_odom_){
+  float cache_size   = 0.3;
+  bool  clear_needed = false;
+  if (got_stable && got_aloam_odom_) {
     // Mavros odom chache//{
     {
       std::scoped_lock lock(mutex_vec_odom_mavros_);
@@ -4221,17 +4230,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       vec_odom_mavros_.push_back(odom_pixhawk_shifted_local);
       // Delete old data
       size_t index_delete = 0;
-      for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
-        if(time_now - vec_odom_mavros_.at(i).header.stamp > ros::Duration(cache_size)){
+      for (size_t i = 0; i < vec_odom_mavros_.size(); i++) {
+        if (time_now - vec_odom_mavros_.at(i).header.stamp > ros::Duration(cache_size)) {
           index_delete = i;
           clear_needed = true;
-        }else{
+        } else {
           break;
         }
       }
-      if(clear_needed){
-        for(int i = (int)index_delete; i >= 0; i--){
-          vec_odom_mavros_.erase(vec_odom_mavros_.begin()+i);
+      if (clear_needed) {
+        for (int i = (int)index_delete; i >= 0; i--) {
+          vec_odom_mavros_.erase(vec_odom_mavros_.begin() + i);
         }
         clear_needed = false;
       }
@@ -4246,22 +4255,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       vec_odom_local_.push_back(odom_local_);
       // Delete old data
       size_t index_delete = 0;
-      for(size_t i = 0; i < vec_odom_local_.size(); i++){
-        if(time_now - vec_odom_local_.at(i).header.stamp > ros::Duration(cache_size)){
+      for (size_t i = 0; i < vec_odom_local_.size(); i++) {
+        if (time_now - vec_odom_local_.at(i).header.stamp > ros::Duration(cache_size)) {
           index_delete = i;
           clear_needed = true;
-        }else{
+        } else {
           break;
         }
       }
-      if(clear_needed){
-        for(int i = (int)index_delete; i >= 0; i--){
-          vec_odom_local_.erase(vec_odom_local_.begin()+i);
+      if (clear_needed) {
+        for (int i = (int)index_delete; i >= 0; i--) {
+          vec_odom_local_.erase(vec_odom_local_.begin() + i);
         }
       }
       /* ROS_INFO_THROTTLE(1.0,"Local odom cache size: %d", (int)vec_odom_local_.size()); */
     }
-  /*//}*/
+    /*//}*/
   }
 
   if (got_stable && got_aloam_odom_ && aloam_updated_mapping_tf_) {
@@ -4272,26 +4281,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     aloam_odom_tmp = aloam_odom_;
 
     // Find corresponding mavros orientation
-    tf2::Quaternion tf2_mavros_orient;
+    tf2::Quaternion           tf2_mavros_orient;
     geometry_msgs::Quaternion mavros_orientation_temp = mavros_orientation;
-    for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
-      if(aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp){
+    for (size_t i = 0; i < vec_odom_mavros_.size(); i++) {
+      if (aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        float time_diff      = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
         float time_diff_prev = 999999;
-        if(i > 0){
-          time_diff_prev = std::fabs(vec_odom_mavros_.at(i-1).header.stamp.toSec() - aloam_timestamp_.toSec());
+        if (i > 0) {
+          time_diff_prev = std::fabs(vec_odom_mavros_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if(time_diff_prev < time_diff){
+        if (time_diff_prev < time_diff) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
-        if(clear_needed && i == 0){
+        if (clear_needed && i == 0) {
           ROS_WARN_THROTTLE(1.0, "[Odometry] Mavros orientation cache is too small.");
         }
         mavros_orientation_temp = vec_odom_mavros_.at(i).pose.pose.orientation;
-        tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation_temp);
-        /* ROS_INFO("aloam_timestamp: %.6f, using mavros stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec(), time_now.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
+        tf2_mavros_orient       = mrs_lib::AttitudeConverter(mavros_orientation_temp);
+        /* ROS_INFO("aloam_timestamp: %.6f, using mavros stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(),
+         * vec_odom_mavros_.at(i).header.stamp.toSec(), time_now.toSec(),
+         * vec_odom_mavros_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
         /* ROS_INFO_THROTTLE(1.0, "[Odometry] ALOAM delay: %.6f", time_now.toSec() - aloam_timestamp_.toSec()); */
         break;
       }
@@ -4311,23 +4322,25 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Find corresponding local odom
     double local_odom_z = 0;
-    for(size_t i = 0; i < vec_odom_local_.size(); i++){
-      if(aloam_timestamp_ < vec_odom_local_.at(i).header.stamp){
+    for (size_t i = 0; i < vec_odom_local_.size(); i++) {
+      if (aloam_timestamp_ < vec_odom_local_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        float time_diff      = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
         float time_diff_prev = 999999;
-        if(i > 0){
-          time_diff_prev = std::fabs(vec_odom_local_.at(i-1).header.stamp.toSec() - aloam_timestamp_.toSec());
+        if (i > 0) {
+          time_diff_prev = std::fabs(vec_odom_local_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if(time_diff_prev < time_diff){
+        if (time_diff_prev < time_diff) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
-        if(clear_needed && i == 0){
+        if (clear_needed && i == 0) {
           ROS_WARN_THROTTLE(1.0, "[Odometry] Local odom cache (for aloam mapping tf) is too small.");
         }
         local_odom_z = vec_odom_local_.at(i).pose.pose.position.z;
-        /* ROS_INFO("aloam_timestamp: %.6f, using local odom stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(), vec_odom_local_.at(i).header.stamp.toSec(), time_now.toSec(), vec_odom_local_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
+        /* ROS_INFO("aloam_timestamp: %.6f, using local odom stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(),
+         * vec_odom_local_.at(i).header.stamp.toSec(), time_now.toSec(),
+         * vec_odom_local_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
         break;
       }
     }
@@ -4479,6 +4492,9 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   }
   if (stringInVector("ALOAM", _altitude_estimators_names_) && aloam_active_) {
     active_alt_estimators.push_back("ALOAM");
+  }
+  if (stringInVector("ALOAMGARM", _altitude_estimators_names_) && aloam_active_) {
+    active_alt_estimators.push_back("ALOAMGARM");
   }
   if (stringInVector("BARO", _altitude_estimators_names_)) {
     active_alt_estimators.push_back("BARO");
@@ -7508,9 +7524,32 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     if (aloam_height_ok) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
-        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second);
-        if (fabs(measurement) > 100) {
-          ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
+        if (estimator.first == "ALOAMGARM") {
+          if (aloam_odom_.pose.covariance.at(14) < 100) {
+            /* ROS_INFO("[Odometry] Not fusing ALOAM altitude, measurement degraded, eigenvalue: %.3f.", aloam_odom_.pose.covariance.at(14)); */
+            if (altitude_fusing_aloam_) {
+              altitude_fusing_aloam_     = false;
+              aloamgarm_fusion_switched_ = true;
+            }
+          } else {
+            if (!altitude_fusing_aloam_) {
+              altitude_fusing_aloam_     = true;
+              aloamgarm_altitude_offset_ = aloamgarm_last_altitude_ - measurement;
+              aloamgarm_fusion_switched_ = false;
+            }
+            altitudeEstimatorCorrection(measurement + aloamgarm_altitude_offset_, "height_aloam", estimator.second);
+            ROS_INFO_THROTTLE(0.5, "[Odometry] Fusing aloam, altitude offset: %.3f", aloamgarm_altitude_offset_);
+            aloamgarm_last_altitude_ = measurement + aloamgarm_altitude_offset_;
+            if (fabs(measurement + aloamgarm_altitude_offset_) > 100) {
+              ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement + aloamgarm_altitude_offset_);
+            }
+          }
+
+        } else {
+          altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second);
+          if (fabs(measurement) > 100) {
+            ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
+          }
         }
       }
     }
@@ -7797,11 +7836,27 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator_);
-      altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
-      if (std::pow(height_range, 2) > 10000) {
-        ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
+      if (estimator.first == "ALOAMGARM") {
+        if (!altitude_fusing_aloam_) {
+          if (aloamgarm_fusion_switched_) {
+            aloamgarm_altitude_offset_ = aloamgarm_last_altitude_ - height_range;
+            aloamgarm_fusion_switched_ = false;
+          }
+          ROS_INFO_THROTTLE(0.5, "[Odometry] Fusing garmin, altitude offset: %.3f", aloamgarm_altitude_offset_);
+          altitudeEstimatorCorrection(height_range + aloamgarm_altitude_offset_, "height_range", estimator.second);
+          aloamgarm_last_altitude_ = height_range + aloamgarm_altitude_offset_;
+          if (std::pow(height_range + aloamgarm_altitude_offset_, 2) > 10000) {
+            ROS_WARN("[Odometry]: Garmin height correction: %f", height_range + aloamgarm_altitude_offset_);
+          }
+          estimator.second->getStates(alt_x);
+        }
+      } else {
+        altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+        if (std::pow(height_range, 2) > 10000) {
+          ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
+        }
+        estimator.second->getStates(alt_x);
       }
-      estimator.second->getStates(alt_x);
     }
   }
 
@@ -8669,7 +8724,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   } else if (type == "ALOAMGARM") {
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMGARM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9101,6 +9156,8 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::AltitudeType::VIO;
   } else if (type == "ALOAM") {
     desired_estimator.type = mrs_msgs::AltitudeType::ALOAM;
+  } else if (type == "ALOAMGARM") {
+    desired_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
   } else if (type == "BARO") {
     desired_estimator.type = mrs_msgs::AltitudeType::BARO;
   } else {
@@ -10300,7 +10357,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
-      target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::BARO) {
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::BARO &&
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -10550,7 +10608,8 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
 bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
 
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
-      type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO) {
+      type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO ||
+      type.type == mrs_msgs::AltitudeType::ALOAMGARM) {
     return true;
   }
 
@@ -10709,6 +10768,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "VIO";
   } else if (alt_type.type == mrs_msgs::AltitudeType::ALOAM) {
     s_diag += "ALOAM";
+  } else if (alt_type.type == mrs_msgs::AltitudeType::ALOAMGARM) {
+    s_diag += "ALOAMGARM";
   } else if (alt_type.type == mrs_msgs::AltitudeType::BARO) {
     s_diag += "BARO";
   } else {
