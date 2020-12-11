@@ -76,7 +76,7 @@ altitude:
     height_brick: [100.0]
     height_vio: [0.001]
     vel_vio: [0.01]
-    height_aloam: [10.0]
+    height_aloam: [100.0]
     height_baro: [100.0]
     vel_baro: [100.0]
     acc_imu: [100.0]
