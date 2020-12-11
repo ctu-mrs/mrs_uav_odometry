@@ -2806,7 +2806,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     hdg                               = radians::wrap(hdg);
-    orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setHeading(hdg);
+
+    try {
+      orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setHeading(hdg);
+    } catch (...) {
+      ROS_ERROR("[Odometry]: %s:%d, could not set heading", __FILE__, __LINE__);
+      orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation);
+    }
+
     {
       std::scoped_lock lock(mutex_current_hdg_estimator_);
       orientation.header.frame_id = current_lat_estimator_->getName();

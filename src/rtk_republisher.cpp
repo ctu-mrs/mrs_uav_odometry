@@ -332,7 +332,13 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
     pose_msg_out_.pose.pose.position.y += jump_offset_;
 
     double hdg = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation).getHeading();
-    pose_msg_out_.pose.pose.orientation = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation).setHeading(hdg + jump_hdg_offset_);
+
+    try {
+      pose_msg_out_.pose.pose.orientation = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation).setHeading(hdg + jump_hdg_offset_);
+    } catch (...) {
+      ROS_ERROR("[RtkRepublisher]: %s:%d, could not set heading", __FILE__, __LINE__);
+      pose_msg_out_.pose.pose.orientation = mrs_lib::AttitudeConverter(pose_msg_out_.pose.pose.orientation);
+    }
 
     pose_msg_out_.header.stamp    = ros::Time::now();
     pose_msg_out_.header.frame_id = "local_origin";
