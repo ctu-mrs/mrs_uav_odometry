@@ -5,6 +5,7 @@
 #include <Eigen/Eigen>
 
 #include <mrs_lib/lkf.h>
+#include <mrs_lib/repredictor.h>
 
 /* defines //{ */
 
@@ -65,6 +66,20 @@ typedef lkf_alt_t::H_t alt_H_t;
 typedef lkf_alt_t::R_t alt_R_t; 
 typedef lkf_alt_t::Q_t alt_Q_t; 
 typedef lkf_alt_t::P_t alt_P_t; 
+
+// altitude - repredictor
+typedef mrs_lib::varstepLKF<ALT_N_STATES, ALT_M_INPUTS, ALT_P_MEASUREMENTS> var_lkf_alt_t;
+typedef var_lkf_alt_t::statecov_t var_alt_statecov_t;
+typedef var_lkf_alt_t::x_t var_alt_x_t; 
+typedef var_lkf_alt_t::u_t var_alt_u_t; 
+typedef var_lkf_alt_t::z_t var_alt_z_t; 
+typedef var_lkf_alt_t::A_t var_alt_A_t; 
+typedef var_lkf_alt_t::B_t var_alt_B_t; 
+typedef var_lkf_alt_t::H_t var_alt_H_t; 
+typedef var_lkf_alt_t::R_t var_alt_R_t; 
+typedef var_lkf_alt_t::Q_t var_alt_Q_t; 
+typedef var_lkf_alt_t::P_t var_alt_P_t; 
+typedef mrs_lib::Repredictor<var_lkf_alt_t> rep_t;
 
 // heading
 typedef mrs_lib::LKF<HDG_N_STATES, HDG_M_INPUTS, HDG_P_MEASUREMENTS> lkf_hdg_t;

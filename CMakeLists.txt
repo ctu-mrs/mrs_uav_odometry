@@ -60,7 +60,7 @@ include_directories(
   )
 
 ## Declare a C++ executable
-add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
+add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/AltitudeEstimatorRepredictor.cpp src/HeadingEstimator.cpp src/odometry.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(Odometry
