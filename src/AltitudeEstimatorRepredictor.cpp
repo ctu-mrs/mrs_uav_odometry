@@ -19,12 +19,14 @@ var_alt_B_t generateB([[maybe_unused]] const double dt) {
 
 // clang-format off
 AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
+    const ros::NodeHandle &nh,
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
     const std::vector<var_alt_H_t> &H_multi,
     const var_alt_Q_t &Q,
     const std::vector<var_alt_R_t> &R_multi)
     :
+    nh_(nh),
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
     m_H_multi(H_multi),
@@ -121,6 +123,8 @@ AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
     std::cout << m_H_multi[i] << std::endl;
   }
 
+  pub_state_ = nh_.advertise<mrs_msgs::Altitude>("altitude_state", 1);
+
   m_is_initialized = true;
 }
 
@@ -129,7 +133,7 @@ AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
 
 /*  //{ doPrediction() */
 
-bool AltitudeEstimatorRepredictor::doPrediction(const double input, const double dt) {
+bool AltitudeEstimatorRepredictor::doPrediction(const double input, const double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -174,8 +178,21 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input, const double
 
     try {
       // Apply the prediction step
-      mp_lkf->A = A;
-      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      /* mp_lkf->A = A; */
+      /* m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt); */
+      
+      // Add input and predict
+      // TODO use correct timestamps (cooresponding to time of the input and required time of prediction)
+      // TODO do something about the dt parameter???
+      mp_rep->addInput(u, m_Q, input_stamp);
+      m_sc = mp_rep->predictTo(predict_stamp);
+
+      /* mrs_msgs::Altitude msg; */
+      /* msg.header.stamp = predict_stamp; */
+      /* msg.height = m_sc.x(0); */
+      /* msg.velocity = m_sc.x(1); */
+      /* msg.acceleration = m_sc.x(2); */
+      /* pub_state_.publish(msg); */
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -223,7 +240,13 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input) {
     try {
       // Apply the prediction step
       mp_lkf->A = A;
-      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      /* m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt); */
+      // Add input and predict
+      // TODO use correct timestamps (cooresponding to time of the input and required time of prediction)
+      // TODO check what's happening with the dt and the A matrix
+      mp_rep->addInput(u, m_Q, ros::Time::now());
+      m_sc = mp_rep->predictTo(ros::Time::now());
+
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -238,7 +261,7 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input) {
 
 /*  //{ doCorrection() */
 
-bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int measurement_type) {
+bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int measurement_type, ros::Time &meas_stamp, ros::Time &pred_stamp) {
 
   /*  //{ sanity checks */
 
@@ -285,7 +308,16 @@ bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int m
 
     try {
       mp_lkf->H = m_H_multi[measurement_type];
-      m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]);
+      /* m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]); */
+      mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp); // TODO use correct timestamp
+      m_sc = mp_rep->predictTo(pred_stamp); // TODO modify odometry so that correction only adds measurement and prediction follows by getting new statecov???
+      // TODO test that it works as before without repredictor when appropriate timestamps are used
+      mrs_msgs::Altitude msg;
+      msg.header.stamp = pred_stamp;
+      msg.height = m_sc.x(0);
+      msg.velocity = m_sc.x(1);
+      msg.acceleration = m_sc.x(2);
+      pub_state_.publish(msg);
     }
     catch (const std::exception &e) {
       // In case of error, alert the user

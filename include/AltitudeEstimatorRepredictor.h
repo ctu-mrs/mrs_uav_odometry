@@ -1,5 +1,5 @@
-#ifndef ALTITUDE_ESTIMATOR_H
-#define ALTITUDE_ESTIMATOR_H
+#ifndef ALTITUDE_ESTIMATOR_REPREDICTOR_H
+#define ALTITUDE_ESTIMATOR_REPREDICTOR_H
 
 #include <ros/ros.h>
 
@@ -17,6 +17,8 @@
 
 #include "types.h"
 
+#include <mrs_msgs/Altitude.h>
+
 #define ALT_DT 0.01
 #define ALT_INPUT_COEFF 0.10
 
@@ -27,12 +29,12 @@ namespace mrs_uav_odometry
 class AltitudeEstimatorRepredictor {
 
 public:
-  AltitudeEstimatorRepredictor(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<var_alt_H_t> &H_multi,
-                               const var_alt_Q_t &Q, const std::vector<var_alt_R_t> &R_multi);
+  AltitudeEstimatorRepredictor(const ros::NodeHandle &nh, const std::string &estimator_name, const std::vector<bool> &fusing_measurement,
+                               const std::vector<var_alt_H_t> &H_multi, const var_alt_Q_t &Q, const std::vector<var_alt_R_t> &R_multi);
 
-  bool        doPrediction(const double input, const double dt);
+  bool        doPrediction(const double input, const double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp);
   bool        doPrediction(const double input);
-  bool        doCorrection(const double &measurement, int measurement_type);
+  bool        doCorrection(const double &measurement, int measurement_type, ros::Time &meas_stamp, ros::Time &pred_stamp);
   bool        getStates(var_alt_x_t &x);
   bool        getState(int state_id, double &state_val);
   std::string getName(void);
@@ -47,6 +49,7 @@ public:
   bool        reset(const var_alt_x_t &states);
 
 private:
+  ros::NodeHandle   nh_;
   std::string       m_estimator_name;
   std::vector<bool> m_fusing_measurement;
   int               m_n_states;
@@ -89,6 +92,8 @@ private:
   std::mutex mutex_lkf;
 
   bool m_is_initialized = false;
+
+  ros::Publisher pub_state_;
 };
 
 }  // namespace mrs_uav_odometry
