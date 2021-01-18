@@ -234,7 +234,6 @@ bool AltitudeEstimator::doPrediction(const double input, const ros::Time &input_
     try {
       // Apply the prediction step
       if (m_use_repredictor) {
-        // TODO don't predict? (do prediction only when getStates is called)
         // add new input to repredictor (pass pointer to a lkf model so that it uses the correct model even after altitude coeff change)
         mp_rep->addInput(u, m_Q, input_stamp, mp_lkf_vector[0]);
         m_sc = mp_rep->predictTo(predict_stamp);
@@ -303,7 +302,6 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
 
     try {
       if (m_use_repredictor) {
-        // TODO predict only when getStates is called
         mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp, mp_lkf_vector[measurement_type]);
         m_sc = mp_rep->predictTo(predict_stamp);
       } else {
@@ -321,8 +319,6 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
 }
 
 //}
-
-// TODO predictTo in getStates() and getState()?
 
 /*  //{ getStates() */
 
@@ -388,7 +384,6 @@ std::string AltitudeEstimator::getName(void) {
 
 //}
 
-// TODO make it work with repredictor?
 /*  //{ setState() */
 
 bool AltitudeEstimator::setState(int state_id, const double &state_val) {
@@ -424,6 +419,12 @@ bool AltitudeEstimator::setState(int state_id, const double &state_val) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.x(state_id) = state_val;
+    // reset repredictor
+    if (m_use_repredictor) {
+      const var_alt_u_t u0 = alt_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
@@ -681,7 +682,6 @@ bool AltitudeEstimator::getCovariance(alt_P_t &P) {
 
 //}
 
-// TODO make it work?
 /*  //{ setCovariance() */
 
 bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
@@ -707,13 +707,18 @@ bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.P = P;
+    // reset repredictor
+    if (m_use_repredictor) {
+      const var_alt_u_t u0 = alt_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
 }
 //}
 
-// TODO make it work
 /*  //{ reset() */
 
 bool AltitudeEstimator::reset(const alt_x_t &x) {
@@ -740,6 +745,11 @@ bool AltitudeEstimator::reset(const alt_x_t &x) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.x = (x);
+    if (m_use_repredictor) {
+      const var_alt_u_t u0 = alt_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
