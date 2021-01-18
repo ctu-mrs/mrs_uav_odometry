@@ -7,7 +7,7 @@ namespace mrs_uav_odometry
 
 var_alt_A_t generateA(const double dt) {
   var_alt_A_t A;
-  A << 1, dt, dt * dt, 0, 1, dt, 0, 0, 1.0 - ALT_INPUT_COEFF;
+  A << 1, dt, dt * dt / 2, 0, 1, dt, 0, 0, 1.0 - ALT_INPUT_COEFF;
   return A;
 }
 
@@ -90,7 +90,9 @@ AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
 
   /* mp_lkf = std::make_unique<var_lkf_alt_t>(m_A, m_B, m_H_zero); */
   /* mp_lkf = std::make_unique<var_lkf_alt_t>(generateA, generateB, m_H_zero); */
-  mp_lkf = std::make_shared<var_lkf_alt_t>(generateA, generateB, m_H_zero);
+  for (size_t i = 0; i < m_H_multi.size(); i++) {
+    mp_lkf_vector.push_back(std::make_shared<var_lkf_alt_t>(generateA, generateB, m_H_multi[i]));
+  }
 
   // Initialize all states to 0
   const var_alt_x_t        x0    = var_alt_x_t::Zero();
@@ -102,7 +104,7 @@ AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
   const ros::Time   t0 = ros::Time(0);
 
   // Initialize repredictor
-  mp_rep = std::make_unique<rep_t>(x0, P0, u0, Q, t0, mp_lkf, m_buf_sz);
+  mp_rep = std::make_unique<rep_t>(x0, P0, u0, Q, t0, mp_lkf_vector.at(0), m_buf_sz);
 
   std::cout << "[AltitudeEstimatorRepredictor]: New AltitudeEstimatorRepredictor initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -123,7 +125,7 @@ AltitudeEstimatorRepredictor::AltitudeEstimatorRepredictor(
     std::cout << m_H_multi[i] << std::endl;
   }
 
-  pub_state_ = nh_.advertise<mrs_msgs::Altitude>("altitude_state", 1);
+  pub_state_ = nh_.advertise<mrs_msgs::Altitude>("altitude_state_inside_estimator", 1);
 
   m_is_initialized = true;
 }
@@ -180,7 +182,7 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input, const double
       // Apply the prediction step
       /* mp_lkf->A = A; */
       /* m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt); */
-      
+
       // Add input and predict
       // TODO use correct timestamps (cooresponding to time of the input and required time of prediction)
       // TODO do something about the dt parameter???
@@ -239,14 +241,13 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input) {
     std::scoped_lock lock(mutex_lkf);
     try {
       // Apply the prediction step
-      mp_lkf->A = A;
+      /* mp_lkf->A = A; */
       /* m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt); */
       // Add input and predict
       // TODO use correct timestamps (cooresponding to time of the input and required time of prediction)
       // TODO check what's happening with the dt and the A matrix
       mp_rep->addInput(u, m_Q, ros::Time::now());
       m_sc = mp_rep->predictTo(ros::Time::now());
-
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -262,6 +263,8 @@ bool AltitudeEstimatorRepredictor::doPrediction(const double input) {
 /*  //{ doCorrection() */
 
 bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int measurement_type, ros::Time &meas_stamp, ros::Time &pred_stamp) {
+
+  /* ROS_INFO("correction, measurement type: %d", measurement_type); */
 
   /*  //{ sanity checks */
 
@@ -292,8 +295,10 @@ bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int m
 
   // Check whether the measurement type is fused by this estimator
   if (!m_fusing_measurement[measurement_type]) {
+    /* ROS_INFO("not fusing measurement type: %d", measurement_type); */
     return false;
   }
+  /* ROS_INFO("fusing measurement type: %d", measurement_type); */
 
   // Prepare the measurement vector
   var_alt_z_t z;
@@ -307,17 +312,20 @@ bool AltitudeEstimatorRepredictor::doCorrection(const double &measurement, int m
   {
 
     try {
-      mp_lkf->H = m_H_multi[measurement_type];
+      /* mp_lkf->H = m_H_multi[measurement_type]; */
       /* m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]); */
-      mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp); // TODO use correct timestamp
-      m_sc = mp_rep->predictTo(pred_stamp); // TODO modify odometry so that correction only adds measurement and prediction follows by getting new statecov???
+      mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp, mp_lkf_vector[measurement_type]);  // TODO use correct timestamp
+      /* std::cout << "z:" << std::endl << z << std::endl; */
+      /* std::cout << "H:" << std::endl << mp_lkf_vector[measurement_type]->H << std::endl; */
+      m_sc = mp_rep->predictTo(pred_stamp);  // TODO modify odometry so that correction only adds measurement and prediction follows by getting new statecov???
+      /* std::cout << "m_sc:" << std::endl << m_sc.x << std::endl; */
       // TODO test that it works as before without repredictor when appropriate timestamps are used
-      mrs_msgs::Altitude msg;
-      msg.header.stamp = pred_stamp;
-      msg.height = m_sc.x(0);
-      msg.velocity = m_sc.x(1);
-      msg.acceleration = m_sc.x(2);
-      pub_state_.publish(msg);
+      /* mrs_msgs::Altitude msg; */
+      /* msg.header.stamp = pred_stamp; */
+      /* msg.height       = m_sc.x(0); */
+      /* msg.velocity     = m_sc.x(1); */
+      /* msg.acceleration = m_sc.x(2); */
+      /* pub_state_.publish(msg); */
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -634,9 +642,9 @@ bool AltitudeEstimatorRepredictor::setInputCoeff(double coeff) {
     std::scoped_lock lock(mutex_lkf);
     old_coeff = m_B(2, 0);
     m_A(2, 2) = 1.0 - coeff;
-    mp_lkf->A = m_A;
+    /* mp_lkf->A = m_A; */  // TODO do something about this
     m_B(2, 0) = coeff;
-    mp_lkf->B = m_B;
+    /* mp_lkf->B = m_B; */
   }
 
   std::cout << "[AltitudeEstimatorRepredictor]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff

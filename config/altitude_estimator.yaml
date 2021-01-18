@@ -8,7 +8,8 @@ altitude_estimators:
     "VIO",
     "ALOAM",
     "BARO",
-    "ALOAMGARM"
+    "ALOAMGARM",
+    "ALOAMREP"
   ] 
 
   # The measured states of the model
@@ -39,6 +40,7 @@ altitude_estimators:
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_vio"]
     ALOAM: ["height_aloam", "vel_baro"]
+    ALOAMREP: ["height_aloam", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
     ALOAMGARM: ["height_aloam", "height_range", "vel_baro"]
     # ALOAMGARM: ["height_aloam", "vel_baro"]

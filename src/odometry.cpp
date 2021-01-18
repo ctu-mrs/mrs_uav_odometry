@@ -72,7 +72,6 @@
 #include <types.h>
 #include <support.h>
 #include <StateEstimator.h>
-#include <AltitudeEstimatorRepredictor.h>
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
 #include <mrs_uav_odometry/odometry_dynparamConfig.h>
@@ -166,7 +165,6 @@ private:
   ros::Publisher pub_lkf_states_y_;
   ros::Publisher pub_heading_states_;
   ros::Publisher pub_altitude_state_;
-  ros::Publisher pub_altitude_state_repredictor_;
   ros::Publisher pub_alt_cov_;
   ros::Publisher pub_hector_reset_;
   ros::Publisher pub_imu_untilted_;
@@ -541,16 +539,13 @@ private:
   void stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
   bool changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
 
-  void altitudeEstimatorsPrediction(const double input, const double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp);
-
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp,
-                                   const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp,
-                                   const std::shared_ptr<mrs_uav_odometry::AltitudeEstimatorRepredictor> &estimator);
-  void altitudeEstimatorCorrection(double value, const std::string &measurement_name,
-                                   const std::shared_ptr<mrs_uav_odometry::AltitudeEstimatorRepredictor> &estimator);
+  void altitudeEstimatorsPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(),
+                                    const ros::Time &predict_stamp = ros::Time::now());
+  // TODO je u korekce k necemu predict_stamp?
+  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp = ros::Time::now(),
+                                   const ros::Time &predict_stamp = ros::Time::now());
+  void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator,
+                                   const ros::Time &meas_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
 
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
@@ -750,30 +745,29 @@ private:
   bool                          _gyro_fallback_;
 
   // altitude estimation
-  alt_Q_t                                                              _Q_alt_;
-  std::mutex                                                           mutex_altitude_estimator_;
-  std::vector<std::string>                                             _altitude_estimators_names_;
-  std::vector<std::string>                                             _alt_model_state_names_;
-  std::vector<std::string>                                             _alt_measurement_names_;
-  std::map<std::string, std::vector<std::string>>                      map_alt_estimator_measurement_;
-  std::map<std::string, int>                                           map_alt_n_states_;
-  std::map<std::string, alt_R_t>                                       map_alt_measurement_covariance_;
-  std::map<std::string, std::string>                                   map_alt_measurement_state_;
-  std::map<std::string, int>                                           map_alt_measurement_name_id_;
-  std::map<std::string, alt_H_t>                                       map_alt_states_;
-  std::map<std::string, mrs_msgs::Float64Stamped>                      map_alt_estimator_msg_;
-  std::map<std::string, ros::Publisher>                                map_alt_estimator_pub_;
-  std::map<std::string, std::shared_ptr<AltitudeEstimator>>            _altitude_estimators_;
-  std::map<std::string, std::shared_ptr<AltitudeEstimatorRepredictor>> _altitude_estimators_repredictor_;
-  std::shared_ptr<AltitudeEstimator>                                   current_alt_estimator_;
-  std::string                                                          current_alt_estimator_name_;
-  mrs_msgs::AltitudeType                                               alt_estimator_type_;
-  mrs_msgs::AltitudeType                                               _alt_estimator_type_takeoff;
-  std::mutex                                                           mutex_current_alt_estimator_;
-  bool                                                                 is_lateral_estimator_initialized_ = false;
-  bool                                                                 lat_gps_est_pos_init_             = false;
-  int                                                                  counter_altitude_                 = 0;
-  double                                                               _excessive_tilt_sq_;
+  alt_Q_t                                                   _Q_alt_;
+  std::mutex                                                mutex_altitude_estimator_;
+  std::vector<std::string>                                  _altitude_estimators_names_;
+  std::vector<std::string>                                  _alt_model_state_names_;
+  std::vector<std::string>                                  _alt_measurement_names_;
+  std::map<std::string, std::vector<std::string>>           map_alt_estimator_measurement_;
+  std::map<std::string, int>                                map_alt_n_states_;
+  std::map<std::string, alt_R_t>                            map_alt_measurement_covariance_;
+  std::map<std::string, std::string>                        map_alt_measurement_state_;
+  std::map<std::string, int>                                map_alt_measurement_name_id_;
+  std::map<std::string, alt_H_t>                            map_alt_states_;
+  std::map<std::string, mrs_msgs::Float64Stamped>           map_alt_estimator_msg_;
+  std::map<std::string, ros::Publisher>                     map_alt_estimator_pub_;
+  std::map<std::string, std::shared_ptr<AltitudeEstimator>> _altitude_estimators_;
+  std::shared_ptr<AltitudeEstimator>                        current_alt_estimator_;
+  std::string                                               current_alt_estimator_name_;
+  mrs_msgs::AltitudeType                                    alt_estimator_type_;
+  mrs_msgs::AltitudeType                                    _alt_estimator_type_takeoff;
+  std::mutex                                                mutex_current_alt_estimator_;
+  bool                                                      is_lateral_estimator_initialized_ = false;
+  bool                                                      lat_gps_est_pos_init_             = false;
+  int                                                       counter_altitude_                 = 0;
+  double                                                    _excessive_tilt_sq_;
 
   // State estimation
   std::vector<std::string>                               _state_estimators_names_;
@@ -850,6 +844,7 @@ private:
   bool t265_active_       = false;
   bool aloam_active_      = false;
   bool aloamgarm_active_  = false;
+  bool aloamrep_active_   = false;
   bool brick_active_      = false;
   bool icp_active_        = false;
 
@@ -1039,6 +1034,7 @@ void Odometry::onInit() {
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ICP));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAM));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMGARM));
+  _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMREP));
 
   ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
@@ -1055,6 +1051,7 @@ void Odometry::onInit() {
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::VIO));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAM));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAMGARM));
+  _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAMREP));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::BARO));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
@@ -1409,11 +1406,13 @@ void Odometry::onInit() {
     }
 
     // Add pointer to altitude estimator to array
-    _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-        *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
-
-    _altitude_estimators_repredictor_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorRepredictor>>(
-        *it, std::make_shared<AltitudeEstimatorRepredictor>(nh_, *it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
+    if (*it == "ALOAMREP") {
+      _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, true)));
+    } else {
+      _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
+    }
 
     // Map odometry to estimator name
     mrs_msgs::Float64Stamped alt_msg;
@@ -1592,6 +1591,10 @@ void Odometry::onInit() {
     }
     if (*it == "ALOAMGARM") {
       aloamgarm_active_ = true;
+      aloam_reliable_   = true;
+    }
+    if (*it == "ALOAMREP") {
+      aloamrep_active_ = true;
       aloam_reliable_   = true;
     }
     if (*it == "ICP") {
@@ -2026,7 +2029,6 @@ void Odometry::onInit() {
   pub_lkf_states_y_         = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
   pub_heading_states_       = nh_.advertise<mrs_msgs::EstimatedState>("heading_state_out", 1);
   pub_altitude_state_       = nh_.advertise<mrs_msgs::EstimatedState>("altitude_state_out", 1);
-  pub_altitude_state_repredictor_       = nh_.advertise<mrs_msgs::EstimatedState>("altitude_state_repredictor_out", 1);
   pub_alt_cov_              = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
   pub_debug_optflow_filter_ = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
   pub_imu_untilted_         = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
@@ -2268,6 +2270,11 @@ void Odometry::onInit() {
               _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP && !aloamrep_active_) {
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.",
+              _estimator_type_takeoff_.name.c_str());
+    ros::shutdown();
+  }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ICP && !icp_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
@@ -2479,6 +2486,14 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+    if (got_aloam_odom_) {
+      return true;
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for ALOAM odometry msg to initialize takeoff estimator");
+      return false;
+    }
+  }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP) {
     if (got_aloam_odom_) {
       return true;
     } else {
@@ -2728,6 +2743,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAMGARM) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAMREP) {
+      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::BARO) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
@@ -2743,33 +2760,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
-  }
-
-  //}
-  
-  /* publish altitude state of repredictor //{ */
-
-  alt_P_t alt_P_rep = alt_P_rep.Zero();
-  for (auto &alt_estimator : _altitude_estimators_repredictor_) {
-    if (alt_estimator.first == "ALOAM") {
-      alt_estimator.second->getStates(alt_x);
-      alt_estimator.second->getCovariance(alt_P_rep);
-    }
-  }
-
-  mrs_msgs::EstimatedState altitude_state_rep_msg;
-  altitude_state_rep_msg.header.stamp = ros::Time::now();
-
-  for (int i = 0; i < alt_x.size(); i++) {
-    altitude_state_rep_msg.state.push_back(alt_x(i));
-    altitude_state_rep_msg.covariance.push_back(alt_P_rep(i, i));
-  }
-  try {
-    pub_altitude_state_repredictor_.publish(altitude_state_rep_msg);
-    ROS_INFO_ONCE("[Odometry]: Publishing altitude repredictor");
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_state_repredictor_.getTopic().c_str());
   }
 
   //}
@@ -2800,7 +2790,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   //}
-  
+
 
   /* initialize heading estimators //{ */
 
@@ -3239,6 +3229,74 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
+    // Fallback from ALOAMREP Slam
+  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAMREP) {
+    if (!got_aloam_odom_ || !aloam_reliable_) {
+      if (icp_active_ && got_icp_twist_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::ICP;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to ICP type.");
+        mrs_msgs::EstimatorType icp_type;
+        icp_type.type = mrs_msgs::EstimatorType::ICP;
+        if (!changeCurrentEstimator(icp_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to OPTFLOW heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to OPTFLOW type.");
+        mrs_msgs::EstimatorType optflow_type;
+        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
+        if (!changeCurrentEstimator(optflow_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
+        mrs_msgs::HeadingType desired_estimator;
+        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
+        changeCurrentHeadingEstimator(desired_estimator);
+        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
+        mrs_msgs::EstimatorType gps_type;
+        gps_type.type = mrs_msgs::EstimatorType::GPS;
+        if (!changeCurrentEstimator(gps_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+          std_srvs::Trigger failsafe_out;
+          ser_client_failsafe_.call(failsafe_out);
+          failsafe_called_ = true;
+        }
+      } else if (!failsafe_called_) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+    }
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || !got_aloam_odom_) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, aloam: %s",
+                        got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
+                        got_aloam_odom_ ? "TRUE" : "FALSE");
+      if (got_lateral_sensors_ && !failsafe_called_) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+      return;
+    }
+
     // Fallback from ICP
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -3598,6 +3656,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
       }
       // we might want other than height estimator when in GPS (baro)
+    } else if (estimator.first == "ALOAMREP") {
+      // Prevent publishing of TF before corrections are available
+      if (!got_aloam_odom_) {
+        continue;
+      }
+      for (auto &alt_estimator : _altitude_estimators_) {
+        if (alt_estimator.first == "ALOAMREP") {
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt;
+        }
+      }
+      // we might want other than height estimator when in GPS (baro)
     } else if (estimator.first == "GPS") {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
@@ -3648,7 +3718,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     for (auto &hdg_estimator : heading_estimators_) {
 
       if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") ||
-          (hdg_estimator.first == "ALOAM" && estimator.first == "ALOAMGARM")) {
+          (hdg_estimator.first == "ALOAM" && (estimator.first == "ALOAMGARM" || estimator.first == "ALOAMREP"))) {
 
         hdg_estimator.second->getState(0, hdg);
 
@@ -3848,8 +3918,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
       // estimators not based on GNSS
       if (estimator.second->getName() == "OPTFLOW" || estimator.second->getName() == "HECTOR" || estimator.second->getName() == "ALOAM" ||
-          estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "BRICK" || estimator.second->getName() == "VIO" ||
-          estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" || estimator.second->getName() == "ICP") {
+          estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP" || estimator.second->getName() == "BRICK" ||
+          estimator.second->getName() == "VIO" || estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" ||
+          estimator.second->getName() == "ICP") {
 
         pos_state << _local_origin_x_, _local_origin_y_;
         estimator.second->setState(0, pos_state);
@@ -4559,6 +4630,9 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   }
   if (stringInVector("ALOAMGARM", _altitude_estimators_names_) && aloam_active_) {
     active_alt_estimators.push_back("ALOAMGARM");
+  }
+  if (stringInVector("ALOAMREP", _altitude_estimators_names_) && aloam_active_) {
+    active_alt_estimators.push_back("ALOAMREP");
   }
   if (stringInVector("BARO", _altitude_estimators_names_)) {
     active_alt_estimators.push_back("BARO");
@@ -5369,7 +5443,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   {
     std::scoped_lock lock(mutex_altitude_estimator_);
-    altitudeEstimatorCorrection(twist_z, "vel_baro", meas_stamp, time_now); // TODO uncomment
+    altitudeEstimatorCorrection(twist_z, "vel_baro", meas_stamp, time_now);
     altitudeEstimatorCorrection(altitude, "height_baro", meas_stamp, time_now);
   }
 
@@ -7610,7 +7684,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
             }
             float     correction = measurement + aloamgarm_altitude_offset_;
             ros::Time time_now   = ros::Time::now();
-            altitudeEstimatorCorrection(correction, "height_aloam", aloam_odom_.header.stamp, time_now, estimator.second);
+            altitudeEstimatorCorrection(correction, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
             dbg_msg.values.push_back(correction);
             dbg_msg.values.push_back(aloamgarm_altitude_offset_);
             pub_debug_aloamgarm_aloam_.publish(dbg_msg);
@@ -7625,30 +7699,10 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
 
         } else {
           ros::Time time_now = ros::Time::now();
-          altitudeEstimatorCorrection(measurement, "height_aloam", aloam_odom_.header.stamp, time_now, estimator.second);
+          altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
           if (fabs(measurement) > 100) {
             ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
           }
-        }
-      }
-    }
-  }
-
-  // Fuse ALOAM altitude in repredictor
-  for (auto &estimator : _altitude_estimators_repredictor_) {
-    alt_x_t alt_x = alt_x.Zero();
-    if (!estimator.second->getStates(alt_x)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator repredictor not initialized.");
-      aloam_height_ok = false;
-    }
-
-    if (aloam_height_ok) {
-      {
-        std::scoped_lock lock(mutex_altitude_estimator_);
-        ros::Time        time_now = ros::Time::now();
-        altitudeEstimatorCorrection(measurement, "height_aloam", aloam_odom_.header.stamp, time_now, estimator.second);
-        if (fabs(measurement) > 100) {
-          ROS_WARN("[Odometry]: ALOAM height repredictor correction: %f", measurement);
         }
       }
     }
@@ -7722,8 +7776,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     current_hdg_estimator_->getState(0, hdg);
   }
 
-  // Set innoation variable if ccurnet estimator is ALOAM
-  if (current_lat_estimator_->getName() == "ALOAM" || current_lat_estimator_->getName() == "ALOAMGARM") {
+  // Set innovation variable if current estimator is ALOAM
+  if (current_lat_estimator_->getName() == "ALOAM" || current_lat_estimator_->getName() == "ALOAMGARM" || current_lat_estimator_->getName() == "ALOAMREP") {
     Vec2 pos_vec, innovation;
     current_lat_estimator_->getState(0, pos_vec);
 
@@ -7937,13 +7991,18 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
       std::scoped_lock lock(mutex_altitude_estimator_);
       if (estimator.first == "ALOAMGARM") {
         if (alt_mf_garmin_stable_->isValid(height_range)) {
+          /* ROS_INFO("Altitude estimator is ALOAMGARM and garmin value is valid."); */
           float garmin_difference;
           if (garmin_stable_) {
             mrs_msgs::Float64ArrayStamped dbg_msg;
             dbg_msg.header.stamp = ros::Time::now();
             garmin_difference    = height_range - garmin_last_stable_value_;
-            float correction     = aloamgarm_last_altitude_ + garmin_difference;
-            altitudeEstimatorCorrection(correction, "height_range", estimator.second);
+            float     correction = aloamgarm_last_altitude_ + garmin_difference;
+            ros::Time time_now   = ros::Time::now();
+            ros::Time time_meas  = msg->header.stamp;
+            /* ROS_INFO("height_range correction for ALOAMGARM"); */
+            altitudeEstimatorCorrection(correction, "height_range", estimator.second, time_meas, time_now);
+            /* altitudeEstimatorCorrection(correction, "height_range", estimator.second); */
             dbg_msg.values.push_back(correction);
             dbg_msg.values.push_back(garmin_difference);
             pub_debug_aloamgarm_garmin_.publish(dbg_msg);
@@ -7973,7 +8032,9 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
         /*   estimator.second->getStates(alt_x); */
         /* } */
       } else {
-        altitudeEstimatorCorrection(height_range, "height_range", estimator.second);
+        ros::Time time_now  = ros::Time::now();
+        ros::Time time_meas = msg->header.stamp;
+        altitudeEstimatorCorrection(height_range, "height_range", estimator.second, time_meas, time_now);
         if (std::pow(height_range, 2) > 10000) {
           ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
         }
@@ -8847,6 +8908,10 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMGARM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
+  } else if (type == "ALOAMREP") {
+    desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMREP;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMREP;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9018,6 +9083,8 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     desired_estimator.type = mrs_msgs::EstimatorType::ALOAM;
   } else if (type == "ALOAMGARM") {
     desired_estimator.type = mrs_msgs::EstimatorType::ALOAMGARM;
+  } else if (type == "ALOAMREP") {
+    desired_estimator.type = mrs_msgs::EstimatorType::ALOAMREP;
   } else if (type == "BRICKFLOW") {
     desired_estimator.type = mrs_msgs::EstimatorType::BRICKFLOW;
   } else if (type == "ICP") {
@@ -9280,6 +9347,8 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::AltitudeType::ALOAM;
   } else if (type == "ALOAMGARM") {
     desired_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
+  } else if (type == "ALOAMREP") {
+    desired_estimator.type = mrs_msgs::AltitudeType::ALOAMREP;
   } else if (type == "BARO") {
     desired_estimator.type = mrs_msgs::AltitudeType::BARO;
   } else {
@@ -9882,18 +9951,6 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   }
 
   for (auto &estimator : _altitude_estimators_) {
-    estimator.second->doPrediction(input, dt);
-
-    // if estimator is ALOAMGARM, save its value
-    if (estimator.first == "ALOAMGARM") {
-      alt_x_t alt_x = alt_x.Zero();
-      estimator.second->getStates(alt_x);
-      aloamgarm_last_altitude_ = alt_x(0);
-    }
-  }
-
-  for (auto &estimator : _altitude_estimators_repredictor_) {
-    /* estimator.second->doPrediction(input, dt); */
     estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
 
     // if estimator is ALOAMGARM, save its value
@@ -9907,9 +9964,10 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
 
 //}
 
+
 /*  //{ altitudeEstimatorCorrection() */
 
-void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp) {
+void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
@@ -9927,53 +9985,8 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   for (auto &estimator : _altitude_estimators_) {
-    estimator.second->doCorrection(value, it_measurement_id->second);
+    estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
   }
-  for (auto &estimator : _altitude_estimators_repredictor_) {
-    estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, pred_stamp);
-  }
-}
-
-//}
-
-/*  //{ altitudeEstimatorCorrection() */
-
-void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp,
-                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimatorRepredictor> &estimator) {
-
-  std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
-  if (it_measurement_id == map_alt_measurement_name_id_.end()) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
-    return;
-  }
-
-  if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
-    return;
-  }
-
-  estimator->doCorrection(value, it_measurement_id->second, meas_stamp, pred_stamp);
-}
-
-//}
-
-/*  //{ altitudeEstimatorCorrection() */
-
-void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, ros::Time &meas_stamp, ros::Time &pred_stamp,
-                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator) {
-
-  std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
-  if (it_measurement_id == map_alt_measurement_name_id_.end()) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
-    return;
-  }
-
-  if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
-    return;
-  }
-
-  estimator->doCorrection(value, it_measurement_id->second);
 }
 
 //}
@@ -9981,7 +9994,8 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 /*  //{ altitudeEstimatorCorrection() */
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
-                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimatorRepredictor> &estimator) {
+                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator, const ros::Time &meas_stamp,
+                                           const ros::Time &predict_stamp) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
@@ -9994,31 +10008,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     return;
   }
 
-  ros::Time meas_stamp = ros::Time::now();
-  ros::Time pred_stamp = ros::Time::now();
-
-  estimator->doCorrection(value, it_measurement_id->second, meas_stamp, pred_stamp);
-}
-
-//}
-
-/*  //{ altitudeEstimatorCorrection() */
-
-void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
-                                           const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator) {
-
-  std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
-  if (it_measurement_id == map_alt_measurement_name_id_.end()) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
-    return;
-  }
-
-  if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
-    return;
-  }
-
-  estimator->doCorrection(value, it_measurement_id->second);
+  estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
 }
 
 //}
@@ -10418,6 +10408,27 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
 
     //}
+    
+    /* ALOAMREP //{ */
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAMREP) {
+
+    if (!aloamrep_active_) {
+      ROS_ERROR("[Odometry]: Cannot transition to ALOAMREP type. ALOAMREP estimator not active.");
+      return false;
+    }
+
+    if (!got_aloam_odom_ && is_ready_to_takeoff_) {
+      ROS_ERROR("[Odometry]: Cannot transition to ALOAMREP type. No new aloam msgs received.");
+      return false;
+    }
+
+    aloam_reliable_ = true;
+
+    mrs_lib::set_mutexed(mutex_max_altitude_, _max_default_altitude_, max_altitude_);
+    ROS_WARN("[Odometry]: Setting max_altitude to %.2f", _max_default_altitude_);
+
+
+    //}
 
     /* ICP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
@@ -10565,10 +10576,12 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   mrs_msgs::AltitudeType target_estimator = desired_estimator;
   target_estimator.name                   = _altitude_type_names_[target_estimator.type];
 
+  ROS_INFO("[Odometry]: Changing altitude estimator to %s. (desired_estimator: %s)", target_estimator.name.c_str(), desired_estimator.name.c_str());
+
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
       target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::BARO &&
-      target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM) {
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM && target_estimator.type != mrs_msgs::AltitudeType::ALOAMREP) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -10790,7 +10803,7 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
       type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO || type.type == mrs_msgs::EstimatorType::VSLAM ||
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
       type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM ||
-      type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
+      type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP) {
     return true;
   }
 
@@ -10819,7 +10832,7 @@ bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
 
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
       type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO ||
-      type.type == mrs_msgs::AltitudeType::ALOAMGARM) {
+      type.type == mrs_msgs::AltitudeType::ALOAMGARM || type.type == mrs_msgs::AltitudeType::ALOAMREP) {
     return true;
   }
 
@@ -10905,6 +10918,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "ALOAM";
   } else if (type.type == mrs_msgs::EstimatorType::ALOAMGARM) {
     s_diag += "ALOAMGARM";
+  } else if (type.type == mrs_msgs::EstimatorType::ALOAMREP) {
+    s_diag += "ALOAMREP";
   } else if (type.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     s_diag += "BRICKFLOW";
   } else if (type.type == mrs_msgs::EstimatorType::ICP) {
@@ -10980,6 +10995,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "ALOAM";
   } else if (alt_type.type == mrs_msgs::AltitudeType::ALOAMGARM) {
     s_diag += "ALOAMGARM";
+  } else if (alt_type.type == mrs_msgs::AltitudeType::ALOAMREP) {
+    s_diag += "ALOAMREP";
   } else if (alt_type.type == mrs_msgs::AltitudeType::BARO) {
     s_diag += "BARO";
   } else {

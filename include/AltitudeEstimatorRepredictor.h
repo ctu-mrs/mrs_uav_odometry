@@ -84,7 +84,7 @@ private:
   double m_dt_sq = m_dt * m_dt / 2;
 
   // Kalman filter - the core of the estimator
-  std::shared_ptr<var_lkf_alt_t> mp_lkf;
+  std::vector<std::shared_ptr<var_lkf_alt_t>> mp_lkf_vector;
 
   // Variable for holding the current state and covariance
   var_alt_statecov_t m_sc;

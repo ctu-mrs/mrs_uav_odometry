@@ -11,13 +11,15 @@ AltitudeEstimator::AltitudeEstimator(
     const std::vector<bool> &fusing_measurement,
     const std::vector<alt_H_t> &H_multi,
     const alt_Q_t &Q,
-    const std::vector<alt_R_t> &R_multi)
+    const std::vector<alt_R_t> &R_multi,
+    const bool use_repredictor)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
     m_H_multi(H_multi),
     m_Q(Q),
-    m_R_multi(R_multi)
+    m_R_multi(R_multi),
+    m_use_repredictor(use_repredictor)
   {
 
   // clang-format on
@@ -74,14 +76,38 @@ AltitudeEstimator::AltitudeEstimator(
   // set measurement mapping matrix H to zero, it will be set later during each correction step
   alt_H_t m_H_zero = m_H_zero.Zero();
 
-  mp_lkf = std::make_unique<lkf_alt_t>(m_A, m_B, m_H_zero);
-
   // Initialize all states to 0
   const alt_x_t        x0    = alt_x_t::Zero();
   alt_P_t              P_tmp = alt_P_t::Identity();
   const alt_P_t        P0    = 1000.0 * P_tmp * P_tmp.transpose();
   const alt_statecov_t sc0({x0, P0});
-  m_sc = sc0;
+  m_sc                 = sc0;
+  const var_alt_u_t u0 = alt_u_t::Zero();
+  const ros::Time   t0 = ros::Time(0);
+
+  if (m_use_repredictor) {
+    std::cout << "[AltitudeEstimator]: Using repredictor in " << m_estimator_name.c_str() << " estimator." << std::endl;
+    // Lambda functions generating A and B matrices based on dt
+    auto generateA = [](const double dt) {
+      var_alt_A_t A;
+      A << 1, dt, dt * dt / 2, 0, 1, dt, 0, 0, 1.0 - ALT_INPUT_COEFF;
+      return A;
+    };
+    auto generateB = []([[maybe_unused]] const double dt) {
+      var_alt_B_t B;
+      B << 0, 0, ALT_INPUT_COEFF;
+      return B;
+    };
+    // Initialize separate LKF models for each H matrix
+    for (size_t i = 0; i < m_H_multi.size(); i++) {
+      mp_lkf_vector.push_back(std::make_shared<var_lkf_alt_t>(generateA, generateB, m_H_multi[i]));
+    }
+    // Initialize repredictor
+    mp_rep = std::make_unique<rep_t>(x0, P0, u0, Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+  } else {
+    // Initialize a single LKF
+    mp_lkf = std::make_unique<lkf_alt_t>(m_A, m_B, m_H_zero);
+  }
 
   std::cout << "[AltitudeEstimator]: New AltitudeEstimator initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -109,7 +135,7 @@ AltitudeEstimator::AltitudeEstimator(
 
 /*  //{ doPrediction() */
 
-bool AltitudeEstimator::doPrediction(const double input, const double dt) {
+bool AltitudeEstimator::doPrediction(const double input, const double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -154,8 +180,13 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
 
     try {
       // Apply the prediction step
-      mp_lkf->A = A;
-      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      if (m_use_repredictor) {
+        mp_rep->addInput(u, m_Q, input_stamp, mp_lkf_vector[0]);
+        m_sc = mp_rep->predictTo(predict_stamp);
+      } else {
+        mp_lkf->A = A;
+        m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -170,7 +201,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt) {
 
 /*  //{ doPrediction() */
 
-bool AltitudeEstimator::doPrediction(const double input) {
+bool AltitudeEstimator::doPrediction(const double input, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -202,8 +233,15 @@ bool AltitudeEstimator::doPrediction(const double input) {
     std::scoped_lock lock(mutex_lkf);
     try {
       // Apply the prediction step
-      mp_lkf->A = A;
-      m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      if (m_use_repredictor) {
+        // TODO don't predict? (do prediction only when getStates is called)
+        // add new input to repredictor (pass pointer to a lkf model so that it uses the correct model even after altitude coeff change)
+        mp_rep->addInput(u, m_Q, input_stamp, mp_lkf_vector[0]);
+        m_sc = mp_rep->predictTo(predict_stamp);
+      } else {
+        mp_lkf->A = A;
+        m_sc      = mp_lkf->predict(m_sc, u, m_Q, dt);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -218,7 +256,7 @@ bool AltitudeEstimator::doPrediction(const double input) {
 
 /*  //{ doCorrection() */
 
-bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type) {
+bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -264,8 +302,14 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
   {
 
     try {
-      mp_lkf->H = m_H_multi[measurement_type];
-      m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]);
+      if (m_use_repredictor) {
+        // TODO predict only when getStates is called
+        mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp, mp_lkf_vector[measurement_type]);
+        m_sc = mp_rep->predictTo(predict_stamp);
+      } else {
+        mp_lkf->H = m_H_multi[measurement_type];
+        m_sc      = mp_lkf->correct(m_sc, z, m_R_multi[measurement_type]);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -277,6 +321,8 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
 }
 
 //}
+
+// TODO predictTo in getStates() and getState()?
 
 /*  //{ getStates() */
 
@@ -342,6 +388,7 @@ std::string AltitudeEstimator::getName(void) {
 
 //}
 
+// TODO make it work with repredictor?
 /*  //{ setState() */
 
 bool AltitudeEstimator::setState(int state_id, const double &state_val) {
@@ -578,10 +625,30 @@ bool AltitudeEstimator::setInputCoeff(double coeff) {
   {
     std::scoped_lock lock(mutex_lkf);
     old_coeff = m_B(2, 0);
-    m_A(2, 2) = 1.0 - coeff;
-    mp_lkf->A = m_A;
-    m_B(2, 0) = coeff;
-    mp_lkf->B = m_B;
+    if (m_use_repredictor) {
+      // Lambda functions generating A and B matrices based on dt
+      auto generateA = [=](const double dt) {
+        var_alt_A_t A;
+        A << 1, dt, dt * dt / 2, 0, 1, dt, 0, 0, 1.0 - coeff;
+        return A;
+      };
+      auto generateB = [=]([[maybe_unused]] const double dt) {
+        var_alt_B_t B;
+        B << 0, 0, coeff;
+        return B;
+      };
+      // Clear lkf vector
+      mp_lkf_vector.clear();
+      // Reinitialize separate LKF models for each H matrix
+      for (size_t i = 0; i < m_H_multi.size(); i++) {
+        mp_lkf_vector.push_back(std::make_shared<var_lkf_alt_t>(generateA, generateB, m_H_multi[i]));
+      }
+    } else {
+      m_A(2, 2) = 1.0 - coeff;
+      mp_lkf->A = m_A;
+      m_B(2, 0) = coeff;
+      mp_lkf->B = m_B;
+    }
   }
 
   std::cout << "[AltitudeEstimator]: " << m_estimator_name << ".setInputCoeff(double coeff=" << coeff << " Changed input coefficient from: " << old_coeff
@@ -614,6 +681,7 @@ bool AltitudeEstimator::getCovariance(alt_P_t &P) {
 
 //}
 
+// TODO make it work?
 /*  //{ setCovariance() */
 
 bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
@@ -645,6 +713,7 @@ bool AltitudeEstimator::setCovariance(const alt_P_t &P) {
 }
 //}
 
+// TODO make it work
 /*  //{ reset() */
 
 bool AltitudeEstimator::reset(const alt_x_t &x) {
