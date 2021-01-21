@@ -187,6 +187,7 @@ private:
 
   ros::Publisher pub_debug_aloamgarm_aloam_;
   ros::Publisher pub_debug_aloamgarm_garmin_;
+  ros::Publisher pub_debug_aloam_delay_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -2071,6 +2072,7 @@ void Odometry::onInit() {
 
   pub_debug_aloamgarm_aloam_  = nh_.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_aloam", 1);
   pub_debug_aloamgarm_garmin_ = nh_.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_garmin", 1);
+  pub_debug_aloam_delay_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
 
   //}
 
@@ -10009,6 +10011,14 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
+
+  // Publisher of ALOAM computational delay
+  if(estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam"){
+    mrs_msgs::Float64Stamped msg;
+    msg.header.stamp = predict_stamp;
+    msg.value = predict_stamp.toSec() - meas_stamp.toSec();
+    pub_debug_aloam_delay_.publish(msg);
+  }
 }
 
 //}
