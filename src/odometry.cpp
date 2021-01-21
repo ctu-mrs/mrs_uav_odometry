@@ -68,6 +68,7 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/transform_broadcaster.h>
 
 #include <types.h>
 #include <support.h>
@@ -75,8 +76,6 @@
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
 #include <mrs_uav_odometry/odometry_dynparamConfig.h>
-
-#include <tf2_ros/transform_broadcaster.h>
 
 #include <string>
 #include <locale>
@@ -235,7 +234,7 @@ private:
   ros::ServiceClient ser_client_enable_callbacks_;
 
 private:
-  tf2_ros::TransformBroadcaster *             broadcaster_;
+  mrs_lib::TransformBroadcaster *             broadcaster_;
   tf2_ros::Buffer                             tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
   mrs_lib::Transformer                        transformer_;
@@ -2014,7 +2013,7 @@ void Odometry::onInit() {
   pub_hector_reset_ = nh_.advertise<std_msgs::String>("hector_map_reset_out", 1);
 
   // publisher for tf
-  broadcaster_ = new tf2_ros::TransformBroadcaster();
+  broadcaster_ = new mrs_lib::TransformBroadcaster();
 
   // publishers for orientations in local_origin frame
   pub_des_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
