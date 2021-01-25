@@ -11,13 +11,15 @@ HeadingEstimator::HeadingEstimator(
     const std::vector<bool> &fusing_measurement,
     const std::vector<hdg_H_t> &H_multi,
     const hdg_Q_t &Q,
-    const std::vector<hdg_R_t> &R_multi)
+    const std::vector<hdg_R_t> &R_multi,
+    const bool use_repredictor)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
     m_H_multi(H_multi),
     m_Q(Q),
-    m_R_multi(R_multi)
+    m_R_multi(R_multi),
+    m_use_repredictor(use_repredictor)
   {
 
   // clang-format on
@@ -54,8 +56,8 @@ HeadingEstimator::HeadingEstimator(
   for (size_t i = 0; i < m_H_multi.size(); i++) {
     if (m_H_multi[i].rows() != 1 || m_H_multi[i].cols() != m_n_states) {
       std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-                << "): wrong size of \"m_H_multi[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_H_multi[i].rows() << ", " << m_H_multi[i].cols()
-                << ")" << std::endl;
+                << "): wrong size of \"m_H_multi[" << i << "]\". Should be: (1, " << m_n_states << ") is: (" << m_H_multi[i].rows() << ", "
+                << m_H_multi[i].cols() << ")" << std::endl;
       return;
     }
   }
@@ -71,20 +73,21 @@ HeadingEstimator::HeadingEstimator(
   for (size_t i = 0; i < m_R_multi.size(); i++) {
     if (m_R_multi[i].rows() != 1 || m_R_multi[i].cols() != 1) {
       std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".HeadingEstimator()"
-                << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (1, 1) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")" << std::endl;
+                << "): wrong size of \"m_R_multi[" << i << "]\". Should be: (1, 1) is: (" << m_R_multi[i].rows() << ", " << m_R_multi[i].cols() << ")"
+                << std::endl;
       return;
     }
   }
 
   //}
-  
-// clang-format off
-  m_A << 
+
+  // clang-format off
+  m_A <<
       1.0, m_dt, m_dt_sq,
       0, 1-m_b, m_dt,
       0, 0, 1.0;
 
-  m_B << 0, 0, // TODO try with heading input 
+  m_B << 0, 0, // TODO try with heading input
          0, m_b,
          0, 0;
   // clang-format on
@@ -92,19 +95,42 @@ HeadingEstimator::HeadingEstimator(
   // set measurement mapping matrix H to zero, it will be set later during each correction step
   hdg_H_t m_H_zero = m_H_zero.Zero();
 
-  mp_lkf = std::make_unique<lkf_hdg_t>(m_A, m_B, m_H_zero);
-
   // Initialize all states to 0
-  const hdg_x_t x0 = hdg_x_t::Zero();
-  hdg_P_t P_tmp = hdg_P_t::Identity();
-  const hdg_P_t P0 = 1000.0*P_tmp*P_tmp.transpose();
+  const hdg_x_t        x0    = hdg_x_t::Zero();
+  hdg_P_t              P_tmp = hdg_P_t::Identity();
+  const hdg_P_t        P0    = 1000.0 * P_tmp * P_tmp.transpose();
   const hdg_statecov_t sc0({x0, P0});
-  m_sc = sc0;
+  m_sc               = sc0;
+  const hdg_u_t   u0 = hdg_u_t::Zero();
+  const ros::Time t0 = ros::Time(0);
 
+  if (m_use_repredictor) {
+    std::cout << "[HeadingEstimator]: Using repredictor in " << m_estimator_name.c_str() << " estimator." << std::endl;
+    // Lambda functions generating A and B matrices based on dt
+    auto generateA = [](const double dt) {
+      var_hdg_A_t A;
+      A << 1, dt, dt * dt / 2, 0, 1 - HDG_INPUT_COEFF, dt, 0, 0, 1;
+      return A;
+    };
+    auto generateB = []([[maybe_unused]] const double dt) {
+      var_hdg_B_t B;
+      B << 0, 0, 0, HDG_INPUT_COEFF, 0, 0;
+      return B;
+    };
+    // Initialize separate LKF models for each H matrix
+    for (size_t i = 0; i < m_H_multi.size(); i++) {
+      mp_lkf_vector.push_back(std::make_shared<var_lkf_hdg_t>(generateA, generateB, m_H_multi[i]));
+    }
+    // Initialize repredictor
+    mp_rep = std::make_unique<rep_hdg_t>(x0, P0, u0, Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+  } else {
+    // Initialize a single LKF
+    mp_lkf = std::make_unique<lkf_hdg_t>(m_A, m_B, m_H_zero);
+  }
 
   std::cout << "[HeadingEstimator]: New HeadingEstimator initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
-  
+
   std::cout << " fusing measurements: " << std::endl;
   for (size_t i = 0; i < m_fusing_measurement.size(); i++) {
     std::cout << m_fusing_measurement[i] << " ";
@@ -127,7 +153,7 @@ HeadingEstimator::HeadingEstimator(
 
 /*  //{ doPrediction() */
 
-bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
+bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -137,11 +163,11 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
 
   // Check for NaNs
   for (int i = 0; i < input.size(); i++) {
-  if (!std::isfinite(input(i))) {
-    std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input(i) << ", double dt=" << dt
-              << "): NaN detected in variable \"input(0)\"." << std::endl;
-    return false;
-  }
+    if (!std::isfinite(input(i))) {
+      std::cerr << "[HeadingEstimator]: " << m_estimator_name << ".doPrediction(const Eigen::VectorXd &input=" << input(i) << ", double dt=" << dt
+                << "): NaN detected in variable \"input(0)\"." << std::endl;
+      return false;
+    }
   }
 
   if (!std::isfinite(dt)) {
@@ -163,25 +189,31 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
   hdg_A_t A = m_A;
   /* hdg_B_t B = m_B; */
 
-  double dt_sq = std::pow(dt, 2)/2;;
+  double dt_sq = std::pow(dt, 2) / 2;
+  ;
 
   /* B(0, 0)           = dt; */
   /* B(1, 1)           = dt; */
 
-  A(0, 1)           = dt;
-  A(1, 2)           = dt;
+  A(0, 1) = dt;
+  A(1, 2) = dt;
 
-  A(0, 2)           = dt_sq;
+  A(0, 2) = dt_sq;
 
   {
     std::scoped_lock lock(mutex_lkf);
 
     try {
       // Apply the prediction step
-    mp_lkf->A = A;
-    /* mp_lkf->B = B; */
-    m_sc = mp_lkf->predict(m_sc, input, m_Q, dt);
-  }
+      if (m_use_repredictor) {
+        mp_rep->addInput(input, m_Q, input_stamp, mp_lkf_vector[0]);
+        m_sc = mp_rep->predictTo(predict_stamp);
+      } else {
+        mp_lkf->A = A;
+        m_sc      = mp_lkf->predict(m_sc, input, m_Q, dt);
+      }
+      /* mp_lkf->B = B; */
+    }
     catch (const std::exception &e) {
       // In case of error, alert the user
       ROS_ERROR("[HeadingEstimator]: LKF prediction step failed: %s", e.what());
@@ -194,16 +226,16 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt) {
 
 /*  //{ doPrediction() */
 
-bool HeadingEstimator::doPrediction(const hdg_u_t &input) {
+bool HeadingEstimator::doPrediction(const hdg_u_t &input, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
-  return doPrediction(input, m_dt);
+  return doPrediction(input, m_dt, input_stamp, predict_stamp);
 }
 
 //}
 
 /*  //{ doCorrection() */
 
-bool HeadingEstimator::doCorrection(const double measurement, int measurement_type) {
+bool HeadingEstimator::doCorrection(const double measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -245,12 +277,17 @@ bool HeadingEstimator::doCorrection(const double measurement, int measurement_ty
   R << m_R_multi[measurement_type];
 
   // Fuse the measurement
-    std::scoped_lock lock(mutex_lkf);
-    {
+  std::scoped_lock lock(mutex_lkf);
+  {
 
     try {
-      mp_lkf->H = m_H_multi[measurement_type];
-      m_sc = mp_lkf->correct(m_sc, z, R);
+      if (m_use_repredictor) {
+        mp_rep->addMeasurement(z, R, meas_stamp, mp_lkf_vector[measurement_type]);
+        m_sc = mp_rep->predictTo(predict_stamp);
+      } else {
+        mp_lkf->H = m_H_multi[measurement_type];
+        m_sc      = mp_lkf->correct(m_sc, z, R);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -327,6 +364,7 @@ std::string HeadingEstimator::getName(void) {
 
 //}
 
+// TODO repredictor
 /*  //{ setState() */
 
 bool HeadingEstimator::setState(int state_id, const double state) {
@@ -475,6 +513,7 @@ bool HeadingEstimator::getCovariance(hdg_P_t &cov) {
 
 //}
 
+// TODO repredictor
 /*  //{ setCovariance() */
 
 bool HeadingEstimator::setCovariance(const hdg_P_t &cov) {
@@ -513,6 +552,7 @@ bool HeadingEstimator::setCovariance(const hdg_P_t &cov) {
 }
 //}
 
+// TODO repredictor
 /*  //{ reset() */
 
 bool HeadingEstimator::reset(const hdg_x_t &states) {

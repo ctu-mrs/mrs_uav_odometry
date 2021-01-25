@@ -7,9 +7,9 @@ altitude_estimators:
     "BRICK",
     "VIO",
     "ALOAM",
-    "BARO",
     "ALOAMGARM",
-    "ALOAMREP"
+    "ALOAMREP",
+    "BARO"
   ] 
 
   # The measured states of the model

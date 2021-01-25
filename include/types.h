@@ -79,7 +79,6 @@ typedef var_lkf_alt_t::H_t var_alt_H_t;
 typedef var_lkf_alt_t::R_t var_alt_R_t; 
 typedef var_lkf_alt_t::Q_t var_alt_Q_t; 
 typedef var_lkf_alt_t::P_t var_alt_P_t; 
-typedef mrs_lib::Repredictor<var_lkf_alt_t> rep_t;
 
 // heading
 typedef mrs_lib::LKF<HDG_N_STATES, HDG_M_INPUTS, HDG_P_MEASUREMENTS> lkf_hdg_t;
@@ -93,6 +92,23 @@ typedef lkf_hdg_t::H_t hdg_H_t;
 typedef lkf_hdg_t::R_t hdg_R_t; 
 typedef lkf_hdg_t::Q_t hdg_Q_t; 
 typedef lkf_hdg_t::P_t hdg_P_t; 
+
+// heading - variable LKF for repredictor
+typedef mrs_lib::varstepLKF<HDG_N_STATES, HDG_M_INPUTS, HDG_P_MEASUREMENTS> var_lkf_hdg_t;
+typedef lkf_hdg_t::statecov_t var_hdg_statecov_t;
+typedef lkf_hdg_t::x_t var_hdg_x_t; 
+typedef lkf_hdg_t::u_t var_hdg_u_t; 
+typedef lkf_hdg_t::z_t var_hdg_z_t; 
+typedef lkf_hdg_t::A_t var_hdg_A_t; 
+typedef lkf_hdg_t::B_t var_hdg_B_t; 
+typedef lkf_hdg_t::H_t var_hdg_H_t; 
+typedef lkf_hdg_t::R_t var_hdg_R_t; 
+typedef lkf_hdg_t::Q_t var_hdg_Q_t; 
+typedef lkf_hdg_t::P_t var_hdg_P_t; 
+
+typedef mrs_lib::Repredictor<var_lkf_alt_t> rep_t;
+typedef mrs_lib::Repredictor<mrs_lib::LKF_MRS_odom> rep_lat_t;
+typedef mrs_lib::Repredictor<var_lkf_hdg_t> rep_hdg_t;
 
 //}
 

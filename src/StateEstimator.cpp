@@ -11,13 +11,15 @@ StateEstimator::StateEstimator(
     const std::vector<bool> &fusing_measurement,
     const LatMat &Q,
     const std::vector<LatStateCol1D> &H,
-    const std::vector<Mat1> &R_arr)
+    const std::vector<Mat1> &R_arr,
+    const bool use_repredictor)
     :
     m_estimator_name(estimator_name),
     m_fusing_measurement(fusing_measurement),
     m_Q(Q),
     m_H(H),
-    m_R_arr(R_arr)
+    m_R_arr(R_arr),
+    m_use_repredictor(use_repredictor)
   {
 
   // clang-format on
@@ -63,15 +65,32 @@ StateEstimator::StateEstimator(
 
   //}
 
+  // Initialize all states to 0
+  const x_t        x0    = x_t::Zero();
+  P_t              P_tmp = P_t::Identity();
+  const P_t        P0    = 1000.0 * P_tmp;
+  const statecov_t scx0({x0, P0});
+  const statecov_t scy0({x0, P0});
+  sc_x               = scx0;
+  sc_y               = scy0;
+  const u_t       u0 = u_t::Zero();
+  const ros::Time t0 = ros::Time(0);
 
-  mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
-  mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
-
-  sc_x.x = sc_x.x.Zero();
-  sc_x.P = sc_x.P.Identity() * 1000;
-  sc_y.x = sc_y.x.Zero();
-  sc_y.P = sc_y.P.Identity() * 1000;
-
+  if (m_use_repredictor) {
+    std::cout << "[StateEstimator]: Using repredictor in " << m_estimator_name.c_str() << " estimator." << std::endl;
+    // Initialize separate LKF models for each H matrix
+    for (size_t i = 0; i < m_H.size(); i++) {
+      std::vector<H_t> curr_H{m_H[i]};
+      mp_lkf_vector.push_back(std::make_shared<mrs_lib::LKF_MRS_odom>(curr_H, 0.01));
+    }
+    // Initialize repredictor
+    mp_rep_x = std::make_unique<rep_lat_t>(x0, P0, u0, Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    mp_rep_y = std::make_unique<rep_lat_t>(x0, P0, u0, Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+  } else {
+    // Initialize a single LKF
+    mp_lkf_x = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
+    mp_lkf_y = std::make_unique<mrs_lib::LKF_MRS_odom>(m_H, 0.01);
+  }
 
   std::cout << "[StateEstimator]: New StateEstimator initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -96,7 +115,7 @@ StateEstimator::StateEstimator(
 
 /*  //{ doPrediction() */
 
-bool StateEstimator::doPrediction(const Vec2 &input, double dt) {
+bool StateEstimator::doPrediction(const Vec2 &input, double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -162,8 +181,15 @@ bool StateEstimator::doPrediction(const Vec2 &input, double dt) {
     /* mp_lkf_y->iterateWithoutCorrection(); */
     try {
       // Apply the prediction step
-      sc_x = mp_lkf_x->predict(sc_x, u_x, m_Q, dt);
-      sc_y = mp_lkf_y->predict(sc_y, u_y, m_Q, dt);
+      if (m_use_repredictor) {
+        mp_rep_x->addInput(u_x, m_Q, input_stamp, mp_lkf_vector[0]);
+        sc_x = mp_rep_x->predictTo(predict_stamp);
+        mp_rep_y->addInput(u_y, m_Q, input_stamp, mp_lkf_vector[0]);
+        sc_y = mp_rep_y->predictTo(predict_stamp);
+      } else {
+        sc_x = mp_lkf_x->predict(sc_x, u_x, m_Q, dt);
+        sc_y = mp_lkf_y->predict(sc_y, u_y, m_Q, dt);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -184,7 +210,7 @@ bool StateEstimator::doPrediction(const Vec2 &input, double dt) {
 
 /*  //{ doCorrection() */
 
-bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type) {
+bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
 
   /*  //{ sanity checks */
 
@@ -250,8 +276,15 @@ bool StateEstimator::doCorrection(const Vec2 &measurement, int measurement_type)
     /* mp_lkf_y->doCorrection(); */
 
     try {
-      sc_x = mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
-      sc_y = mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
+      if (m_use_repredictor) {
+        mp_rep_x->addMeasurement(z_x, R, meas_stamp, mp_lkf_vector[measurement_type]);
+        sc_x = mp_rep_x->predictTo(predict_stamp);
+        mp_rep_y->addMeasurement(z_y, R, meas_stamp, mp_lkf_vector[measurement_type]);
+        sc_y = mp_rep_y->predictTo(predict_stamp);
+      } else {
+        sc_x = mp_lkf_x->correct(sc_x, z_x, R, measurement_type);
+        sc_y = mp_lkf_y->correct(sc_y, z_y, R, measurement_type);
+      }
     }
     catch (const std::exception &e) {
       // In case of error, alert the user
@@ -629,6 +662,13 @@ bool StateEstimator::reset(const LatState2D &states) {
 
     sc_x.x = states.col(0);
     sc_y.x = states.col(1);
+
+    if (m_use_repredictor) {
+      const u_t       u0 = u_t::Zero();
+      const ros::Time t0 = ros::Time(0);
+      mp_rep_x           = std::make_unique<rep_lat_t>(sc_x.x, sc_x.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+      mp_rep_y           = std::make_unique<rep_lat_t>(sc_y.x, sc_y.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;

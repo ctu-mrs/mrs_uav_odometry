@@ -13,6 +13,7 @@ heading_estimators:
     "ICP",
     "BRICKFLOW",
     "ALOAM",
+    "ALOAMREP",
   ] 
 
   # The measured states of the model
@@ -48,6 +49,7 @@ heading_estimators:
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "hdg_brick"]
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
+    ALOAMREP: ["rate_gyro", "hdg_aloam", "rate_icp"]
 
   # Mapping of measurements to states
   measurement_states:

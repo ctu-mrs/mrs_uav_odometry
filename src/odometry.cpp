@@ -536,13 +536,14 @@ private:
 
   // | --------------------- helper methods --------------------- |
   bool isReadyToTakeoff();
-  void stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt);
-  void stateEstimatorsCorrection(double x, double y, const std::string &measurement_name);
+  void stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt, const ros::Time &input_stamp = ros::Time::now(),
+                                 const ros::Time &predict_stamp = ros::Time::now());
+  void stateEstimatorsCorrection(double x, double y, const std::string &measurement_name, const ros::Time &meas_stamp = ros::Time::now(),
+                                 const ros::Time &predict_stamp = ros::Time::now());
   bool changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_estimator);
 
   void altitudeEstimatorsPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(),
                                     const ros::Time &predict_stamp = ros::Time::now());
-  // TODO je u korekce k necemu predict_stamp?
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp = ros::Time::now(),
                                    const ros::Time &predict_stamp = ros::Time::now());
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator,
@@ -550,8 +551,10 @@ private:
 
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
-  void headingEstimatorsPrediction(const double hdg, const double hdg_rate, const double dt);
-  void headingEstimatorsCorrection(const double value, const std::string &measurement_name);
+  void headingEstimatorsPrediction(const double hdg, const double hdg_rate, const double dt, const ros::Time &input_stamp = ros::Time::now(),
+                                   const ros::Time &predict_stamp = ros::Time::now());
+  void headingEstimatorsCorrection(const double value, const std::string &measurement_name, const ros::Time &input_stamp = ros::Time::now(),
+                                   const ros::Time &predict_stamp = ros::Time::now());
   bool changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desired_estimator);
 
   void               getGlobalRot(const geometry_msgs::Quaternion &q_msg, double &rx, double &ry, double &rz);
@@ -1075,6 +1078,7 @@ void Odometry::onInit() {
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::ICP));
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::BRICKFLOW));
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::ALOAM));
+  _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::ALOAMREP));
 
   ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
@@ -1596,7 +1600,7 @@ void Odometry::onInit() {
     }
     if (*it == "ALOAMREP") {
       aloamrep_active_ = true;
-      aloam_reliable_   = true;
+      aloam_reliable_  = true;
     }
     if (*it == "ICP") {
       icp_active_   = true;
@@ -1751,8 +1755,13 @@ void Odometry::onInit() {
     }
 
     // Add state estimator to array
-    _lateral_estimators_.insert(
-        std::pair<std::string, std::shared_ptr<StateEstimator>>(*it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
+    if (*it == "ALOAMREP") {
+      _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
+    } else {
+      _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
+    }
 
     estimator_rtk_ = std::make_unique<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
 
@@ -1977,8 +1986,13 @@ void Odometry::onInit() {
     std::cout << "R:" << R_multi_hdg.size() << std::endl;
 
     // Add pointer to heading estimator to array
-    heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-        *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg)));
+    if (*it == "ALOAMREP") {
+      heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg, true)));
+    } else {
+      heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg)));
+    }
 
     // Map odometry to estimator name
     mrs_msgs::Float64ArrayStamped hdg_msg;
@@ -2072,7 +2086,7 @@ void Odometry::onInit() {
 
   pub_debug_aloamgarm_aloam_  = nh_.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_aloam", 1);
   pub_debug_aloamgarm_garmin_ = nh_.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_garmin", 1);
-  pub_debug_aloam_delay_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
+  pub_debug_aloam_delay_      = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
 
   //}
 
@@ -2657,7 +2671,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   // apply prediction step to all heading estimators
-  headingEstimatorsPrediction(des_hdg, des_hdg_rate, dt);
+  headingEstimatorsPrediction(des_hdg, des_hdg_rate, dt, alt_input_stamp, time_now);
 
   //}
 
@@ -2665,19 +2679,20 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   geometry_msgs::Point   des_acc_point = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_.desired_acceleration);
   geometry_msgs::Vector3 des_acc;
-  des_acc.x = des_acc_point.x;
-  des_acc.y = des_acc_point.y;
-  des_acc.z = des_acc_point.z;
+  des_acc.x               = des_acc_point.x;
+  des_acc.y               = des_acc_point.y;
+  des_acc.z               = des_acc_point.z;
+  ros::Time des_acc_stamp = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_.header.stamp);
 
   if (!is_updating_state_) {
 
     if (isUavFlying()) {
-      stateEstimatorsPrediction(des_acc, dt);
+      stateEstimatorsPrediction(des_acc, dt, des_acc_stamp, time_now);
     } else {
       des_acc.x = 0.0;
       des_acc.y = 0.0;
       des_acc.z = 0.0;
-      stateEstimatorsPrediction(des_acc, dt);
+      stateEstimatorsPrediction(des_acc, dt, time_now, time_now);
     }
 
     // correction step for hector
@@ -2691,9 +2706,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // correction step for aloam
     if (got_aloam_odom_ && aloam_corr_ready_) {
-      auto pos_aloam_x_tmp = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_x_);
-      auto pos_aloam_y_tmp = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
-      stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam");
+      auto pos_aloam_x_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_x_);
+      auto pos_aloam_y_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
+      auto aloam_timestamp_tmp = mrs_lib::get_mutexed(mutex_aloam_, aloam_timestamp_);
+      stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp, time_now);
     }
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
@@ -5798,6 +5814,8 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   //////////////////// Fuse Heading Kalman ////////////////////
 
   double hdg_rate;
+  ros::Time time_now = ros::Time::now();
+  ros::Time time_imu;
 
   auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
   {
@@ -5805,6 +5823,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
     try {
       hdg_rate = mrs_lib::AttitudeConverter(odom_pixhawk_tmp.pose.pose.orientation).getHeadingRate(pixhawk_imu_.angular_velocity);
+      time_imu = pixhawk_imu_.header.stamp;
     }
     catch (...) {
       ROS_ERROR("[Odometry]: Exception caught during getting heading rate (pixhawk_imu_)");
@@ -5813,7 +5832,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   if (std::isfinite(hdg_rate)) {
     // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(hdg_rate, "rate_gyro");
+    headingEstimatorsCorrection(hdg_rate, "rate_gyro", time_imu, time_now);
 
     ROS_INFO_ONCE("[Odometry]: Fusing gyro hdg rate from PixHawk IMU");
 
@@ -6446,7 +6465,8 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
 
   // Apply correction step to all state estimators
   if (icp_vel_ok) {
-    stateEstimatorsCorrection(icp_vel_x, icp_vel_y, "vel_icp");
+    ros::Time time_now = ros::Time::now();
+    stateEstimatorsCorrection(icp_vel_x, icp_vel_y, "vel_icp", icp_twist_.header.stamp, time_now);
 
     ROS_INFO_ONCE("[Odometry]: Fusing icp velocity");
   }
@@ -6476,7 +6496,8 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   if (std::isfinite(hdg_rate)) {
 
     // Apply correction step to all heading estimators
-    headingEstimatorsCorrection(hdg_rate, "rate_icp");
+    ros::Time time_now = ros::Time::now();
+    headingEstimatorsCorrection(hdg_rate, "rate_icp", msg->header.stamp, time_now);
 
     ROS_INFO_ONCE("[Odometry]: Fusing icp hdg rate");
 
@@ -7727,7 +7748,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   aloam_hdg_previous_ = hdg_aloam;
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(hdg_aloam, "hdg_aloam");
+  ros::Time time_now = ros::Time::now();
+  headingEstimatorsCorrection(hdg_aloam, "hdg_aloam", aloam_odom_.header.stamp, time_now);
 
   if (_debug_publish_corrections_) {
     hdg_aloam = radians::wrap(hdg_aloam);
@@ -8912,7 +8934,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
   } else if (type == "ALOAMREP") {
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMREP;
-    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAMREP;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMREP;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
@@ -9215,6 +9237,8 @@ bool Odometry::callbackChangeHdgEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::HeadingType::HECTOR;
   } else if (type == "ALOAM") {
     desired_estimator.type = mrs_msgs::HeadingType::ALOAM;
+  } else if (type == "ALOAMREP") {
+    desired_estimator.type = mrs_msgs::HeadingType::ALOAMREP;
   } else if (type == "BRICK") {
     desired_estimator.type = mrs_msgs::HeadingType::BRICK;
   } else if (type == "VIO") {
@@ -9809,7 +9833,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
 
 /*  //{ stateEstimatorsPrediction() */
 
-void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt) {
+void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, double dt, const ros::Time &input_stamp, const ros::Time &predict_stamp) {
 
   if (!is_initialized_)
     return;
@@ -9878,7 +9902,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     input(1) = acc_global.y;
 
 
-    estimator.second->doPrediction(input, dt);
+    estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
   }
 }
 
@@ -9886,7 +9910,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
 
 /*  //{ stateEstimatorsCorrection() */
 
-void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &measurement_name) {
+void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &measurement_name, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_measurement_name_id_.end()) {
@@ -9937,7 +9961,7 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
       mes(1) = mes_y;
     }
 
-    estimator.second->doCorrection(mes, it_measurement_id->second);
+    estimator.second->doCorrection(mes, it_measurement_id->second, meas_stamp, predict_stamp);
   }
 }
 
@@ -10013,10 +10037,10 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
 
   // Publisher of ALOAM computational delay
-  if(estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam"){
+  if (estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam") {
     mrs_msgs::Float64Stamped msg;
     msg.header.stamp = predict_stamp;
-    msg.value = predict_stamp.toSec() - meas_stamp.toSec();
+    msg.value        = predict_stamp.toSec() - meas_stamp.toSec();
     pub_debug_aloam_delay_.publish(msg);
   }
 }
@@ -10025,7 +10049,8 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
 /*  //{ headingEstimatorsPrediction() */
 
-void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_rate, const double dt) {
+void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_rate, const double dt, const ros::Time &input_stamp,
+                                           const ros::Time &predict_stamp) {
 
   if (dt <= 0.0) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Lateral estimator prediction dt=%f, skipping prediction.", dt);
@@ -10051,7 +10076,7 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
     double current_hdg;
     estimator.second->getState(0, current_hdg);
     input(0) = radians::unwrap(input(0), current_hdg);
-    estimator.second->doPrediction(input, dt);
+    estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
   }
 }
 
@@ -10059,7 +10084,8 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
 
 /*  //{ headingEstimatorsCorrection() */
 
-void Odometry::headingEstimatorsCorrection(const double value, const std::string &measurement_name) {
+void Odometry::headingEstimatorsCorrection(const double value, const std::string &measurement_name, const ros::Time &meas_stamp,
+                                           const ros::Time &predict_stamp) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_hdg_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_hdg_measurement_name_id_.end()) {
@@ -10084,7 +10110,7 @@ void Odometry::headingEstimatorsCorrection(const double value, const std::string
       z = radians::unwrap(z, current_hdg);
     }
 
-    estimator.second->doCorrection(z, it_measurement_id->second);
+    estimator.second->doCorrection(z, it_measurement_id->second, meas_stamp, predict_stamp);
   }
 }
 
@@ -10418,7 +10444,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
 
     //}
-    
+
     /* ALOAMREP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ALOAMREP) {
 
@@ -10715,7 +10741,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
       target_estimator.type != mrs_msgs::HeadingType::HECTOR && target_estimator.type != mrs_msgs::HeadingType::BRICK &&
       target_estimator.type != mrs_msgs::HeadingType::VIO && target_estimator.type != mrs_msgs::HeadingType::VSLAM &&
       target_estimator.type != mrs_msgs::HeadingType::ICP && target_estimator.type != mrs_msgs::HeadingType::BRICKFLOW &&
-      target_estimator.type != mrs_msgs::HeadingType::ALOAM) {
+      target_estimator.type != mrs_msgs::HeadingType::ALOAM && target_estimator.type != mrs_msgs::HeadingType::ALOAMREP) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
     return false;
   }
@@ -10828,7 +10854,7 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
   if (type.type == mrs_msgs::HeadingType::PIXHAWK || type.type == mrs_msgs::HeadingType::GYRO || type.type == mrs_msgs::HeadingType::COMPASS ||
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
       type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP ||
-      type.type == mrs_msgs::HeadingType::BRICKFLOW || type.type == mrs_msgs::HeadingType::ALOAM) {
+      type.type == mrs_msgs::HeadingType::BRICKFLOW || type.type == mrs_msgs::HeadingType::ALOAM || type.type == mrs_msgs::HeadingType::ALOAMREP) {
     return true;
   }
 
@@ -10965,6 +10991,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "HECTOR";
   } else if (hdg_type.type == mrs_msgs::HeadingType::ALOAM) {
     s_diag += "ALOAM";
+  } else if (hdg_type.type == mrs_msgs::HeadingType::ALOAMREP) {
+    s_diag += "ALOAMREP";
   } else if (hdg_type.type == mrs_msgs::HeadingType::BRICK) {
     s_diag += "BRICK";
   } else if (hdg_type.type == mrs_msgs::HeadingType::VIO) {

@@ -30,9 +30,6 @@ public:
   AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<alt_H_t> &H_multi, const alt_Q_t &Q,
                     const std::vector<alt_R_t> &R_multi, const bool use_repredictor = false);
 
-  /* bool        doPrediction(const double input, const double dt); */
-  /* bool        doCorrection(const double &measurement, int measurement_type); */
-
   bool doPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
   bool doPrediction(const double input, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
   bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp = ros::Time::now(),
