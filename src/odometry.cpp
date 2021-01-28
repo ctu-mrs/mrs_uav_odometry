@@ -280,9 +280,9 @@ private:
 
   // Mavros odometry and local odometry cache for aloam mapping tf
   std::vector<nav_msgs::Odometry> vec_odom_mavros_;
-  std::mutex mutex_vec_odom_mavros_;
+  std::mutex                      mutex_vec_odom_mavros_;
   std::vector<nav_msgs::Odometry> vec_odom_local_;
-  std::mutex mutex_vec_odom_local_;
+  std::mutex                      mutex_vec_odom_local_;
 
   // OPTFLOW
   geometry_msgs::TwistWithCovarianceStamped optflow_twist_;
@@ -2790,11 +2790,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       current_hdg_estimator_->getState(1, hdg_rate);
     }
 
-    hdg                               = radians::wrap(hdg);
+    hdg = radians::wrap(hdg);
 
     try {
       orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation).setHeading(hdg);
-    } catch (...) {
+    }
+    catch (...) {
       ROS_ERROR("[Odometry]: %s:%d, could not set heading", __FILE__, __LINE__);
       orientation.pose.pose.orientation = mrs_lib::AttitudeConverter(orientation.pose.pose.orientation);
     }
@@ -4082,7 +4083,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     //}
-     
+
     /* publish local origin tf //{ */
 
     // Get inverse trasnform
@@ -4217,9 +4218,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish aloam mapping origin tf //{ */
 
-  float cache_size = 0.3;
-  bool clear_needed = false;
-  if(got_stable && got_aloam_odom_){
+  float cache_size   = 0.3;
+  bool  clear_needed = false;
+  if (got_stable && got_aloam_odom_) {
     // Mavros odom chache//{
     {
       std::scoped_lock lock(mutex_vec_odom_mavros_);
@@ -4227,23 +4228,24 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       vec_odom_mavros_.push_back(odom_pixhawk_shifted_local);
       // Delete old data
       size_t index_delete = 0;
-      for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
-        if(time_now - vec_odom_mavros_.at(i).header.stamp > ros::Duration(cache_size)){
+      for (size_t i = 0; i < vec_odom_mavros_.size(); i++) {
+        if (time_now - vec_odom_mavros_.at(i).header.stamp > ros::Duration(cache_size)) {
           index_delete = i;
           clear_needed = true;
-        }else{
+        } else {
           break;
         }
       }
-      if(clear_needed){
-        for(int i = (int)index_delete; i >= 0; i--){
-          vec_odom_mavros_.erase(vec_odom_mavros_.begin()+i);
+      if (clear_needed) {
+        for (int i = (int)index_delete; i >= 0; i--) {
+          vec_odom_mavros_.erase(vec_odom_mavros_.begin() + i);
         }
         clear_needed = false;
       }
       /* ROS_INFO_THROTTLE(1.0,"Mavros odom cache size: %d", (int)vec_odom_mavros_.size()); */
     }
     /*//}*/
+
 
     // Local odom cache//{
     {
@@ -4252,22 +4254,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       vec_odom_local_.push_back(odom_local_);
       // Delete old data
       size_t index_delete = 0;
-      for(size_t i = 0; i < vec_odom_local_.size(); i++){
-        if(time_now - vec_odom_local_.at(i).header.stamp > ros::Duration(cache_size)){
+      for (size_t i = 0; i < vec_odom_local_.size(); i++) {
+        if (time_now - vec_odom_local_.at(i).header.stamp > ros::Duration(cache_size)) {
           index_delete = i;
           clear_needed = true;
-        }else{
+        } else {
           break;
         }
       }
-      if(clear_needed){
-        for(int i = (int)index_delete; i >= 0; i--){
-          vec_odom_local_.erase(vec_odom_local_.begin()+i);
+      if (clear_needed) {
+        for (int i = (int)index_delete; i >= 0; i--) {
+          vec_odom_local_.erase(vec_odom_local_.begin() + i);
         }
       }
       /* ROS_INFO_THROTTLE(1.0,"Local odom cache size: %d", (int)vec_odom_local_.size()); */
     }
-  /*//}*/
+    /*//}*/
   }
 
   if (got_stable && got_aloam_odom_ && aloam_updated_mapping_tf_) {
@@ -4278,26 +4280,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     aloam_odom_tmp = aloam_odom_;
 
     // Find corresponding mavros orientation
-    tf2::Quaternion tf2_mavros_orient;
+    tf2::Quaternion           tf2_mavros_orient;
     geometry_msgs::Quaternion mavros_orientation_temp = mavros_orientation;
-    for(size_t i = 0; i < vec_odom_mavros_.size(); i++){
-      if(aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp){
+    for (int i = 0; i < (int)vec_odom_mavros_.size(); i++) {
+      if (aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        float time_diff      = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
         float time_diff_prev = 999999;
-        if(i > 0){
-          time_diff_prev = std::fabs(vec_odom_mavros_.at(i-1).header.stamp.toSec() - aloam_timestamp_.toSec());
+        if (i > 0) {
+          time_diff_prev = std::fabs(vec_odom_mavros_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if(time_diff_prev < time_diff){
+        if (time_diff_prev < time_diff && i > 0) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
-        if(clear_needed && i == 0){
+        if (clear_needed && i == 0) {
           ROS_WARN_THROTTLE(1.0, "[Odometry] Mavros orientation cache is too small.");
         }
         mavros_orientation_temp = vec_odom_mavros_.at(i).pose.pose.orientation;
-        tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation_temp);
-        /* ROS_INFO("aloam_timestamp: %.6f, using mavros stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec(), time_now.toSec(), vec_odom_mavros_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
+        tf2_mavros_orient       = mrs_lib::AttitudeConverter(mavros_orientation_temp);
+        /* ROS_INFO("aloam_timestamp: %.6f, using mavros stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(),
+         * vec_odom_mavros_.at(i).header.stamp.toSec(), time_now.toSec(),
+         * vec_odom_mavros_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
         /* ROS_INFO_THROTTLE(1.0, "[Odometry] ALOAM delay: %.6f", time_now.toSec() - aloam_timestamp_.toSec()); */
         break;
       }
@@ -4317,23 +4321,25 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Find corresponding local odom
     double local_odom_z = 0;
-    for(size_t i = 0; i < vec_odom_local_.size(); i++){
-      if(aloam_timestamp_ < vec_odom_local_.at(i).header.stamp){
+    for (int i = 0; i < (int)vec_odom_local_.size(); i++) {
+      if (aloam_timestamp_ < vec_odom_local_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        float time_diff      = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
         float time_diff_prev = 999999;
-        if(i > 0){
-          time_diff_prev = std::fabs(vec_odom_local_.at(i-1).header.stamp.toSec() - aloam_timestamp_.toSec());
+        if (i > 0) {
+          time_diff_prev = std::fabs(vec_odom_local_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if(time_diff_prev < time_diff){
+        if (time_diff_prev < time_diff && i > 0) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
-        if(clear_needed && i == 0){
+        if (clear_needed && i == 0) {
           ROS_WARN_THROTTLE(1.0, "[Odometry] Local odom cache (for aloam mapping tf) is too small.");
         }
         local_odom_z = vec_odom_local_.at(i).pose.pose.position.z;
-        /* ROS_INFO("aloam_timestamp: %.6f, using local odom stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(), vec_odom_local_.at(i).header.stamp.toSec(), time_now.toSec(), vec_odom_local_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
+        /* ROS_INFO("aloam_timestamp: %.6f, using local odom stamp: %.6f, curr time: %.6f, timestamp diff: %.6f, delay: %.6f", aloam_timestamp_.toSec(),
+         * vec_odom_local_.at(i).header.stamp.toSec(), time_now.toSec(),
+         * vec_odom_local_.at(i).header.stamp.toSec()-aloam_timestamp_.toSec(),time_now.toSec()-aloam_timestamp_.toSec()); */
         break;
       }
     }
