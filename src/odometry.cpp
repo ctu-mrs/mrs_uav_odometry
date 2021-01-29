@@ -5813,7 +5813,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
 
   //////////////////// Fuse Heading Kalman ////////////////////
 
-  double hdg_rate;
+  double    hdg_rate;
   ros::Time time_now = ros::Time::now();
   ros::Time time_imu;
 
@@ -9902,7 +9902,12 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     input(1) = acc_global.y;
 
 
-    estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    if (input_stamp.toSec() != 0) {
+      estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    } else {
+      // input time is zero if no controller is active
+      estimator.second->doPrediction(input, dt, predict_stamp, predict_stamp);
+    }
   }
 }
 
@@ -9977,7 +9982,12 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   }
 
   for (auto &estimator : _altitude_estimators_) {
-    estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    if (input_stamp.toSec() != 0) {
+      estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    } else {
+      // input time is zero if no controller is active
+      estimator.second->doPrediction(input, dt, predict_stamp, predict_stamp);
+    }
 
     // if estimator is ALOAMGARM, save its value
     if (estimator.first == "ALOAMGARM") {
@@ -10076,7 +10086,12 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
     double current_hdg;
     estimator.second->getState(0, current_hdg);
     input(0) = radians::unwrap(input(0), current_hdg);
-    estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    if (input_stamp.toSec() != 0) {
+      estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
+    } else {
+      // input time is zero if no controller is active
+      estimator.second->doPrediction(input, dt, predict_stamp, predict_stamp);
+    }
   }
 }
 
