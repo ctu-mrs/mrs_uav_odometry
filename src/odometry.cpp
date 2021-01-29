@@ -68,6 +68,7 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/transform_broadcaster.h>
 
 #include <types.h>
 #include <support.h>
@@ -75,8 +76,6 @@
 #include <AltitudeEstimator.h>
 #include <HeadingEstimator.h>
 #include <mrs_uav_odometry/odometry_dynparamConfig.h>
-
-#include <tf2_ros/transform_broadcaster.h>
 
 #include <string>
 #include <locale>
@@ -239,7 +238,7 @@ private:
   ros::ServiceClient ser_client_enable_callbacks_;
 
 private:
-  tf2_ros::TransformBroadcaster *             broadcaster_;
+  mrs_lib::TransformBroadcaster *             broadcaster_;
   tf2_ros::Buffer                             tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr_;
   mrs_lib::Transformer                        transformer_;
@@ -2062,7 +2061,7 @@ void Odometry::onInit() {
   pub_hector_reset_ = nh_.advertise<std_msgs::String>("hector_map_reset_out", 1);
 
   // publisher for tf
-  broadcaster_ = new tf2_ros::TransformBroadcaster();
+  broadcaster_ = new mrs_lib::TransformBroadcaster();
 
   // publishers for orientations in local_origin frame
   pub_des_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
@@ -4401,6 +4400,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
     /*//}*/
 
+
     // Local odom cache//{
     {
       std::scoped_lock lock(mutex_vec_odom_local_);
@@ -4436,7 +4436,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Find corresponding mavros orientation
     tf2::Quaternion           tf2_mavros_orient;
     geometry_msgs::Quaternion mavros_orientation_temp = mavros_orientation;
-    for (size_t i = 0; i < vec_odom_mavros_.size(); i++) {
+    for (int i = 0; i < (int)vec_odom_mavros_.size(); i++) {
       if (aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
         float time_diff      = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
@@ -4444,7 +4444,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         if (i > 0) {
           time_diff_prev = std::fabs(vec_odom_mavros_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if (time_diff_prev < time_diff) {
+        if (time_diff_prev < time_diff && i > 0) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
@@ -4475,7 +4475,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // Find corresponding local odom
     double local_odom_z = 0;
-    for (size_t i = 0; i < vec_odom_local_.size(); i++) {
+    for (int i = 0; i < (int)vec_odom_local_.size(); i++) {
       if (aloam_timestamp_ < vec_odom_local_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
         float time_diff      = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
@@ -4483,7 +4483,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         if (i > 0) {
           time_diff_prev = std::fabs(vec_odom_local_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
-        if (time_diff_prev < time_diff) {
+        if (time_diff_prev < time_diff && i > 0) {
           i = i - 1;
         }
         // Cache is too small if it is full and its oldest element is used
