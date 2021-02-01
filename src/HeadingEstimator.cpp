@@ -364,7 +364,6 @@ std::string HeadingEstimator::getName(void) {
 
 //}
 
-// TODO repredictor
 /*  //{ setState() */
 
 bool HeadingEstimator::setState(int state_id, const double state) {
@@ -400,6 +399,12 @@ bool HeadingEstimator::setState(int state_id, const double state) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.x(state_id) = state;
+    // reset repredictor
+    if (m_use_repredictor) {
+      const var_hdg_u_t u0 = hdg_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_hdg_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
@@ -513,7 +518,6 @@ bool HeadingEstimator::getCovariance(hdg_P_t &cov) {
 
 //}
 
-// TODO repredictor
 /*  //{ setCovariance() */
 
 bool HeadingEstimator::setCovariance(const hdg_P_t &cov) {
@@ -546,13 +550,18 @@ bool HeadingEstimator::setCovariance(const hdg_P_t &cov) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.P = cov;
+    // reset repredictor
+    if (m_use_repredictor) {
+      const var_hdg_u_t u0 = hdg_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_hdg_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
 }
 //}
 
-// TODO repredictor
 /*  //{ reset() */
 
 bool HeadingEstimator::reset(const hdg_x_t &states) {
@@ -591,6 +600,11 @@ bool HeadingEstimator::reset(const hdg_x_t &states) {
     std::scoped_lock lock(mutex_lkf);
 
     m_sc.x = (states.col(0));
+    if (m_use_repredictor) {
+      const var_hdg_u_t u0 = hdg_u_t::Zero();
+      const ros::Time   t0 = ros::Time(0);
+      mp_rep               = std::make_unique<rep_hdg_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    }
   }
 
   return true;
