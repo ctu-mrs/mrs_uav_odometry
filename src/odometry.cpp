@@ -4003,7 +4003,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     }
 
-    pos_odom_offset_.setZ(alt_x(mrs_msgs::AltitudeStateNames::HEIGHT));
+    /* pos_odom_offset_.setZ(alt_x(mrs_msgs::AltitudeStateNames::HEIGHT)); */
 
     if (toUppercase(current_lat_estimator_name_) == "GPS" || toUppercase(current_lat_estimator_name_) == "RTK") {
       double hdg_tmp;
