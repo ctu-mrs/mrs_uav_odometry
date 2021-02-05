@@ -2685,12 +2685,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   if (!is_updating_state_) {
 
-    if (isUavFlying()) {
+    if (isUavFlying() && des_acc_stamp.toSec() > time_now.toSec() - 0.5) {
       stateEstimatorsPrediction(des_acc, dt, des_acc_stamp, time_now);
     } else {
       des_acc.x = 0.0;
       des_acc.y = 0.0;
       des_acc.z = 0.0;
+      ROS_WARN_THROTTLE(2.0, "[Odometry] Last attitude command too old, passing zero input to state estimator.");
       stateEstimatorsPrediction(des_acc, dt, time_now, time_now);
     }
 
@@ -9982,11 +9983,12 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   }
 
   for (auto &estimator : _altitude_estimators_) {
-    if (input_stamp.toSec() != 0) {
+    if (input_stamp.toSec() > predict_stamp.toSec() - 0.5) {
       estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
     } else {
-      // input time is zero if no controller is active
-      estimator.second->doPrediction(input, dt, predict_stamp, predict_stamp);
+      // pass zero input if the input is too old (no controller is active)
+      ROS_WARN_THROTTLE(2.0, "[Odometry] Last attitude command too old, passing zero input to altitude estimator.");
+      estimator.second->doPrediction(0, dt, predict_stamp, predict_stamp);
     }
 
     // if estimator is ALOAMGARM, save its value
@@ -10086,10 +10088,13 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
     double current_hdg;
     estimator.second->getState(0, current_hdg);
     input(0) = radians::unwrap(input(0), current_hdg);
-    if (input_stamp.toSec() != 0) {
+    if (input_stamp.toSec() > predict_stamp.toSec() - 0.5) {
       estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
     } else {
-      // input time is zero if no controller is active
+      // pass zero input if the input is too old (no controller active)
+      input(0) = 0;
+      input(1) = 0;
+      ROS_WARN_THROTTLE(2.0, "[Odometry] Last attitude command too old, passing zero input to heading estimator.");
       estimator.second->doPrediction(input, dt, predict_stamp, predict_stamp);
     }
   }
