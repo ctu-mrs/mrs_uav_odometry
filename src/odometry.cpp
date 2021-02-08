@@ -390,6 +390,8 @@ private:
 
   geometry_msgs::Vector3Stamped orientation_mavros_;
   geometry_msgs::Vector3Stamped orientation_gt_;
+  double prev_mavros_hdg_ = 0;
+  bool got_prev_mavros_hdg_ = false;
 
   double     _uav_mass_estimate_;
   std::mutex mutex_uav_mass_estimate_;
@@ -990,6 +992,11 @@ void Odometry::onInit() {
   garmin_enabled_       = true;
   sonar_enabled_        = true;
   rtk_altitude_enabled_ = false;
+
+  odom_main_inno_.pose.pose.orientation.x = 0;
+  odom_main_inno_.pose.pose.orientation.y = 0;
+  odom_main_inno_.pose.pose.orientation.z = 0;
+  odom_main_inno_.pose.pose.orientation.w = 1.0;
 
   //}
 
@@ -3590,7 +3597,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
         // Obtain heading from mavros orientation
-        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+        double mavros_hdg;
+        try {
+           mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+           prev_mavros_hdg_ = mavros_hdg;
+           got_prev_mavros_hdg_ = true;
+        } catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during obtaining heading (mavros_hdg)");
+          if (got_prev_mavros_hdg_) {
+            mavros_hdg = prev_mavros_hdg_;
+            ROS_ERROR("[Odometry]: Using previous mavros_hdg");
+          } else {
+            mavros_hdg = 0;
+            ROS_ERROR("[Odometry]: Using zero mavros_hdg");
+          }
+        }
 
         // Build rotation matrix from difference between new heading nad mavros heading
         tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
