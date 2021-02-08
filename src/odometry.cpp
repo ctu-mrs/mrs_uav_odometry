@@ -5288,13 +5288,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // fuse zero into baro estimator when on the ground
+  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
   if (!isUavFlying()) {
     altitude        = 0.0;
     baro_corrected_ = false;
-  } else if (!baro_corrected_) {
+  } else if (!baro_corrected_ && std::isfinite(range_garmin_tmp.range)) {
 
     auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
-    auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
     baro_offset_          = odom_pixhawk_tmp.pose.pose.position.z - range_garmin_tmp.range;
     baro_corrected_       = true;
   }
@@ -9737,7 +9737,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" of %s (altitudeEstimatorCorrection) !!!", measurement_name.c_str());
     return;
   }
 
@@ -9764,7 +9764,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" of %s (altitudeEstimatorCorrection) !!!", measurement_name.c_str());
     return;
   }
 
