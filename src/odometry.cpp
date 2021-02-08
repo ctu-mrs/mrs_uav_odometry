@@ -3590,9 +3590,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
         // Obtain heading from mavros orientation
-        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+        double mavros_hdg = 0;
+        try {
+          mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+        }
 
-        // Build rotation matrix from difference between new heading nad mavros heading
+        // Build rotation matrix from difference between new heading and mavros heading
         tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
 
         // Transform the mavros orientation by the rotation matrix
@@ -3956,7 +3962,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
       // Obtain heading from mavros orientation
-      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      double mavros_hdg = 0;
+      try {
+        mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      }
+      catch (...) {
+        ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+      }
 
       // Build rotation matrix from difference between new heading nad mavros heading
       tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
@@ -4308,7 +4320,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // Obtain heading from mavros orientation
-    double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
+    double mavros_hdg = 0;
+    try {
+      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation_temp");
+    }
 
     // Build rotation matrix from difference between new heading nad mavros heading
     tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
@@ -4975,7 +4993,6 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   /* attitude command //{ */
 
   double des_hdg;
-
 
   try {
     des_hdg = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
@@ -7367,10 +7384,15 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     return;
   }
 
-  double hdg_hector;
+  double hdg_hector = 0;
   {
     std::scoped_lock lock(mutex_hector_);
-    hdg_hector = mrs_lib::AttitudeConverter(hector_pose_.pose.orientation).getHeading();
+    try {
+      hdg_hector = mrs_lib::AttitudeConverter(hector_pose_.pose.orientation).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from hector_pose_ orientation");
+    }
   }
 
   hdg_hector = radians::unwrap(hdg_hector, hector_hdg_previous_);
@@ -8428,7 +8450,12 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!got_init_heading_) {
 
     auto odom_t265_local = mrs_lib::get_mutexed(mutex_odom_t265_, odom_t265_);
-    init_heading_        = mrs_lib::AttitudeConverter(odom_t265_local.pose.pose.orientation).getHeading();
+    try {
+      init_heading_ = mrs_lib::AttitudeConverter(odom_t265_local.pose.pose.orientation).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from odom_t265_local");
+    }
 
     got_init_heading_ = true;
   }
@@ -9597,7 +9624,14 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
       if (estimator.first == "GPS" || estimator.first == "RTK") {
 
         geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
-        current_hdg                         = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+
+        try {
+          current_hdg = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: failed to getHeading() from q_pixhawk");
+        }
+
         break;
       } else {
         if (estimator.first == hdg_estimator.first) {
@@ -9682,7 +9716,12 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
         if (estimator.first == "GPS" || estimator.first == "RTK") {
 
           geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
-          current_hdg                         = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+          try {
+            current_hdg = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+          }
+          catch (...) {
+            ROS_WARN("[Odometry]: failed to getHeading() from q_pixhawk");
+          }
           break;
 
         } else {
