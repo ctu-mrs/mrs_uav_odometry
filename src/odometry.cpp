@@ -991,6 +991,11 @@ void Odometry::onInit() {
   sonar_enabled_        = true;
   rtk_altitude_enabled_ = false;
 
+  odom_main_inno_.pose.pose.orientation.x = 0.0;
+  odom_main_inno_.pose.pose.orientation.y = 0.0;
+  odom_main_inno_.pose.pose.orientation.z = 0.0;
+  odom_main_inno_.pose.pose.orientation.w = 1.0;
+
   //}
 
   // ------------------------------------------------------------------------
