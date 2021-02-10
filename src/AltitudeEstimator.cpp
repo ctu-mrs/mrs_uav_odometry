@@ -6,6 +6,16 @@ namespace mrs_uav_odometry
 /*  //{ AltitudeEstimator() */
 
 // clang-format off
+AltitudeEstimator::AltitudeEstimator()
+{
+  // empty contructor for child classes
+}
+
+//}
+
+/*  //{ AltitudeEstimator() */
+
+// clang-format off
 AltitudeEstimator::AltitudeEstimator(
     const std::string &estimator_name,
     const std::vector<bool> &fusing_measurement,
@@ -255,7 +265,7 @@ bool AltitudeEstimator::doPrediction(const double input, const ros::Time &input_
 
 /*  //{ doCorrection() */
 
-bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
+bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp, const std::string &measurement_name, const double &aloam_eigenvalue) {
 
   /*  //{ sanity checks */
 

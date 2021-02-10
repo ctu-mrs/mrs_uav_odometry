@@ -27,26 +27,27 @@ namespace mrs_uav_odometry
 class AltitudeEstimator {
 
 public:
+  AltitudeEstimator();
   AltitudeEstimator(const std::string &estimator_name, const std::vector<bool> &fusing_measurement, const std::vector<alt_H_t> &H_multi, const alt_Q_t &Q,
                     const std::vector<alt_R_t> &R_multi, const bool use_repredictor = false);
 
-  bool doPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
-  bool doPrediction(const double input, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
-  bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp = ros::Time::now(),
-                    const ros::Time &predict_stamp = ros::Time::now());
+  virtual bool doPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
+  virtual bool doPrediction(const double input, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
+  virtual bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp = ros::Time::now(),
+                    const ros::Time &predict_stamp = ros::Time::now(), const std::string &measurement_name = std::string(), const double &aloam_eigenvalue = 0);
 
-  bool        getStates(alt_x_t &x);
-  bool        getState(int state_id, double &state_val);
-  std::string getName(void);
-  bool        setState(int state_id, const double &state_val);
-  bool        setR(double R, int measurement_type);
-  bool        getR(double &R, int measurement_type);
-  bool        setQ(double cov, const Eigen::Vector2i &idx);
-  bool        getQ(double &cov, const Eigen::Vector2i &idx);
-  bool        setInputCoeff(double coeff);
-  bool        getCovariance(alt_P_t &P);
-  bool        setCovariance(const alt_P_t &P);
-  bool        reset(const alt_x_t &states);
+  virtual bool        getStates(alt_x_t &x);
+  virtual bool        getState(int state_id, double &state_val);
+  virtual std::string getName(void);
+  virtual bool        setState(int state_id, const double &state_val);
+  virtual bool        setR(double R, int measurement_type);
+  virtual bool        getR(double &R, int measurement_type);
+  virtual bool        setQ(double cov, const Eigen::Vector2i &idx);
+  virtual bool        getQ(double &cov, const Eigen::Vector2i &idx);
+  virtual bool        setInputCoeff(double coeff);
+  virtual bool        getCovariance(alt_P_t &P);
+  virtual bool        setCovariance(const alt_P_t &P);
+  virtual bool        reset(const alt_x_t &states);
 
 private:
   std::string       m_estimator_name;

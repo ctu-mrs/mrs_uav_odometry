@@ -80,6 +80,19 @@ typedef var_lkf_alt_t::R_t var_alt_R_t;
 typedef var_lkf_alt_t::Q_t var_alt_Q_t; 
 typedef var_lkf_alt_t::P_t var_alt_P_t; 
 
+// altitude - ALOAMGARM
+typedef mrs_lib::varstepLKF<5, 1, 1> algarm_alt_t;
+typedef algarm_alt_t::statecov_t algarm_alt_statecov_t;
+typedef algarm_alt_t::x_t algarm_alt_x_t; 
+typedef algarm_alt_t::u_t algarm_alt_u_t; 
+typedef algarm_alt_t::z_t algarm_alt_z_t; 
+typedef algarm_alt_t::A_t algarm_alt_A_t; 
+typedef algarm_alt_t::B_t algarm_alt_B_t; 
+typedef algarm_alt_t::H_t algarm_alt_H_t; 
+typedef algarm_alt_t::R_t algarm_alt_R_t; 
+typedef algarm_alt_t::Q_t algarm_alt_Q_t; 
+typedef algarm_alt_t::P_t algarm_alt_P_t; 
+
 // heading
 typedef mrs_lib::LKF<HDG_N_STATES, HDG_M_INPUTS, HDG_P_MEASUREMENTS> lkf_hdg_t;
 typedef lkf_hdg_t::statecov_t hdg_statecov_t;
@@ -109,6 +122,7 @@ typedef lkf_hdg_t::P_t var_hdg_P_t;
 typedef mrs_lib::Repredictor<var_lkf_alt_t> rep_t;
 typedef mrs_lib::Repredictor<mrs_lib::LKF_MRS_odom> rep_lat_t;
 typedef mrs_lib::Repredictor<var_lkf_hdg_t> rep_hdg_t;
+typedef mrs_lib::Repredictor<algarm_alt_t> algarm_rep_t;
 
 //}
 

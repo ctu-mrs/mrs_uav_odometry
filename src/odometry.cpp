@@ -74,6 +74,7 @@
 #include <support.h>
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
+#include <AltitudeEstimatorAloamGarm.h>
 #include <HeadingEstimator.h>
 #include <mrs_uav_odometry/odometry_dynparamConfig.h>
 
@@ -546,7 +547,7 @@ private:
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp = ros::Time::now(),
                                    const ros::Time &predict_stamp = ros::Time::now());
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator,
-                                   const ros::Time &meas_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
+                                   const ros::Time &meas_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now(), const double &aloam_eigenvalue = 0);
 
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
@@ -1413,6 +1414,9 @@ void Odometry::onInit() {
     if (*it == "ALOAMREP") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
           *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, true)));
+    } else if (*it == "ALOAMGARM") {
+      _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm>>(
+          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true)));
     } else {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
           *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
@@ -7690,44 +7694,44 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     if (aloam_height_ok) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
-        if (estimator.first == "ALOAMGARM") {
-          if (aloam_odom_.pose.covariance.at(14) < 100) {
-            /* ROS_INFO("[Odometry] Not fusing ALOAM altitude, measurement degraded, eigenvalue: %.3f.", aloam_odom_.pose.covariance.at(14)); */
-            if (altitude_fusing_aloam_) {
-              altitude_fusing_aloam_     = false;
-              aloamgarm_fusion_switched_ = true;
-            }
-          } else {
-            mrs_msgs::Float64ArrayStamped dbg_msg;
-            dbg_msg.header.stamp = ros::Time::now();
+        /* if (estimator.first == "ALOAMGARM") { */
+          /* if (aloam_odom_.pose.covariance.at(14) < 100) { */
+          /*   /1* ROS_INFO("[Odometry] Not fusing ALOAM altitude, measurement degraded, eigenvalue: %.3f.", aloam_odom_.pose.covariance.at(14)); *1/ */
+          /*   if (altitude_fusing_aloam_) { */
+          /*     altitude_fusing_aloam_     = false; */
+          /*     aloamgarm_fusion_switched_ = true; */
+          /*   } */
+          /* } else { */
+          /*   mrs_msgs::Float64ArrayStamped dbg_msg; */
+          /*   dbg_msg.header.stamp = ros::Time::now(); */
 
-            if (!altitude_fusing_aloam_) {
-              altitude_fusing_aloam_     = true;
-              aloamgarm_altitude_offset_ = aloamgarm_last_altitude_ - measurement;
-              aloamgarm_fusion_switched_ = false;
-            }
-            float     correction = measurement + aloamgarm_altitude_offset_;
-            ros::Time time_now   = ros::Time::now();
-            altitudeEstimatorCorrection(correction, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
-            dbg_msg.values.push_back(correction);
-            dbg_msg.values.push_back(aloamgarm_altitude_offset_);
-            pub_debug_aloamgarm_aloam_.publish(dbg_msg);
-            ROS_INFO_THROTTLE(0.5, "[Odometry] Fusing aloam, altitude offset: %.3f", aloamgarm_altitude_offset_);
-            /* aloamgarm_last_altitude_ = measurement + aloamgarm_altitude_offset_; */
-            estimator.second->getStates(alt_x);
-            /* aloamgarm_last_altitude_ = alt_x(0); */
-            if (fabs(measurement + aloamgarm_altitude_offset_) > 100) {
-              ROS_WARN("[Odometry]: ALOAM height correction: %f", correction);
-            }
-          }
+          /*   if (!altitude_fusing_aloam_) { */
+          /*     altitude_fusing_aloam_     = true; */
+          /*     aloamgarm_altitude_offset_ = aloamgarm_last_altitude_ - measurement; */
+          /*     aloamgarm_fusion_switched_ = false; */
+          /*   } */
+          /*   float     correction = measurement + aloamgarm_altitude_offset_; */
+          /*   ros::Time time_now   = ros::Time::now(); */
+          /*   altitudeEstimatorCorrection(correction, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now); */
+          /*   dbg_msg.values.push_back(correction); */
+          /*   dbg_msg.values.push_back(aloamgarm_altitude_offset_); */
+          /*   pub_debug_aloamgarm_aloam_.publish(dbg_msg); */
+          /*   ROS_INFO_THROTTLE(0.5, "[Odometry] Fusing aloam, altitude offset: %.3f", aloamgarm_altitude_offset_); */
+          /*   /1* aloamgarm_last_altitude_ = measurement + aloamgarm_altitude_offset_; *1/ */
+          /*   estimator.second->getStates(alt_x); */
+          /*   /1* aloamgarm_last_altitude_ = alt_x(0); *1/ */
+          /*   if (fabs(measurement + aloamgarm_altitude_offset_) > 100) { */
+          /*     ROS_WARN("[Odometry]: ALOAM height correction: %f", correction); */
+          /*   } */
+          /* } */
 
-        } else {
+        /* } else { */
           ros::Time time_now = ros::Time::now();
-          altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
+          altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now, aloam_odom_.pose.covariance.at(14));
           if (fabs(measurement) > 100) {
             ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
           }
-        }
+        /* } */
       }
     }
   }
@@ -8014,49 +8018,36 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator_);
-      if (estimator.first == "ALOAMGARM") {
-        if (alt_mf_garmin_stable_->isValid(height_range)) {
-          /* ROS_INFO("Altitude estimator is ALOAMGARM and garmin value is valid."); */
-          float garmin_difference;
-          if (garmin_stable_) {
-            mrs_msgs::Float64ArrayStamped dbg_msg;
-            dbg_msg.header.stamp = ros::Time::now();
-            garmin_difference    = height_range - garmin_last_stable_value_;
-            float     correction = aloamgarm_last_altitude_ + garmin_difference;
-            ros::Time time_now   = ros::Time::now();
-            ros::Time time_meas  = msg->header.stamp;
-            /* ROS_INFO("height_range correction for ALOAMGARM"); */
-            altitudeEstimatorCorrection(correction, "height_range", estimator.second, time_meas, time_now);
-            /* altitudeEstimatorCorrection(correction, "height_range", estimator.second); */
-            dbg_msg.values.push_back(correction);
-            dbg_msg.values.push_back(garmin_difference);
-            pub_debug_aloamgarm_garmin_.publish(dbg_msg);
-            /* aloamgarm_last_altitude_ = height_range + aloamgarm_altitude_offset_; */
-            if (std::pow(height_range + aloamgarm_altitude_offset_, 2) > 10000) {
-              ROS_WARN("[Odometry]: Garmin height correction: %f", correction);
-            }
-            estimator.second->getStates(alt_x);
-            /* aloamgarm_last_altitude_ = alt_x(0); */
-          }
-          garmin_stable_            = true;
-          garmin_last_stable_value_ = height_range;
-        } else {
-          garmin_stable_ = false;
-        }
-        /* if (!altitude_fusing_aloam_) { */
-        /*   if (aloamgarm_fusion_switched_) { */
-        /*     aloamgarm_altitude_offset_ = aloamgarm_last_altitude_ - height_range; */
-        /*     aloamgarm_fusion_switched_ = false; */
+      /* if (estimator.first == "ALOAMGARM") { */
+        /* if (alt_mf_garmin_stable_->isValid(height_range)) { */
+        /*   /1* ROS_INFO("Altitude estimator is ALOAMGARM and garmin value is valid."); *1/ */
+        /*   float garmin_difference; */
+        /*   if (garmin_stable_) { */
+        /*     mrs_msgs::Float64ArrayStamped dbg_msg; */
+        /*     dbg_msg.header.stamp = ros::Time::now(); */
+        /*     garmin_difference    = height_range - garmin_last_stable_value_; */
+        /*     float     correction = aloamgarm_last_altitude_ + garmin_difference; */
+        /*     ros::Time time_now   = ros::Time::now(); */
+        /*     ros::Time time_meas  = msg->header.stamp; */
+        /*     /1* ROS_INFO("height_range correction for ALOAMGARM"); *1/ */
+        /*     altitudeEstimatorCorrection(correction, "height_range", estimator.second, time_meas, time_now); */
+        /*     /1* altitudeEstimatorCorrection(correction, "height_range", estimator.second); *1/ */
+        /*     dbg_msg.values.push_back(correction); */
+        /*     dbg_msg.values.push_back(garmin_difference); */
+        /*     pub_debug_aloamgarm_garmin_.publish(dbg_msg); */
+        /*     /1* aloamgarm_last_altitude_ = height_range + aloamgarm_altitude_offset_; *1/ */
+        /*     if (std::pow(height_range + aloamgarm_altitude_offset_, 2) > 10000) { */
+        /*       ROS_WARN("[Odometry]: Garmin height correction: %f", correction); */
+        /*     } */
+        /*     estimator.second->getStates(alt_x); */
+        /*     /1* aloamgarm_last_altitude_ = alt_x(0); *1/ */
         /*   } */
-        /*   ROS_INFO_THROTTLE(0.5, "[Odometry] Fusing garmin, altitude offset: %.3f", aloamgarm_altitude_offset_); */
-        /*   altitudeEstimatorCorrection(height_range + aloamgarm_altitude_offset_, "height_range", estimator.second); */
-        /*   aloamgarm_last_altitude_ = height_range + aloamgarm_altitude_offset_; */
-        /*   if (std::pow(height_range + aloamgarm_altitude_offset_, 2) > 10000) { */
-        /*     ROS_WARN("[Odometry]: Garmin height correction: %f", height_range + aloamgarm_altitude_offset_); */
-        /*   } */
-        /*   estimator.second->getStates(alt_x); */
+        /*   garmin_stable_            = true; */
+        /*   garmin_last_stable_value_ = height_range; */
+        /* } else { */
+        /*   garmin_stable_ = false; */
         /* } */
-      } else {
+      /* } else { */
         ros::Time time_now  = ros::Time::now();
         ros::Time time_meas = msg->header.stamp;
         altitudeEstimatorCorrection(height_range, "height_range", estimator.second, time_meas, time_now);
@@ -8064,7 +8055,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
           ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
         }
         estimator.second->getStates(alt_x);
-      }
+      /* } */
     }
   }
 
@@ -9992,11 +9983,11 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
     }
 
     // if estimator is ALOAMGARM, save its value
-    if (estimator.first == "ALOAMGARM") {
-      alt_x_t alt_x = alt_x.Zero();
-      estimator.second->getStates(alt_x);
-      aloamgarm_last_altitude_ = alt_x(0);
-    }
+    /* if (estimator.first == "ALOAMGARM") { */
+    /*   alt_x_t alt_x = alt_x.Zero(); */
+    /*   estimator.second->getStates(alt_x); */
+    /*   aloamgarm_last_altitude_ = alt_x(0); */
+    /* } */
   }
 }
 
@@ -10023,7 +10014,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   for (auto &estimator : _altitude_estimators_) {
-    estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
+    estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   }
 }
 
@@ -10033,7 +10024,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
                                            const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator, const ros::Time &meas_stamp,
-                                           const ros::Time &predict_stamp) {
+                                           const ros::Time &predict_stamp, const double &aloam_eigenvalue) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
@@ -10046,7 +10037,11 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     return;
   }
 
-  estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp);
+  if(estimator->getName() == "ALOAMGARM"){
+    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name, aloam_eigenvalue);
+  } else {
+    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
+  }
 
   // Publisher of ALOAM computational delay
   if (estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam") {

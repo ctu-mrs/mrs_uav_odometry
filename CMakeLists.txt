@@ -46,7 +46,7 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
+add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/AltitudeEstimatorAloamGarm.cpp src/HeadingEstimator.cpp src/odometry.cpp)
 
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
