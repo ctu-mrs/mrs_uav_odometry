@@ -330,7 +330,9 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
   std::scoped_lock lock(mutex_lkf);
   {
 
-    if (measurement_name == "height_range" && !m_median_filter->isValid(z(0)) && m_median_filter->isFilled()) {
+    // TODO some better solution? (bigger difference from median allowed when close to the ground)
+    if (measurement_name == "height_range" && !m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
+        (z(0) > 0.4 || fabs(m_median_filter->getMedian() - z(0)) > 0.2)) {
       // set H matrix so that only garmin bias is updated
       lkf_id = m_garmin_bias_only_id;
       // calculate new bias measurement
