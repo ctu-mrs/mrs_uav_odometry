@@ -93,6 +93,7 @@ private:
 
   ros::Publisher debug_state_publisher;
   ros::Publisher debug_cov_publisher;
+  ros::Publisher debug_Q_publisher;
 
   // Default dt
   double m_dt    = ALT_DT;
@@ -115,6 +116,7 @@ private:
   int m_aloam_bias_only_id;
 
   bool m_aloam_ok = false;
+  float m_aloam_eig = 0;
 
   std::unique_ptr<MedianFilter> m_median_filter;
 

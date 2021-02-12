@@ -1761,6 +1761,9 @@ void Odometry::onInit() {
     if (*it == "ALOAMREP") {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
           *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
+    } else if (*it == "ALOAMGARM") {
+      _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
     } else {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
           *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
@@ -8922,7 +8925,7 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else if (type == "ALOAMGARM") {
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMGARM;
-    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAM;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::ALOAMREP;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::ALOAMGARM;
   } else if (type == "ALOAMREP") {
     desired_estimator.type     = mrs_msgs::EstimatorType::ALOAMREP;
