@@ -35,30 +35,31 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     m_H_multi.push_back(H_new);
   }
   algarm_alt_H_t H_garmin_biased;
-  H_garmin_biased << 1, 0, 0, -1, 0;
+  H_garmin_biased << 1, 0, 0, -1, 0, 0;
   m_H_multi.push_back(H_garmin_biased);
   m_garmin_biased_id = m_H_multi.size() - 1;
 
   algarm_alt_H_t H_aloam_biased;
-  H_aloam_biased << 1, 0, 0, 0, -1;
+  H_aloam_biased << 1, 0, 0, 0, -1, 0;
   m_H_multi.push_back(H_aloam_biased);
   m_aloam_biased_id = m_H_multi.size() - 1;
 
-  algarm_alt_H_t H_garmin_bias_only;
-  H_garmin_bias_only << 0, 0, 0, 1, 0;
-  m_H_multi.push_back(H_garmin_bias_only);
-  m_garmin_bias_only_id = m_H_multi.size() - 1;
+  /* algarm_alt_H_t H_garmin_bias_only; */
+  /* H_garmin_bias_only << 0, 0, 0, 1, 0, 0; */
+  /* m_H_multi.push_back(H_garmin_bias_only); */
+  /* m_garmin_bias_only_id = m_H_multi.size() - 1; */
 
-  algarm_alt_H_t H_aloam_bias_only;
-  H_aloam_bias_only << 0, 0, 0, 0, 1;
-  m_H_multi.push_back(H_aloam_bias_only);
-  m_aloam_bias_only_id = m_H_multi.size() - 1;
+  algarm_alt_H_t H_baro_biased;
+  H_baro_biased << 0, 1, 0, 0, 0, 1;
+  m_H_multi.push_back(H_baro_biased);
+  m_baro_biased_id = m_H_multi.size() - 1;
 
   int orig_rows                     = m_Q_orig.rows();
   int orig_cols                     = m_Q_orig.cols();
   m_Q.block(0, 0, 3, 3)             = m_Q_orig.block(0, 0, 3, 3);
   m_Q(orig_rows, orig_cols)         = 1;
   m_Q(orig_rows + 1, orig_cols + 1) = 1;
+  m_Q(orig_rows + 2, orig_cols + 2) = 1;
 
   // Number of states
   m_n_states = m_A.rows();
@@ -117,12 +118,17 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   // Lambda functions generating A and B matrices based on dt
   auto generateA = [](const double dt) {
     algarm_alt_A_t A;
-    A << 1, dt, dt * dt / 2, 0, 0, 0, 1, dt, 0, 0, 0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1;
+    A << 1, dt, dt * dt / 2, 0, 0, 0,
+      0, 1, dt, 0, 0, 0,
+      0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0,
+      0, 0, 0, 1, 0, 0,
+      0, 0, 0, 0, 1, 0,
+      0, 0, 0, 0, 0, 1;
     return A;
   };
   auto generateB = []([[maybe_unused]] const double dt) {
     algarm_alt_B_t B;
-    B << 0, 0, ALT_INPUT_COEFF, 0, 0;
+    B << 0, 0, ALT_INPUT_COEFF, 0, 0, 0;
     return B;
   };
   // Initialize separate LKF models for each H matrix
@@ -333,6 +339,8 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     lkf_id = m_garmin_biased_id;
   } else if (measurement_name == "height_aloam") {
     lkf_id = m_aloam_biased_id;
+  } else if (measurement_name == "vel_baro") {
+    lkf_id = m_baro_biased_id;
   }
 
   algarm_alt_R_t R;

@@ -112,8 +112,8 @@ private:
 
   int m_garmin_biased_id;
   int m_aloam_biased_id;
-  int m_garmin_bias_only_id;
-  int m_aloam_bias_only_id;
+  /* int m_garmin_bias_only_id; */
+  int m_baro_biased_id;
 
   bool m_aloam_ok = false;
   float m_aloam_eig = 0;

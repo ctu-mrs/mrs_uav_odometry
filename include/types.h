@@ -81,7 +81,7 @@ typedef var_lkf_alt_t::Q_t var_alt_Q_t;
 typedef var_lkf_alt_t::P_t var_alt_P_t; 
 
 // altitude - ALOAMGARM
-typedef mrs_lib::varstepLKF<5, 1, 1> algarm_alt_t;
+typedef mrs_lib::varstepLKF<6, 1, 1> algarm_alt_t;
 typedef algarm_alt_t::statecov_t algarm_alt_statecov_t;
 typedef algarm_alt_t::x_t algarm_alt_x_t; 
 typedef algarm_alt_t::u_t algarm_alt_u_t; 
