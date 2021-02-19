@@ -118,12 +118,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   // Lambda functions generating A and B matrices based on dt
   auto generateA = [](const double dt) {
     algarm_alt_A_t A;
-    A << 1, dt, dt * dt / 2, 0, 0, 0,
-      0, 1, dt, 0, 0, 0,
-      0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0,
-      0, 0, 0, 1, 0, 0,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 1;
+    A << 1, dt, dt * dt / 2, 0, 0, 0, 0, 1, dt, 0, 0, 0, 0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1;
     return A;
   };
   auto generateB = []([[maybe_unused]] const double dt) {
@@ -161,11 +156,13 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
 
   int mf_buffer_size = 10;
   /* float mf_max_diff     = 1.0; */
-  float mf_max_diff     = 0.1;
-  m_median_filter       = std::make_unique<MedianFilter>(mf_buffer_size, 50, 0, mf_max_diff);
-  debug_state_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
-  debug_cov_publisher   = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
-  debug_Q_publisher   = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
+  float mf_max_diff        = 0.1;
+  m_median_filter          = std::make_unique<MedianFilter>(mf_buffer_size, 50, 0, mf_max_diff);
+  debug_state_publisher    = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
+  debug_cov_publisher      = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
+  debug_Q_publisher        = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
+  debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64Stamped>("debug_aloamgarm_duration", 1);
+  debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
 
   m_is_initialized = true;
 }
@@ -203,6 +200,8 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
 
   //}
 
+  ros::WallTime time_beginning = ros::WallTime::now();
+
   algarm_alt_u_t u = u.Zero();
   u(0)             = input;
 
@@ -234,6 +233,15 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
       ROS_ERROR("[AltitudeEstimatorAloamGarm]: LKF prediction step failed: %s", e.what());
     }
   }
+
+  ros::WallTime            time_end = ros::WallTime::now();
+  double                   diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
+  mrs_msgs::Float64Stamped msg;
+  msg.header.stamp = ros::Time::now();
+  msg.value        = diff;
+  debug_duration_publisher.publish(msg);
+  /* ROS_INFO("reprediction took %.9f ms", diff); */
+
   return true;
 }
 
@@ -329,6 +337,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     return false;
   }
 
+  ros::WallTime time_beginning = ros::WallTime::now();
 
   // Prepare the measurement vector
   algarm_alt_z_t z;
@@ -418,6 +427,16 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       }
       debug_Q_publisher.publish(msg);
       mp_rep->addInput(u, Q, meas_stamp, mp_lkf_vector[0]);
+
+      mrs_msgs::BoolStamped msg_aloam_ok;
+      msg_aloam_ok.stamp = meas_stamp; // TODO why not header.stamp???
+      msg_aloam_ok.data = false;
+      debug_aloam_ok_publisher.publish(msg_aloam_ok);
+    }else if (measurement_name == "height_aloam"){
+      mrs_msgs::BoolStamped msg_aloam_ok;
+      msg_aloam_ok.stamp = meas_stamp; // TODO why not header.stamp???
+      msg_aloam_ok.data = true;
+      debug_aloam_ok_publisher.publish(msg_aloam_ok);
     }
 
     try {
@@ -446,6 +465,13 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       ROS_ERROR("[AltitudeEstimatorAloamGarm]: LKF correction step failed: %s", e.what());
     }
   }
+
+  ros::WallTime            time_end = ros::WallTime::now();
+  double                   diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
+  mrs_msgs::Float64Stamped msg;
+  msg.header.stamp = ros::Time::now();
+  msg.value        = diff;
+  debug_duration_publisher.publish(msg);
 
   return true;
 }

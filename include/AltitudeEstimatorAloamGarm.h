@@ -11,6 +11,8 @@
 #include <mrs_msgs/MavrosDiagnostics.h>
 #include <mrs_msgs/MavrosState.h>
 #include <mrs_msgs/Float64ArrayStamped.h>
+#include <mrs_msgs/Float64Stamped.h>
+#include <mrs_msgs/BoolStamped.h>
 #include <mrs_lib/median_filter.h>
 #include "AltitudeEstimator.h"
 
@@ -94,6 +96,8 @@ private:
   ros::Publisher debug_state_publisher;
   ros::Publisher debug_cov_publisher;
   ros::Publisher debug_Q_publisher;
+  ros::Publisher debug_duration_publisher;
+  ros::Publisher debug_aloam_ok_publisher;
 
   // Default dt
   double m_dt    = ALT_DT;
