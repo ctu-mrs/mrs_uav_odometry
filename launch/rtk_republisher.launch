@@ -25,7 +25,7 @@
 
         <!-- Subscribers -->
       <remap from="~odom_in" to="ground_truth" />
-      <remap from="~tersus_in" to="bestpos" />
+      <remap from="~tersus_in" to="rtk/bestpos" />
 
         <!-- Publishers -->
       <remap from="~profiler" to="profiler" />
