@@ -6515,7 +6515,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
       x_rtk = rtk_local_.pose.pose.position.x;
       y_rtk = rtk_local_.pose.pose.position.y;
-      z_rtk = rtk_local_.pose.pose.position.y - rtk_local_origin_z_;
+      z_rtk = rtk_local_.pose.pose.position.z - rtk_local_origin_z_;
     }
 
     if (!std::isfinite(x_rtk)) {
@@ -6548,9 +6548,13 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     alt_x_t alt_state = alt_state.Zero();
     {
       std::scoped_lock lock(mutex_altitude_estimator_);
-      if (!current_alt_estimator_->getStates(alt_state)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-      return;
+    for (auto &alt_estimator : _altitude_estimators_) {
+        if (alt_estimator.first == "RTK") {
+          if (!alt_estimator.second->getStates(alt_state)) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+            return;
+          }
+        }
       }
     }
     
@@ -6595,7 +6599,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     }
     if (z_correction > _max_rtk_pos_correction_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Z pos correction %f -> %f", z_correction, _max_rtk_pos_correction_);
-      y_correction = _max_rtk_pos_correction_;
+      z_correction = _max_rtk_pos_correction_;
     } else if (z_correction < -_max_rtk_pos_correction_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Z pos correction %f -> %f", z_correction, -_max_rtk_pos_correction_);
       z_correction = -_max_rtk_pos_correction_;

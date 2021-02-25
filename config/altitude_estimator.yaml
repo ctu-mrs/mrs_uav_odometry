@@ -41,7 +41,7 @@ altitude_estimators:
     VIO: ["height_vio", "vel_vio"]
     ALOAM: ["height_aloam", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
-    BARO: ["height_rtk", "vel_baro"]
+    RTK: ["height_rtk", "vel_baro"]
 
   # Mapping of measurements to states
   measurement_states:
