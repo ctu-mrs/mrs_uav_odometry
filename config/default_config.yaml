@@ -61,6 +61,9 @@ altitude:
   max_default: 30.0 # Used only when max_height could not be loaded from world file
   max_optflow: 10.0 # Do not allow switching to optflow above this altitude
 
+  # Use RTK altitude
+  use_rtk_altitude: true # true - rtk corrections are used even for altitude, false - garmin is used for altitude corrections
+
 # covariances# #{
 
   # Process covariance
