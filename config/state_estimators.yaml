@@ -17,7 +17,8 @@ state_estimators:
     "VSLAM",
     "ICP",
     "ALOAM",
-    "ALOAMGARM"
+    "ALOAMGARM",
+    "LIOSAM"
   ] 
 
   # The measured states of the model
@@ -42,6 +43,7 @@ state_estimators:
     "pos_vslam",
     "vel_icp",
     "pos_aloam",
+    "pos_liosam",
     "acc_imu",
   ]
 
@@ -60,6 +62,7 @@ state_estimators:
     ICP: ["vel_icp"]
     ALOAM: ["pos_aloam", "vel_icp"]
     ALOAMGARM: ["pos_aloam", "vel_icp"]
+    LIOSAM: ["pos_liosam", "vel_icp"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -76,6 +79,7 @@ state_estimators:
     pos_vslam: POSITION
     vel_icp: VELOCITY
     pos_aloam: POSITION
+    pos_liosam: POSITION
     acc_imu: ACCELERATION
 
   # Mapping states to model

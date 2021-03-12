@@ -8,7 +8,8 @@ altitude_estimators:
     "VIO",
     "ALOAM",
     "BARO",
-    "RTK"
+    "RTK",
+    "LIOSAM"
   ] 
 
   # The measured states of the model
@@ -26,6 +27,7 @@ altitude_estimators:
     "height_brick",
     "height_vio",
     "height_aloam",
+    "height_liosam",
     "height_baro",
     "height_rtk",
     "vel_baro",
@@ -40,6 +42,7 @@ altitude_estimators:
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_vio"]
     ALOAM: ["height_aloam", "vel_baro"]
+    LIO_SAM: ["height_liosam", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
     RTK: ["height_rtk", "vel_baro"]
 
@@ -51,6 +54,7 @@ altitude_estimators:
     height_brick: HEIGHT
     height_vio: HEIGHT
     height_aloam: HEIGHT
+    height_liosam: HEIGHT
     height_baro: HEIGHT
     height_rtk: HEIGHT
     vel_baro: VELOCITY

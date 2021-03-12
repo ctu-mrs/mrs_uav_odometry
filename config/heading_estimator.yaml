@@ -13,6 +13,7 @@ heading_estimators:
     "ICP",
     "BRICKFLOW",
     "ALOAM",
+    "LIOSAM",
   ] 
 
   # The measured states of the model
@@ -33,6 +34,7 @@ heading_estimators:
     "hdg_vslam",
     "rate_icp",
     "hdg_aloam",
+    "hdg_liosam",
   ]
 
   # The fused measurements for each state estimator
@@ -48,6 +50,7 @@ heading_estimators:
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "hdg_brick"]
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
+    LIOSAM: ["rate_gyro", "hdg_liosam"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -60,6 +63,7 @@ heading_estimators:
     hdg_vslam: HDG
     rate_icp: HDG_RATE
     hdg_aloam: HDG
+    hdg_liosam: HDG
 
   # Mapping states to model
   state_mapping:
