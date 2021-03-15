@@ -111,6 +111,7 @@
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
       <remap from="~tower_pose_in" to="tower_mapping/slam_out_pose" />
       <remap from="~aloam_odom_in" to="aloam/odom" />
+      <remap from="~liosam_odom_in" to="lio_sam/odometry/imu" />
       <remap from="~control_manager_diag_in" to="control_manager/diagnostics" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~icp_twist_in" to="mrs_icp2d/twist_body" />
@@ -163,11 +164,14 @@
       <remap from="~debug_compass_hdg_corr_out" to="~debug_comppass_hdg_corr" />
       <remap from="~debug_hector_hdg_corr_out" to="~debug_hector_hdg_corr" />
       <remap from="~debug_aloam_hdg_corr_out" to="~debug_aloam_hdg_corr" />
+      <remap from="~debug_liosam_hdg_corr_out" to="~debug_liosam_hdg_corr" />
       <remap from="~debug_brick_hdg_corr_out" to="~debug_brick_hdg_corr" />
       <remap from="~debug_vio_hdg_corr_out" to="~debug_vio_hdg_corr" />
       <remap from="~debug_vslam_hdg_corr_out" to="~debug_vslam_hdg_corr" />
       <remap from="~debug_cmd_hdg_input_out" to="~debug_cmd_hdg_input" />
       <remap from="~debug_cmd_hdg_rate_input_out" to="~debug_cmd_hdg_rate_input" />
+      <remap from="~debug_vel_baro_out" to="~debug_vel_baro" />
+      <remap from="~debug_vel_liosam_twist_z_out" to="~debug_vel_liosam_twist_z" />
 
       <!-- Services -->
       <remap from="~average_current_position_in" to="~average_current_position" />

@@ -177,6 +177,7 @@ private:
   ros::Publisher pub_vio_hdg_corr_;
   ros::Publisher pub_vslam_hdg_corr_;
   ros::Publisher pub_vel_baro_corr_;
+  ros::Publisher pub_vel_liosam_twist_z_corr_;
 
 
   ros::Publisher pub_cmd_hdg_input_;
@@ -2089,7 +2090,8 @@ void Odometry::onInit() {
     pub_cmd_hdg_input_      = nh_.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_input_out", 1);
     pub_cmd_hdg_rate_input_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_rate_input_out", 1);
 
-    pub_vel_baro_corr_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_baro_out", 1);
+    pub_vel_baro_corr_           = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_baro_out", 1);
+    pub_vel_liosam_twist_z_corr_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_liosam_twist_z_out", 1);
   }
 
   //}
@@ -2372,6 +2374,7 @@ void Odometry::onInit() {
   last_drs_config_.R_vel_icp     = map_measurement_covariance_.find("vel_icp")->second(0);
   last_drs_config_.R_vel_optflow = map_measurement_covariance_.find("vel_optflow")->second(0);
   last_drs_config_.R_vel_rtk     = map_measurement_covariance_.find("vel_rtk")->second(0);
+  last_drs_config_.R_vel_liosam  = map_measurement_covariance_.find("vel_liosam")->second(0);
 
   // Lateral imu accelerations measurement covariances
   last_drs_config_.R_acc_imu_lat = map_measurement_covariance_.find("acc_imu")->second(0);
@@ -2396,7 +2399,8 @@ void Odometry::onInit() {
   last_drs_config_.Q_alt_acc = _Q_alt_(2, 2);
 
   // Altitude velocity measurement covariances
-  last_drs_config_.R_vel_baro = map_alt_measurement_covariance_.find("vel_baro")->second(0);
+  last_drs_config_.R_vel_baro     = map_alt_measurement_covariance_.find("vel_baro")->second(0);
+  last_drs_config_.R_vel_liosam_z = map_alt_measurement_covariance_.find("vel_liosam_z")->second(0);
 
   // Altitude acceleration measurement covariances
   last_drs_config_.R_acc_imu = map_alt_measurement_covariance_.find("acc_imu")->second(0);
@@ -2417,6 +2421,7 @@ void Odometry::onInit() {
   last_drs_config_.R_rate_gyro    = map_hdg_measurement_covariance_.find("rate_gyro")->second(0);
   last_drs_config_.R_rate_optflow = map_hdg_measurement_covariance_.find("rate_optflow")->second(0);
   last_drs_config_.R_rate_icp     = map_hdg_measurement_covariance_.find("rate_icp")->second(0);
+  last_drs_config_.R_rate_liosam  = map_hdg_measurement_covariance_.find("rate_liosam")->second(0);
 
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
   reconfigure_server_->updateConfig(last_drs_config_);
@@ -7920,36 +7925,37 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
   auto liosam_odom_previous = mrs_lib::get_mutexed(mutex_liosam_, liosam_odom_previous_);
   auto liosam_odom          = mrs_lib::get_mutexed(mutex_liosam_, liosam_odom_);
 
-  if (!isTimestampOK(liosam_odom_.header.stamp.toSec(), liosam_odom_previous.header.stamp.toSec())) {
+  if (!isTimestampOK(liosam_odom.header.stamp.toSec(), liosam_odom_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: liosam odom timestamp not OK, not fusing correction.");
     return;
   }
 
-  /* fuse liosam height //{ */
+  /* fuse liosam height and height velocity //{ */
 
   //////////////////// Filter out liosam height measurement ////////////////////
 
   bool   liosam_height_ok = true;
-  double measurement;
+  double height, vel_z;
   {
     std::scoped_lock lock(mutex_liosam_);
-    measurement = liosam_odom_.pose.pose.position.z;
+    height = liosam_odom.pose.pose.position.z;
+    vel_z  = liosam_odom.twist.twist.linear.z;
   }
   if (isUavFlying()) {
-    if (!alt_mf_liosam_->isValid(measurement)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+    if (!alt_mf_liosam_->isValid(height)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM height measurement %f declined by median filter.", height);
       liosam_height_ok = false;
     }
   }
 
   /* //////////////////// Fuse main altitude kalman //////////////////// */
 
-  if (!isValidGate(measurement, _liosam_min_valid_alt_, _liosam_max_valid_alt_, "liosam altitude")) {
+  if (!isValidGate(height, _liosam_min_valid_alt_, _liosam_max_valid_alt_, "liosam altitude")) {
     liosam_height_ok = false;
     return;
   }
 
-  // Fuse vio measurement for each altitude estimator
+  // Fuse LIOSAM height for each altitude estimator
   for (auto &estimator : _altitude_estimators_) {
     alt_x_t alt_x = alt_x.Zero();
     if (!estimator.second->getStates(alt_x)) {
@@ -7960,20 +7966,47 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     if (liosam_height_ok) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
-        altitudeEstimatorCorrection(measurement, "height_liosam", estimator.second);
-        if (fabs(measurement) > 100) {
-          ROS_WARN("[Odometry]: LIOSAM height correction: %f", measurement);
-        }
+        altitudeEstimatorCorrection(height, "height_liosam", estimator.second);
       }
     }
   }
 
+  // Velocity
+  if (liosam_height_ok) {
+    {
+      std::scoped_lock lock(mutex_altitude_estimator_);
+      altitudeEstimatorCorrection(vel_z, "vel_liosam_z");
+    }
+  }
+
+  if (_debug_publish_corrections_) {
+
+    mrs_msgs::Float64Stamped vel_liosam_twist_z_corr_out;
+    vel_liosam_twist_z_corr_out.header.stamp    = ros::Time::now();
+    vel_liosam_twist_z_corr_out.header.frame_id = local_origin_frame_id_;
+    vel_liosam_twist_z_corr_out.value           = vel_z;
+    try {
+      pub_vel_liosam_twist_z_corr_.publish(vel_liosam_twist_z_corr_out);
+    }
+    catch (...) {
+      ROS_ERROR("exception caught during publishing topic '%s'", pub_vel_liosam_twist_z_corr_.getTopic().c_str());
+    }
+  }
+
+  ROS_INFO_ONCE("[Odometry]: Fusing LIOSAM height and z-axis velocity.");
+
   //}
 
+  if (!got_lateral_sensors_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing LIOSAM lateral odom. Waiting for other sensors.");
+    return;
+  }
+
   /*//{ fuse liosam heading*/
-  double hdg_liosam;
+  double hdg_liosam, hdg_rate;
   try {
     hdg_liosam = mrs_lib::AttitudeConverter(liosam_odom.pose.pose.orientation).getHeading();
+    hdg_rate   = mrs_lib::AttitudeConverter(liosam_odom.pose.pose.orientation).getHeadingRate(liosam_odom.twist.twist.angular);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during setting heading (hdg_liosam)");
@@ -7984,8 +8017,17 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
   hdg_liosam += liosam_offset_hdg_;
   liosam_hdg_previous_ = hdg_liosam;
 
-  // Apply correction step to all heading estimators
+  // Apply correction step to heading estimator
   headingEstimatorsCorrection(hdg_liosam, "hdg_liosam");
+
+  if (std::isfinite(hdg_rate)) {
+    // Apply correction step to all heading estimators
+    headingEstimatorsCorrection(hdg_rate, "rate_liosam");
+    ROS_INFO_ONCE("[Odometry]: Fusing hdg rate from LIOSAM SLAM.");
+
+  } else {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in LIOSAM angular velocity variable \"hdg_rate\", not fusing!!!");
+  }
 
   if (_debug_publish_corrections_) {
     hdg_liosam = radians::wrap(hdg_liosam);
@@ -8007,16 +8049,12 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
   /*//}*/
 
   /*//{ fuse liosam xy */
-  if (!got_lateral_sensors_) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing LIOSAM odom. Waiting for other sensors.");
-    return;
-  }
 
   {
     std::scoped_lock lock(mutex_liosam_);
 
-    pos_liosam_x_ = liosam_odom_.pose.pose.position.x + liosam_offset_(0);
-    pos_liosam_y_ = liosam_odom_.pose.pose.position.y + liosam_offset_(1);
+    pos_liosam_x_ = liosam_odom.pose.pose.position.x + liosam_offset_(0);
+    pos_liosam_y_ = liosam_odom.pose.pose.position.y + liosam_offset_(1);
 
     liosam_corr_ready_ = true;
   }
@@ -8036,7 +8074,7 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     current_hdg_estimator_->getState(0, hdg);
   }
 
-  // Set innoation variable if ccurnet estimator is LIOSAM
+  // Set innoation variable if current estimator is LIOSAM
   if (current_lat_estimator_->getName() == "LIOSAM") {
     Vec2 pos_vec, innovation;
     current_lat_estimator_->getState(0, pos_vec);
@@ -8049,15 +8087,43 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
       odom_main_inno_.pose.pose.position.x = innovation(0);
       odom_main_inno_.pose.pose.position.y = innovation(1);
       odom_main_inno_.pose.pose.position.z = 0;
-      odom_main_inno_.twist.twist.linear.x = 0;
-      odom_main_inno_.twist.twist.linear.y = 0;
     }
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing LIOSAM position");
-  liosam_timestamp_          = liosam_odom_.header.stamp;
+  liosam_timestamp_          = liosam_odom.header.stamp;
   liosam_updated_mapping_tf_ = true;
+
   /*//}*/
+
+  /* //{ fuse liosam lateral velocity */
+
+  const double vel_liosam_x = liosam_odom.twist.twist.linear.x;
+  const double vel_liosam_y = liosam_odom.twist.twist.linear.y;
+
+  // Set innovation variable if current estimator is LIOSAM
+  if (current_lat_estimator_->getName() == "LIOSAM") {
+    Vec2 vel_vec, innovation;
+    current_lat_estimator_->getState(1, vel_vec);
+
+    innovation(0) = vel_liosam_x - vel_vec(0);
+    innovation(1) = vel_liosam_y - vel_vec(1);
+
+    mrs_lib::set_mutexed(mutex_odom_main_inno_, innovation(0), odom_main_inno_.twist.twist.linear.x);
+    mrs_lib::set_mutexed(mutex_odom_main_inno_, innovation(1), odom_main_inno_.twist.twist.linear.y);
+  }
+
+  if (liosam_reliable_ && (vel_liosam_x > 10.0 || vel_liosam_y > 10.0)) {
+
+    ROS_WARN("[Odometry]: Estimated liosam velocity > 10. LIOSAM is not reliable.");
+    liosam_reliable_ = false;
+  } else {
+    // Apply correction step to all state estimators
+    stateEstimatorsCorrection(vel_liosam_x, vel_liosam_y, "vel_liosam");
+  }
+
+  ROS_INFO_ONCE("[Odometry]: Fusing LIOSAM velocity");
+  //}
 }
 //}
 

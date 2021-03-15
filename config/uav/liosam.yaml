@@ -22,15 +22,18 @@ lateral:
   # Covariances of measurements
   R:
     pos_liosam: [10]
+    vel_liosam: [10]
 
 heading:
   # Covariances of measurements
   R:
     hdg_liosam: [0.1]
+    rate_liosam: [10]
 
 altitude:
   R:
     height_liosam: [1]
+    vel_liosam_z: [100.0]
 
 # Publishing of TF of each estimator can be disabled (default is enabled):
 state_estimators:
