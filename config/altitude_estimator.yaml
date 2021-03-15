@@ -32,6 +32,7 @@ altitude_estimators:
     "height_rtk",
     "vel_baro",
     "vel_vio",
+    "vel_liosam_z",
     "acc_imu"
   ]
 
@@ -42,7 +43,7 @@ altitude_estimators:
     BRICK: ["height_brick", "vel_baro"]
     VIO: ["height_vio", "vel_vio"]
     ALOAM: ["height_aloam", "vel_baro"]
-    LIO_SAM: ["height_liosam", "vel_baro"]
+    LIOSAM: ["height_liosam", "vel_liosam_z", "vel_baro"]
     BARO: ["height_baro", "vel_baro"]
     RTK: ["height_rtk", "vel_baro"]
 
@@ -59,6 +60,7 @@ altitude_estimators:
     height_rtk: HEIGHT
     vel_baro: VELOCITY
     vel_vio: VELOCITY
+    vel_liosam_z: VELOCITY
     acc_imu: ACCELERATION
 
   # Mapping states to model

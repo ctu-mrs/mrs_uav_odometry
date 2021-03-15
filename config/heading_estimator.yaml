@@ -28,6 +28,7 @@ heading_estimators:
     "hdg_compass",
     "rate_gyro",
     "rate_optflow",
+    "rate_liosam",
     "hdg_hector",
     "hdg_brick",
     "hdg_vio",
@@ -50,13 +51,14 @@ heading_estimators:
     ICP: ["rate_icp"]
     BRICKFLOW: ["rate_gyro", "hdg_brick"]
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
-    LIOSAM: ["rate_gyro", "hdg_liosam"]
+    LIOSAM: ["rate_gyro", "hdg_liosam", "rate_liosam"]
 
   # Mapping of measurements to states
   measurement_states:
     hdg_compass: HDG
     rate_gyro: HDG_RATE
     rate_optflow: HDG_RATE
+    rate_liosam: HDG_RATE
     hdg_hector: HDG
     hdg_brick: HDG
     hdg_vio: HDG

@@ -375,12 +375,12 @@ private:
   ros::Time aloam_timestamp_;
   bool      aloam_updated_mapping_tf_ = false;
 
-  // LIO-SAM heading msgs
+  // LIOSAM heading msgs
   double liosam_hdg_previous_;
   int    _liosam_hdg_filter_buffer_size_;
   double _liosam_hdg_filter_max_diff_;
 
-  // LIO-SAM heading messages
+  // LIOSAM heading messages
   std::mutex         mutex_liosam_;
   double             pos_liosam_x_, pos_liosam_y_;
   nav_msgs::Odometry liosam_odom_;
@@ -645,7 +645,7 @@ private:
   std::unique_ptr<MedianFilter> alt_mf_aloam_;
   double                        _aloam_min_valid_alt_, _aloam_max_valid_alt_;
 
-  // LIO-SAM height median filter
+  // LIOSAM height median filter
   std::unique_ptr<MedianFilter> alt_mf_liosam_;
   double                        _liosam_min_valid_alt_, _liosam_max_valid_alt_;
 
@@ -2163,7 +2163,7 @@ void Odometry::onInit() {
     sub_aloam_odom_ = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
-  // subscriber for LIO-SAM odometry
+  // subscriber for LIOSAM odometry
   if (liosam_active_) {
     sub_liosam_odom_ = nh_.subscribe("liosam_odom_in", 1, &Odometry::callbackLioSamOdom, this, ros::TransportHints().tcpNoDelay());
   }
@@ -2298,7 +2298,7 @@ void Odometry::onInit() {
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM && !liosam_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. LIO-SAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. LIOSAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ICP && !icp_active_) {
@@ -2529,7 +2529,7 @@ bool Odometry::isReadyToTakeoff() {
     if (got_liosam_odom_) {
       return true;
     } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for LIO-SAM odometry msg to initialize takeoff estimator");
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for LIOSAM odometry msg to initialize takeoff estimator");
       return false;
     }
   }
@@ -3267,16 +3267,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
-    // Fallback from LIO-SAM SLAM
+    // Fallback from LIOSAM SLAM
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::LIOSAM) {
     if (!got_liosam_odom_ || !liosam_reliable_) {
       if (icp_active_ && got_icp_twist_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIO-SAM heading not reliable. Switching to ICP heading estimator.");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM heading not reliable. Switching to ICP heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::ICP;
         desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: LIO-SAM not reliable. Switching to OPTFLOW type.");
+        ROS_WARN("[Odometry]: LIOSAM not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType icp_type;
         icp_type.type = mrs_msgs::EstimatorType::ICP;
         if (!changeCurrentEstimator(icp_type)) {
@@ -3286,12 +3286,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           failsafe_called_ = true;
         }
       } else if (optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIO-SAM heading not reliable. Switching to OPTFLOW heading estimator.");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM heading not reliable. Switching to OPTFLOW heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
         desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: LIO-SAM not reliable. Switching to OPTFLOW type.");
+        ROS_WARN("[Odometry]: LIOSAM not reliable. Switching to OPTFLOW type.");
         mrs_msgs::EstimatorType optflow_type;
         optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
         if (!changeCurrentEstimator(optflow_type)) {
@@ -3301,12 +3301,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           failsafe_called_ = true;
         }
       } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIO-SAM heading not reliable. Switching to PIXHAWK heading estimator.");
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM heading not reliable. Switching to PIXHAWK heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
         desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
         desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
         changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: LIO-SAM not reliable. Switching to GPS type.");
+        ROS_WARN("[Odometry]: LIOSAM not reliable. Switching to GPS type.");
         mrs_msgs::EstimatorType gps_type;
         gps_type.type = mrs_msgs::EstimatorType::GPS;
         if (!changeCurrentEstimator(gps_type)) {
@@ -4980,10 +4980,11 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     got_aloam_odom_ = false;
   }
 
-  //  LIO-SAM odometry (corrections of lateral kf)
+  //  LIOSAM odometry (corrections of lateral kf)
   interval = ros::Time::now() - liosam_odom_last_update_;
-  if (got_liosam_odom_ && interval.toSec() > 0.5) {
-    ROS_WARN("[Odometry]: LIOSAM odometry not received for %f seconds.", interval.toSec());
+  if (got_liosam_odom_ && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: LIOSAM odometry not received for %f seconds. Current time: %0.2f, last msg: %0.2f.", interval.toSec(), ros::Time::now().toSec(),
+             liosam_odom_last_update_.toSec());
     got_liosam_odom_ = false;
   }
 }
