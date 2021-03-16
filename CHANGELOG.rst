@@ -2,6 +2,16 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Major refactoring and overhaul
+* c++ refactoring
+* the use of AttitudeConverter
+* heading-oriented estimation
+* new estimators
+* Noetic-compatible
+* Contributors: Jan Bednar, Matej Petrlik, Pavel Petracek, Robert Penicka, Tomas Baca, Vaclav Pritzl
+
 0.0.5 (2020-02-26)
 ------------------
 * updated declinging invalid garmin measurement
