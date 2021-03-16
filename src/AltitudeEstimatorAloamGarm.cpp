@@ -161,7 +161,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   debug_state_publisher    = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
   debug_cov_publisher      = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
   debug_Q_publisher        = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
-  debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64Stamped>("debug_aloamgarm_duration", 1);
+  debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1);
   debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
 
   m_is_initialized = true;
@@ -234,11 +234,14 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
     }
   }
 
-  ros::WallTime            time_end = ros::WallTime::now();
-  double                   diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
-  mrs_msgs::Float64Stamped msg;
+  ros::WallTime                 time_end = ros::WallTime::now();
+  double                        diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
+  if(diff > 10){
+    ROS_WARN("[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
+  }
+  mrs_msgs::Float64ArrayStamped msg;
   msg.header.stamp = ros::Time::now();
-  msg.value        = diff;
+  msg.values.push_back(diff);
   debug_duration_publisher.publish(msg);
   /* ROS_INFO("reprediction took %.9f ms", diff); */
 
@@ -429,13 +432,13 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       mp_rep->addInput(u, Q, meas_stamp, mp_lkf_vector[0]);
 
       mrs_msgs::BoolStamped msg_aloam_ok;
-      msg_aloam_ok.stamp = meas_stamp; // TODO why not header.stamp???
-      msg_aloam_ok.data = false;
+      msg_aloam_ok.stamp = meas_stamp;  // TODO why not header.stamp???
+      msg_aloam_ok.data  = false;
       debug_aloam_ok_publisher.publish(msg_aloam_ok);
-    }else if (measurement_name == "height_aloam"){
+    } else if (measurement_name == "height_aloam") {
       mrs_msgs::BoolStamped msg_aloam_ok;
-      msg_aloam_ok.stamp = meas_stamp; // TODO why not header.stamp???
-      msg_aloam_ok.data = true;
+      msg_aloam_ok.stamp = meas_stamp;  // TODO why not header.stamp???
+      msg_aloam_ok.data  = true;
       debug_aloam_ok_publisher.publish(msg_aloam_ok);
     }
 
@@ -466,11 +469,18 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     }
   }
 
-  ros::WallTime            time_end = ros::WallTime::now();
-  double                   diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
-  mrs_msgs::Float64Stamped msg;
+  ros::WallTime                 time_end = ros::WallTime::now();
+  double                        diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
+  if(diff > 10){
+    ROS_WARN("[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
+  }
+  mrs_msgs::Float64ArrayStamped msg;
   msg.header.stamp = ros::Time::now();
-  msg.value        = diff;
+  msg.values.push_back(diff);
+  // Differentiate duration when correction from ALOAM is used
+  if (measurement_name == "height_aloam") {
+    msg.values.push_back(diff);
+  }
   debug_duration_publisher.publish(msg);
 
   return true;
