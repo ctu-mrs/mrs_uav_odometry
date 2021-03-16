@@ -420,6 +420,7 @@ private:
   mrs_msgs::RtkGps rtk_odom_;
   ros::Time        rtk_last_update_;
   bool             _rtk_fuse_sps_;
+  bool             _use_rtk_altitude_;
 
   // Hector messages
   std::mutex                 mutex_hector_;
@@ -1015,6 +1016,11 @@ void Odometry::onInit() {
   sonar_enabled_        = true;
   rtk_altitude_enabled_ = false;
 
+  odom_main_inno_.pose.pose.orientation.x = 0.0;
+  odom_main_inno_.pose.pose.orientation.y = 0.0;
+  odom_main_inno_.pose.pose.orientation.z = 0.0;
+  odom_main_inno_.pose.pose.orientation.w = 1.0;
+
   //}
 
   // ------------------------------------------------------------------------
@@ -1057,6 +1063,7 @@ void Odometry::onInit() {
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAMGARM));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::ALOAMREP));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::BARO));
+  _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::RTK));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -1370,6 +1377,8 @@ void Odometry::onInit() {
   param_loader.loadParam("altitude/garmin_enabled", garmin_enabled_);
 
   //}
+  
+  param_loader.loadParam("altitude/use_rtk_altitude", _use_rtk_altitude_);
 
   //}
 
@@ -2772,10 +2781,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::BARO) {
       new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::RTK) {
+      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
     } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d. Publishing mavros altitude instead.",
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d, %d, %d, %d. Publishing mavros altitude instead.",
                          alt_estimator_type_.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK,
-                         mrs_msgs::AltitudeType::VIO);
+                         mrs_msgs::AltitudeType::VIO, mrs_msgs::AltitudeType::ALOAM, mrs_msgs::AltitudeType::BARO, mrs_msgs::AltitudeType::RTK);
     }
     ROS_INFO_ONCE("[Odometry]: Publishing altitude from estimator type: %d", alt_estimator_type_.type);
   }
@@ -3692,6 +3703,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           odom_aux->second.pose.pose.position.z = alt;
         }
       }
+
+      for (auto &alt_estimator : _altitude_estimators_) {
+        if (_use_rtk_altitude_ && alt_estimator.first == "RTK") {
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt;
+        }
+      }
       // we might want other than height estimator when in GPS (baro)
     } else if (estimator.first == "GPS") {
       {
@@ -3751,9 +3769,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
         // Obtain heading from mavros orientation
-        double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+        double mavros_hdg = 0;
+        try {
+          mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+        }
 
-        // Build rotation matrix from difference between new heading nad mavros heading
+        // Build rotation matrix from difference between new heading and mavros heading
         tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
 
         // Transform the mavros orientation by the rotation matrix
@@ -4118,7 +4142,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
 
       // Obtain heading from mavros orientation
-      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      double mavros_hdg = 0;
+      try {
+        mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      }
+      catch (...) {
+        ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+      }
 
       // Build rotation matrix from difference between new heading nad mavros heading
       tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
@@ -4470,7 +4500,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // Obtain heading from mavros orientation
-    double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
+    double mavros_hdg = 0;
+    try {
+      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation_temp");
+    }
 
     // Build rotation matrix from difference between new heading nad mavros heading
     tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
@@ -4662,6 +4698,9 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   }
   if (stringInVector("BARO", _altitude_estimators_names_)) {
     active_alt_estimators.push_back("BARO");
+  }
+  if (stringInVector("RTK", _altitude_estimators_names_)) {
+    active_alt_estimators.push_back("RTK");
   }
   odometry_diag.available_alt_estimators = active_alt_estimators;
 
@@ -5144,7 +5183,6 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   double des_hdg;
 
-
   try {
     des_hdg = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
   }
@@ -5455,13 +5493,13 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // fuse zero into baro estimator when on the ground
+  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
   if (!isUavFlying()) {
     altitude        = 0.0;
     baro_corrected_ = false;
-  } else if (!baro_corrected_) {
+  } else if (!baro_corrected_ && std::isfinite(range_garmin_tmp.range)) {
 
     auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
-    auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
     baro_offset_          = odom_pixhawk_tmp.pose.pose.position.z - range_garmin_tmp.range;
     baro_corrected_       = true;
   }
@@ -6665,12 +6703,13 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       return;
     }
 
-    double x_rtk, y_rtk;
+    double x_rtk, y_rtk, z_rtk;
     {
       std::scoped_lock lock(mutex_rtk_);
 
       x_rtk = rtk_local_.pose.pose.position.x;
       y_rtk = rtk_local_.pose.pose.position.y;
+      z_rtk = rtk_local_.pose.pose.position.z - rtk_local_origin_z_;
     }
 
     if (!std::isfinite(x_rtk)) {
@@ -6683,16 +6722,37 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       return;
     }
 
+    if (!std::isfinite(z_rtk)) {
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"z_rtk\" (callbackRtk)!!!");
+      return;
+    }
+
     /* fuse rtk position //{ */
     // Saturate correction
     double x_est;
     double y_est;
+    double z_est;
     {
       std::scoped_lock lock(mutex_rtk_est_);
 
       x_est = sc_lat_rtk_.x(0);
       y_est = sc_lat_rtk_.x(1);
     }
+
+    alt_x_t alt_state = alt_state.Zero();
+    {
+      std::scoped_lock lock(mutex_altitude_estimator_);
+    for (auto &alt_estimator : _altitude_estimators_) {
+        if (alt_estimator.first == "RTK") {
+          if (!alt_estimator.second->getStates(alt_state)) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+            return;
+          }
+        }
+      }
+    }
+    
+    z_est = alt_state(0);
 
     // X position
     double x_correction = x_rtk - x_est;
@@ -6723,9 +6783,26 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Y pos correction %f -> %f", y_correction, -_max_rtk_pos_correction_);
       y_correction = -_max_rtk_pos_correction_;
     }
+
+    // Z position
+    double z_correction = z_rtk - z_est;
+    if (!std::isfinite(z_rtk)) {
+      z_rtk = 0;
+      ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"z_rtk\", setting it to 0 and returning!!!");
+      return;
+    }
+    if (z_correction > _max_rtk_pos_correction_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Z pos correction %f -> %f", z_correction, _max_rtk_pos_correction_);
+      z_correction = _max_rtk_pos_correction_;
+    } else if (z_correction < -_max_rtk_pos_correction_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK Z pos correction %f -> %f", z_correction, -_max_rtk_pos_correction_);
+      z_correction = -_max_rtk_pos_correction_;
+    }
+
+    double z_measurement = z_est + z_correction;
     /* } */
 
-    // Do RTK estimator correction
+    // Do RTK estimator lateral correction
     lkf_rtk_t::z_t rtk_meas;
     rtk_meas << x_est + x_correction, y_est + y_correction;
     {
@@ -6739,6 +6816,11 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       }
     }
     //}
+    
+    // Do RTK estimator altitude correction
+    for (auto &estimator : _altitude_estimators_) {
+      altitudeEstimatorCorrection(z_measurement, "height_rtk", estimator.second);
+    }
 
     ROS_INFO_ONCE("[Odometry]: Fusing RTK position");
   }
@@ -7544,10 +7626,15 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     return;
   }
 
-  double hdg_hector;
+  double hdg_hector = 0;
   {
     std::scoped_lock lock(mutex_hector_);
-    hdg_hector = mrs_lib::AttitudeConverter(hector_pose_.pose.orientation).getHeading();
+    try {
+      hdg_hector = mrs_lib::AttitudeConverter(hector_pose_.pose.orientation).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from hector_pose_ orientation");
+    }
   }
 
   hdg_hector = radians::unwrap(hdg_hector, hector_hdg_previous_);
@@ -8673,7 +8760,12 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!got_init_heading_) {
 
     auto odom_t265_local = mrs_lib::get_mutexed(mutex_odom_t265_, odom_t265_);
-    init_heading_        = mrs_lib::AttitudeConverter(odom_t265_local.pose.pose.orientation).getHeading();
+    try {
+      init_heading_ = mrs_lib::AttitudeConverter(odom_t265_local.pose.pose.orientation).getHeading();
+    }
+    catch (...) {
+      ROS_WARN("[Odometry]: failed to getHeading() from odom_t265_local");
+    }
 
     got_init_heading_ = true;
   }
@@ -8890,7 +8982,11 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
   } else if (type == "RTK") {
     desired_estimator.type     = mrs_msgs::EstimatorType::RTK;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+    if (_use_rtk_altitude_) {
+      desired_alt_estimator.type = mrs_msgs::AltitudeType::RTK;
+    } else {
+      desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+    }
   } else if (type == "VIO") {
     desired_estimator.type     = mrs_msgs::EstimatorType::VIO;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::VIO;
@@ -9372,6 +9468,8 @@ bool Odometry::callbackChangeAltEstimatorString(mrs_msgs::String::Request &req, 
     desired_estimator.type = mrs_msgs::AltitudeType::ALOAMREP;
   } else if (type == "BARO") {
     desired_estimator.type = mrs_msgs::AltitudeType::BARO;
+  } else if (type == "RTK") {
+    desired_estimator.type = mrs_msgs::AltitudeType::RTK;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9854,7 +9952,14 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
       if (estimator.first == "GPS" || estimator.first == "RTK") {
 
         geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
-        current_hdg                         = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+
+        try {
+          current_hdg = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: failed to getHeading() from q_pixhawk");
+        }
+
         break;
       } else {
         if (estimator.first == hdg_estimator.first) {
@@ -9944,7 +10049,12 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
         if (estimator.first == "GPS" || estimator.first == "RTK") {
 
           geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
-          current_hdg                         = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+          try {
+            current_hdg = mrs_lib::AttitudeConverter(q_pixhawk).getHeading();
+          }
+          catch (...) {
+            ROS_WARN("[Odometry]: failed to getHeading() from q_pixhawk");
+          }
           break;
 
         } else {
@@ -10008,7 +10118,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" of %s (altitudeEstimatorCorrection) !!!", measurement_name.c_str());
     return;
   }
 
@@ -10036,7 +10146,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   if (!std::isfinite(value)) {
-    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" (altitudeEstimatorCorrection) !!!");
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"value\" of %s (altitudeEstimatorCorrection) !!!", measurement_name.c_str());
     return;
   }
 
@@ -10635,7 +10745,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
       target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::BARO &&
-      target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM && target_estimator.type != mrs_msgs::AltitudeType::ALOAMREP) {
+      target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM && target_estimator.type != mrs_msgs::AltitudeType::ALOAMREP &&
+      target_estimator.type != mrs_msgs::AltitudeType::RTK) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -10886,7 +10997,7 @@ bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
 
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
       type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO ||
-      type.type == mrs_msgs::AltitudeType::ALOAMGARM || type.type == mrs_msgs::AltitudeType::ALOAMREP) {
+      type.type == mrs_msgs::AltitudeType::ALOAMGARM || type.type == mrs_msgs::AltitudeType::ALOAMREP || type.type == mrs_msgs::AltitudeType::RTK) {
     return true;
   }
 
@@ -11055,6 +11166,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "ALOAMREP";
   } else if (alt_type.type == mrs_msgs::AltitudeType::BARO) {
     s_diag += "BARO";
+  } else if (alt_type.type == mrs_msgs::AltitudeType::RTK) {
+    s_diag += "RTK";
   } else {
     s_diag += "UNKNOWN";
   }

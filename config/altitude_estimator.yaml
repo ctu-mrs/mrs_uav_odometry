@@ -9,7 +9,8 @@ altitude_estimators:
     "ALOAM",
     "ALOAMGARM",
     "ALOAMREP",
-    "BARO"
+    "BARO",
+    "RTK"
   ] 
 
   # The measured states of the model
@@ -28,6 +29,7 @@ altitude_estimators:
     "height_vio",
     "height_aloam",
     "height_baro",
+    "height_rtk",
     "vel_baro",
     "vel_vio",
     "acc_imu"
@@ -44,6 +46,7 @@ altitude_estimators:
     BARO: ["height_baro", "vel_baro"]
     ALOAMGARM: ["height_aloam", "height_range", "vel_baro"]
     # ALOAMGARM: ["height_aloam", "vel_baro"]
+    RTK: ["height_rtk", "vel_baro"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -54,6 +57,7 @@ altitude_estimators:
     height_vio: HEIGHT
     height_aloam: HEIGHT
     height_baro: HEIGHT
+    height_rtk: HEIGHT
     vel_baro: VELOCITY
     vel_vio: VELOCITY
     acc_imu: ACCELERATION
