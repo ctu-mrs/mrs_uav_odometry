@@ -15,10 +15,10 @@ heading_estimator: "PIXHAWK"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM"]
+  active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM", "LIOSAM"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM", "LIOSAM"]
 
 # rates of publishers# #{
 publish_rate:
@@ -80,9 +80,11 @@ altitude:
     height_vio: [0.001]
     vel_vio: [0.01]
     height_aloam: [100.0]
+    height_liosam: [100.0]
     height_baro: [100.0]
     height_rtk: [100.0]
     vel_baro: [100.0]
+    vel_liosam_z: [100.0]
     acc_imu: [100.0]
 
 # # #}
@@ -112,6 +114,10 @@ altitude:
       max_diff: 2.0
 
     aloam:
+      buffer_size: 200
+      max_diff: 2.0
+    
+    liosam:
       buffer_size: 200
       max_diff: 2.0
 
@@ -146,6 +152,10 @@ altitude:
       min: -100.0
       max: 100.0
 
+    liosam:
+      min: -1000.0
+      max: 1000.0
+
 # # #}
 
 # # #}
@@ -176,6 +186,8 @@ lateral:
     pos_hector: [1]
     pos_tower: [1000]
     pos_aloam: [10]
+    pos_liosam: [10]
+    vel_liosam: [10]
     vel_icp: [10]
     pos_rtk: [1]
     vel_rtk: [1]
@@ -299,12 +311,14 @@ heading:
     hdg_hector: [0.01]
     hdg_tower: [0.01]
     hdg_aloam: [0.1]
+    hdg_liosam: [0.1]
     hdg_brick: [10]
     hdg_vio: [100] #100
     hdg_vslam: [1]
     rate_gyro: [0.1]
     rate_optflow: [10]
     rate_icp: [10]
+    rate_liosam: [10]
 # # #}
 
 # median filters# #{
