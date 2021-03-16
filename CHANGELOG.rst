@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.6 (2021-03-16)
+------------------
 * Major refactoring and overhaul
 * c++ refactoring
 * the use of AttitudeConverter
