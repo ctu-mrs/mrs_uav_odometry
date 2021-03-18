@@ -2,7 +2,7 @@
 <package format="2">
 
   <name>mrs_uav_odometry</name>
-  <version>0.0.6</version>
+  <version>1.0.0</version>
   <description>The mrs_uav_odometry package</description>
 
   <author email="matej.petrlik@fel.cvut.cz">Matej Petrlik</author>
