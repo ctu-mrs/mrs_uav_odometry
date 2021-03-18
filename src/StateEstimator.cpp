@@ -182,9 +182,9 @@ bool StateEstimator::doPrediction(const Vec2 &input, double dt, const ros::Time 
     try {
       // Apply the prediction step
       if (m_use_repredictor) {
-        mp_rep_x->addInput(u_x, m_Q, input_stamp, mp_lkf_vector[0]);
+        mp_rep_x->addInputChangeWithNoise(u_x, m_Q, input_stamp, mp_lkf_vector[0]);
         sc_x = mp_rep_x->predictTo(predict_stamp);
-        mp_rep_y->addInput(u_y, m_Q, input_stamp, mp_lkf_vector[0]);
+        mp_rep_y->addInputChangeWithNoise(u_y, m_Q, input_stamp, mp_lkf_vector[0]);
         sc_y = mp_rep_y->predictTo(predict_stamp);
       } else {
         sc_x = mp_lkf_x->predict(sc_x, u_x, m_Q, dt);

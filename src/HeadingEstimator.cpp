@@ -206,7 +206,7 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt, const ros::
     try {
       // Apply the prediction step
       if (m_use_repredictor) {
-        mp_rep->addInput(input, m_Q, input_stamp, mp_lkf_vector[0]);
+        mp_rep->addInputChangeWithNoise(input, m_Q, input_stamp, mp_lkf_vector[0]);
         m_sc = mp_rep->predictTo(predict_stamp);
       } else {
         mp_lkf->A = A;

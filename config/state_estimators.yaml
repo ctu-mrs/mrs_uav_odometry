@@ -18,8 +18,8 @@ state_estimators:
     "ICP",
     "ALOAM",
     "ALOAMGARM",
-    "ALOAMREP"
-    "LIOSAM"
+    "ALOAMREP",
+    "LIOSAM",
   ] 
 
   # The measured states of the model

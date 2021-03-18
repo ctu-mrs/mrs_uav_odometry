@@ -191,7 +191,7 @@ bool AltitudeEstimator::doPrediction(const double input, const double dt, const 
     try {
       // Apply the prediction step
       if (m_use_repredictor) {
-        mp_rep->addInput(u, m_Q, input_stamp, mp_lkf_vector[0]);
+        mp_rep->addInputChangeWithNoise(u, m_Q, input_stamp, mp_lkf_vector[0]);
         m_sc = mp_rep->predictTo(predict_stamp);
       } else {
         mp_lkf->A = A;
@@ -245,7 +245,7 @@ bool AltitudeEstimator::doPrediction(const double input, const ros::Time &input_
       // Apply the prediction step
       if (m_use_repredictor) {
         // add new input to repredictor (pass pointer to a lkf model so that it uses the correct model even after altitude coeff change)
-        mp_rep->addInput(u, m_Q, input_stamp, mp_lkf_vector[0]);
+        mp_rep->addInputChangeWithNoise(u, m_Q, input_stamp, mp_lkf_vector[0]);
         m_sc = mp_rep->predictTo(predict_stamp);
       } else {
         mp_lkf->A = A;

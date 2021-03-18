@@ -221,7 +221,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
         msg.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg);
-      mp_rep->addInput(u, Q, input_stamp, mp_lkf_vector[0]);
+      mp_rep->addInputChangeWithNoise(u, Q, input_stamp, mp_lkf_vector[0]);
       m_sc = mp_rep->predictTo(predict_stamp);
       /* std::cout << "u: " << u << std::endl; */
       /* std::cout << "Q: " << Q << std::endl; */
@@ -288,7 +288,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
         msg.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg);
-      mp_rep->addInput(u, Q, input_stamp, mp_lkf_vector[0]);
+      mp_rep->addInputChangeWithNoise(u, Q, input_stamp, mp_lkf_vector[0]);
       m_sc = mp_rep->predictTo(predict_stamp);
       /* ROS_WARN("prediction, m_sc.P(0): %.3f", m_sc.P(0)); */
     }
@@ -391,7 +391,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
         msg.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg);
-      mp_rep->addInput(u, Q, meas_stamp, mp_lkf_vector[0]);
+      mp_rep->addInputChangeWithNoise(u, Q, meas_stamp, mp_lkf_vector[0]);
     }
 
     // hysteresis to prevent rapid switching between the 2 states
@@ -429,7 +429,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
         msg.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg);
-      mp_rep->addInput(u, Q, meas_stamp, mp_lkf_vector[0]);
+      mp_rep->addInputChangeWithNoise(u, Q, meas_stamp, mp_lkf_vector[0]);
 
       mrs_msgs::BoolStamped msg_aloam_ok;
       msg_aloam_ok.stamp = meas_stamp;  // TODO why not header.stamp???

@@ -1657,6 +1657,7 @@ void Odometry::onInit() {
     if (*it == "ALOAMREP") {
       aloamrep_active_ = true;
       aloam_reliable_  = true;
+    }
     if (*it == "LIOSAM") {
       liosam_active_   = true;
       liosam_reliable_ = true;
@@ -2356,8 +2357,9 @@ void Odometry::onInit() {
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP && !aloamrep_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.",
-              _estimator_type_takeoff_.name.c_str());
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
+    ros::shutdown();
+  }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM && !liosam_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. LIOSAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
@@ -2591,6 +2593,9 @@ bool Odometry::isReadyToTakeoff() {
       return true;
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for ALOAM odometry msg to initialize takeoff estimator");
+      return false;
+    }
+  }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM) {
     if (got_liosam_odom_) {
       return true;
