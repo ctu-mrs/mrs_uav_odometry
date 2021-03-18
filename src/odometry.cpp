@@ -4663,7 +4663,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     // Obtain heading from mavros orientation
     double mavros_hdg = 0;
     try {
-      double mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
+      mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation_temp).getHeading();
     }
     catch (...) {
       ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation_temp");
