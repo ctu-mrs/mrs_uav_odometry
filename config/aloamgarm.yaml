@@ -1,0 +1,29 @@
+
+aloamgarm:
+  debug: True # publish debug topics
+
+  # Median filter detecting rangefinder value changes
+  mf_changes_buffer_size: 10
+  mf_changes_max_diff: 0.1
+
+  eigenvalue_hysteresis_upper: 120 # SLAM considered reliable if eigenvalue rises above this
+  eigenvalue_hysteresis_lower: 100 # SLAM considered unreliable if eigenvalue drops below this
+
+  # Multiplication factors for process noise
+  q_factor_range_bias_slam_ok: 1.0E+4
+  q_factor_range_bias_range_jump: 1.0E+10
+  q_factor_slam_bias: 1.0E+7
+
+  # Multiplication factors for measurement noise
+  r_factor_range_jump: 1.0E+5
+  r_factor_slam_bad: 1.0E+3
+
+  # Additional H matrices
+  biased_state_count: 3 # Change when adding states
+  H_range_biased: [1.0, 0, 0, -1.0, 0, 0]
+  H_slam_biased: [1.0, 0, 0, 0, -1.0, 0]
+  H_baro_biased: [0, 1.0, 0, 0, 0, 1.0]
+  
+  # Bias process noise
+  q_biases: 1.0
+

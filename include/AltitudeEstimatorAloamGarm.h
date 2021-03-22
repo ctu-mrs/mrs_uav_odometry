@@ -14,6 +14,7 @@
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/BoolStamped.h>
 #include <mrs_lib/median_filter.h>
+#include <mrs_lib/param_loader.h>
 #include "AltitudeEstimator.h"
 
 #include <string>
@@ -125,6 +126,24 @@ private:
   std::unique_ptr<MedianFilter> m_median_filter;
 
   bool m_is_initialized = false;
+
+  // Config params
+  float _mf_changes_buffer_size_;
+  float _mf_changes_max_diff_;
+  float _q_factor_range_bias_slam_ok_;
+  float _q_factor_range_bias_range_jump_;
+  float _q_factor_slam_bias_;
+  float _r_factor_range_jump_;
+  float _r_factor_slam_bad_;
+  algarm_alt_H_t _H_range_biased_;
+  algarm_alt_H_t _H_slam_biased_;
+  algarm_alt_H_t _H_baro_biased_;
+  float _q_biases_;
+  int _biased_state_count_;
+  float _eigenvalue_hysteresis_upper_;
+  float _eigenvalue_hysteresis_lower_;
+  bool _debug_;
+
 };
 
 }  // namespace mrs_uav_odometry

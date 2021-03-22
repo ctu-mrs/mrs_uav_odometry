@@ -82,6 +82,7 @@
       <rosparam file="$(find mrs_uav_odometry)/config/heading_estimator.yaml" command="load" />
       <rosparam file="$(arg config_file)" />
       <rosparam file="$(arg world_file)" />
+      <rosparam file="$(find mrs_uav_odometry)/config/aloamgarm.yaml" command="load" />
 
       <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
