@@ -561,7 +561,7 @@ private:
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp = ros::Time::now(),
                                    const ros::Time &predict_stamp = ros::Time::now());
   void altitudeEstimatorCorrection(double value, const std::string &measurement_name, const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator,
-                                   const ros::Time &meas_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now(), const double &aloam_eigenvalue = 0);
+                                   const ros::Time &meas_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
 
   bool changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desired_estimator);
 
@@ -7942,7 +7942,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
         ros::Time time_now = ros::Time::now();
-        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now, aloam_odom_.pose.covariance.at(14));
+        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
         if (fabs(measurement) > 100) {
           ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
         }
@@ -10485,7 +10485,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name,
                                            const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator, const ros::Time &meas_stamp,
-                                           const ros::Time &predict_stamp, const double &aloam_eigenvalue) {
+                                           const ros::Time &predict_stamp) {
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
@@ -10499,7 +10499,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   if(estimator->getName() == "ALOAMGARM"){
-    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name, aloam_eigenvalue);
+    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   } else {
     estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   }

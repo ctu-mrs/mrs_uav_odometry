@@ -42,6 +42,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   param_loader.loadParam("aloamgarm/biased_state_count", _biased_state_count_);
   param_loader.loadParam("aloamgarm/eigenvalue_hysteresis_upper", _eigenvalue_hysteresis_upper_);
   param_loader.loadParam("aloamgarm/eigenvalue_hysteresis_lower", _eigenvalue_hysteresis_lower_);
+  param_loader.loadParam("aloamgarm/repredictor_buffer_size", _repredictor_buffer_size_);
   param_loader.loadParam("aloamgarm/debug", _debug_);
 
   // add columns for measurement biases
@@ -68,6 +69,20 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   for (int i = 0; i < _biased_state_count_; i++) {
     m_Q(orig_rows + i, orig_cols + i) = _q_biases_;
   }
+
+  // Lambda functions generating A and B matrices based on dt
+  auto generateA = [](const double dt) {
+    algarm_alt_A_t A;
+    A << 1, dt, dt * dt / 2, 0, 0, 0, 0, 1, dt, 0, 0, 0, 0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+    return A;
+  };
+  m_A            = generateA(0.01);
+  auto generateB = []([[maybe_unused]] const double dt) {
+    algarm_alt_B_t B;
+    B << 0, 0, ALT_INPUT_COEFF, 0, 0, 0;
+    return B;
+  };
+  m_B = generateB(0.01);
 
   // Number of states
   m_n_states = m_A.rows();
@@ -122,23 +137,12 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   const ros::Time      t0 = ros::Time(0);
 
   std::cout << "[AltitudeEstimatorAloamGarm]: Using repredictor in " << m_estimator_name.c_str() << " estimator." << std::endl;
-  // Lambda functions generating A and B matrices based on dt
-  auto generateA = [](const double dt) {
-    algarm_alt_A_t A;
-    A << 1, dt, dt * dt / 2, 0, 0, 0, 0, 1, dt, 0, 0, 0, 0, 0, 1.0 - ALT_INPUT_COEFF, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1;
-    return A;
-  };
-  auto generateB = []([[maybe_unused]] const double dt) {
-    algarm_alt_B_t B;
-    B << 0, 0, ALT_INPUT_COEFF, 0, 0, 0;
-    return B;
-  };
   // Initialize separate LKF models for each H matrix
   for (size_t i = 0; i < m_H_multi.size(); i++) {
     mp_lkf_vector.push_back(std::make_shared<algarm_alt_t>(generateA, generateB, m_H_multi[i]));
   }
   // Initialize repredictor
-  mp_rep = std::make_unique<algarm_rep_t>(x0, P0, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+  mp_rep = std::make_unique<algarm_rep_t>(x0, P0, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
 
   std::cout << "[AltitudeEstimatorAloamGarm]: New AltitudeEstimatorAloamGarm initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -159,12 +163,22 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     std::cout << m_H_multi[i] << std::endl;
   }
 
-  m_median_filter          = std::make_unique<MedianFilter>(_mf_changes_buffer_size_, 100, 0, _mf_changes_max_diff_);
-  debug_state_publisher    = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
-  debug_cov_publisher      = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
-  debug_Q_publisher        = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
-  debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1);
-  debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
+  m_median_filter = std::make_unique<MedianFilter>(_mf_changes_buffer_size_, 100, 0, _mf_changes_max_diff_);
+
+  if (_debug_) {
+    debug_state_publisher    = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
+    debug_cov_publisher      = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
+    debug_Q_publisher        = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
+    debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1);
+    debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
+  }
+
+  m_eigenvalue_subscriber =
+      m_nh.subscribe("slam_eigenvalues", 1, &AltitudeEstimatorAloamGarm::callbackSlamEigenvalues, this, ros::TransportHints().tcpNoDelay());
+
+  mrs_msgs::Float64ArrayStamped msg_eigenvalue;
+
+  ros::Subscriber eigenvalue_subscriber;
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[AltitudeEstimatorAloamGarm]: Could not load all non-optional parameters. Shutting down.");
@@ -320,7 +334,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
 /*  //{ doCorrection() */
 
 bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp,
-                                              const std::string &measurement_name, const double &aloam_eigenvalue) {
+                                              const std::string &measurement_name) {
 
   /*  //{ sanity checks */
 
@@ -394,14 +408,11 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
     // LIDAR SLAM//{
     if (measurement_name == "height_aloam") {
-      // SLAM hysteresis to prevent rapid switching between the 2 states
-      if (m_aloam_ok && aloam_eigenvalue < _eigenvalue_hysteresis_lower_) {
-        m_aloam_ok = false;
-      } else if (!m_aloam_ok && aloam_eigenvalue > _eigenvalue_hysteresis_upper_) {
-        m_aloam_ok = true;
+      if (!m_eigenvalue_received) {
+        ROS_WARN("[AltitudeEstimatorAloamGarm] SLAM altitude received, but no eigenvalue received yet.");
+      } else {
+        ROS_INFO_ONCE("[AltitudeEstimatorAloamGarm] SLAM altitude and eigenvalues successfully received.");
       }
-      // save eigenvalue
-      m_aloam_eig = aloam_eigenvalue;
       if (!m_aloam_ok) {
         // set matrices so that only bias is updated
         R(0)             = R(0) * _r_factor_slam_bad_;
@@ -410,14 +421,6 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
         mp_rep->addProcessNoiseChange(Q, meas_stamp, mp_lkf_vector[0]);
       }
-      // Debug publisher//{
-      if (_debug_) {
-        mrs_msgs::BoolStamped msg_aloam_ok;
-        msg_aloam_ok.stamp = meas_stamp;
-        msg_aloam_ok.data  = m_aloam_ok;
-        debug_aloam_ok_publisher.publish(msg_aloam_ok);
-      }
-      /*//}*/
     }
     /*//}*/
 
@@ -513,7 +516,6 @@ bool AltitudeEstimatorAloamGarm::getStates(alt_x_t &x) {
 
   std::scoped_lock lock(mutex_lkf);
 
-  // TODO return only position, velocity and acc - backward compatibility
   x = m_sc.x.block(0, 0, 3, 1);
 
   return true;
@@ -603,7 +605,7 @@ bool AltitudeEstimatorAloamGarm::setState(int state_id, const double &state_val)
     // reset repredictor
     const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
     const ros::Time      t0 = ros::Time(0);
-    mp_rep                  = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    mp_rep                  = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
   }
 
   return true;
@@ -807,16 +809,19 @@ bool AltitudeEstimatorAloamGarm::setInputCoeff(double coeff) {
     std::scoped_lock lock(mutex_lkf);
     old_coeff = m_B(2, 0);
     // Lambda functions generating A and B matrices based on dt
+    // Don't forget to update these functions when changing system model!
     auto generateA = [=](const double dt) {
       algarm_alt_A_t A;
-      A << 1, dt, dt * dt / 2, 0, 1, dt, 0, 0, 1.0 - coeff;
+      A << 1, dt, dt * dt / 2, 0, 0, 0, 0, 1, dt, 0, 0, 0, 0, 0, 1.0 - coeff, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1;
       return A;
     };
+    m_A            = generateA(0.01);
     auto generateB = [=]([[maybe_unused]] const double dt) {
       algarm_alt_B_t B;
-      B << 0, 0, coeff;
+      B << 0, 0, coeff, 0, 0, 0;
       return B;
     };
+    m_B = generateB(0.01);
     // Clear lkf vector
     mp_lkf_vector.clear();
     // Reinitialize separate LKF models for each H matrix
@@ -835,7 +840,7 @@ bool AltitudeEstimatorAloamGarm::setInputCoeff(double coeff) {
 
 /*  //{ getCovariance() */
 
-bool AltitudeEstimatorAloamGarm::getCovariance(algarm_alt_P_t &P) {
+bool AltitudeEstimatorAloamGarm::getCovariance(alt_P_t &P) {
 
   /*  //{ sanity checks */
 
@@ -847,7 +852,7 @@ bool AltitudeEstimatorAloamGarm::getCovariance(algarm_alt_P_t &P) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    P = m_sc.P;
+    P = m_sc.P.block(0, 0, 3, 3);
   }
 
   return true;
@@ -857,7 +862,7 @@ bool AltitudeEstimatorAloamGarm::getCovariance(algarm_alt_P_t &P) {
 
 /*  //{ setCovariance() */
 
-bool AltitudeEstimatorAloamGarm::setCovariance(const algarm_alt_P_t &P) {
+bool AltitudeEstimatorAloamGarm::setCovariance(const alt_P_t &P) {
 
   /*  //{ sanity checks */
 
@@ -879,11 +884,13 @@ bool AltitudeEstimatorAloamGarm::setCovariance(const algarm_alt_P_t &P) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.P = P;
+    algarm_alt_P_t P_tmp     = algarm_alt_P_t::Identity();
+    m_sc.P                   = 1000.0 * P_tmp * P_tmp.transpose();
+    m_sc.P.block(0, 0, 3, 3) = P;
     // reset repredictor
     const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
     const ros::Time      t0 = ros::Time(0);
-    mp_rep                  = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    mp_rep                  = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
   }
 
   return true;
@@ -892,7 +899,7 @@ bool AltitudeEstimatorAloamGarm::setCovariance(const algarm_alt_P_t &P) {
 
 /*  //{ reset() */
 
-bool AltitudeEstimatorAloamGarm::reset(const algarm_alt_x_t &x) {
+bool AltitudeEstimatorAloamGarm::reset(const alt_x_t &x) {
 
   /*  //{ sanity checks */
 
@@ -915,14 +922,48 @@ bool AltitudeEstimatorAloamGarm::reset(const algarm_alt_x_t &x) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.x                  = (x);
-    const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
-    const ros::Time      t0 = ros::Time(0);
-    mp_rep                  = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), m_buf_sz);
+    m_sc.x                   = algarm_alt_x_t::Zero();
+    m_sc.x.block(0, 0, 3, 1) = (x);
+    const algarm_alt_u_t u0  = algarm_alt_u_t::Zero();
+    const ros::Time      t0  = ros::Time(0);
+    mp_rep                   = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
   }
 
   return true;
 }
 
 //}
+
+/* callbackSlamEigenvalues() */ /*//{*/
+void AltitudeEstimatorAloamGarm::callbackSlamEigenvalues(const mrs_msgs::Float64ArrayStampedConstPtr &msg) {
+  if (!m_is_initialized) {
+    return;
+  }
+  // note: It could happen that the SLAM altitude will be received earlier than the eigenvalue but it shouldnt pose any problems
+
+  // eigenvalue order in the array should be theta_x, theta_y, theta_z, x, y, z
+  double aloam_eigenvalue = msg->values[5];
+
+  std::scoped_lock lock(mutex_lkf);
+  {
+    // hysteresis to prevent rapid switching between the 2 states
+    if (m_aloam_ok && aloam_eigenvalue < _eigenvalue_hysteresis_lower_) {
+      m_aloam_ok = false;
+    } else if (!m_aloam_ok && aloam_eigenvalue > _eigenvalue_hysteresis_upper_) {
+      m_aloam_ok = true;
+    }
+    // save eigenvalue
+    m_aloam_eig           = aloam_eigenvalue;
+    m_eigenvalue_received = true;
+    // Debug publisher//{
+    if (_debug_) {
+      mrs_msgs::BoolStamped msg_aloam_ok;
+      msg_aloam_ok.stamp = msg->header.stamp;
+      msg_aloam_ok.data  = m_aloam_ok;
+      debug_aloam_ok_publisher.publish(msg_aloam_ok);
+    }
+    /*//}*/
+  }
+}
+/*//}*/
 }  // namespace mrs_uav_odometry

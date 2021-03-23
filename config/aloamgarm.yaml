@@ -2,9 +2,12 @@
 aloamgarm:
   debug: True # publish debug topics
 
+  repredictor_buffer_size: 100
+
   # Median filter detecting rangefinder value changes
   mf_changes_buffer_size: 10
   mf_changes_max_diff: 0.1
+  # !!!!!! also decrease buffer_size for garmin median filter in odometry config to e.g. 10 samples !!!!!!
 
   eigenvalue_hysteresis_upper: 120 # SLAM considered reliable if eigenvalue rises above this
   eigenvalue_hysteresis_lower: 100 # SLAM considered unreliable if eigenvalue drops below this

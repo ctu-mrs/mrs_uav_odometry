@@ -34,7 +34,7 @@ public:
   virtual bool doPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
   virtual bool doPrediction(const double input, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
   virtual bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp = ros::Time::now(),
-                    const ros::Time &predict_stamp = ros::Time::now(), const std::string &measurement_name = std::string(), const double &aloam_eigenvalue = 0);
+                    const ros::Time &predict_stamp = ros::Time::now(), const std::string &measurement_name = std::string());
 
   virtual bool        getStates(alt_x_t &x);
   virtual bool        getState(int state_id, double &state_val);

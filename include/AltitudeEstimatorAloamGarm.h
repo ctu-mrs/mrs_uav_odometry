@@ -38,10 +38,8 @@ public:
 
   bool doPrediction(const double input, const double dt, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
   bool doPrediction(const double input, const ros::Time &input_stamp = ros::Time::now(), const ros::Time &predict_stamp = ros::Time::now());
-  /* bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp = ros::Time::now(), */
-  /*                   const ros::Time &predict_stamp = ros::Time::now()); */
   bool doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp,
-                    const ros::Time &predict_stamp, const std::string &measurement_name, const double &aloam_eigenvalue = 0);
+                    const ros::Time &predict_stamp, const std::string &measurement_name);
 
   bool        getStates(algarm_alt_x_t &x);
   bool        getStates(alt_x_t &x);
@@ -53,18 +51,17 @@ public:
   bool        setQ(double cov, const Eigen::Vector2i &idx);
   bool        getQ(double &cov, const Eigen::Vector2i &idx);
   bool        setInputCoeff(double coeff);
-  bool        getCovariance(algarm_alt_P_t &P);
-  bool        setCovariance(const algarm_alt_P_t &P);
-  bool        reset(const algarm_alt_x_t &states);
+  bool        getCovariance(alt_P_t &P);
+  bool        setCovariance(const alt_P_t &P);
+  bool        reset(const alt_x_t &states);
+
+  void        callbackSlamEigenvalues(const mrs_msgs::Float64ArrayStampedConstPtr &msg);
 
 private:
   std::string       m_estimator_name;
   std::vector<bool> m_fusing_measurement;
   int               m_n_states;
   size_t            m_n_measurement_types;
-
-  // repredictor buffer size
-  const unsigned m_buf_sz = 100;
 
   // repredictor
   std::unique_ptr<algarm_rep_t> mp_rep;
@@ -94,6 +91,10 @@ private:
   // parameter deciding whether to use repredictor or classic lkf
   bool m_use_repredictor = false;
 
+  // subscriber for SLAM eigenvalues
+  ros::Subscriber m_eigenvalue_subscriber;
+
+  // debug publishers
   ros::Publisher debug_state_publisher;
   ros::Publisher debug_cov_publisher;
   ros::Publisher debug_Q_publisher;
@@ -117,11 +118,11 @@ private:
 
   int m_garmin_biased_id;
   int m_aloam_biased_id;
-  /* int m_garmin_bias_only_id; */
   int m_baro_biased_id;
 
   bool m_aloam_ok = false;
   float m_aloam_eig = 0;
+  bool m_eigenvalue_received = false;
 
   std::unique_ptr<MedianFilter> m_median_filter;
 
@@ -142,6 +143,7 @@ private:
   int _biased_state_count_;
   float _eigenvalue_hysteresis_upper_;
   float _eigenvalue_hysteresis_lower_;
+  int _repredictor_buffer_size_;
   bool _debug_;
 
 };
