@@ -10442,6 +10442,16 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   }
 
   for (auto &estimator : _altitude_estimators_) {
+
+/* do not run repredictor estimators when missing aloam data //{*/
+    if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && !got_aloam_odom_) {
+      ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude prediction until aloam odom starts coming.");
+      continue;
+    } else if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && got_aloam_odom_) {
+      ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude prediction starting.");
+    }
+/*//}*/
+
     if (input_stamp.toSec() > predict_stamp.toSec() - 0.5) {
       estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
     } else {
@@ -10452,7 +10462,7 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   }
 }
 
-//}
+/*//}*/
 
 
 /*  //{ altitudeEstimatorCorrection() */
@@ -10475,6 +10485,16 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
   }
 
   for (auto &estimator : _altitude_estimators_) {
+
+/* do not run repredictor estimators when missing aloam data //{*/
+    if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && !got_aloam_odom_) {
+      ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude correction until aloam odom starts coming.");
+      continue;
+    } else if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && got_aloam_odom_) {
+      ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude correction starting.");
+    }
+/*//}*/
+
     estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   }
 }
@@ -10487,6 +10507,15 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
                                            const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator, const ros::Time &meas_stamp,
                                            const ros::Time &predict_stamp) {
 
+/* do not run repredictor estimators when missing aloam data //{*/
+    if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && !got_aloam_odom_) {
+      ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude correction until aloam odom starts coming.");
+      return;
+    } else if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && got_aloam_odom_) {
+      ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude correction starting.");
+    }
+/*//}*/
+
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: Tried to fuse measurement with invalid name: \'%s\'.", measurement_name.c_str());
@@ -10498,7 +10527,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     return;
   }
 
-  if(estimator->getName() == "ALOAMGARM"){
+  if(estimator->getName() == "ALOAMGARM"){ // TODO why this if?
     estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   } else {
     estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
