@@ -190,7 +190,6 @@ bool HeadingEstimator::doPrediction(const hdg_u_t &input, double dt, const ros::
   /* hdg_B_t B = m_B; */
 
   double dt_sq = std::pow(dt, 2) / 2;
-  ;
 
   /* B(0, 0)           = dt; */
   /* B(1, 1)           = dt; */
