@@ -259,7 +259,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
   ros::WallTime time_end = ros::WallTime::now();
   double        diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
   if (diff > 10) {
-    ROS_WARN("[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
+    ROS_WARN_THROTTLE(1.0, "[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
   }
   // debug publisher//{
   if (_debug_) {
@@ -463,7 +463,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
   ros::WallTime time_end = ros::WallTime::now();
   double        diff     = (time_end.toSec() - time_beginning.toSec()) * 1000;
   if (diff > 10) {
-    ROS_WARN("[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
+    ROS_WARN_THROTTLE(1.0, "[AltitudeEstimatorAloamGarm] Correction took %.2f ms (longer than 10 ms).", diff);
   }
 
   // Debug - publish correction duration//{
