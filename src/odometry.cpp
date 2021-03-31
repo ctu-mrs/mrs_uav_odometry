@@ -10527,11 +10527,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     return;
   }
 
-  if(estimator->getName() == "ALOAMGARM"){ // TODO why this if?
     estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
-  } else {
-    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
-  }
 
   // Publisher of ALOAM computational delay
   if (estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam") {
