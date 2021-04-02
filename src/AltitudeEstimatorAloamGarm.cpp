@@ -63,12 +63,14 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   m_baro_biased_id = m_H_multi.size() - 1;
 
   // add bias process noise to Q matrix
+  m_Q = m_Q.Zero();
   int orig_rows         = m_Q_orig.rows();
   int orig_cols         = m_Q_orig.cols();
   m_Q.block(0, 0, 3, 3) = m_Q_orig.block(0, 0, 3, 3);
   for (int i = 0; i < _biased_state_count_; i++) {
     m_Q(orig_rows + i, orig_cols + i) = _q_biases_;
   }
+  std::cout << "m_Q: " << m_Q << std::endl;
 
   // Lambda functions generating A and B matrices based on dt
   auto generateA = [](const double dt) {
@@ -247,6 +249,13 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
           msg.values.push_back(Q(i));
         }
         debug_Q_publisher.publish(msg);
+
+        mrs_msgs::Float64ArrayStamped msg_cov;
+        msg_cov.header.stamp = predict_stamp;
+        for (int i = 0; i < m_sc.P.size(); i++) {
+          msg_cov.values.push_back(m_sc.P(i));
+        }
+        debug_cov_publisher.publish(msg_cov);
       }
       /*//}*/
     }
@@ -317,6 +326,13 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
           msg.values.push_back(Q(i));
         }
         debug_Q_publisher.publish(msg);
+
+        mrs_msgs::Float64ArrayStamped msg_cov;
+        msg_cov.header.stamp = predict_stamp;
+        for (int i = 0; i < m_sc.P.size(); i++) {
+          msg_cov.values.push_back(m_sc.P(i));
+        }
+        debug_cov_publisher.publish(msg_cov);
       }
       /*//}*/
     }
@@ -416,7 +432,6 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       if (!m_aloam_ok) {
         // set matrices so that only bias is updated
         R(0)             = R(0) * _r_factor_slam_bad_;
-        algarm_alt_Q_t Q = m_Q;
         Q(4, 4)          = m_Q(4, 4) * _q_factor_slam_bias_;
 
         mp_rep->addProcessNoiseChange(Q, meas_stamp, mp_lkf_vector[0]);
@@ -451,9 +466,9 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       debug_cov_publisher.publish(msg_cov);
 
       mrs_msgs::Float64ArrayStamped msg_q;
-      msg.header.stamp = meas_stamp;
+      msg_q.header.stamp = meas_stamp;
       for (int i = 0; i < Q.size(); i++) {
-        msg.values.push_back(Q(i));
+        msg_q.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg_q);
     }
