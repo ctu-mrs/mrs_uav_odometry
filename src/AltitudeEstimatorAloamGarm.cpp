@@ -30,6 +30,8 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   mrs_lib::ParamLoader param_loader(m_nh, "Odometry");
   param_loader.loadParam("aloamgarm/mf_changes_buffer_size", _mf_changes_buffer_size_);
   param_loader.loadParam("aloamgarm/mf_changes_max_diff", _mf_changes_max_diff_);
+  param_loader.loadParam("aloamgarm/mf_changes_max_diff_close_to_ground", _mf_changes_max_diff_close_to_ground_);
+  param_loader.loadParam("aloamgarm/mf_close_to_ground_threshold", _mf_close_to_ground_threshold_);
   param_loader.loadParam("aloamgarm/q_factor_range_bias_slam_ok", _q_factor_range_bias_slam_ok_);
   param_loader.loadParam("aloamgarm/q_factor_range_bias_range_jump", _q_factor_range_bias_range_jump_);
   param_loader.loadParam("aloamgarm/q_factor_slam_bias", _q_factor_slam_bias_);
@@ -410,7 +412,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
     // RANGEFINDER//{
     if (measurement_name == "height_range" && !m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
-        (z(0) > 0.6 || fabs(m_median_filter->getMedian() - z(0)) > 0.5)) {
+        (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter->getMedian() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
       // set H matrix so that only garmin bias is updated
       // calculate new bias measurement
       ROS_WARN_THROTTLE(0.5, "[AltitudeEstimatorAloamGarm] Garmin jump detected, altitude: %.2f, old bias: %.2f, measurement: %.2f.", m_sc.x(0), m_sc.x(3),

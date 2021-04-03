@@ -7,6 +7,8 @@ aloamgarm:
   # Median filter detecting rangefinder value changes
   mf_changes_buffer_size: 10
   mf_changes_max_diff: 0.1
+  mf_changes_max_diff_close_to_ground: 0.5 # larger difference threshold for low heights
+  mf_close_to_ground_threshold: 0.6 # max distance from ground where larger difference threshold is active
   # !!!!!! also decrease buffer_size for garmin median filter in odometry config to e.g. 10 samples !!!!!!
 
   eigenvalue_hysteresis_upper: 120 # SLAM considered reliable if eigenvalue rises above this

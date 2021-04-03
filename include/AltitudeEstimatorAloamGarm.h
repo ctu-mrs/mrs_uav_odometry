@@ -131,6 +131,8 @@ private:
   // Config params
   float _mf_changes_buffer_size_;
   float _mf_changes_max_diff_;
+  float _mf_changes_max_diff_close_to_ground_;
+  float _mf_close_to_ground_threshold_;
   float _q_factor_range_bias_slam_ok_;
   float _q_factor_range_bias_range_jump_;
   float _q_factor_slam_bias_;
