@@ -13,6 +13,7 @@
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/BoolStamped.h>
+#include <mrs_msgs/AloamgarmDebug.h>
 #include <mrs_lib/median_filter.h>
 #include <mrs_lib/param_loader.h>
 #include "AltitudeEstimator.h"

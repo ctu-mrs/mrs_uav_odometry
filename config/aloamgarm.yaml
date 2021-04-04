@@ -2,7 +2,7 @@
 aloamgarm:
   debug: True # publish debug topics
 
-  repredictor_buffer_size: 100
+  repredictor_buffer_size: 200
 
   # Median filter detecting rangefinder value changes
   mf_changes_buffer_size: 10
