@@ -697,7 +697,8 @@ private:
   double _utm_origin_x_, _utm_origin_y_;
   int    _utm_origin_units_ = 0;
   double rtk_local_origin_z_;
-  double _local_origin_x_, _local_origin_y_;
+  bool _init_gps_origin_local_;
+  double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
   bool   land_position_set_ = false;
 
@@ -1186,22 +1187,29 @@ void Odometry::onInit() {
 
   /* coordinate frames origins //{ */
 
+  bool is_origin_param_ok = true;
   param_loader.loadParam("utm_origin_units", _utm_origin_units_);
   if (_utm_origin_units_ == 0) {
     ROS_INFO("[Odometry]: Loading UTM origin in UTM units.");
-    param_loader.loadParam("utm_origin_x", _utm_origin_x_);
-    param_loader.loadParam("utm_origin_y", _utm_origin_y_);
+    is_origin_param_ok &= param_loader.loadParam("utm_origin_x", _utm_origin_x_);
+    is_origin_param_ok &= param_loader.loadParam("utm_origin_y", _utm_origin_y_);
   } else {
     double lat, lon;
     ROS_INFO("[Odometry]: Loading UTM origin in LatLon units.");
-    param_loader.loadParam("utm_origin_lat", lat);
-    param_loader.loadParam("utm_origin_lon", lon);
+    is_origin_param_ok &= param_loader.loadParam("utm_origin_lat", lat);
+    is_origin_param_ok &= param_loader.loadParam("utm_origin_lon", lon);
     ROS_INFO("[Odometry]: Converted to UTM x: %f, y: %f.", _utm_origin_x_, _utm_origin_y_);
     mrs_lib::UTM(lat, lon, &_utm_origin_x_, &_utm_origin_y_);
   }
 
-  param_loader.loadParam("local_origin_x", _local_origin_x_);
-  param_loader.loadParam("local_origin_y", _local_origin_y_);
+  is_origin_param_ok &= param_loader.loadParam("init_gps_origin_local", _init_gps_origin_local_);
+  is_origin_param_ok &= param_loader.loadParam("init_gps_offset_x", _init_gps_offset_x_);
+  is_origin_param_ok &= param_loader.loadParam("init_gps_offset_y", _init_gps_offset_y_);
+
+  if (!is_origin_param_ok) {
+    ROS_ERROR("[Odometry]: Could not load all mandatory parameters from world file. Please check your world file.");
+    ros::shutdown();
+  }
 
   //}
 
@@ -4117,7 +4125,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           estimator.second->getName() == "VIO" || estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" ||
           estimator.second->getName() == "ICP" || estimator.second->getName() == "ALOAMREP") {
 
-        pos_state << _local_origin_x_, _local_origin_y_;
+        pos_state << _init_gps_offset_x_, _init_gps_offset_y_;
         estimator.second->setState(0, pos_state);
         estimator.second->setState(1, vel_state);
 
@@ -4143,8 +4151,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (toUppercase(current_lat_estimator_name_) != "GPS" && toUppercase(current_lat_estimator_name_) != "RTK") {
-      odom_main.pose.pose.position.x = _local_origin_x_;
-      odom_main.pose.pose.position.y = _local_origin_y_;
+      odom_main.pose.pose.position.x = _init_gps_offset_x_;
+      odom_main.pose.pose.position.y = _init_gps_offset_y_;
     }
 
     // initialize stable odometry
@@ -9943,8 +9951,8 @@ bool Odometry::callbackResetEstimator([[maybe_unused]] std_srvs::Trigger::Reques
         states(0, 1) = odom_pixhawk_shifted_.pose.pose.position.y;
         ROS_INFO("[Odometry]: Resetting estimators to pijhawk shifted odom x: %f y: %f", states(0, 0), states(0, 1));
       } else {
-        states(0, 0) = _local_origin_x_;
-        states(0, 1) = _local_origin_y_;
+        states(0, 0) = _init_gps_offset_x_;
+        states(0, 1) = _init_gps_offset_y_;
         ROS_INFO("[Odometry]: Resetting estimators to local_origin x: %f y: %f", states(0, 0), states(0, 1));
       }
 
@@ -11598,8 +11606,23 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
     return true;
   }
 
-  // when we have defined our home position, set local origin offset
-  if (got_odom_pixhawk_) {
+  // initialize gps_origin to local_origin position
+  if (_init_gps_origin_local_) {
+
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk_);
+
+      pixhawk_odom_offset_x_ = _init_gps_offset_x_ - odom_pixhawk_.pose.pose.position.x;
+      pixhawk_odom_offset_y_ = _init_gps_offset_y_ - odom_pixhawk_.pose.pose.position.y;
+    }
+
+    ROS_INFO("[Odometry]: pixhawk_odom_offset based in local_origin calculated as: x: %f, y: %f", pixhawk_odom_offset_x_, pixhawk_odom_offset_y_);
+
+    got_pixhawk_odom_offset_ = true;
+    return true;
+
+    // initialize gps_origin to specified utm coordinates
+  } else {
 
     {
       std::scoped_lock lock(mutex_odom_pixhawk_, mutex_pixhawk_utm_position_);
@@ -11613,20 +11636,6 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
     got_pixhawk_odom_offset_ = true;
     return true;
 
-    // when we have not define our home position, define it as our averaged home position
-  } else {
-
-    {
-      std::scoped_lock lock(mutex_odom_pixhawk_);
-
-      pixhawk_odom_offset_x_ = _local_origin_x_ - odom_pixhawk_.pose.pose.position.x;
-      pixhawk_odom_offset_y_ = _local_origin_y_ - odom_pixhawk_.pose.pose.position.y;
-    }
-
-    ROS_INFO("[Odometry]: pixhawk_odom_offset based in local_origin calculated as: x: %f, y: %f", pixhawk_odom_offset_x_, pixhawk_odom_offset_y_);
-
-    got_pixhawk_odom_offset_ = true;
-    return true;
   }
 
   return false;
