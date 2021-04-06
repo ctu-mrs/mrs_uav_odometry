@@ -13,6 +13,7 @@
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/BoolStamped.h>
+#include <mrs_msgs/AloamgarmDebug.h>
 #include <mrs_lib/median_filter.h>
 #include <mrs_lib/param_loader.h>
 #include "AltitudeEstimator.h"
@@ -131,6 +132,8 @@ private:
   // Config params
   float _mf_changes_buffer_size_;
   float _mf_changes_max_diff_;
+  float _mf_changes_max_diff_close_to_ground_;
+  float _mf_close_to_ground_threshold_;
   float _q_factor_range_bias_slam_ok_;
   float _q_factor_range_bias_range_jump_;
   float _q_factor_slam_bias_;

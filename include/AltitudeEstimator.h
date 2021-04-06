@@ -56,7 +56,7 @@ private:
   size_t            m_n_measurement_types;
 
   // repredictor buffer size
-  const unsigned m_buf_sz = 100;
+  const unsigned m_buf_sz = 200;
 
   // repredictor
   std::unique_ptr<rep_t> mp_rep;

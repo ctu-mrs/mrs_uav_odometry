@@ -30,6 +30,8 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   mrs_lib::ParamLoader param_loader(m_nh, "Odometry");
   param_loader.loadParam("aloamgarm/mf_changes_buffer_size", _mf_changes_buffer_size_);
   param_loader.loadParam("aloamgarm/mf_changes_max_diff", _mf_changes_max_diff_);
+  param_loader.loadParam("aloamgarm/mf_changes_max_diff_close_to_ground", _mf_changes_max_diff_close_to_ground_);
+  param_loader.loadParam("aloamgarm/mf_close_to_ground_threshold", _mf_close_to_ground_threshold_);
   param_loader.loadParam("aloamgarm/q_factor_range_bias_slam_ok", _q_factor_range_bias_slam_ok_);
   param_loader.loadParam("aloamgarm/q_factor_range_bias_range_jump", _q_factor_range_bias_range_jump_);
   param_loader.loadParam("aloamgarm/q_factor_slam_bias", _q_factor_slam_bias_);
@@ -63,12 +65,14 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   m_baro_biased_id = m_H_multi.size() - 1;
 
   // add bias process noise to Q matrix
+  m_Q                   = m_Q.Zero();
   int orig_rows         = m_Q_orig.rows();
   int orig_cols         = m_Q_orig.cols();
   m_Q.block(0, 0, 3, 3) = m_Q_orig.block(0, 0, 3, 3);
   for (int i = 0; i < _biased_state_count_; i++) {
     m_Q(orig_rows + i, orig_cols + i) = _q_biases_;
   }
+  std::cout << "m_Q: " << m_Q << std::endl;
 
   // Lambda functions generating A and B matrices based on dt
   auto generateA = [](const double dt) {
@@ -166,10 +170,11 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   m_median_filter = std::make_unique<MedianFilter>(_mf_changes_buffer_size_, 100, 0, _mf_changes_max_diff_);
 
   if (_debug_) {
-    debug_state_publisher    = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
-    debug_cov_publisher      = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
-    debug_Q_publisher        = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
-    debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1);
+    debug_state_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
+    debug_cov_publisher   = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_cov", 1);
+    debug_Q_publisher     = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_Q", 1);
+    /* debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1); */
+    debug_duration_publisher = m_nh.advertise<mrs_msgs::AloamgarmDebug>("debug_aloamgarm_duration", 1);
     debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
   }
 
@@ -247,6 +252,13 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
           msg.values.push_back(Q(i));
         }
         debug_Q_publisher.publish(msg);
+
+        mrs_msgs::Float64ArrayStamped msg_cov;
+        msg_cov.header.stamp = predict_stamp;
+        for (int i = 0; i < m_sc.P.size(); i++) {
+          msg_cov.values.push_back(m_sc.P(i));
+        }
+        debug_cov_publisher.publish(msg_cov);
       }
       /*//}*/
     }
@@ -263,9 +275,13 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
   }
   // debug publisher//{
   if (_debug_) {
-    mrs_msgs::Float64ArrayStamped msg;
-    msg.header.stamp = ros::Time::now();
-    msg.values.push_back(diff);
+    mrs_msgs::AloamgarmDebug msg;
+    msg.header.stamp       = ros::Time::now();
+    msg.duration_all       = diff;
+    msg.duration_input       = diff;
+    float timestamp_diff   = ((predict_stamp.toSec() - input_stamp.toSec()) * 1000);
+    msg.timestamp_diff_all = timestamp_diff;
+    msg.timestamp_diff_input = timestamp_diff;
     debug_duration_publisher.publish(msg);
   }
   /*//}*/
@@ -317,6 +333,13 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
           msg.values.push_back(Q(i));
         }
         debug_Q_publisher.publish(msg);
+
+        mrs_msgs::Float64ArrayStamped msg_cov;
+        msg_cov.header.stamp = predict_stamp;
+        for (int i = 0; i < m_sc.P.size(); i++) {
+          msg_cov.values.push_back(m_sc.P(i));
+        }
+        debug_cov_publisher.publish(msg_cov);
       }
       /*//}*/
     }
@@ -394,7 +417,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
     // RANGEFINDER//{
     if (measurement_name == "height_range" && !m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
-        (z(0) > 0.6 || fabs(m_median_filter->getMedian() - z(0)) > 0.5)) {
+        (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter->getMedian() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
       // set H matrix so that only garmin bias is updated
       // calculate new bias measurement
       ROS_WARN_THROTTLE(0.5, "[AltitudeEstimatorAloamGarm] Garmin jump detected, altitude: %.2f, old bias: %.2f, measurement: %.2f.", m_sc.x(0), m_sc.x(3),
@@ -415,9 +438,8 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       }
       if (!m_aloam_ok) {
         // set matrices so that only bias is updated
-        R(0)             = R(0) * _r_factor_slam_bad_;
-        algarm_alt_Q_t Q = m_Q;
-        Q(4, 4)          = m_Q(4, 4) * _q_factor_slam_bias_;
+        R(0)    = R(0) * _r_factor_slam_bad_;
+        Q(4, 4) = m_Q(4, 4) * _q_factor_slam_bias_;
 
         mp_rep->addProcessNoiseChange(Q, meas_stamp, mp_lkf_vector[0]);
       }
@@ -451,9 +473,9 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       debug_cov_publisher.publish(msg_cov);
 
       mrs_msgs::Float64ArrayStamped msg_q;
-      msg.header.stamp = meas_stamp;
+      msg_q.header.stamp = meas_stamp;
       for (int i = 0; i < Q.size(); i++) {
-        msg.values.push_back(Q(i));
+        msg_q.values.push_back(Q(i));
       }
       debug_Q_publisher.publish(msg_q);
     }
@@ -468,12 +490,33 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
   // Debug - publish correction duration//{
   if (_debug_) {
-    mrs_msgs::Float64ArrayStamped msg;
-    msg.header.stamp = ros::Time::now();
-    msg.values.push_back(diff);
-    // Differentiate duration when correction from ALOAM is used
+    /* mrs_msgs::Float64ArrayStamped msg; */
+    /* msg.header.stamp = ros::Time::now(); */
+    /* msg.values.push_back(diff); // processing duration */
+    /* // Differentiate duration when correction from ALOAM is used */
+    /* msg.values.push_back((predict_stamp.toSec() - meas_stamp.toSec())*1000); // timestamp difference */
+    /* if (measurement_name == "height_aloam") { */
+    /*   msg.values.push_back(diff); // processing duration in case of aloam */
+    /* } */
+    /* debug_duration_publisher.publish(msg); */
+
+    mrs_msgs::AloamgarmDebug msg;
+    msg.header.stamp       = ros::Time::now();
+    msg.duration_all       = diff;
+    float timestamp_diff   = ((predict_stamp.toSec() - meas_stamp.toSec()) * 1000);
+    msg.timestamp_diff_all = timestamp_diff;
     if (measurement_name == "height_aloam") {
-      msg.values.push_back(diff);
+      msg.duration_aloam     = diff;
+      msg.timestamp_diff_aloam = timestamp_diff;
+    } else if (measurement_name == "height_range") {
+      msg.duration_garmin    = diff;
+      msg.timestamp_diff_garmin = timestamp_diff;
+    } else if (measurement_name == "vel_baro") {
+      msg.duration_baro      = diff;
+      msg.timestamp_diff_baro = timestamp_diff;
+    } else {
+      msg.duration_rest      = diff;
+      msg.timestamp_diff_rest = timestamp_diff;
     }
     debug_duration_publisher.publish(msg);
   }
