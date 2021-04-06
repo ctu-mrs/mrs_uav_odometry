@@ -4816,8 +4816,10 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.estimator_type = estimator_type_;
   odometry_diag.altitude_type  = alt_estimator_type_;
+  odometry_diag.heading_type  = hdg_estimator_type_;
 
   odometry_diag.available_lat_estimators = _active_state_estimators_names_;
+  odometry_diag.available_hdg_estimators = _active_heading_estimators_names_;
 
 
   std::vector<std::string> active_alt_estimators;
