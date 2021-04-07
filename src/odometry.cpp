@@ -697,7 +697,7 @@ private:
   double _utm_origin_x_, _utm_origin_y_;
   int    _utm_origin_units_ = 0;
   double rtk_local_origin_z_;
-  bool _init_gps_origin_local_;
+  bool   _init_gps_origin_local_;
   double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
   bool   land_position_set_ = false;
@@ -2144,7 +2144,7 @@ void Odometry::onInit() {
     pub_vel_liosam_twist_z_corr_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_liosam_twist_z_out", 1);
   }
 
-  pub_debug_aloam_delay_      = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
+  pub_debug_aloam_delay_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
 
   //}
 
@@ -2350,7 +2350,8 @@ void Odometry::onInit() {
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP && !aloamrep_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
+    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.",
+              _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM && !liosam_active_) {
@@ -4824,7 +4825,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.estimator_type = estimator_type_;
   odometry_diag.altitude_type  = alt_estimator_type_;
-  odometry_diag.heading_type  = hdg_estimator_type_;
+  odometry_diag.heading_type   = hdg_estimator_type_;
 
   odometry_diag.available_lat_estimators = _active_state_estimators_names_;
   odometry_diag.available_hdg_estimators = _active_heading_estimators_names_;
@@ -7951,7 +7952,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     if (aloam_height_ok) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
-        ros::Time time_now = ros::Time::now();
+        ros::Time        time_now = ros::Time::now();
         altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
         if (fabs(measurement) > 100) {
           ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
@@ -8386,7 +8387,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   // we do not want to fuse garmin with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
-  double excessive_tilt = false;
+  bool excessive_tilt = false;
   if (std::pow(tilt, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
@@ -8488,8 +8489,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     {
       std::scoped_lock lock(mutex_altitude_estimator_);
-      ros::Time time_now  = ros::Time::now();
-      ros::Time time_meas = msg->header.stamp;
+      ros::Time        time_now  = ros::Time::now();
+      ros::Time        time_meas = msg->header.stamp;
       altitudeEstimatorCorrection(height_range, "height_range", estimator.second, time_meas, time_now);
       if (std::pow(height_range, 2) > 10000) {
         ROS_WARN("[Odometry]: Garmin height correction: %f", height_range);
@@ -8548,7 +8549,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   // Check for excessive tilts
   // we do not want to fuse sonar with large tilts as the range will be too unreliable
   // barometer will do a better job in this situation
-  double excessive_tilt = false;
+  bool excessive_tilt = false;
   if (std::pow(tilt, 2) > _excessive_tilt_sq_) {
     excessive_tilt = true;
   } else {
@@ -8897,7 +8898,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
 
         // Get current altitude
         alt_x_t alt_x    = alt_x.Zero();
-        double  have_alt = false;
+        bool    have_alt = false;
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
           if (current_alt_estimator_->getStates(alt_x)) {
@@ -10453,14 +10454,14 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
 
   for (auto &estimator : _altitude_estimators_) {
 
-/* do not run repredictor estimators when missing aloam data //{*/
+    /* do not run repredictor estimators when missing aloam data //{*/
     if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && !got_aloam_odom_) {
       ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude prediction until aloam odom starts coming.");
       continue;
     } else if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && got_aloam_odom_) {
       ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude prediction starting.");
     }
-/*//}*/
+    /*//}*/
 
     if (input_stamp.toSec() > predict_stamp.toSec() - 0.5) {
       estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
@@ -10496,14 +10497,14 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
 
   for (auto &estimator : _altitude_estimators_) {
 
-/* do not run repredictor estimators when missing aloam data //{*/
+    /* do not run repredictor estimators when missing aloam data //{*/
     if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && !got_aloam_odom_) {
       ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude correction until aloam odom starts coming.");
       continue;
     } else if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && got_aloam_odom_) {
       ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude correction starting.");
     }
-/*//}*/
+    /*//}*/
 
     estimator.second->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
   }
@@ -10517,14 +10518,14 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
                                            const std::shared_ptr<mrs_uav_odometry::AltitudeEstimator> &estimator, const ros::Time &meas_stamp,
                                            const ros::Time &predict_stamp) {
 
-/* do not run repredictor estimators when missing aloam data //{*/
-    if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && !got_aloam_odom_) {
-      ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude correction until aloam odom starts coming.");
-      return;
-    } else if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && got_aloam_odom_) {
-      ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude correction starting.");
-    }
-/*//}*/
+  /* do not run repredictor estimators when missing aloam data //{*/
+  if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && !got_aloam_odom_) {
+    ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude correction until aloam odom starts coming.");
+    return;
+  } else if ((estimator->getName() == "ALOAMGARM" || estimator->getName() == "ALOAMREP") && got_aloam_odom_) {
+    ROS_INFO_ONCE("[Odometry]: Received aloam odom. ALOAMGARM/ALOAMREP altitude correction starting.");
+  }
+  /*//}*/
 
   std::map<std::string, int>::iterator it_measurement_id = map_alt_measurement_name_id_.find(measurement_name);
   if (it_measurement_id == map_alt_measurement_name_id_.end()) {
@@ -10537,7 +10538,7 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     return;
   }
 
-    estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
+  estimator->doCorrection(value, it_measurement_id->second, meas_stamp, predict_stamp, measurement_name);
 
   // Publisher of ALOAM computational delay
   if (estimator->getName() == "ALOAMREP" && measurement_name == "height_aloam") {
@@ -11637,7 +11638,6 @@ bool Odometry::calculatePixhawkOdomOffset(void) {
 
     got_pixhawk_odom_offset_ = true;
     return true;
-
   }
 
   return false;
