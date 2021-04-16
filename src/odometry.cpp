@@ -6930,8 +6930,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       return;
     }
     if (x_correction > _max_rtk_pos_correction_) {
-      x_correction = _max_rtk_pos_correction_;
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, _max_rtk_pos_correction_);
+      x_correction = _max_rtk_pos_correction_;
     } else if (x_correction < -_max_rtk_pos_correction_) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Saturating RTK X pos correction %f -> %f", x_correction, -_max_rtk_pos_correction_);
       x_correction = -_max_rtk_pos_correction_;
