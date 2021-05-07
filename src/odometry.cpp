@@ -696,7 +696,7 @@ private:
   // for setting home position
   double _utm_origin_x_, _utm_origin_y_;
   int    _utm_origin_units_ = 0;
-  double rtk_local_origin_z_;
+  double rtk_local_origin_z_ = 0.0;
   bool   _init_gps_origin_local_;
   double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
@@ -6767,7 +6767,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     std::scoped_lock lock(mutex_rtk_);
 
     if (!isUavFlying()) {
-      if (++got_rtk_counter_ < 10) {
+      if (++got_rtk_counter_ <= 10) {
         rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
         ROS_INFO("[Odometry]: RTK ASL altitude sample #%d: %f", got_rtk_counter_, rtk_utm.pose.pose.position.z);
         return;
@@ -6877,7 +6877,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
       x_rtk = rtk_local_.pose.pose.position.x;
       y_rtk = rtk_local_.pose.pose.position.y;
-      z_rtk = rtk_local_.pose.pose.position.z - rtk_local_origin_z_;
+      z_rtk = rtk_local_.pose.pose.position.z;
     }
 
     if (!std::isfinite(x_rtk)) {
