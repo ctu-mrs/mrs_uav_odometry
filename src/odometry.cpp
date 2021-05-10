@@ -397,6 +397,8 @@ private:
   ros::Time liosam_timestamp_;
   bool      liosam_updated_mapping_tf_ = false;
 
+  bool _use_general_slam_origin_ = false;
+
   // brick heading msgs
   double     brick_hdg_previous_;
   std::mutex mutex_brick_hdg_;
@@ -696,7 +698,7 @@ private:
   // for setting home position
   double _utm_origin_x_, _utm_origin_y_;
   int    _utm_origin_units_ = 0;
-  double rtk_local_origin_z_;
+  double rtk_local_origin_z_ = 0.0;
   bool   _init_gps_origin_local_;
   double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
@@ -1540,6 +1542,10 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/hector/reset_routine", _perform_hector_reset_routine_);
 
   //}
+
+/* general slam parameters //{*/
+param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam_origin_);
+/*//}*/
 
   /* rtk lateral parameters //{ */
 
@@ -3777,7 +3783,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-    odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+    if (estimator_name == "ALOAM" && _use_general_slam_origin_) {
+      odom_aux->second.header.frame_id = _uav_name_ + "/" + "slam_origin";
+    } else {
+      odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+    }
     odom_aux->second.header.stamp    = time_now;
     odom_aux->second.child_frame_id  = fcu_frame_id_;
 
@@ -6767,7 +6777,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     std::scoped_lock lock(mutex_rtk_);
 
     if (!isUavFlying()) {
-      if (++got_rtk_counter_ < 10) {
+      if (++got_rtk_counter_ <= 10) {
         rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
         ROS_INFO("[Odometry]: RTK ASL altitude sample #%d: %f", got_rtk_counter_, rtk_utm.pose.pose.position.z);
         return;
@@ -6877,7 +6887,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
       x_rtk = rtk_local_.pose.pose.position.x;
       y_rtk = rtk_local_.pose.pose.position.y;
-      z_rtk = rtk_local_.pose.pose.position.z - rtk_local_origin_z_;
+      z_rtk = rtk_local_.pose.pose.position.z;
     }
 
     if (!std::isfinite(x_rtk)) {

@@ -291,6 +291,11 @@ lateral:
   brick:
     timeout: 0.5 # [s] timeout until fallback from BRICK after loosing detections# #}
 
+# slam# #{
+  slam:
+    use_general_slam_origin: false # use slam_origin instead of aloam_origin/liosam_origin
+# # #}
+
 # # #}
 
 # heading estimation parameters# #{
