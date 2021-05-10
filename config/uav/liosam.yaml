@@ -32,8 +32,8 @@ heading:
 
 altitude:
   R:
-    height_liosam: [1]
-    vel_liosam_z: [100.0]
+    height_liosam: [10000]
+    vel_liosam_z: [1000.0]
 
 # Publishing of TF of each estimator can be disabled (default is enabled):
 state_estimators:
