@@ -3782,10 +3782,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_, odom_aux->second);
 
     std::string estimator_name = estimator.first;
-    std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-    if (estimator_name == "ALOAM" && _use_general_slam_origin_) {
-      odom_aux->second.header.frame_id = _uav_name_ + "/" + "slam_origin";
+    if ((estimator_name == "LIOSAM" || estimator_name == "ALOAM") && _use_general_slam_origin_) {
+      odom_aux->second.header.frame_id = _uav_name_ + "/slam_origin";
     } else {
+      std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
       odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
     }
     odom_aux->second.header.stamp    = time_now;
