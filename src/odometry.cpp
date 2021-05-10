@@ -397,6 +397,8 @@ private:
   ros::Time liosam_timestamp_;
   bool      liosam_updated_mapping_tf_ = false;
 
+  bool _use_general_slam_origin_ = false;
+
   // brick heading msgs
   double     brick_hdg_previous_;
   std::mutex mutex_brick_hdg_;
@@ -1540,6 +1542,10 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/hector/reset_routine", _perform_hector_reset_routine_);
 
   //}
+
+/* general slam parameters //{*/
+param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam_origin_);
+/*//}*/
 
   /* rtk lateral parameters //{ */
 
@@ -3777,7 +3783,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     std::string estimator_name = estimator.first;
     std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-    odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+    if (estimator_name == "ALOAM" && _use_general_slam_origin_) {
+      odom_aux->second.header.frame_id = _uav_name_ + "/" + "slam_origin";
+    } else {
+      odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+    }
     odom_aux->second.header.stamp    = time_now;
     odom_aux->second.child_frame_id  = fcu_frame_id_;
 
