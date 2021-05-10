@@ -113,7 +113,7 @@ void RtkRepublisher::onInit() {
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[RtkRepublisher]: could not load all parameters!");
-    ros::shutdown();
+    ros::requestShutdown();
   }
 
   // | ----------------------- subscribers ---------------------- |

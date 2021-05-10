@@ -119,13 +119,13 @@ namespace mrs_uav_odometry
       if (!pl.loadedSuccessfully())
       {
         ROS_ERROR("[%s]: Some compulsory parameters were not loaded successfully, ending the node", m_node_name.c_str());
-        ros::shutdown();
+        ros::requestShutdown();
       }
 
       if (m_root_frame_ids.size() != m_equal_frame_ids.size())
       {
         ROS_ERROR("[%s]: Number of root frame ids (%lu) must equal the number of equal frame ids (%lu), ending the node", m_node_name.c_str(), m_root_frame_ids.size(), m_equal_frame_ids.size());
-        ros::shutdown();
+        ros::requestShutdown();
       }
 
       //}
