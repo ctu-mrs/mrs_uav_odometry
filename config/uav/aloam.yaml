@@ -17,3 +17,7 @@ state_estimators:
 
 heading_estimators:
   active: ["GYRO", "ALOAM"]
+
+lateral:
+  slam:
+    use_general_slam_origin: true # use slam_origin instead of aloam_origin/liosam_origin

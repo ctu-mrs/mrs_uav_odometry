@@ -53,7 +53,7 @@ heading_estimators:
     BRICKFLOW: ["rate_gyro", "hdg_brick"]
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
     ALOAMREP: ["rate_gyro", "hdg_aloam", "rate_icp"]
-    LIOSAM: ["rate_gyro", "hdg_liosam", "rate_liosam"]
+    LIOSAM: ["hdg_liosam", "rate_liosam"]
 
   # Mapping of measurements to states
   measurement_states:

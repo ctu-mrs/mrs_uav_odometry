@@ -113,7 +113,7 @@
       <remap from="~tower_pose_in" to="tower_mapping/slam_out_pose" />
       <remap from="~aloam_odom_in" to="aloam/odom" />
       <remap from="~slam_eigenvalues" to="aloam/eigenvalues" />
-      <remap from="~liosam_odom_in" to="liosam/odometry/imu" />
+      <remap from="~liosam_odom_in" to="slam/odom" />
       <remap from="~control_manager_diag_in" to="control_manager/diagnostics" />
       <remap from="~rtk_gps_in" to="rtk_gps/global" />
       <remap from="~icp_twist_in" to="mrs_icp2d/twist_body" />

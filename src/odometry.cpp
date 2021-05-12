@@ -4112,10 +4112,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
-  odom_main.header.frame_id = _uav_name_ + "/" + toLowercase(current_lat_estimator_name_) + "_origin";
+  const auto estimator_name = toLowercase(current_lat_estimator_name_);
+  if ((estimator_name == "liosam" || estimator_name == "aloam") && _use_general_slam_origin_) {
+    odom_main.header.frame_id = _uav_name_ + "/slam_origin";
+  } else {
+    odom_main.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+  }
   odom_main.child_frame_id  = fcu_frame_id_;
   uav_state.header.stamp    = ros::Time::now();
-  uav_state.header.frame_id = _uav_name_ + "/" + toLowercase(current_lat_estimator_name_) + "_origin";
+  uav_state.header.frame_id = odom_main.header.frame_id;
   uav_state.child_frame_id  = fcu_frame_id_;
 
   /* initialize lateral kalman filters //{ */
