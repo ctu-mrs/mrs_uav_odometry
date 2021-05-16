@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.1 (2021-05-16)
+------------------
 * version -> 1.0.1
 * update liosam covariances after first flight testing
 * update liosam covariances
