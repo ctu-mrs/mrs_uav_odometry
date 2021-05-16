@@ -2,6 +2,52 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* version -> 1.0.1
+* update liosam covariances after first flight testing
+* update liosam covariances
+* also allow to change liosam_origin to slam_origin
+* updated ros::shutdown
+* possibility to change aloam/liosam origin to slam_origin
+* fixed rtk altitude intialization (tested on one rosbag only)
+* fix in rtk saturate print
+* fixed double -> bool variables
+* updated initialization of gps_origin (update your world files!)
+* added heading estimator to diagnostics msg
+* increased repredictor buffer size, added AloamgarmDebug message publishing
+* added remaining median filter config params for ALOAMGARM
+* fixed Q matrix initilization in ALOAMGARM
+* removed unnecessary if
+* do not run repredictor without aloam data, fixes broken GPS flight
+* throttled "longer than 10 ms prediction" warning
+* aloamgarm update - separated aloam eigenvalue from odometry message, fixed dynamic reconfigure
+* polishing aloamgarm
+* removed commented out stuff from aloamgarm
+* removed some garbage related to ALOAMGARM
+* fixed aloam mapping tf
+* modified aloamgarm duration debug publishing
+* aloamgarm - added some debug publishers for processing duration and aloam_ok
+* aloamgarm - added state for barometer bias
+* increased toleration for aloamgarm median filter when close to the ground
+* aloamgarm update
+* aloamgarm - multiple values of difference for median filter
+* trying ALOAM + garmin fusion
+* passing zero input to estimators when attitude command is too old (to prevent repredictor warnings)
+* disabled initialization of local odometry offset to current UAV height
+* modified the rest of methods in HeadingEstimator to work with repredictor
+* passing current time to prediction when no controller is active to prevent repredictor warnings
+* added repredictor for StateEstimator and HeadingEstimator
+* publishing ALOAM delay on a topic
+* added repredictor reset
+* altitude estimation working with repredictor (ALOAMREP estimator)
+* repredictor for altitude estimation, it's broken
+* trying repredictor for altitude estimation
+* publishing debug topics, fixed switch to garmin
+* aloamgarm - fusing garmin differentially
+* trying aloam + garmin fusion for altitude estimation
+* Contributors: Matej Petrlik, Pavel Petracek, Tomas Baca, Vaclav Pritzl
+
 1.0.0 (2021-03-18)
 ------------------
 * Major release
