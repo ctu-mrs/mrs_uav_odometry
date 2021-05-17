@@ -397,7 +397,7 @@ private:
   ros::Time liosam_timestamp_;
   bool      liosam_updated_mapping_tf_ = false;
 
-  bool _use_general_slam_origin_ = false;
+  bool _use_general_slam_origin_       = false;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -1164,19 +1164,6 @@ void Odometry::onInit() {
 
   //}
 
-  /* frame ids //{ */
-
-  fcu_frame_id_                   = _uav_name_ + "/fcu";
-  fcu_untilted_frame_id_          = _uav_name_ + "/fcu_untilted";
-  local_origin_frame_id_          = _uav_name_ + "/local_origin";
-  stable_origin_frame_id_         = _uav_name_ + "/stable_origin";
-  aloam_mapping_origin_frame_id_  = _uav_name_ + "/aloam_mapping_origin";
-  liosam_mapping_origin_frame_id_ = _uav_name_ + "/liosam_mapping_origin";
-  last_local_name_                = _uav_name_ + "/null_origin";
-  last_stable_name_               = _uav_name_ + "/null_origin";
-
-  //}
-
   /* publish rates //{ */
 
   param_loader.loadParam("publish_rate/main", _main_rate_);
@@ -1543,9 +1530,9 @@ void Odometry::onInit() {
 
   //}
 
-/* general slam parameters //{*/
-param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam_origin_);
-/*//}*/
+  /* general slam parameters //{*/
+  param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam_origin_);
+  /*//}*/
 
   /* rtk lateral parameters //{ */
 
@@ -1773,6 +1760,19 @@ param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam
   param_loader.loadMatrixStatic("lateral/Q", _Q_lat_);
 
   //}
+
+  //}
+  
+  /* frame ids //{ */
+
+  fcu_frame_id_                   = _uav_name_ + "/fcu";
+  fcu_untilted_frame_id_          = _uav_name_ + "/fcu_untilted";
+  local_origin_frame_id_          = _uav_name_ + "/local_origin";
+  stable_origin_frame_id_         = _uav_name_ + "/stable_origin";
+  aloam_mapping_origin_frame_id_  = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/aloam_mapping_origin";
+  liosam_mapping_origin_frame_id_ = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/liosam_mapping_origin";
+  last_local_name_                = _uav_name_ + "/null_origin";
+  last_stable_name_               = _uav_name_ + "/null_origin";
 
   //}
 
@@ -2217,7 +2217,7 @@ param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam
   }
 
   // subscriber for aloam odometry
-  if (aloam_active_ || aloamgarm_active_) {
+  if (aloam_active_ || aloamgarm_active_ || aloamrep_active_) {
     sub_aloam_odom_ = nh_.subscribe("aloam_odom_in", 1, &Odometry::callbackAloamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
@@ -3782,7 +3782,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_, odom_aux->second);
 
     std::string estimator_name = estimator.first;
-    if ((estimator_name == "LIOSAM" || estimator_name == "ALOAM") && _use_general_slam_origin_) {
+    if (_use_general_slam_origin_ && (estimator_name == "LIOSAM" || estimator_name == "ALOAM" || estimator_name == "ALOAMGARM" || estimator_name == "ALOAMREP")) {
       odom_aux->second.header.frame_id = _uav_name_ + "/slam_origin";
     } else {
       std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
@@ -4113,7 +4113,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
   const auto estimator_name = toLowercase(current_lat_estimator_name_);
-  if ((estimator_name == "liosam" || estimator_name == "aloam") && _use_general_slam_origin_) {
+  if (_use_general_slam_origin_ && (estimator_name == "liosam" || estimator_name == "aloam" || estimator_name == "aloamgarm" || estimator_name == "aloamrep")) {
     odom_main.header.frame_id = _uav_name_ + "/slam_origin";
   } else {
     odom_main.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";

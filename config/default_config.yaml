@@ -293,7 +293,7 @@ lateral:
 
 # slam# #{
   slam:
-    use_general_slam_origin: false # use slam_origin instead of aloam_origin/liosam_origin
+    use_general_slam_origin: true # use slam_origin instead of aloam_origin/liosam_origin
 # # #}
 
 # # #}
