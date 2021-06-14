@@ -18,7 +18,7 @@ state_estimators:
   active: ["OPTFLOW", "GPS", "RTK", "VIO", "VSLAM", "BRICK", "BRICKFLOW", "HECTOR", "ICP", "ALOAM", "ALOAMGARM", "ALOAMREP", "LIOSAM"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM", "LIOSAM"]
+  active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM", "ALOAMREP", "LIOSAM"]
 
 # rates of publishers# #{
 publish_rate:

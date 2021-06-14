@@ -1816,10 +1816,7 @@ void Odometry::onInit() {
     }
 
     // Add state estimator to array
-    if (*it == "ALOAMREP") {
-      _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
-    } else if (*it == "ALOAMGARM") {
+    if (*it == "ALOAMREP" || *it == "ALOAMGARM") {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
           *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
     } else {
@@ -3926,7 +3923,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     for (auto &hdg_estimator : heading_estimators_) {
 
       if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") ||
-          (hdg_estimator.first == "ALOAM" && (estimator.first == "ALOAMGARM" || estimator.first == "ALOAMREP"))) {
+          (hdg_estimator.first == "ALOAMREP" && estimator.first == "ALOAMGARM")) {
 
         hdg_estimator.second->getState(0, hdg);
 
@@ -4862,10 +4859,10 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   if (stringInVector("ALOAM", _altitude_estimators_names_) && aloam_active_) {
     active_alt_estimators.push_back("ALOAM");
   }
-  if (stringInVector("ALOAMGARM", _altitude_estimators_names_) && aloam_active_) {
+  if (stringInVector("ALOAMGARM", _altitude_estimators_names_) && aloamgarm_active_) {
     active_alt_estimators.push_back("ALOAMGARM");
   }
-  if (stringInVector("ALOAMREP", _altitude_estimators_names_) && aloam_active_) {
+  if (stringInVector("ALOAMREP", _altitude_estimators_names_) && aloamrep_active_) {
     active_alt_estimators.push_back("ALOAMREP");
   }
   if (stringInVector("BARO", _altitude_estimators_names_)) {
@@ -10343,7 +10340,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
 
         break;
       } else {
-        if (estimator.first == hdg_estimator.first) {
+        if (estimator.first == hdg_estimator.first || (estimator.first == "ALOAMGARM" && hdg_estimator.first == "ALOAMREP")) {
           hdg_estimator.second->getState(0, current_hdg);
           break;
         }
@@ -10986,6 +10983,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     aloam_reliable_ = true;
+    //}
     /* LIOSAM //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::LIOSAM) {
 

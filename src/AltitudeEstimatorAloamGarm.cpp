@@ -49,7 +49,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
 
   // add columns for measurement biases
   for (auto H : m_H_multi_orig) {
-    algarm_alt_H_t H_new;
+    algarm_alt_H_t H_new = H_new.Zero();
     H_new.block(0, 0, 1, 3) = H;
     m_H_multi.push_back(H_new);
   }
