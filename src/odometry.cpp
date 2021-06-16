@@ -397,7 +397,8 @@ private:
   ros::Time liosam_timestamp_;
   bool      liosam_updated_mapping_tf_ = false;
 
-  bool _use_general_slam_origin_       = false;
+  bool _use_general_slam_origin_   = false;
+  bool slam_estimator_initialized_ = false;  // whether some lidar slam estimator was already created
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -697,7 +698,7 @@ private:
 
   // for setting home position
   double _utm_origin_x_, _utm_origin_y_;
-  int    _utm_origin_units_ = 0;
+  int    _utm_origin_units_  = 0;
   double rtk_local_origin_z_ = 0.0;
   bool   _init_gps_origin_local_;
   double _init_gps_offset_x_, _init_gps_offset_y_;
@@ -1762,7 +1763,7 @@ void Odometry::onInit() {
   //}
 
   //}
-  
+
   /* frame ids //{ */
 
   fcu_frame_id_                   = _uav_name_ + "/fcu";
@@ -1812,6 +1813,19 @@ void Odometry::onInit() {
         R_arr_lat.push_back(Mat1::Ones() * pair_measurement_covariance->second(0) * 1000);
       } else {
         R_arr_lat.push_back(Mat1::Ones() * pair_measurement_covariance->second(0));
+      }
+    }
+
+    // Safety check forbidding the use of multiple SLAM algorithms when _use_general_slam_origin_ is active
+    if (_use_general_slam_origin_) {
+      if (*it == "ALOAMREP" || *it == "ALOAM" || *it == "LIOSAM" || *it == "ALOAMGARM") {
+        if (slam_estimator_initialized_) {
+          ROS_ERROR("[Odometry] Multiple simultaneous SLAM estimators (ALOAM/ALOAMREP/ALOAMGARM/LIOSAM) are not allowed when _use_general_slam_origin_ parameter is active.");
+          ros::requestShutdown();
+          return;
+        } else {
+          slam_estimator_initialized_ = true;
+        }
       }
     }
 
@@ -3779,14 +3793,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_, odom_aux->second);
 
     std::string estimator_name = estimator.first;
-    if (_use_general_slam_origin_ && (estimator_name == "LIOSAM" || estimator_name == "ALOAM" || estimator_name == "ALOAMGARM" || estimator_name == "ALOAMREP")) {
+    if (_use_general_slam_origin_ &&
+        (estimator_name == "LIOSAM" || estimator_name == "ALOAM" || estimator_name == "ALOAMGARM" || estimator_name == "ALOAMREP")) {
       odom_aux->second.header.frame_id = _uav_name_ + "/slam_origin";
     } else {
       std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
       odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
     }
-    odom_aux->second.header.stamp    = time_now;
-    odom_aux->second.child_frame_id  = fcu_frame_id_;
+    odom_aux->second.header.stamp   = time_now;
+    odom_aux->second.child_frame_id = fcu_frame_id_;
 
     alt_x_t alt_x = alt_x.Zero();
     // update the altitude state
