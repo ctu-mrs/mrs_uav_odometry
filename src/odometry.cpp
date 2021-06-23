@@ -434,6 +434,7 @@ private:
   mrs_msgs::RtkGps rtk_odom_;
   ros::Time        rtk_last_update_;
   bool             _rtk_fuse_sps_;
+  bool             _use_full_rtk_;
   bool             _use_rtk_altitude_;
 
   // Hector messages
@@ -1543,6 +1544,7 @@ void Odometry::onInit() {
   param_loader.loadMatrixStatic("lateral/rtk/R", _R_lat_rtk_);
   param_loader.loadMatrixStatic("lateral/rtk/Q", _Q_lat_rtk_);
   param_loader.loadMatrixStatic("lateral/rtk/P", _P_lat_rtk_);
+  param_loader.loadParam("lateral/rtk/use_full_rtk", _use_full_rtk_);
   param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
   //}
@@ -3030,7 +3032,19 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // Fallback from RTK
   if (estimator_type_.type == mrs_msgs::EstimatorType::RTK) {
-    if (!gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+
+    if (!rtk_reliable_ && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
+      ROS_WARN("[Odometry]: RTK not reliable. Switching to GPS type.");
+      mrs_msgs::EstimatorType gps_type;
+      gps_type.type = mrs_msgs::EstimatorType::GPS;
+      if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+    
+    } else if (!gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3041,7 +3055,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called_ = true;
       }
     }
-    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)) {
+    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)|| (!got_rtk_ && _use_full_rtk_)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE", got_rtk_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called_) {
@@ -3916,13 +3930,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     Vec2 pos_vec;
     Vec2 vel_vec;
 
-    if (toUppercase(estimator.second->getName()) == "RTK") {
-      {
+    if (toUppercase(estimator.second->getName()) == "RTK" && !_use_full_rtk_) {
         std::scoped_lock lock(mutex_rtk_est_);
 
         pos_vec(0) = sc_lat_rtk_.x(0);
         pos_vec(1) = sc_lat_rtk_.x(1);
-      }
     } else {
 
       estimator.second->getState(0, pos_vec);
@@ -5088,6 +5100,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (got_odom_pixhawk_ && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: Pixhawk odometry not received for %f seconds.", interval.toSec());
     got_odom_pixhawk_ = false;
+  }
+
+  // rtk odometry
+  interval = ros::Time::now() - rtk_last_update_;
+  if (got_rtk_ && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: RTK odometry not received for %f seconds.", interval.toSec());
+    got_rtk_ = false;
   }
 
   // optflow velocities (corrections of lateral kf)
@@ -6998,6 +7017,9 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     /* } */
 
     // Do RTK estimator lateral correction
+    
+    stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
+
     lkf_rtk_t::z_t rtk_meas;
     rtk_meas << x_est + x_correction, y_est + y_correction;
     {
@@ -7010,6 +7032,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
         ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
       }
     }
+
+
     //}
 
     // Do RTK estimator altitude correction

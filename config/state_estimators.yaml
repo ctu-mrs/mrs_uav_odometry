@@ -54,7 +54,7 @@ state_estimators:
     OPTFLOW: ["vel_optflow"]
     GPS: ["pos_mavros"]
     OPTFLOWGPS: ["vel_optflow", "pos_mavros"]
-    RTK: ["pos_mavros", "pos_rtk"]
+    RTK: ["pos_rtk"]
     HECTOR: ["pos_hector"]
     VIO: ["pos_vio", "vel_vio"]
     VSLAM: ["pos_vslam"]
