@@ -189,7 +189,7 @@ lateral:
     pos_liosam: [10]
     vel_liosam: [100]
     vel_icp: [10]
-    pos_rtk: [1]
+    pos_rtk: [0.001]
     vel_rtk: [1]
     acc_imu: [1000000000] # turned off in estimators
 
@@ -213,8 +213,6 @@ lateral:
 
     P: [1, 0,
         0, 1]
-
-    use_full_rtk: false # Full RTK for precise and realiable RTK stations only
 
 # # #}
 
@@ -255,7 +253,6 @@ lateral:
   max_rtk_pos_correction: 0.5
   max_vslam_pos_correction: 0.2
   max_t265_vel: 10.0
-  rtk_fuse_sps: true
   max_safe_brick_jump: 0.3
 
 # # #}
@@ -296,6 +293,11 @@ lateral:
 # slam# #{
   slam:
     use_general_slam_origin: true # use slam_origin instead of aloam_origin/liosam_origin
+# # #}
+
+# rtk # #{
+  use_full_rtk: true # Full RTK for precise and realiable RTK stations only
+  rtk_fuse_sps: true
 # # #}
 
 # # #}

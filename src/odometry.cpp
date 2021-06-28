@@ -436,6 +436,8 @@ private:
   bool             _rtk_fuse_sps_;
   bool             _use_full_rtk_;
   bool             _use_rtk_altitude_;
+  double           pos_rtk_x_, pos_rtk_y_;
+  bool             rtk_corr_ready_;
 
   // Hector messages
   std::mutex                 mutex_hector_;
@@ -1544,7 +1546,7 @@ void Odometry::onInit() {
   param_loader.loadMatrixStatic("lateral/rtk/R", _R_lat_rtk_);
   param_loader.loadMatrixStatic("lateral/rtk/Q", _Q_lat_rtk_);
   param_loader.loadMatrixStatic("lateral/rtk/P", _P_lat_rtk_);
-  param_loader.loadParam("lateral/rtk/use_full_rtk", _use_full_rtk_);
+  param_loader.loadParam("lateral/use_full_rtk", _use_full_rtk_);
   param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
   //}
@@ -2819,6 +2821,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto pos_liosam_y_tmp = mrs_lib::get_mutexed(mutex_liosam_, pos_liosam_y_);
       stateEstimatorsCorrection(pos_liosam_x_tmp, pos_liosam_y_tmp, "pos_liosam");
     }
+
+    // correction step for rtk
+    /* if (_use_full_rtk_ && got_rtk_ && rtk_corr_ready_) { */
+    /*   auto pos_rtk_x_tmp = mrs_lib::get_mutexed(mutex_rtk_, pos_rtk_x_); */
+    /*   auto pos_rtk_y_tmp = mrs_lib::get_mutexed(mutex_rtk_, pos_rtk_y_); */
+    /*   stateEstimatorsCorrection(pos_rtk_x_tmp, pos_rtk_y_tmp, "pos_rtk"); */
+    /* } */
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
   }
@@ -3044,7 +3053,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called_ = true;
       }
     
-    } else if (!gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
+    } else if (!rtk_reliable_ && !gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
       optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
@@ -3054,8 +3063,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called_ = true;
       }
-    }
-    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)|| (!got_rtk_ && _use_full_rtk_)) {
+    } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)|| (!got_rtk_ && _use_full_rtk_)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE", got_rtk_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called_) {
@@ -3935,6 +3943,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         pos_vec(0) = sc_lat_rtk_.x(0);
         pos_vec(1) = sc_lat_rtk_.x(1);
+        ROS_INFO_ONCE("[Odometry]: Using imprecise RTK estimator.");
     } else {
 
       estimator.second->getState(0, pos_vec);
@@ -4358,7 +4367,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* fill in the current position //{ */
 
-    if (toUppercase(current_lat_estimator_name_) == "RTK") {
+    if (toUppercase(current_lat_estimator_name_) == "RTK" && !_use_full_rtk_) {
       {
         std::scoped_lock lock(mutex_rtk_est_);
 
@@ -5104,9 +5113,9 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   // rtk odometry
   interval = ros::Time::now() - rtk_last_update_;
-  if (got_rtk_ && interval.toSec() > 1.0) {
+  if (got_rtk_ && rtk_reliable_ && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: RTK odometry not received for %f seconds.", interval.toSec());
-    got_rtk_ = false;
+    rtk_reliable_ = false;
   }
 
   // optflow velocities (corrections of lateral kf)
@@ -5788,7 +5797,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   if (gps_active_) {
 
-    double vel_mavros_x, vel_mavros_y;
+    double vel_mavros_x, vel_mavros_y, vel_mavros_z;
     double diff_mavros_x, diff_mavros_y;
     {
       std::scoped_lock lock(mutex_odom_pixhawk_);
@@ -5797,7 +5806,29 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       diff_mavros_y = (odom_pixhawk_shifted_.pose.pose.position.y - odom_pixhawk_previous_shifted_.pose.pose.position.y) / dt;
       vel_mavros_x  = odom_pixhawk_shifted_.twist.twist.linear.x;
       vel_mavros_y  = odom_pixhawk_shifted_.twist.twist.linear.y;
+      vel_mavros_z  = odom_pixhawk_shifted_.twist.twist.linear.z;
     }
+
+    // Transform body velocity to global velocity
+    geometry_msgs::Vector3Stamped local_vel;
+    local_vel.header.frame_id = fcu_frame_id_;
+    local_vel.header.stamp    = ros::Time::now();
+    local_vel.vector.x        = vel_mavros_x;
+    local_vel.vector.y        = vel_mavros_y;
+    local_vel.vector.z        = vel_mavros_z;
+
+    geometry_msgs::Vector3Stamped global_vel;
+    auto                          response = transformer_.transformSingle(_uav_name_ + "/gps_origin", local_vel);
+    if (response) {
+      global_vel = response.value();
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_main.", local_vel.header.frame_id.c_str(),
+                        (_uav_name_ + "gps_origin").c_str());
+      return;
+    }
+
+    vel_mavros_x = global_vel.vector.x;
+    vel_mavros_y = global_vel.vector.y;
 
     // Apply correction step to all state estimators
     if (fabs(vel_mavros_x) < 100 && fabs(vel_mavros_y) < 100) {
@@ -7016,8 +7047,15 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     double z_measurement = z_est + z_correction;
     /* } */
 
+  {
+    std::scoped_lock lock(mutex_rtk_);
+
+    pos_rtk_x_      = x_rtk;
+    pos_rtk_y_      = y_rtk;
+    rtk_corr_ready_ = true;
+  }
+
     // Do RTK estimator lateral correction
-    
     stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
 
     lkf_rtk_t::z_t rtk_meas;

@@ -17,3 +17,7 @@ state_estimators:
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS"]
+
+lateral:
+  R:
+    vel_mavros: [0.1]
