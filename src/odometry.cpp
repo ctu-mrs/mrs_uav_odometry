@@ -1824,7 +1824,9 @@ void Odometry::onInit() {
     if (_use_general_slam_origin_) {
       if (*it == "ALOAMREP" || *it == "ALOAM" || *it == "LIOSAM" || *it == "ALOAMGARM") {
         if (slam_estimator_initialized_) {
-          ROS_ERROR("[Odometry] Multiple simultaneous SLAM estimators (ALOAM/ALOAMREP/ALOAMGARM/LIOSAM) are not allowed when _use_general_slam_origin_ parameter is active.");
+          ROS_ERROR(
+              "[Odometry] Multiple simultaneous SLAM estimators (ALOAM/ALOAMREP/ALOAMGARM/LIOSAM) are not allowed when _use_general_slam_origin_ parameter is "
+              "active.");
           ros::requestShutdown();
           return;
         } else {
@@ -3058,7 +3060,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called_ = true;
       }
-    
+
     } else if (!rtk_reliable_ && !gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
@@ -3069,7 +3071,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ser_client_failsafe_.call(failsafe_out);
         failsafe_called_ = true;
       }
-    } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)|| (!got_rtk_ && _use_full_rtk_)) {
+    } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || (!got_rtk_ && _use_full_rtk_)) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, rtk: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE", got_rtk_ ? "TRUE" : "FALSE");
       if (got_lateral_sensors_ && !failsafe_called_) {
@@ -3251,144 +3253,35 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
 
     // Fallback from ALOAM Slam
-  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAM) {
-    if (!got_aloam_odom_ || !aloam_reliable_) {
-      if (icp_active_ && got_icp_twist_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::ICP;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to ICP type.");
-        mrs_msgs::EstimatorType icp_type;
-        icp_type.type = mrs_msgs::EstimatorType::ICP;
-        if (!changeCurrentEstimator(icp_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called_ = true;
-        }
-      } else if (optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to OPTFLOW heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to OPTFLOW type.");
-        mrs_msgs::EstimatorType optflow_type;
-        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-        if (!changeCurrentEstimator(optflow_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called_ = true;
-        }
-      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
-        mrs_msgs::EstimatorType gps_type;
-        gps_type.type = mrs_msgs::EstimatorType::GPS;
-        if (!changeCurrentEstimator(gps_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called_ = true;
-        }
-      } else if (!failsafe_called_) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called_ = true;
-      }
-    }
-    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || !got_aloam_odom_) {
-      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, aloam: %s",
-                        got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
-                        got_aloam_odom_ ? "TRUE" : "FALSE");
-      if (got_lateral_sensors_ && !failsafe_called_) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called_ = true;
-      }
-      return;
-    }
+  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAM || estimator_type_.type == mrs_msgs::EstimatorType::ALOAMGARM ||
+             estimator_type_.type == mrs_msgs::EstimatorType::ALOAMREP) {
+    if (!aloam_reliable_) {
 
-    // Fallback from ALOAMGARM Slam
-  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAMGARM) {
-    if (!got_aloam_odom_ || !aloam_reliable_) {
-      if (icp_active_ && got_icp_twist_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::ICP;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to ICP type.");
-        mrs_msgs::EstimatorType icp_type;
-        icp_type.type = mrs_msgs::EstimatorType::ICP;
-        if (!changeCurrentEstimator(icp_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+      if (got_range_) {
+        ROS_WARN("[Odometry]: ALOAM altitude not reliable. Switching to HEIGHT type.");
+        mrs_msgs::AltitudeType altitude_type;
+        altitude_type.type = mrs_msgs::AltitudeType::HEIGHT;
+        if (!changeCurrentAltitudeEstimator(altitude_type)) {
+          ROS_WARN("[Odometry]: Switch to HEIGHT altitude not successful. Switching to BARO type.");
+          altitude_type.type = mrs_msgs::AltitudeType::BARO;
+          if (!changeCurrentAltitudeEstimator(altitude_type)) {
+            ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback altitude estimator not available. Triggering failsafe.");
+            std_srvs::Trigger failsafe_out;
+            ser_client_failsafe_.call(failsafe_out);
+            failsafe_called_ = true;
+          }
+        }
+      } else {
+        mrs_msgs::AltitudeType altitude_type;
+        altitude_type.type = mrs_msgs::AltitudeType::BARO;
+        if (!changeCurrentAltitudeEstimator(altitude_type)) {
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback altitude estimator not available. Triggering failsafe.");
           std_srvs::Trigger failsafe_out;
           ser_client_failsafe_.call(failsafe_out);
           failsafe_called_ = true;
         }
-      } else if (optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to OPTFLOW heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::OPTFLOW;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to OPTFLOW type.");
-        mrs_msgs::EstimatorType optflow_type;
-        optflow_type.type = mrs_msgs::EstimatorType::OPTFLOW;
-        if (!changeCurrentEstimator(optflow_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called_ = true;
-        }
-      } else if (gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to PIXHAWK heading estimator.");
-        mrs_msgs::HeadingType desired_estimator;
-        desired_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
-        desired_estimator.name = _heading_estimators_names_[desired_estimator.type];
-        changeCurrentHeadingEstimator(desired_estimator);
-        ROS_WARN("[Odometry]: ALOAM not reliable. Switching to GPS type.");
-        mrs_msgs::EstimatorType gps_type;
-        gps_type.type = mrs_msgs::EstimatorType::GPS;
-        if (!changeCurrentEstimator(gps_type)) {
-          ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
-          std_srvs::Trigger failsafe_out;
-          ser_client_failsafe_.call(failsafe_out);
-          failsafe_called_ = true;
-        }
-      } else if (!failsafe_called_) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called_ = true;
       }
-    }
-    if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || !got_aloam_odom_) {
-      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, aloam: %s",
-                        got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
-                        got_aloam_odom_ ? "TRUE" : "FALSE");
-      if (got_lateral_sensors_ && !failsafe_called_) {
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
-        std_srvs::Trigger failsafe_out;
-        ser_client_failsafe_.call(failsafe_out);
-        failsafe_called_ = true;
-      }
-      return;
-    }
 
-    // Fallback from ALOAMREP Slam
-  } else if (estimator_type_.type == mrs_msgs::EstimatorType::ALOAMREP) {
-    if (!got_aloam_odom_ || !aloam_reliable_) {
       if (icp_active_ && got_icp_twist_) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM heading not reliable. Switching to ICP heading estimator.");
         mrs_msgs::HeadingType desired_estimator;
@@ -3945,11 +3838,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     Vec2 vel_vec;
 
     if (toUppercase(estimator.second->getName()) == "RTK" && !_use_full_rtk_) {
-        std::scoped_lock lock(mutex_rtk_est_);
+      std::scoped_lock lock(mutex_rtk_est_);
 
-        pos_vec(0) = sc_lat_rtk_.x(0);
-        pos_vec(1) = sc_lat_rtk_.x(1);
-        ROS_INFO_ONCE("[Odometry]: Using imprecise RTK estimator.");
+      pos_vec(0) = sc_lat_rtk_.x(0);
+      pos_vec(1) = sc_lat_rtk_.x(1);
+      ROS_INFO_ONCE("[Odometry]: Using imprecise RTK estimator.");
     } else {
 
       estimator.second->getState(0, pos_vec);
@@ -5198,9 +5091,9 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   //  aloam odometry (corrections of lateral kf)
   interval = ros::Time::now() - aloam_odom_last_update_;
-  if (got_aloam_odom_ && interval.toSec() > 0.5) {
+  if (got_aloam_odom_ && aloam_reliable_ && interval.toSec() > 0.5) {
     ROS_WARN("[Odometry]: ALOAM odometry not received for %f seconds.", interval.toSec());
-    got_aloam_odom_ = false;
+    aloam_reliable_ = false;
   }
 
   //  LIOSAM odometry (corrections of lateral kf)
@@ -7078,14 +6971,14 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       altitudeEstimatorCorrection(z_measurement, "height_rtk", estimator.second);
     }
 
-  {
-    std::scoped_lock lock(mutex_rtk_);
+    {
+      std::scoped_lock lock(mutex_rtk_);
 
-    pos_rtk_x_      = x_rtk;
-    pos_rtk_y_      = y_rtk;
-    pos_rtk_z_      = z_rtk;
-    rtk_corr_ready_ = true;
-  }
+      pos_rtk_x_      = x_rtk;
+      pos_rtk_y_      = y_rtk;
+      pos_rtk_z_      = z_rtk;
+      rtk_corr_ready_ = true;
+    }
 
     ROS_INFO_ONCE("[Odometry]: Fusing RTK position");
   }
