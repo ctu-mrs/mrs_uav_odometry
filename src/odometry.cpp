@@ -436,7 +436,7 @@ private:
   bool             _rtk_fuse_sps_;
   bool             _use_full_rtk_;
   bool             _use_rtk_altitude_;
-  double           pos_rtk_x_, pos_rtk_y_;
+  double           pos_rtk_x_, pos_rtk_y_, pos_rtk_z_;
   bool             rtk_corr_ready_;
 
   // Hector messages
@@ -2827,6 +2827,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /*   auto pos_rtk_x_tmp = mrs_lib::get_mutexed(mutex_rtk_, pos_rtk_x_); */
     /*   auto pos_rtk_y_tmp = mrs_lib::get_mutexed(mutex_rtk_, pos_rtk_y_); */
     /*   stateEstimatorsCorrection(pos_rtk_x_tmp, pos_rtk_y_tmp, "pos_rtk"); */
+    /* } */
+
+    // correction step for rtk altitude
+    /* if (got_rtk_ && rtk_corr_ready_) { */
+    /*   auto pos_rtk_z_tmp = mrs_lib::get_mutexed(mutex_rtk_, pos_rtk_z_); */
+    /*   altitudeEstimatorCorrection(pos_rtk_z_tmp, "height_rtk"); */
     /* } */
   } else {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: Rotating lateral state. Skipping prediction.");
@@ -7047,13 +7053,6 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     double z_measurement = z_est + z_correction;
     /* } */
 
-  {
-    std::scoped_lock lock(mutex_rtk_);
-
-    pos_rtk_x_      = x_rtk;
-    pos_rtk_y_      = y_rtk;
-    rtk_corr_ready_ = true;
-  }
 
     // Do RTK estimator lateral correction
     stateEstimatorsCorrection(x_rtk, y_rtk, "pos_rtk");
@@ -7078,6 +7077,15 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     for (auto &estimator : _altitude_estimators_) {
       altitudeEstimatorCorrection(z_measurement, "height_rtk", estimator.second);
     }
+
+  {
+    std::scoped_lock lock(mutex_rtk_);
+
+    pos_rtk_x_      = x_rtk;
+    pos_rtk_y_      = y_rtk;
+    pos_rtk_z_      = z_rtk;
+    rtk_corr_ready_ = true;
+  }
 
     ROS_INFO_ONCE("[Odometry]: Fusing RTK position");
   }
