@@ -114,11 +114,11 @@ altitude:
       max_diff: 2.0
 
     aloam:
-      buffer_size: 200
+      buffer_size: 20
       max_diff: 2.0
     
     liosam:
-      buffer_size: 200
+      buffer_size: 20
       max_diff: 2.0
 
 # # #}
@@ -149,8 +149,8 @@ altitude:
       max: 100.0
 
     aloam:
-      min: -100.0
-      max: 100.0
+      min: -1000.0
+      max: 1000.0
 
     liosam:
       min: -1000.0

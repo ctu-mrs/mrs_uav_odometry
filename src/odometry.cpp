@@ -7147,7 +7147,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     // Median filter
     if (isUavFlying() && vio_altitude_ok) {
       if (!alt_mf_vio_->isValid(measurement)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f declined by median filter.", measurement);
         vio_altitude_ok = false;
       }
     }
@@ -7657,7 +7657,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   bool   fuse_brick_height = true;
   if (isUavFlying()) {
     if (!alt_mf_brick_->isValid(measurement)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height easurement %f declined by median filter.", measurement);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f declined by median filter.", measurement);
       fuse_brick_height = false;
     }
   }
@@ -7980,7 +7980,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   }
   if (isUavFlying()) {
     if (!alt_mf_aloam_->isValid(measurement)) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height easurement %f declined by median filter.", measurement);
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM height measurement %f declined by median filter.", measurement);
       aloam_height_ok = false;
     }
   }
