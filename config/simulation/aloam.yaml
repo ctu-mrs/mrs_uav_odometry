@@ -15,6 +15,9 @@ heading_estimator: "ALOAM"
 state_estimators:
   active: ["ALOAM", "GPS"]
 
+  publish_tf:
+    ALOAM: true
+
 heading_estimators:
   active: ["GYRO", "ALOAM"]
 
@@ -32,7 +35,3 @@ altitude:
   R:
     height_aloam: [1]
 
-# Publishing of TF of each estimator can be disabled (default is enabled):
-state_estimators:
-  publish_tf:
-    ALOAM: true
