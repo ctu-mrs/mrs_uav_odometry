@@ -164,6 +164,7 @@ private:
   ros::Publisher pub_height_;
   ros::Publisher pub_orientation_;
   ros::Publisher pub_max_altitude_;
+  ros::Publisher pub_max_altitude_status_string_;
   ros::Publisher pub_lkf_states_x_;
   ros::Publisher pub_lkf_states_y_;
   ros::Publisher pub_heading_states_;
@@ -2131,6 +2132,7 @@ void Odometry::onInit() {
   pub_altitude_             = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
   pub_height_               = nh_.advertise<mrs_msgs::Float64Stamped>("height_out", 1);
   pub_max_altitude_         = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
+  pub_max_altitude_status_string_         = nh_.advertise<std_msgs::String>("max_altitude_status_string_out", 1);
   pub_orientation_          = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
   pub_lkf_states_x_         = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
   pub_lkf_states_y_         = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
@@ -4958,17 +4960,52 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
 
-  mrs_msgs::Float64Stamped max_altitude_m_sg;
-  max_altitude_m_sg.header.frame_id = _uav_name_ + "/" + toLowercase(current_lat_estimator_name_) + "_origin";
-  max_altitude_m_sg.header.stamp    = ros::Time::now();
+  mrs_msgs::Float64Stamped max_altitude_msg;
+  max_altitude_msg.header.frame_id = _uav_name_ + "/" + toLowercase(current_lat_estimator_name_) + "_origin";
+  max_altitude_msg.header.stamp    = ros::Time::now();
 
-  max_altitude_m_sg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
+  max_altitude_msg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
   try {
-    pub_max_altitude_.publish(max_altitude_m_sg);
+    pub_max_altitude_.publish(max_altitude_msg);
   }
   catch (...) {
     ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
+  }
+
+  std_msgs::String max_altitude_status_string_msg;
+
+  /* get altitude states from current filter //{ */
+
+  alt_x_t alt_x;
+  {
+    std::scoped_lock lock(mutex_altitude_estimator_);
+
+    if (!current_alt_estimator_->getStates(alt_x)) {
+      ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
+  }
+
+  //}
+    
+  if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.9*max_altitude_) {
+    max_altitude_status_string_msg.data += "-R ";
+  } else if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.8*max_altitude_) {
+    max_altitude_status_string_msg.data += "-r ";
+  } else if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) > 0.7*max_altitude_) {
+    max_altitude_status_string_msg.data += "-y ";
+  } else {
+    max_altitude_status_string_msg.data += "-g ";
+  }
+
+  max_altitude_status_string_msg.data += "Max flight alt: " + std::to_string((int) max_altitude_); 
+
+  try {
+    pub_max_altitude_status_string_.publish(max_altitude_status_string_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_status_string_.getTopic().c_str());
   }
 }
 

@@ -145,6 +145,7 @@
       <remap from="~height_out" to="~height" />
       <remap from="~altitude_state_out" to="~altitude_state" />
       <remap from="~max_altitude_out" to="~max_altitude" />
+      <remap from="~max_altitude_status_string_out" to="mrs_uav_status/display_string" />
       <remap from="~orientation_out" to="~orientation" />
       <remap from="~lkf_states_x_out" to="~lkf_states_x" />
       <remap from="~lkf_states_y_out" to="~lkf_states_y" />
