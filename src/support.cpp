@@ -97,3 +97,17 @@ bool mrs_uav_odometry::noNans(const geometry_msgs::TransformStamped& tf) {
   return (std::isfinite(tf.transform.rotation.z) && std::isfinite(tf.transform.translation.x) && std::isfinite(tf.transform.translation.z));
 }
 //}
+
+/* noNans() //{ */
+bool mrs_uav_odometry::noNans(const geometry_msgs::Quaternion& q) {
+
+  return (std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w));
+}
+//}
+
+/* isZeroQuaternion() //{ */
+bool mrs_uav_odometry::isZeroQuaternion(const geometry_msgs::Quaternion& q) {
+
+  return (q.x == 0  && q.y == 0 && q.z == 0 && q.w == 0);
+}
+//}

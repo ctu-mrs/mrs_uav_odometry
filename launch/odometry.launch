@@ -69,7 +69,6 @@
 
       <rosparam file="$(find mrs_uav_odometry)/config/default_config.yaml" command="load" />
       <rosparam file="$(arg default_config_file)" command="load" />
-      <rosparam file="$(arg default_config_file)" command="load" />
       <rosparam file="$(find mrs_uav_odometry)/config/state_estimators.yaml" command="load" />
       <rosparam file="$(find mrs_uav_odometry)/config/altitude_estimator.yaml" command="load" />
       <rosparam file="$(find mrs_uav_odometry)/config/heading_estimator.yaml" command="load" />

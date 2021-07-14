@@ -33,6 +33,10 @@ void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
 bool noNans(const geometry_msgs::TransformStamped& tf);
 
+bool noNans(const geometry_msgs::Quaternion& q);
+
+bool isZeroQuaternion(const geometry_msgs::Quaternion& q);
+
 }  // namespace mrs_uav_odometry
 
 #endif

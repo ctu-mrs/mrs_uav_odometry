@@ -5462,6 +5462,16 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOdometry");
 
+  if (!noNans(msg->pose.pose.orientation)) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: NaN detected in mavros orientation. Returning from mavros callback.");
+    return;
+  }
+
+  if (isZeroQuaternion(msg->pose.pose.orientation)) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Zero quaternion detected in mavros orientation. Returning from mavros callback.");
+    return;
+  }
+
   if (got_odom_pixhawk_) {
 
     {
