@@ -129,7 +129,7 @@ altitude:
   gate:
     garmin:
       min: 0.05
-      max: 20
+      max: 40
       use_inno_gate: true # innovation gate (declining large difference between state and measurement)
       inno_gate_value: 5.0 # [m]
 

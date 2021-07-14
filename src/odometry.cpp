@@ -8366,6 +8366,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     got_range_ = true;
   }
 
+  bool is_measurement_healthy = true;
   auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
 
   height_active_      = true;
@@ -8381,11 +8382,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     return;
   }
 
-  if (!garmin_enabled_) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin disabled. Returning.");
-    return;
-  }
-
   got_range_ = true;
 
   if (!std::isfinite(range_garmin_tmp.range)) {
@@ -8398,23 +8394,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!isValidGate(range_garmin_tmp.range, _garmin_min_valid_alt_, _garmin_max_valid_alt_, "garmin range")) {
     ROS_INFO_THROTTLE(1.0, "[Odometry]: garmin measurement not passed through gate: %f", range_garmin_tmp.range);
     return;
-  }
-
-  // innovation gate check
-  if (_use_garmin_inno_gate_) {
-    for (auto &alt_estimator : _altitude_estimators_) {
-      if (alt_estimator.first == "HEIGHT") {
-        double alt;
-        if (!alt_estimator.second->getState(0, alt)) {
-          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-          return;
-        }
-        if (std::pow(range_garmin_tmp.range - alt, 2) > _garmin_inno_gate_value_sq_) {
-          ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by innovation gate. State value: %f. Not fusing.", range_garmin_tmp.range, alt);
-          return;
-        }
-      }
-    }
   }
 
   auto            odom_pixhawk_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
@@ -8434,7 +8413,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
   if (excessive_tilt) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Excessive tilt detected: %.2f rad. Not fusing.", tilt);
-    return;
+    is_measurement_healthy = false;
   }
 
   // the new way of converting "garmin's range" to "uav height"
@@ -8460,6 +8439,23 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
     measurement = msg->range - _garmin_z_offset_;
   }
 
+  // innovation gate check
+  if (_use_garmin_inno_gate_) {
+    for (auto &alt_estimator : _altitude_estimators_) {
+      if (alt_estimator.first == "HEIGHT") {
+        double alt;
+        if (!alt_estimator.second->getState(0, alt)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+          is_measurement_healthy = false;
+        }
+        if (std::pow(measurement - alt, 2) > _garmin_inno_gate_value_sq_) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by innovation gate. State value: %f. Not fusing.", measurement, alt);
+          is_measurement_healthy = false;
+        }
+      }
+    }
+  }
+
   if (!std::isfinite(measurement)) {
 
     ROS_ERROR_THROTTLE(1, "[Odometry]: NaN detected in Garmin variable \"measurement\" (garmin)!!!");
@@ -8482,13 +8478,18 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (isUavFlying()) {
     if (!alt_mf_garmin_->isValid(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by median filter.", measurement);
-      return;
+      is_measurement_healthy = false;
     }
   }
 
   //////////////////// Fuse main altitude kalman ////////////////////
   if (!garmin_enabled_) {
     ROS_WARN_ONCE("[Odometry]: Garmin not enabled. Not fusing range corrections.");
+    return;
+  }
+
+  if (!is_measurement_healthy) {
+    ROS_WARN_ONCE("[Odometry]: Garmin measurement is not healthy. Not fusing correction.");
     return;
   }
 
