@@ -1142,7 +1142,7 @@ void Odometry::onInit() {
   if (_version_ != VERSION) {
 
     ROS_ERROR("[Odometry]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   //}
@@ -1201,7 +1201,7 @@ void Odometry::onInit() {
 
   if (!is_origin_param_ok) {
     ROS_ERROR("[Odometry]: Could not load all mandatory parameters from world file. Please check your world file.");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   //}
@@ -1342,7 +1342,7 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _alt_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
-        ros::requestShutdown();
+        ros::shutdown();
       }
     }
 
@@ -1360,7 +1360,7 @@ void Odometry::onInit() {
 
     if (!stringInVector(temp_value, _alt_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
-      ros::requestShutdown();
+      ros::shutdown();
     }
 
     map_alt_measurement_state_.insert(std::pair<std::string, std::string>(*it, temp_value));
@@ -1684,7 +1684,7 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
-        ros::requestShutdown();
+        ros::shutdown();
       }
     }
 
@@ -1693,7 +1693,7 @@ void Odometry::onInit() {
 
   if (_pass_rtk_as_odom_ && !rtk_active_) {
     ROS_ERROR("[Odometry]: cannot have _pass_rtk_as_odom_ TRUE when RTK estimator is not active");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   //}
@@ -1707,7 +1707,7 @@ void Odometry::onInit() {
 
     if (!stringInVector(temp_value, _model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
-      ros::requestShutdown();
+      ros::shutdown();
     }
 
     map_measurement_state_.insert(std::pair<std::string, std::string>(*it, temp_value));
@@ -1827,7 +1827,7 @@ void Odometry::onInit() {
           ROS_ERROR(
               "[Odometry] Multiple simultaneous SLAM estimators (ALOAM/ALOAMREP/ALOAMGARM/LIOSAM) are not allowed when _use_general_slam_origin_ parameter is "
               "active.");
-          ros::requestShutdown();
+          ros::shutdown();
           return;
         } else {
           slam_estimator_initialized_ = true;
@@ -1950,7 +1950,7 @@ void Odometry::onInit() {
       if (*it == "GPS") {
         ROS_ERROR("[Odometry]: You probably want PIXHAWK heading estimator.");
       }
-      ros::requestShutdown();
+      ros::shutdown();
     }
 
     std::vector<std::string> temp_vector;
@@ -1959,7 +1959,7 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
       if (!stringInVector(*it2, _hdg_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
-        ros::requestShutdown();
+        ros::shutdown();
       }
     }
 
@@ -1977,7 +1977,7 @@ void Odometry::onInit() {
 
     if (!stringInVector(temp_value, _hdg_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
-      ros::requestShutdown();
+      ros::shutdown();
     }
 
     map_hdg_measurement_state_.insert(std::pair<std::string, std::string>(*it, temp_value));
@@ -2341,67 +2341,67 @@ void Odometry::onInit() {
   ROS_INFO_ONCE("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff_.name.c_str());
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOW && !optflow_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::GPS && !gps_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. GPS estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !optflow_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::RTK && !rtk_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::T265 && !t265_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. T265 estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::HECTOR && !hector_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. HECTOR esimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAM && !aloam_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMGARM && !aloamgarm_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMGARM estimator not active. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP && !aloamrep_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM && !liosam_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. LIOSAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ICP && !icp_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::VIO && !vio_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. VIO estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::VSLAM && !vslam_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual SLAM localization not available. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW && !optflow_active_) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   //}
@@ -2413,19 +2413,19 @@ void Odometry::onInit() {
   success = changeCurrentHeadingEstimator(_hdg_estimator_type_takeoff_);
   if (!success) {
     ROS_ERROR("[Odometry]: The takeoff heading estimator type %s could not be set. Shutting down.", _hdg_estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   success = changeCurrentAltitudeEstimator(_alt_estimator_type_takeoff);
   if (!success) {
     ROS_ERROR("[Odometry]: The takeoff altitude estimator type %s could not be set. Shutting down.", _alt_estimator_type_takeoff.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   success = changeCurrentEstimator(_estimator_type_takeoff_);
   if (!success) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   ROS_INFO("[Odometry]: %s", printOdometryDiag().c_str());
@@ -2513,7 +2513,7 @@ void Odometry::onInit() {
   // | ----------------------- finish init ---------------------- |
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Odometry]: Could not load all non-optional parameters. Shutting down.");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   is_initialized_ = true;
@@ -2632,7 +2632,7 @@ bool Odometry::isReadyToTakeoff() {
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK || _estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
   return false;
 }
