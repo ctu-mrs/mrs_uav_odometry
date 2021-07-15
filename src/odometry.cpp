@@ -4974,6 +4974,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   }
 
   std_msgs::String max_altitude_status_string_msg;
+  max_altitude_status_string_msg.data = "-id odometry ";
 
   /* get altitude states from current filter //{ */
 
@@ -4999,7 +5000,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
     max_altitude_status_string_msg.data += "-g ";
   }
 
-  max_altitude_status_string_msg.data += "Max flight alt: " + std::to_string((int) max_altitude_); 
+  max_altitude_status_string_msg.data += "Max flight alt: " + std::to_string((int) max_altitude_) + " m"; 
 
   try {
     pub_max_altitude_status_string_.publish(max_altitude_status_string_msg);
