@@ -3074,6 +3074,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called_ = true;
       }
 
+      mrs_msgs::AltitudeType altitude_type;
+      ROS_WARN("[Odometry]: RTK altitude not reliable. Switching to BARO type.");
+      altitude_type.type = mrs_msgs::AltitudeType::BARO;
+      if (!changeCurrentAltitudeEstimator(altitude_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback altitude estimator not available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+
     } else if (!rtk_reliable_ && !gps_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
       ROS_WARN("[Odometry]: RTK not reliable. Switching to OPTFLOW type.");
       mrs_msgs::EstimatorType optflow_type;
