@@ -3886,7 +3886,15 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         hdg_estimator.second->getState(0, hdg);
 
         // Obtain mavros orientation
-        tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+        tf2::Quaternion tf2_mavros_orient;
+        try {
+          tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: failed to obtain tf2 quaternion from mavros_orientation");
+          ROS_WARN_STREAM("[Odometry]: q: " << mavros_orientation);
+          return;
+        }
 
         // Obtain heading from mavros orientation
         double mavros_hdg = 0;
@@ -3895,13 +3903,28 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
         catch (...) {
           ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+          return;
         }
 
         // Build rotation matrix from difference between new heading and mavros heading
-        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
+        tf2::Matrix3x3 rot_mat;
+        try {
+          rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: Failed to get attitude from heading");
+          return;
+        }
 
         // Transform the mavros orientation by the rotation matrix
-        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+        geometry_msgs::Quaternion new_orientation;
+        try {
+          new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+        }
+        catch (...) {
+          ROS_WARN("[Odometry]: Failed to transform mavros orientation by rotation matrix");
+          return;
+        }
 
         odom_aux->second.pose.pose.orientation = new_orientation;
       }
