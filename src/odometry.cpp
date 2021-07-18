@@ -3814,12 +3814,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
       }
 
+    } else if (estimator.first == "RTK") {
       for (auto &alt_estimator : _altitude_estimators_) {
         if (_use_rtk_altitude_ && alt_estimator.first == "RTK") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
+        } else {
+
+        if (!current_alt_estimator_->getStates(alt_x)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+          return;
+        }
+        odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+
         }
       }
+
     } else if (estimator.first == "LIOSAM") {
       // Prevent publishing of TF before corrections are available
       if (!got_liosam_odom_) {
