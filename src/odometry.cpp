@@ -591,7 +591,7 @@ private:
   bool               isValidType(const mrs_msgs::AltitudeType &type);
   bool               isTimestampOK(const double curr_sec, const double prev_sec);
   std::string        printOdometryDiag();
-  bool               stringInVector(const std::string &value, const std::vector<std::string> &vector);
+  bool               isStringInVector(const std::string &value, const std::vector<std::string> &vector);
   nav_msgs::Odometry applyOdomOffset(const nav_msgs::Odometry &msg, const tf2::Vector3 &pos_offset, const tf2::Quaternion &rot_offset);
   bool               isValidGate(const double &value, const double &min_value, const double &max_value, const std::string &value_name = "");
   double             saturateCorrection(const double &correction, const double max_correction, const std::string &correction_name);
@@ -783,6 +783,7 @@ private:
   alt_Q_t                                                   _Q_alt_;
   std::mutex                                                mutex_altitude_estimator_;
   std::vector<std::string>                                  _altitude_estimators_names_;
+  std::vector<std::string>                                  _active_altitude_estimators_names_;
   std::vector<std::string>                                  _alt_model_state_names_;
   std::vector<std::string>                                  _alt_measurement_names_;
   std::map<std::string, std::vector<std::string>>           map_alt_estimator_measurement_;
@@ -886,8 +887,28 @@ private:
   bool icp_active_        = false;
 
   // Active altitude estimators
-  bool height_active_ = false;
-  // TODO so far all are active
+  bool alt_height_active_ = false;
+  bool alt_baro_active_ = false;
+  bool alt_aloam_active_ = false;
+  bool alt_aloamgarm_active_ = false;
+  bool alt_aloamrep_active_ = false;
+  bool alt_plane_active_ = false;
+  bool alt_brick_active_ = false;
+  bool alt_vio_active_ = false;
+  bool alt_rtk_active_ = false;
+  bool alt_liosam_active_ = false;
+
+  // Reliable altitude estimators
+  bool alt_height_reliable_ = false;
+  bool alt_baro_reliable_ = false;
+  bool alt_aloam_reliable_ = false;
+  bool alt_aloamgarm_reliable_ = false;
+  bool alt_aloamrep_reliable_ = false;
+  bool alt_plane_reliable_ = false;
+  bool alt_brick_reliable_ = false;
+  bool alt_vio_reliable_ = false;
+  bool alt_rtk_reliable_ = false;
+  bool alt_liosam_reliable_ = false;
 
   // Active heading estimators
   bool compass_active_ = false;
@@ -1225,9 +1246,10 @@ void Odometry::onInit() {
 
   /* altitude estimators string names //{ */
 
+  param_loader.loadParam("altitude_estimators/altitude_estimators", _altitude_estimators_names_);
+  param_loader.loadParam("altitude_estimators/active", _active_altitude_estimators_names_);
   param_loader.loadParam("altitude_estimators/model_states", _alt_model_state_names_);
   param_loader.loadParam("altitude_estimators/measurements", _alt_measurement_names_);
-  param_loader.loadParam("altitude_estimators/altitude_estimators", _altitude_estimators_names_);
 
   //}
 
@@ -1347,13 +1369,57 @@ void Odometry::onInit() {
 
   /* altitude measurements to estimators mapping //{ */
 
-  for (std::vector<std::string>::iterator it = _altitude_estimators_names_.begin(); it != _altitude_estimators_names_.end(); ++it) {
+  /* for (std::vector<std::string>::iterator it = _altitude_estimators_names_.begin(); it != _altitude_estimators_names_.end(); ++it) { */
+  for (std::vector<std::string>::iterator it = _active_altitude_estimators_names_.begin(); it != _active_altitude_estimators_names_.end(); ++it) {
+
+    /* set active estimators //{ */
+
+    if (*it == "HEIGHT") {
+      alt_height_active_   = true;
+      alt_height_reliable_ = true;
+    }
+    if (*it == "PLANE") {
+      alt_plane_active_   = true;
+      alt_plane_reliable_ = true;
+    }
+    if (*it == "BRICK") {
+      alt_brick_active_   = true;
+      alt_brick_reliable_ = true;
+    }
+    if (*it == "VIO") {
+      alt_vio_active_   = true;
+      alt_vio_reliable_ = true;
+    }
+    if (*it == "ALOAM") {
+      alt_aloam_active_   = true;
+      alt_aloam_reliable_ = true;
+    }
+    if (*it == "ALOAMGARM") {
+      alt_aloamgarm_active_   = true;
+      alt_aloamgarm_reliable_ = true;
+    }
+    if (*it == "ALOAMREP") {
+      alt_aloamrep_active_ = true;
+      alt_aloamrep_reliable_   = true;
+    }
+    if (*it == "BARO") {
+      alt_baro_active_ = true;
+      alt_baro_reliable_  = true;
+    }
+    if (*it == "RTK") {
+      alt_rtk_active_   = true;
+      alt_rtk_reliable_ = true;
+    }
+    if (*it == "LIOSAM") {
+      alt_liosam_active_   = true;
+      alt_liosam_reliable_ = true;
+    }
 
     std::vector<std::string> temp_vector;
     param_loader.loadParam("altitude_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _alt_measurement_names_)) {
+      if (!isStringInVector(*it2, _alt_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1371,7 +1437,7 @@ void Odometry::onInit() {
     std::string temp_value;
     param_loader.loadParam("altitude_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _alt_model_state_names_)) {
+    if (!isStringInVector(temp_value, _alt_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -1427,6 +1493,8 @@ void Odometry::onInit() {
 
   //}
 
+  //}
+  
   /* create altitude estimator //{ */
 
   ROS_INFO("[Odometry]: Creating altitude estimators");
@@ -1445,12 +1513,12 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = _alt_measurement_names_.begin(); it2 != _alt_measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
-      if (stringInVector(*it2, temp_vec->second)) {
+      if (isStringInVector(*it2, temp_vec->second)) {
         alt_fusing_measurement.push_back(true);
       } else {
         alt_fusing_measurement.push_back(false);
       }
-      ROS_WARN("[Odometry]: estimator: %s measurement: %s fusing: %s", it->c_str(), it2->c_str(), btoa(stringInVector(*it2, temp_vec->second)));
+      ROS_WARN("[Odometry]: estimator: %s measurement: %s fusing: %s", it->c_str(), it2->c_str(), btoa(isStringInVector(*it2, temp_vec->second)));
 
       // Find state name
       std::map<std::string, std::string>::iterator pair_measurement_state = map_alt_measurement_state_.find(*it2);
@@ -1502,7 +1570,7 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
   //}
-
+  
   /*  //{ lateral estimation parameters*/
 
   ROS_INFO("[Odometry]: Loading lateral estimation parameters");
@@ -1694,7 +1762,7 @@ void Odometry::onInit() {
     param_loader.loadParam("state_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _measurement_names_)) {
+      if (!isStringInVector(*it2, _measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1717,7 +1785,7 @@ void Odometry::onInit() {
     std::string temp_value;
     param_loader.loadParam("state_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _model_state_names_)) {
+    if (!isStringInVector(temp_value, _model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -1810,7 +1878,7 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = _measurement_names_.begin(); it2 != _measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
-      if (stringInVector(*it2, temp_vec->second)) {
+      if (isStringInVector(*it2, temp_vec->second)) {
         fusing_measurement.push_back(true);
       } else {
         fusing_measurement.push_back(false);
@@ -1941,7 +2009,7 @@ void Odometry::onInit() {
   _hdg_estimator_type_takeoff_.type = (int)pos_hdg;
 
   // Check whether PIXHAWK is active
-  if (!stringInVector("PIXHAWK", _active_heading_estimators_names_)) {
+  if (!isStringInVector("PIXHAWK", _active_heading_estimators_names_)) {
     gps_active_ = false;
     ROS_INFO("[Odometry]: PIXHAWK is not in the list of active heading estimators.");
   }
@@ -1957,7 +2025,7 @@ void Odometry::onInit() {
       compass_active_ = true;
     }
 
-    if (!stringInVector(*it, _heading_estimators_names_)) {
+    if (!isStringInVector(*it, _heading_estimators_names_)) {
       ROS_ERROR("[Odometry]: %s in the list of active heading estimators is not a valid heading estimator.", it->c_str());
       if (*it == "GPS") {
         ROS_ERROR("[Odometry]: You probably want PIXHAWK heading estimator.");
@@ -1969,7 +2037,7 @@ void Odometry::onInit() {
     param_loader.loadParam("heading_estimators/fused_measurements/" + *it, temp_vector);
 
     for (std::vector<std::string>::iterator it2 = temp_vector.begin(); it2 != temp_vector.end(); ++it2) {
-      if (!stringInVector(*it2, _hdg_measurement_names_)) {
+      if (!isStringInVector(*it2, _hdg_measurement_names_)) {
         ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid measurement name!", it2->c_str(), it->c_str());
         ros::shutdown();
       }
@@ -1987,7 +2055,7 @@ void Odometry::onInit() {
     std::string temp_value;
     param_loader.loadParam("heading_estimators/measurement_states/" + *it, temp_value);
 
-    if (!stringInVector(temp_value, _hdg_model_state_names_)) {
+    if (!isStringInVector(temp_value, _hdg_model_state_names_)) {
       ROS_ERROR("[Odometry]: the element '%s' of %s is not a valid model_state name!", temp_value.c_str(), it->c_str());
       ros::shutdown();
     }
@@ -2056,12 +2124,12 @@ void Odometry::onInit() {
     for (std::vector<std::string>::iterator it2 = _hdg_measurement_names_.begin(); it2 != _hdg_measurement_names_.end(); ++it2) {
 
       // Check whether measurement is fused by the estimator
-      if (stringInVector(*it2, temp_vec->second)) {
+      if (isStringInVector(*it2, temp_vec->second)) {
         hdg_fusing_measurement.push_back(true);
       } else {
         hdg_fusing_measurement.push_back(false);
       }
-      ROS_WARN("[Odometry]: estimator: %s measurement: %s fusing: %s", it->c_str(), it2->c_str(), btoa(stringInVector(*it2, temp_vec->second)));
+      ROS_WARN("[Odometry]: estimator: %s measurement: %s fusing: %s", it->c_str(), it2->c_str(), btoa(isStringInVector(*it2, temp_vec->second)));
 
       // Find state name
       std::map<std::string, std::string>::iterator pair_measurement_state = map_hdg_measurement_state_.find(*it2);
@@ -2350,70 +2418,20 @@ void Odometry::onInit() {
 
   /* check validity and set takeoff estimator //{ */
 
-  // If required sensor is not available shutdown
+  // If required sensor is not available, shutdown
+  // state estimators
   ROS_INFO_ONCE("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff_.name.c_str());
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOW && !optflow_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
+
+  if (!isStringInVector(_estimator_type_takeoff_.name, _active_state_estimators_names_) || 
+      (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !optflow_active_) ||
+      (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW && !optflow_active_)) {
+    ROS_ERROR("[Odometry]: The takeoff lateral type %s could not be set. %s lateral estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str(), _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::GPS && !gps_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. GPS estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !optflow_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::RTK && !rtk_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. RTK estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::T265 && !t265_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. T265 estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::HECTOR && !hector_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. HECTOR esimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAM && !aloam_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMGARM && !aloamgarm_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMGARM estimator not active. Shutting down.",
-              _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ALOAMREP && !aloamrep_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ALOAMREP estimator not active. Shutting down.",
-              _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::LIOSAM && !liosam_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. LIOSAM estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::ICP && !icp_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. ICP estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::VIO && !vio_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. VIO estimator not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::VSLAM && !vslam_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Visual SLAM localization not available. Shutting down.",
-              _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW && !optflow_active_) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. OPTFLOW not active. Shutting down.", _estimator_type_takeoff_.name.c_str());
-    ros::shutdown();
-  }
-  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK) {
-    ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
-              _estimator_type_takeoff_.name.c_str());
+
+  // altitude estimators
+  if (!isStringInVector(_alt_estimator_type_takeoff.name, _active_altitude_estimators_names_)) {
+    ROS_ERROR("[Odometry]: The takeoff altitude type %s could not be set. %s altitude estimator not active. Shutting down.", _alt_estimator_type_takeoff.name.c_str(), _alt_estimator_type_takeoff.name.c_str());
     ros::shutdown();
   }
 
@@ -2642,10 +2660,13 @@ bool Odometry::isReadyToTakeoff() {
       return false;
     }
   }
+
+
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK || _estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW) {
     ROS_ERROR("[Odometry]: The takeoff odometry type %s could not be set. Takeoff in this odometry mode is not supported. Shutting down.",
               _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
+    return false;
   }
   return false;
 }
@@ -4832,40 +4853,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.available_lat_estimators = _active_state_estimators_names_;
   odometry_diag.available_hdg_estimators = _active_heading_estimators_names_;
-
-
-  std::vector<std::string> active_alt_estimators;
-  if (stringInVector("HEIGHT", _altitude_estimators_names_) && height_active_) {
-    active_alt_estimators.push_back("HEIGHT");
-  }
-  if (stringInVector("PLANE", _altitude_estimators_names_) && plane_reliable_) {
-    active_alt_estimators.push_back("PLANE");
-  }
-  if (stringInVector("BRICK", _altitude_estimators_names_) && brick_active_) {
-    active_alt_estimators.push_back("BRICK");
-  }
-  if (stringInVector("VIO", _altitude_estimators_names_) && vio_active_) {
-    active_alt_estimators.push_back("VIO");
-  }
-  if (stringInVector("ALOAM", _altitude_estimators_names_) && aloam_active_) {
-    active_alt_estimators.push_back("ALOAM");
-  }
-  if (stringInVector("ALOAMGARM", _altitude_estimators_names_) && aloamgarm_active_) {
-    active_alt_estimators.push_back("ALOAMGARM");
-  }
-  if (stringInVector("ALOAMREP", _altitude_estimators_names_) && aloamrep_active_) {
-    active_alt_estimators.push_back("ALOAMREP");
-  }
-  if (stringInVector("BARO", _altitude_estimators_names_)) {
-    active_alt_estimators.push_back("BARO");
-  }
-  if (stringInVector("RTK", _altitude_estimators_names_)) {
-    active_alt_estimators.push_back("RTK");
-  }
-  if (stringInVector("LIOSAM", _altitude_estimators_names_) && liosam_active_) {
-    active_alt_estimators.push_back("LIOSAM");
-  }
-  odometry_diag.available_alt_estimators = active_alt_estimators;
+  odometry_diag.available_alt_estimators = _active_altitude_estimators_names_;
 
   odometry_diag.max_altitude = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
@@ -5090,9 +5078,9 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   // garmin range
   interval = ros::Time::now() - garmin_last_update_;
-  if (height_active_ && interval.toSec() > 0.5) {
+  if (alt_height_reliable_ && interval.toSec() > 0.5) {
     ROS_WARN("[Odometry]: Garmin range not received for %f seconds.", interval.toSec());
-    height_active_ = false;
+    alt_height_reliable_ = false;
   }
 
   // pixhawk odometry
@@ -8423,7 +8411,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   bool is_measurement_healthy = true;
   auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
 
-  height_active_      = true;
+  alt_height_reliable_      = true;
   garmin_last_update_ = ros::Time::now();
 
   if (!isTimestampOK(range_garmin_.header.stamp.toSec(), range_garmin_previous_.header.stamp.toSec())) {
@@ -11183,7 +11171,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   }
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _active_state_estimators_names_)) {
+  if (isStringInVector(target_estimator.name, _active_state_estimators_names_)) {
 
     {
       std::scoped_lock lock(mutex_current_lat_estimator_);
@@ -11316,7 +11304,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   //}
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _altitude_estimators_names_)) {
+  if (isStringInVector(target_estimator.name, _altitude_estimators_names_)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator_);
 
@@ -11412,7 +11400,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
   //}
 
   is_updating_state_ = true;
-  if (stringInVector(target_estimator.name, _active_heading_estimators_names_)) {
+  if (isStringInVector(target_estimator.name, _active_heading_estimators_names_)) {
     if (is_initialized_) {
 
       {
@@ -11674,9 +11662,9 @@ std::string Odometry::printOdometryDiag() {
 
 //}
 
-/* stringInVector() //{ */
+/* isStringInVector() //{ */
 
-bool Odometry::stringInVector(const std::string &value, const std::vector<std::string> &vector) {
+bool Odometry::isStringInVector(const std::string &value, const std::vector<std::string> &vector) {
 
   if (std::find(vector.begin(), vector.end(), value) == vector.end()) {
     return false;

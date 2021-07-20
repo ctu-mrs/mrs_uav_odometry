@@ -17,3 +17,6 @@ state_estimators:
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "BRICK"]
+
+altitude_estimators: 
+  active: ["BARO", "HEIGHT", "BRICK"] 

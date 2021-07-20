@@ -19,6 +19,9 @@ state_estimators:
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS", "OPTFLOW", "HECTOR", "BRICK", "VIO", "VSLAM", "ICP", "BRICKFLOW", "ALOAM", "ALOAMREP", "LIOSAM"]
+  
+altitude_estimators: 
+  active: ["HEIGHT", "PLANE", "BRICK", "VIO", "ALOAM", "ALOAMGARM", "ALOAMREP", "BARO", "RTK", "LIOSAM"] 
 
 # rates of publishers# #{
 publish_rate:

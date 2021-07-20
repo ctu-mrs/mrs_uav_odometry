@@ -17,3 +17,6 @@ state_estimators:
 heading_estimators:
   # active: ["PIXHAWK", "GYRO", "VIO"]
   active: ["VIO"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "VIO", "BARO"] 

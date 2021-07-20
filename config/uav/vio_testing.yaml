@@ -15,4 +15,7 @@ state_estimators:
   active: ["GPS", "RTK", "VIO"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS"]
+  active: ["PIXHAWK", "GYRO", "VIO"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "BARO", "RTK", "VIO"] 

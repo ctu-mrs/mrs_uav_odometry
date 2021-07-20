@@ -18,6 +18,9 @@ state_estimators:
 heading_estimators:
   active: ["GYRO", "ALOAM"]
 
+altitude_estimators: 
+  active: ["ALOAM", "BARO"] 
+
 lateral:
   # Covariances of measurements
   R:

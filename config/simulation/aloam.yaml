@@ -15,6 +15,9 @@ heading_estimator: "ALOAMREP"
 state_estimators:
   active: ["ALOAMREP", "GPS"]
 
+altitude_estimators: 
+  active: ["ALOAMREP", "BARO", "HEIGHT"] 
+
   publish_tf:
     ALOAM: true
 

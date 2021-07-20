@@ -16,7 +16,10 @@ state_estimators:
   active: ["GPS", "RTK"]
 
 heading_estimators:
-  active: ["PIXHAWK", "GYRO", "COMPASS"]
+  active: ["PIXHAWK", "GYRO"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "BARO", "RTK"] 
 
 lateral:
   R:

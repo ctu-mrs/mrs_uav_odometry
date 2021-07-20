@@ -17,3 +17,7 @@ state_estimators:
 
 heading_estimators:
   active: ["GYRO", "OPTFLOW", "HECTOR", "ICP"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "BARO"] 
+
