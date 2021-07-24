@@ -2778,16 +2778,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
     height_msg.value = sc_height_.x(0);
 
+    try {
+      pub_height_.publish(height_msg);
+      ROS_INFO_ONCE("[Odometry]: Publishing height");
+    }
+    catch (...) {
+      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_height_.getTopic().c_str());
+    }
+
   } else {
-    height_msg.value = -1;
+    ROS_WARN_ONCE("[Odometry]: Garmin is not enabled, not publishing height");
   }
 
-  try {
-    pub_height_.publish(height_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_height_.getTopic().c_str());
-  }
 
   //}
 
