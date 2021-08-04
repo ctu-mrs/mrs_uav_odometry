@@ -17,3 +17,6 @@ state_estimators:
 
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "COMPASS"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "BARO"] 

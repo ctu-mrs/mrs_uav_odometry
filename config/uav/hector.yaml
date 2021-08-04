@@ -18,6 +18,9 @@ state_estimators:
 heading_estimators:
   active: ["GYRO", "OPTFLOW", "HECTOR"]
 
+altitude_estimators: 
+  active: ["HEIGHT", "BARO"] 
+
 lateral:
   R:
     vel_optflow: [1]

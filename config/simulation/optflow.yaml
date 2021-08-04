@@ -18,3 +18,5 @@ state_estimators:
 heading_estimators:
   active: ["PIXHAWK", "GYRO", "OPTFLOW", "BRICKFLOW"]
 
+altitude_estimators: 
+  active: ["HEIGHT", "BARO"] 

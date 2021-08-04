@@ -15,8 +15,14 @@ heading_estimator: "LIOSAM"
 state_estimators:
   active: ["LIOSAM"]
 
+  publish_tf:
+    LIOSAM: false
+
 heading_estimators:
   active: ["GYRO", "LIOSAM"]
+
+altitude_estimators: 
+  active: ["HEIGHT", "BARO", "LIOSAM"] 
 
 lateral:
   # Covariances of measurements
@@ -35,7 +41,3 @@ altitude:
     height_liosam: [1]
     vel_liosam_z: [100.0]
 
-# Publishing of TF of each estimator can be disabled (default is enabled):
-state_estimators:
-  publish_tf:
-    LIOSAM: false
