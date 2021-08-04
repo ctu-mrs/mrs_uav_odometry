@@ -111,6 +111,8 @@
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
       <remap from="~tower_pose_in" to="tower_mapping/slam_out_pose" />
+      <!-- <remap from="~aloam_odom_in" to="aloam/odom" /> -->
+      <!-- <remap from="~slam_eigenvalues" to="aloam/eigenvalues" /> -->
       <remap from="~aloam_odom_in" to="slam/odom" />
       <remap from="~slam_eigenvalues" to="slam/eigenvalues" />
       <remap from="~liosam_odom_in" to="slam/odom" />

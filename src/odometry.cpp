@@ -75,6 +75,7 @@
 #include <StateEstimator.h>
 #include <AltitudeEstimator.h>
 #include <AltitudeEstimatorAloamGarm.h>
+#include <AltitudeEstimatorAloamGarm2.h>
 #include <HeadingEstimator.h>
 #include <mrs_uav_odometry/odometry_dynparamConfig.h>
 
@@ -1453,8 +1454,10 @@ void Odometry::onInit() {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
           *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, true)));
     } else if (*it == "ALOAMGARM") {
-      _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm>>(
-          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true)));
+      _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm2>>(
+          *it, std::make_shared<AltitudeEstimatorAloamGarm2>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true)));
+      /* _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm>>( */
+      /*     *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true))); */
     } else {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
           *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
