@@ -1505,7 +1505,7 @@ void Odometry::onInit() {
   ROS_INFO("[Odometry]: Creating altitude estimators");
 
   // Loop through all estimators
-  for (std::vector<std::string>::iterator it = _altitude_estimators_names_.begin(); it != _altitude_estimators_names_.end(); ++it) {
+  for (std::vector<std::string>::iterator it = _active_altitude_estimators_names_.begin(); it != _active_altitude_estimators_names_.end(); ++it) {
 
     std::vector<bool>    alt_fusing_measurement;
     std::vector<alt_H_t> H_multi_alt;
@@ -2983,7 +2983,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   }
 
   //}
-
 
   /* initialize heading estimators //{ */
 
