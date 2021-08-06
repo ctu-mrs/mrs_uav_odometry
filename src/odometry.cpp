@@ -2862,6 +2862,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto pos_aloam_y_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
       auto aloam_timestamp_tmp = mrs_lib::get_mutexed(mutex_aloam_, aloam_timestamp_);
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp, time_now);
+      aloam_corr_ready_ = false;
     }
 
     // correction step for liosam
