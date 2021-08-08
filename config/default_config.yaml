@@ -189,7 +189,7 @@ lateral:
     vel_brick: [100]
     pos_hector: [1]
     pos_tower: [1000]
-    pos_aloam: [0.1]
+    pos_aloam: [1]
     pos_liosam: [10]
     vel_liosam: [100]
     vel_icp: [10]
@@ -297,6 +297,7 @@ lateral:
 # slam# #{
   slam:
     use_general_slam_origin: true # use slam_origin instead of aloam_origin/liosam_origin
+    ouster_scan_delay: 0.0 # [seconds]
 # # #}
 
 # rtk # #{
@@ -323,7 +324,7 @@ heading:
     hdg_compass: [0.1]
     hdg_hector: [0.01]
     hdg_tower: [0.01]
-    hdg_aloam: [0.01]
+    hdg_aloam: [0.0001]
     hdg_liosam: [10]
     hdg_brick: [10]
     hdg_vio: [100] #100

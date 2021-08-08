@@ -364,6 +364,7 @@ private:
   double     hdg_hector_corr_;
 
   // ALOAM heading msgs
+  double hdg_aloam_;
   double aloam_hdg_previous_;
   int    _aloam_hdg_filter_buffer_size_;
   double _aloam_hdg_filter_max_diff_;
@@ -403,6 +404,7 @@ private:
 
   bool _use_general_slam_origin_   = false;
   bool slam_estimator_initialized_ = false;  // whether some lidar slam estimator was already created
+  ros::Duration _ouster_scan_delay_;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -1621,6 +1623,10 @@ void Odometry::onInit() {
 
   /* general slam parameters //{*/
   param_loader.loadParam("lateral/slam/use_general_slam_origin", _use_general_slam_origin_);
+  double ouster_delay_tmp;
+  param_loader.loadParam("lateral/slam/ouster_scan_delay", ouster_delay_tmp);
+  _ouster_scan_delay_.fromSec(ouster_delay_tmp);
+
   /*//}*/
 
   /* rtk lateral parameters //{ */
@@ -2857,9 +2863,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     if (got_aloam_odom_ && aloam_corr_ready_) {
       auto pos_aloam_x_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_x_);
       auto pos_aloam_y_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
+      auto hdg_aloam_tmp       = mrs_lib::get_mutexed(mutex_aloam_, hdg_aloam_);
       auto aloam_timestamp_tmp = mrs_lib::get_mutexed(mutex_aloam_, aloam_timestamp_);
-      stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp, time_now);
-      aloam_corr_ready_ = false;
+      ros::Time time_start    = ros::Time::now();
+      stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
+      headingEstimatorsCorrection(hdg_aloam_tmp, "hdg_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec());
+      /* aloam_corr_ready_ = false; */
     }
 
     // correction step for liosam
@@ -8075,7 +8085,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
         ros::Time        time_now = ros::Time::now();
-        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp, time_now);
+        altitudeEstimatorCorrection(measurement, "height_aloam", estimator.second, aloam_odom_.header.stamp - _ouster_scan_delay_, time_now);
         if (fabs(measurement) > 100) {
           ROS_WARN("[Odometry]: ALOAM height correction: %f", measurement);
         }
@@ -8099,9 +8109,12 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   hdg_aloam += aloam_offset_hdg_;
   aloam_hdg_previous_ = hdg_aloam;
 
-  // Apply correction step to all heading estimators
-  ros::Time time_now = ros::Time::now();
-  headingEstimatorsCorrection(hdg_aloam, "hdg_aloam", aloam_odom_.header.stamp, time_now);
+
+  {
+    std::scoped_lock lock(mutex_aloam_);
+
+    hdg_aloam_ = hdg_aloam;
+  }
 
   if (_debug_publish_corrections_) {
     hdg_aloam = radians::wrap(hdg_aloam);
@@ -10499,7 +10512,6 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
 
     input(0) = acc_global.x;
     input(1) = acc_global.y;
-
 
     if (input_stamp.toSec() != 0) {
       estimator.second->doPrediction(input, dt, input_stamp, predict_stamp);
