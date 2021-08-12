@@ -440,6 +440,12 @@ bool AltitudeEstimatorAloamGarm2::doCorrection(const double &measurement, int me
       if (z(0) < _mf_close_to_ground_threshold_) {
         R(0) = R(0) * 100;
       }
+      if(z(0) < 0.05){
+        return true;
+      }
+      if (z(0) > 4.0) {
+        R(0) = R(0) * 100;
+      }
 
       if (!m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
           (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter->getMedian() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
