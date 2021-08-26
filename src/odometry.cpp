@@ -1577,6 +1577,11 @@ void Odometry::onInit() {
   param_loader.loadMatrixStatic("height/R", _R_height_);
   param_loader.loadMatrixStatic("height/Q", _Q_height_);
 
+  lkf_height_t::x_t x0_height = lkf_height_t::x_t::Zero();
+  lkf_height_t::P_t P0_height = lkf_height_t::P_t::Identity();
+  lkf_height_t::statecov_t sc0_height({x0_height, P0_height});
+  sc_height_ = sc0_height;
+
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
   //}

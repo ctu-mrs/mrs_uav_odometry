@@ -24,3 +24,12 @@ altitude_estimators:
 lateral:
   slam:
     use_general_slam_origin: true # use slam_origin instead of aloam_origin/liosam_origin
+
+# Process covariance
+  Q: [1, 0, 0,
+      0, 1, 0,
+      0, 0, 1]
+
+# Covariances of measurements
+  R:
+    pos_aloam: [1]
