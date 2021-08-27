@@ -1,4 +1,5 @@
 #include "AltitudeEstimatorAloamGarm2.h"
+#include "mrs_msgs/Float64ArrayStamped.h"
 
 namespace mrs_uav_odometry
 {
@@ -50,6 +51,11 @@ AltitudeEstimatorAloamGarm2::AltitudeEstimatorAloamGarm2(
   param_loader.loadParam("aloamgarm/nis_buffer_size", _nis_buffer_size_);
   param_loader.loadParam("aloamgarm/nis_threshold", _nis_threshold_);
   param_loader.loadParam("aloamgarm/nis_avg_threshold", _nis_avg_threshold_);
+  param_loader.loadMatrixStatic("aloamgarm/initial_state", _initial_state_);
+  param_loader.loadMatrixStatic("aloamgarm/initial_cov", _initial_cov_);
+  param_loader.loadParam("aloamgarm/initial_time", _initial_time_);
+  _initial_time_stamp_ = ros::Time(_initial_time_);
+  param_loader.loadParam("aloamgarm/use_initial_conditions", _use_initial_conditions_);
 
   // add columns for measurement biases
   for (auto H : m_H_multi_orig) {
@@ -153,7 +159,12 @@ AltitudeEstimatorAloamGarm2::AltitudeEstimatorAloamGarm2(
 
   std::shared_ptr<boost::circular_buffer<double>> nis_buffer = std::make_shared<boost::circular_buffer<double>>(_nis_buffer_size_);
   // Initialize repredictor
-  mp_rep = std::make_unique<algarm2_rep_t>(x0, P0, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
+  if (!_use_initial_conditions_) {
+    mp_rep = std::make_unique<algarm2_rep_t>(x0, P0, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
+  } else {
+    mp_rep = std::make_unique<algarm2_rep_t>(_initial_state_, _initial_cov_, u0, m_Q, _initial_time_stamp_, mp_lkf_vector.at(0), _repredictor_buffer_size_,
+                                             nis_buffer);
+  }
 
   std::cout << "[AltitudeEstimatorAloamGarm]: New AltitudeEstimatorAloamGarm initialized " << std::endl;
   std::cout << "name: " << m_estimator_name << std::endl;
@@ -183,6 +194,7 @@ AltitudeEstimatorAloamGarm2::AltitudeEstimatorAloamGarm2(
     /* debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1); */
     debug_duration_publisher = m_nh.advertise<mrs_msgs::AloamgarmDebug>("debug_aloamgarm_duration", 1);
     debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
+    debug_median_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_median", 1);
   }
 
   m_eigenvalue_subscriber =
@@ -232,6 +244,11 @@ bool AltitudeEstimatorAloamGarm2::doPrediction(const double input, const double 
   }
 
   //}
+
+  if (_use_initial_conditions_ && _initial_time_stamp_ > ros::Time::now()) {
+    ROS_WARN_THROTTLE(0.5, "[Aloamgarm2] Using initial conditions, time is too low, skipping.");
+    return true;
+  }
 
   ros::WallTime time_beginning = ros::WallTime::now();
 
@@ -320,6 +337,11 @@ bool AltitudeEstimatorAloamGarm2::doPrediction(const double input, const ros::Ti
 
   //}
 
+  if (_use_initial_conditions_ && _initial_time_stamp_ > ros::Time::now()) {
+    ROS_WARN_THROTTLE(0.5, "[Aloamgarm2] Using initial conditions, time is too low, skipping.");
+    return true;
+  }
+
   algarm2_alt_u_t u = u.Zero();
   u(0)              = input;
 
@@ -397,6 +419,11 @@ bool AltitudeEstimatorAloamGarm2::doCorrection(const double &measurement, int me
 
   //}
 
+  if (_use_initial_conditions_ && _initial_time_stamp_ > ros::Time::now()) {
+    ROS_WARN_THROTTLE(0.5, "[Aloamgarm2] Using initial conditions, time is too low, skipping.");
+    return true;
+  }
+
   // Check whether the measurement type is fused by this estimator
   if (!m_fusing_measurement[measurement_type]) {
     return false;
@@ -435,21 +462,35 @@ bool AltitudeEstimatorAloamGarm2::doCorrection(const double &measurement, int me
     }
 
     bool measurement_jumped = false;
+
     // RANGEFINDER//{
     if (measurement_name == "height_range") {
-      if (z(0) < _mf_close_to_ground_threshold_) {
-        R(0) = R(0) * 100;
-      }
-      if(z(0) < 0.05){
-        return true;
-      }
-      if (z(0) > 4.0) {
-        R(0) = R(0) * 100;
-      }
+
 
       if (!m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
           (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter->getMedian() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
         measurement_jumped = true;
+      }
+
+      mrs_msgs::Float64ArrayStamped median_msg;
+      median_msg.header.stamp = meas_stamp;
+      median_msg.values.push_back(m_median_filter->getMedian());
+      debug_median_publisher.publish(median_msg);
+
+      /* if (z(0) < _mf_close_to_ground_threshold_) { */
+      if (m_median_filter->getMedian() < _mf_close_to_ground_threshold_) {
+        /* if (z(0) < _mf_close_to_ground_threshold_) { */
+          m_close_to_ground = true;
+          R(0)              = R(0) * 100;
+        /* } */
+        // else keep the original R
+      }
+      if (z(0) < 0.05) {
+        return true;
+      }
+      if (z(0) > 4.0) {
+        /* if (m_median_filter->isFilled() && m_median_filter->getMedian() > 4.0) { */
+        R(0) = R(0) * 100;
       }
     }
 

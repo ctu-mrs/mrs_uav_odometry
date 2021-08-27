@@ -8,8 +8,8 @@ aloamgarm:
   # Median filter detecting rangefinder value changes
   mf_changes_buffer_size: 10
   mf_changes_max_diff: 0.1
-  mf_changes_max_diff_close_to_ground: 0.5 # larger difference threshold for low heights
-  mf_close_to_ground_threshold: 0.6 # max distance from ground where larger difference threshold is active
+  mf_changes_max_diff_close_to_ground: 0.7 # larger difference threshold for low heights
+  mf_close_to_ground_threshold: 0.5 # max distance from ground where larger difference threshold is active
   # !!!!!! also decrease buffer_size for garmin median filter in odometry config to e.g. 10 samples !!!!!!
 
   eigenvalue_hysteresis_upper: 120 # SLAM considered reliable if eigenvalue rises above this
@@ -46,3 +46,8 @@ aloamgarm:
 
   # nis_threshold: 5.0E-12 # 3.9E-5
   # nis_avg_threshold: 2.0E-12 # 3.9E-5
+
+  use_initial_conditions: False
+  initial_state: [0.06469667308509643, 0.008255636646541047, -8.556493680058822e-06, -0.18643197312526824, 0.114846457567612, 0.41031111641590556]
+  initial_cov: [814439600.7498282, 5517.468754612113, 0.6491906207423478, 814436178.2259641, 814438360.3419883, -158.31430963497, 5517.468752780861, 28003.10092377287, 54.10351141162824, 21.57755647239319, 1447.8610701337914, -203.9563292736764, 0.6491906208293747, 54.10351141162862, 1628.8552834575803, 0.0031853954265384046, -0.4081822835816807, -0.03156593163335334, 814436178.2259637, 21.577558317565458, 0.0031853953371403336, 814436166.0015874, 814436173.4927006, -37.25012355769622, 814438360.3419887, 1447.861071895208, -0.408182283663971, 814436173.4927008, 814527952.6211728, -113.83938082129612, -158.31430825760424, -203.95632927343576, -0.031565931633386383, -37.250122179762485, -113.83937944689912, 359.2772165592028]
+  initial_time: 1628850637.0947604

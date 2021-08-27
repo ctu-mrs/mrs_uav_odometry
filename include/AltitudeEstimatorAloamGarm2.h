@@ -103,6 +103,7 @@ private:
   ros::Publisher debug_Q_publisher;
   ros::Publisher debug_duration_publisher;
   ros::Publisher debug_aloam_ok_publisher;
+  ros::Publisher debug_median_publisher;
 
   // Default dt
   double m_dt    = ALT_DT;
@@ -156,6 +157,13 @@ private:
   int _nis_buffer_size_;
   double _nis_threshold_; 
   double _nis_avg_threshold_;
+  Eigen::Matrix<double, 1, 6> _initial_state_;
+  Eigen::Matrix<double, 6, 6> _initial_cov_;
+  double _initial_time_;
+  bool _use_initial_conditions_;
+  ros::Time _initial_time_stamp_;
+
+  bool m_close_to_ground = false;
 
 };
 
