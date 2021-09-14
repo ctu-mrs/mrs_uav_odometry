@@ -39,8 +39,8 @@ aloamgarm:
 
   kernel_sigma: 0.1
   # nis_buffer_size: 3
-  nis_buffer_size: 3
-  nis_threshold: 3.9E-5 # 3.9E-5
+  nis_buffer_size: 5
+  nis_threshold: 3.0E-5 # 3.9E-5
   nis_avg_threshold: 3.9E-5 # 3.9E-5
   # nis_avg_threshold: 3.9E-5 # 3.9E-5
 
