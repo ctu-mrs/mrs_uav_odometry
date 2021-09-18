@@ -5228,7 +5228,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
 
   //  aloam odometry (corrections of lateral kf)
   interval = ros::Time::now() - aloam_odom_last_update_;
-  if (got_aloam_odom_ && aloam_reliable_ && interval.toSec() > 0.5) {
+  if (got_aloam_odom_ && aloam_reliable_ && interval.toSec() > 1.5) {
     ROS_WARN("[Odometry]: ALOAM odometry not received for %f seconds.", interval.toSec());
     aloam_reliable_ = false;
   }
