@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.2 (2021-10-04)
+------------------
 * setting initial values for height estimator statecov
 * updated covariances for aloam (after Pilsen testing)
 * fixed a bug with altitude estimators still being initialized despite not
