@@ -2,6 +2,45 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* setting initial values for height estimator statecov
+* updated covariances for aloam (after Pilsen testing)
+* fixed a bug with altitude estimators still being initialized despite not
+  being in active list
+* updated aloam covariances after 10 Hz aloam corrections
+* corrections for repredictor are fused only when new measurements are
+  available
+* not publishing height when garmin not enabled
+* added fixed_map_origin frame
+* altitude estimators are now specified in the same way as lateral and
+  heading
+* fixed wrong altitude of rtk_origin
+* aloamrep instead of aloam as default in simulation
+* fixed bug with invalid attitude with aloamrep in simulation
+* fallback to BARO from RTK
+* added id to max altitude status msg
+* fixed bug with overwritten yaml params
+* checking pixhwak quaternion for invalid values
+* updated height estimator to fuse measurements even when not suitable for
+  altitude estimators
+* publishing max_altitude status msg
+* updated max allowed altitude to prevent flying higher with
+  garmin-based estimator
+* fixed and tested fallback from aloam* estimators to gps, removed
+  redundant code
+* changed median filter of aloam from 20s to 2s (responsible for a few
+  manual takeovers in byci skala)
+* rtk altitude working on real hw
+* rtk to gps switching
+* added possibility to use full rtk estimator
+* updated mass loading for simulation
+* Added safety check to prevent use of multiple SLAM estimators when _use_general_slam_origin\_ is active
+* fixed ALOAMGARM (but ALOAMREP/ALOAMGARM still doesnt work when ALOAM state estimator is also active)
+* SLAMs: we now use default origin with name '<uav_name>/slam_origin' and input slam odometry is remappod to 'slam/odom' by default
+* aloam config now uses aloamrep internally
+* Contributors: Matej Petrlik, Pavel Petracek, Tomas Baca, Vaclav Pritzl
+
 1.0.1 (2021-05-16)
 ------------------
 * version -> 1.0.1
