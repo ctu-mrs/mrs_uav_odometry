@@ -11374,7 +11374,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   //}
 
   is_updating_state_ = true;
-  if (isStringInVector(target_estimator.name, _altitude_estimators_names_)) {
+  if (isStringInVector(target_estimator.name, _active_altitude_estimators_names_)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator_);
 
