@@ -532,7 +532,7 @@ bool AltitudeEstimatorAloamGarm2::doCorrection(const double &measurement, int me
       if (measurement_name == "height_range") {
         meas_id = lkf_id;
       }
-      mp_rep->addMeasurement(z, R, meas_stamp, mp_lkf_vector[lkf_id], meas_id, measurement_jumped);
+      mp_rep->addMeasurement(z, R, meas_stamp, mp_lkf_vector[lkf_id], meas_id);
       m_sc = mp_rep->predictTo(predict_stamp);
     }
     catch (const std::exception &e) {
