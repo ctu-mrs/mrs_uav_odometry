@@ -10562,7 +10562,7 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
       double current_hdg;
       for (auto &hdg_estimator : heading_estimators_) {
 
-        if (estimator.first == "GPS" || estimator.first == "RTK") {
+        if (estimator.first == "GPS" || estimator.first == "RTK" || (estimator.first == "OPTFLOW" && current_hdg_estimator_name_ == "PIXHAWK")) { // condition in parentheses is quite hacky and won't allow switching to other hdg estimator with optflow lateral estimator, but it is the simplest way before modular custom estimators are implemented
 
           geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
           try {
