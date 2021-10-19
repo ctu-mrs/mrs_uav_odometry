@@ -47,7 +47,7 @@ altitude_estimators:
     ALOAM: ["height_aloam", "vel_baro"]
     ALOAMREP: ["height_aloam", "vel_baro"]
     LIOSAM: ["height_liosam", "vel_liosam_z"]
-    BARO: ["vel_baro"]
+    BARO: ["height_baro", "vel_baro"]
     ALOAMGARM: ["height_aloam", "height_range", "vel_baro"]
     RTK: ["height_rtk", "vel_baro"]
 
