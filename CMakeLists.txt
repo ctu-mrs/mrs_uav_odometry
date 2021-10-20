@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   )
 
-find_package(mavros_msgs 0.30.0 EXACT REQUIRED)
+find_package(mavros_msgs REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
@@ -56,36 +56,49 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(stddev_buffer src/StddevBuffer.cpp)
+# add_library(stddev_buffer src/StddevBuffer.cpp)
 
 ## Declare a C++ executable
-add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
+# add_library(Odometry src/support.cpp src/StateEstimator.cpp src/AltitudeEstimator.cpp src/HeadingEstimator.cpp src/odometry.cpp)
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(Odometry
+#   ${catkin_LIBRARIES}
+#   ${mavros_msgs_LIBRARIES}
+#   ${Eigen_LIBRARIES}
+#   stddev_buffer
+#   )
+
+# ## Add configure headers for dynamic reconfigure
+# add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
+
+## Declare a C++ executable
+add_library(EstimatorsTesting src/estimators/lateral/gps.cpp src/test_estimators.cpp )
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(Odometry
+target_link_libraries(EstimatorsTesting
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   ${Eigen_LIBRARIES}
-  stddev_buffer
   )
 
 ## Add configure headers for dynamic reconfigure
-add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
+# add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
 
 ## Declare a C++ executable
-add_library(RtkRepublisher src/rtk_republisher.cpp src/support.cpp)
+# add_library(RtkRepublisher src/rtk_republisher.cpp src/support.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(RtkRepublisher
-  ${catkin_LIBRARIES}
-  ${mavros_msgs_LIBRARIES}
-  )
+# target_link_libraries(RtkRepublisher
+#   ${catkin_LIBRARIES}
+#   ${mavros_msgs_LIBRARIES}
+#   )
 
 ## Declare a C++ executable
-add_library(TFConnectorDummy src/tf_connector_dummy.cpp)
+# add_library(TFConnectorDummy src/tf_connector_dummy.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(TFConnectorDummy
-  ${catkin_LIBRARIES}
-  ${mavros_msgs_LIBRARIES}
-  )
+# target_link_libraries(TFConnectorDummy
+#   ${catkin_LIBRARIES}
+#   ${mavros_msgs_LIBRARIES}
+#   )

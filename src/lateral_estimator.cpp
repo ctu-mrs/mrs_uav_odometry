@@ -23,7 +23,7 @@ void LateralEstimator::changeState(SMStates_t new_state) {
   }
 
   // TODO use correct name of estimator
-  ROS_INFO("[LateralEstimator]: Switching sm state %s -> %s", sm_state_names[previous_sm_state_], sm_state_names[current_sm_state_]);
+  ROS_INFO("[%s]: Switching sm state %s -> %s", getName().c_str(), sm_state_names[previous_sm_state_], sm_state_names[current_sm_state_]);
 }
 
 //}
