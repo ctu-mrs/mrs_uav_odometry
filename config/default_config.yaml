@@ -63,7 +63,7 @@ altitude:
   # Altitude limits
   max_default: 30.0 # Used only when safety area is not used
   max_optflow: 10.0 # Do not allow switching to optflow above this altitude
-  max_allowed_flight_height_garmin: 10.0 # Do not allow flying higher with garmin-based altitude estimator
+  max_allowed_flight_height_garmin: 20.0 # Do not allow flying higher with garmin-based altitude estimator
 
   # Use RTK altitude
   use_rtk_altitude: false # has to be true for correct TF when using RTK altitude
