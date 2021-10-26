@@ -640,8 +640,6 @@ private:
 
 
   bool   callbacks_enabled_ = false;
-  bool   baro_corrected_    = false;
-  double baro_offset_       = 0.0;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -5756,23 +5754,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   ros::Time time_now = ros::Time::now();
   {
     std::scoped_lock lock(mutex_odom_pixhawk_);
-    altitude   = odom_pixhawk_.pose.pose.position.z - baro_offset_;
+    altitude   = odom_pixhawk_.pose.pose.position.z;
     twist_z    = vel_enu.z;
     meas_stamp = odom_pixhawk_.header.stamp;
   }
-
-  // fuse zero into baro estimator when on the ground
-  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
-  if (!isUavFlying()) {
-    altitude        = 0.0;
-    baro_corrected_ = false;
-  } else if (!baro_corrected_ && std::isfinite(range_garmin_tmp.range)) {
-
-    auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
-    baro_offset_          = odom_pixhawk_tmp.pose.pose.position.z - range_garmin_tmp.range;
-    baro_corrected_       = true;
-  }
-
 
   {
     std::scoped_lock lock(mutex_altitude_estimator_);
