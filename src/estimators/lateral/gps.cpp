@@ -6,6 +6,7 @@
 
 //}
 
+
 namespace mrs_odometry
 {
 
@@ -86,7 +87,7 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
   // | ------------------ finish initialization ----------------- |
   changeState(INITIALIZED_STATE);
 
-  ROS_INFO("[Gps]: Estimator initialized, version %s", VERSION);
+  ROS_INFO("[%s]: Estimator initialized, version %s", getName().c_str(), VERSION);
 }
 /*//}*/
 
@@ -99,7 +100,7 @@ bool Gps::start(void) {
     return true;
 
   } else {
-    ROS_WARN("[%s]: Estimator must be in READY_STATE to start it", ros::this_node::getName().c_str());
+    ROS_WARN("[%s]: Estimator must be in READY_STATE to start it", getName().c_str());
     return false;
 
   }
@@ -120,7 +121,26 @@ bool Gps::pause(void) {
 }
 /*//}*/
 
-bool reset(void) = 0;
+/*//{ reset() */
+bool Gps::reset(void) {
+
+  if (!isInitialized()) {
+    ROS_ERROR("[%s]: Cannot reset uninitialized estimator", getName().c_str());
+    return false;
+  }
+
+  changeState(STOPPED_STATE);
+
+  const x_t        x0 = x_t::Zero();
+  const P_t        P0 = 1e6 * P_t::Identity();
+  const statecov_t sc0({x0, P0});
+  sc_ = sc0;
+
+  ROS_INFO("[%s]: Estimator reset", getName().c_str());
+
+  return true;
+}
+/*//}*/
 
 /* timerUpdate() //{*/
 void Gps::timerUpdate(const ros::TimerEvent &event) {
@@ -146,13 +166,13 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
     ROS_ERROR("LKF failed: %s", e.what());
   }
 
-  if (sh_mavros_odom_.hasNewMsg()) {
+  if (sh_mavros_odom_.newMsg()) {
 
     z_t                z               = z_t::Zero();
-    nav_msgs::Odometry mavros_odom_msg = sh_mavros_odom_.getMsg();
+    nav_msgs::Odometry::ConstPtr mavros_odom_msg = sh_mavros_odom_.getMsg();
 
-    z(0) = mavros_odom_msg.pose.pose.position.x;
-    z(1) = mavros_odom_msg.pose.pose.position.y;
+    z(0) = mavros_odom_msg->pose.pose.position.x;
+    z(1) = mavros_odom_msg->pose.pose.position.y;
 
     try {
       // Apply the correction step
@@ -260,15 +280,15 @@ bool Gps::isConverged() {
 /*//}*/
 
 /*//{ getName() */
-std::string Gps::getName(void) {
+std::string Gps::getName(void) const {
   return _name_;
 }
 /*//}*/
 
 /*//{ getState() */
-State_t Gps::getState(const StateId &state_id_in) {
+Gps::state_t Gps::getState(const int &state_id_in) {
 
-  State_t state_out;
+  Gps::state_t state_out;
   {
     std::scoped_lock lock(mutex_lkf_);
     state_out(0) = sc_.x(stateIdToIndex(state_id_in, AXIS_X));
@@ -279,7 +299,7 @@ State_t Gps::getState(const StateId &state_id_in) {
 /*//}*/
 
 /*//{ setState() */
-void Gps::setState(const State_t &state_in, const StateId &state_id_in) {
+void Gps::setState(const Gps::state_t &state_in, const int &state_id_in) {
   {
     std::scoped_lock lock(mutex_lkf_);
     sc_.x(stateIdToIndex(state_id_in, AXIS_X)) = state_in(AXIS_X);
@@ -289,9 +309,9 @@ void Gps::setState(const State_t &state_in, const StateId &state_id_in) {
 /*//}*/
 
 /*//{ getStates() */
-States_t Gps::getStates(void) {
+Gps::states_t Gps::getStates(void) {
 
-  States_t states_out;
+  Gps::states_t states_out;
   {
     std::scoped_lock lock(mutex_lkf_);
     states_out(AXIS_X, POSITION)     = sc_.x(stateIdToIndex(AXIS_X, POSITION));
@@ -301,12 +321,12 @@ States_t Gps::getStates(void) {
     states_out(AXIS_X, ACCELERATION) = sc_.x(stateIdToIndex(AXIS_X, ACCELERATION));
     states_out(AXIS_Y, ACCELERATION) = sc_.x(stateIdToIndex(AXIS_Y, ACCELERATION));
   }
-  return state_out;
+  return states_out;
 }
 /*//}*/
 
 /*//{ setStates() */
-void Gps::setStates(const States &states_in) {
+void Gps::setStates(const Gps::states_t &states_in) {
 
   {
     std::scoped_lock lock(mutex_lkf_);
@@ -328,12 +348,5 @@ void Gps::setStates(const States &states_in) {
 /* double             getMeasurementNoise(void)                                   = 0; */
 /* void               setMeasurementNoise(double covariance)                      = 0; */
 
-/*//{ stateIdToIndex() */
-int Gps::stateIdToIndex(const Axis_t &axis_in, const StateId &state_id_in) {
-  return state_id_in * _n_axes_ + axis_in;
-}
-/*//}*/
 
 };  // namespace mrs_odometry
-
-#endif

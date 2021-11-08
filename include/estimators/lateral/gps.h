@@ -28,21 +28,14 @@ namespace mrs_odometry
 
 using namespace mrs_lib;
 
-using lkf_t      = LKF<N_STATES, N_INPUTS, N_MEASUREMENTS>;
-using A_t        = lkf_t::A_t;
-using B_t        = lkf_t::B_t;
-using H_t        = lkf_t::H_t;
-using Q_t        = lkf_t::Q_t;
-using x_t        = lkf_t::x_t;
-using P_t        = lkf_t::P_t;
-using u_t        = lkf_t::u_t;
-using z_t        = lkf_t::z_t;
-using R_t        = lkf_t::R_t;
-using statecov_t = lkf_t::statecov_t;
-
-class Gps : public LateralEstimator {
 
   /* typedef //{ */
+
+  /* typedef Eigen::Matrix<double, N_AXES, 1>          state_t; */
+  /* typedef Eigen::Matrix<double, N_AXES, N_STATES>   states_t; */
+  /* typedef Eigen::Matrix<double, N_AXES, 1>          Input_t; */
+  /* typedef Eigen::Matrix<double, N_STATES, N_STATES> ProcessNoiseMatrix_t; */
+  /* typedef LateralMeasurement                        Measurement_t; */
 
   typedef enum
   {
@@ -62,6 +55,27 @@ class Gps : public LateralEstimator {
   } Axis_t;
 
   //}
+
+  
+/* template <typename State_t, typename States_t, typename StateId_t, typename Axis_t> */
+class Gps : public LateralEstimator<N_STATES, N_AXES> {
+
+using lkf_t      = LKF<N_STATES, N_INPUTS, N_MEASUREMENTS>;
+using A_t        = lkf_t::A_t;
+using B_t        = lkf_t::B_t;
+using H_t        = lkf_t::H_t;
+using Q_t        = lkf_t::Q_t;
+using x_t        = lkf_t::x_t;
+using P_t        = lkf_t::P_t;
+using u_t        = lkf_t::u_t;
+using z_t        = lkf_t::z_t;
+using R_t        = lkf_t::R_t;
+using statecov_t = lkf_t::statecov_t;
+
+  public:
+using Base_class = LateralEstimator<N_STATES, N_AXES>;
+using state_t = typename Base_class::state_t; 
+using states_t = typename Base_class::states_t;
 
 private:
   ros::NodeHandle nh_;
@@ -89,38 +103,29 @@ private:
   int        _check_health_timer_rate_;
   void       timerCheckHealth(const ros::TimerEvent &event);
 
-  int stateIdToIndex(const Axis_t &axis_in, const StateId &state_id_in);
+  /* int stateIdToIndex(const Axis_t &axis_in, const StateId_t &state_id_in) const; */
+
+  bool isConverged();
 
 public:
-  static const int _n_axes_         = N_AXES;
-  static const int _n_states_       = N_STATES;
-  static const int _n_inputs_       = N_INPUTS;
-  static const int _n_measurements_ = N_MEASUREMENTS;
-
-  typedef Eigen::Matrix<double, 2, 1>                   State_t;
-  typedef Eigen::Matrix<double, 2, _n_states_>          States_t;
-  typedef Eigen::Matrix<double, 2, 1>                   Input_t;
-  typedef Eigen::Matrix<double, _n_states_, _n_states_> ProcessNoiseMatrix_t;
-  typedef LateralMeasurement                            Measurement_t;
 
 public:
   ~Gps(void) {
   }
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string &name, const std::string &uav_name);
-  virtual bool start(void) const override;
-  virtual bool pause(void) const override;
-  virtual bool reset(void) const override;
+  virtual void initialize(const ros::NodeHandle &parent_nh) override;
+  virtual bool start(void) override;
+  virtual bool pause(void) override;
+  virtual bool reset(void) override;
 
   virtual std::string getName(void) const override;
 
-  bool isConverged();
 
-  virtual State_t getState(const StateId_t &state_id_in) const override;
-  virtual void    setState(const State_t &state_in) const override;
+  state_t getState(const int &state_id_in) override;
+  void    setState(const state_t &state_in, const int &state_id_in) override;
 
-  virtual States_t getStates(void) const override;
-  virtual void     setStates(const States_t &states_in) const override;
+  states_t getStates(void) override;
+  void     setStates(const states_t &states_in) override;
 
   /* virtual void setInput(const Input_t &input_in) const override; */
   /* virtual void setMeasurement(const Measurement_t &measurement_in, const MeasurementId_t &measurement_id_in) const override; */
@@ -130,6 +135,7 @@ public:
   /* virtual double               getMeasurementNoise(void) const override; */
   /* virtual void                 setMeasurementNoise(double covariance) const override; */
 
+  void timeoutMavrosOdom(const std::string& topic, const ros::Time& last_msg, const int n_pubs);
   /* void callbackMavrosOdom(const nav_msgs::OdometryConstPtr &msg); */
   /* nav_msgs::Odometry odom_mavros_, odom_mavros_previous_; */
   /* bool got_odom_mavros_; */

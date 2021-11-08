@@ -17,7 +17,7 @@ public:
   virtual ~Estimator(void) {
   }
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name) = 0;
+  virtual void initialize(const ros::NodeHandle &parent_nh) = 0;
   virtual bool start(void)                                                              = 0;
   virtual bool pause(void)                                                              = 0;
   virtual bool reset(void)                                                              = 0;
