@@ -375,3 +375,7 @@ heading:
 # Time between mainTimer ticks to be considered as hiccup
 hiccup_time_threshold: 0.03 # [s] 
 
+scope_timer:
+
+  enabled: false
+  log_filename: "" # if empty, scope timers output to terminal; otherwise log to file
