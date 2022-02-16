@@ -32,9 +32,13 @@ generate_dynamic_reconfigure_options(
   cfg/odometry_dynparam.cfg
   )
 
+set(LIBRARIES
+  Odometry RtkRepublisher TFConnectorDummy
+  )
+
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES Odometry
+  LIBRARIES ${LIBRARIES}
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
   DEPENDS mavros_msgs Eigen
   )
@@ -46,7 +50,13 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
   )
 
-add_library(Odometry src/StateEstimator.cpp src/AltitudeEstimator.cpp src/AltitudeEstimatorAloamGarm.cpp src/HeadingEstimator.cpp src/odometry.cpp)
+add_library(Odometry
+  src/StateEstimator.cpp
+  src/AltitudeEstimator.cpp
+  src/AltitudeEstimatorAloamGarm.cpp
+  src/HeadingEstimator.cpp
+  src/odometry.cpp
+  )
 
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
@@ -58,16 +68,53 @@ add_dependencies(Odometry
   ${PROJECT_NAME}_gencfg
   )
 
-add_library(RtkRepublisher src/rtk_republisher.cpp)
+add_library(RtkRepublisher
+  src/rtk_republisher.cpp
+  )
 
 target_link_libraries(RtkRepublisher
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   )
 
-add_library(TFConnectorDummy src/tf_connector_dummy.cpp)
+add_library(TFConnectorDummy
+  src/tf_connector_dummy.cpp
+  )
 
 target_link_libraries(TFConnectorDummy
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
+  )
+
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
+
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(DIRECTORY launch config rviz plot_juggler
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY scripts
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY scripts/
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+install(DIRECTORY include/
+  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+  )
+
+install(DIRECTORY ./
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  FILES_MATCHING PATTERN "*.xml"
   )
