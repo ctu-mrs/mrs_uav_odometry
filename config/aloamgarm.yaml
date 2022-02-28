@@ -1,6 +1,6 @@
 
 aloamgarm:
-  debug: True # publish debug topics
+  debug: False # publish debug topics
 
   # repredictor_buffer_size: 200
   repredictor_buffer_size: 200
@@ -37,7 +37,6 @@ aloamgarm:
   # q_biases: [1.0, 1.0, 0.1]
   # q_biases: 0.1
 
-  kernel_sigma: 0.1
   # nis_buffer_size: 3
   nis_buffer_size: 5
   nis_threshold: 3.0E-5 # 3.9E-5

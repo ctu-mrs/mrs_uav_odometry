@@ -54,7 +54,6 @@ add_library(Odometry
   src/StateEstimator.cpp
   src/AltitudeEstimator.cpp
   src/AltitudeEstimatorAloamGarm.cpp
-  src/AltitudeEstimatorAloamGarm2.cpp
   src/HeadingEstimator.cpp
   src/odometry.cpp
   )
