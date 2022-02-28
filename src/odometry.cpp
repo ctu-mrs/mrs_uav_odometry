@@ -1,4 +1,4 @@
-#define VERSION "1.0.1.0"
+#define VERSION "1.0.2.0"
 
 /* includes //{ */
 
@@ -59,6 +59,7 @@
 #include <mrs_msgs/ReferenceStampedSrv.h>
 
 #include <mrs_lib/profiler.h>
+#include <mrs_lib/scope_timer.h>
 #include <mrs_lib/lkf.h>
 #include <mrs_lib/median_filter.h>
 #include <mrs_lib/gps_conversions.h>
@@ -403,8 +404,8 @@ private:
   ros::Time liosam_timestamp_;
   bool      liosam_updated_mapping_tf_ = false;
 
-  bool _use_general_slam_origin_   = false;
-  bool slam_estimator_initialized_ = false;  // whether some lidar slam estimator was already created
+  bool          _use_general_slam_origin_   = false;
+  bool          slam_estimator_initialized_ = false;  // whether some lidar slam estimator was already created
   ros::Duration _ouster_scan_delay_;
 
   // brick heading msgs
@@ -640,9 +641,7 @@ private:
   double                        _garmin_max_valid_alt_;
 
 
-  bool   callbacks_enabled_ = false;
-  bool   baro_corrected_    = false;
-  double baro_offset_       = 0.0;
+  bool callbacks_enabled_ = false;
 
   // sonar altitude subscriber and callback
   ros::Subscriber               sub_sonar_;
@@ -982,6 +981,10 @@ private:
 private:
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
+
+private:
+  bool                                       scope_timer_enabled_ = false;
+  std::shared_ptr<mrs_lib::ScopeTimerLogger> scope_timer_logger_;
 
   // --------------------------------------------------------------
   // |                     dynamic reconfigure                    |
@@ -1577,8 +1580,8 @@ void Odometry::onInit() {
   param_loader.loadMatrixStatic("height/R", _R_height_);
   param_loader.loadMatrixStatic("height/Q", _Q_height_);
 
-  lkf_height_t::x_t x0_height = lkf_height_t::x_t::Zero();
-  lkf_height_t::P_t P0_height = lkf_height_t::P_t::Identity();
+  lkf_height_t::x_t        x0_height = lkf_height_t::x_t::Zero();
+  lkf_height_t::P_t        P0_height = lkf_height_t::P_t::Identity();
   lkf_height_t::statecov_t sc0_height({x0_height, P0_height});
   sc_height_ = sc0_height;
 
@@ -2196,6 +2199,13 @@ void Odometry::onInit() {
   tf_listener_ptr_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_, "mrs_uav_odometry");
   transformer_     = mrs_lib::Transformer("Odometry", _uav_name_);
 
+  // | ---------------------------------------------------------- |
+  // | ------------------- scope timer logger ------------------- |
+  // | ---------------------------------------------------------- |
+
+  param_loader.loadParam("scope_timer/enabled", scope_timer_enabled_);
+  const std::string scope_timer_log_filename = param_loader.loadParam2("scope_timer/log_filename", std::string(""));
+  scope_timer_logger_                        = std::make_shared<mrs_lib::ScopeTimerLogger>(scope_timer_log_filename, scope_timer_enabled_);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -2755,7 +2765,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("mainTimer", _main_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("mainTimer", _main_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::mainTimer", scope_timer_logger_, scope_timer_enabled_);
 
   ros::Time t_start = ros::Time::now();
 
@@ -2869,11 +2880,11 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     // correction step for aloam
     if (got_aloam_odom_ && aloam_corr_ready_) {
-      auto pos_aloam_x_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_x_);
-      auto pos_aloam_y_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
-      auto hdg_aloam_tmp       = mrs_lib::get_mutexed(mutex_aloam_, hdg_aloam_);
-      auto aloam_timestamp_tmp = mrs_lib::get_mutexed(mutex_aloam_, aloam_timestamp_);
-      ros::Time time_start    = ros::Time::now();
+      auto      pos_aloam_x_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_x_);
+      auto      pos_aloam_y_tmp     = mrs_lib::get_mutexed(mutex_aloam_, pos_aloam_y_);
+      auto      hdg_aloam_tmp       = mrs_lib::get_mutexed(mutex_aloam_, hdg_aloam_);
+      auto      aloam_timestamp_tmp = mrs_lib::get_mutexed(mutex_aloam_, aloam_timestamp_);
+      ros::Time time_start          = ros::Time::now();
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
       headingEstimatorsCorrection(hdg_aloam_tmp, "hdg_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
       ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec());
@@ -4830,7 +4841,8 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("slowOdomTimer", _slow_odom_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("slowOdomTimer", _slow_odom_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::slowOdomTimer", scope_timer_logger_, scope_timer_enabled_);
 
   nav_msgs::Odometry slow_odom;
 
@@ -4873,7 +4885,8 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagTimer", _diag_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("diagTimer", _diag_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::diagTimer", scope_timer_logger_, scope_timer_enabled_);
 
   static ros::Time t_start = ros::Time::now();
 
@@ -4953,7 +4966,8 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("lkfStatesTimer", _lkf_states_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("lkfStatesTimer", _lkf_states_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::lkfStatesTimer", scope_timer_logger_, scope_timer_enabled_);
 
   LatState2D states_mat;
 
@@ -5049,7 +5063,8 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("maxAltitudeTimer", _max_altitude_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::maxAltitudeTimer", scope_timer_logger_, scope_timer_enabled_);
 
   mrs_msgs::Float64Stamped max_altitude_msg;
   max_altitude_msg.header.frame_id = _uav_name_ + "/" + toLowercase(current_lat_estimator_name_) + "_origin";
@@ -5110,7 +5125,8 @@ void Odometry::rtkRateTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("rtkRateTimer", 1, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("rtkRateTimer", 1, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::rtkRateTimer", scope_timer_logger_, scope_timer_enabled_);
 
   if (got_rtk_) {
 
@@ -5132,7 +5148,8 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("topicWatcherTimer", topic_watcher_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::topicWatcherTimer", scope_timer_logger_, scope_timer_enabled_);
 
   ros::Duration interval;
 
@@ -5256,7 +5273,8 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
   hector_reset_routine_running_ = true;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackTimerHectorResetRoutine", topic_watcher_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackTimerHectorResetRoutine", topic_watcher_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackTimerHectorResetRoutine", scope_timer_logger_, scope_timer_enabled_);
 
   // Change estimator to ICP
   bool in_icp = false;
@@ -5386,7 +5404,8 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackAttitudeCommand");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackAttitudeCommand");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackAttitudeCommand", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_attitude_command_);
@@ -5552,7 +5571,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOdometry");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackOdometry");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackOdometry", scope_timer_logger_, scope_timer_enabled_);
 
   if (!noNans(msg->pose.pose.orientation)) {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: NaN detected in mavros orientation. Returning from mavros callback.");
@@ -5759,23 +5779,10 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   ros::Time time_now = ros::Time::now();
   {
     std::scoped_lock lock(mutex_odom_pixhawk_);
-    altitude   = odom_pixhawk_.pose.pose.position.z - baro_offset_;
+    altitude   = odom_pixhawk_.pose.pose.position.z;
     twist_z    = vel_enu.z;
     meas_stamp = odom_pixhawk_.header.stamp;
   }
-
-  // fuse zero into baro estimator when on the ground
-  auto range_garmin_tmp = mrs_lib::get_mutexed(mutex_range_garmin_, range_garmin_);
-  if (!isUavFlying()) {
-    altitude        = 0.0;
-    baro_corrected_ = false;
-  } else if (!baro_corrected_ && std::isfinite(range_garmin_tmp.range)) {
-
-    auto odom_pixhawk_tmp = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_);
-    baro_offset_          = odom_pixhawk_tmp.pose.pose.position.z - range_garmin_tmp.range;
-    baro_corrected_       = true;
-  }
-
 
   {
     std::scoped_lock lock(mutex_altitude_estimator_);
@@ -6049,7 +6056,8 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkImu");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackPixhawkImu");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackPixhawkImu", scope_timer_logger_, scope_timer_enabled_);
 
   pixhawk_imu_last_update_ = ros::Time::now();
 
@@ -6199,7 +6207,8 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkCompassHdg");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackPixhawkCompassHdg");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackPixhawkCompassHdg", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_compass_hdg_);
@@ -6316,7 +6325,8 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOptflowTwist");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackOptflowTwist");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackOptflowTwist", scope_timer_logger_, scope_timer_enabled_);
 
   optflow_twist_last_update_ = ros::Time::now();
 
@@ -6535,7 +6545,8 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackOptflowTwistLow");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackOptflowTwistLow");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackOptflowTwistLow", scope_timer_logger_, scope_timer_enabled_);
 
   optflow_twist_last_update_ = ros::Time::now();
 
@@ -6710,7 +6721,8 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackICPTwist");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackICPTwist");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackICPTwist", scope_timer_logger_, scope_timer_enabled_);
 
   icp_twist_last_update_ = ros::Time::now();
 
@@ -6856,7 +6868,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackRtk");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackRtk");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackRtk", scope_timer_logger_, scope_timer_enabled_);
 
   mrs_msgs::RtkGps rtk_utm;
 
@@ -7142,7 +7155,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVioOdometry");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackVioOdometry");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackVioOdometry", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_odom_vio_);
@@ -7383,7 +7397,8 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackVslamPose");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackVslamPose");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackVslamPose", scope_timer_logger_, scope_timer_enabled_);
 
   geometry_msgs::PoseWithCovarianceStamped pose_vslam_previous;
 
@@ -7513,7 +7528,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackBrickPose");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackBrickPose");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackBrickPose", scope_timer_logger_, scope_timer_enabled_);
 
   brick_pose_last_update_ = ros::Time::now();
 
@@ -7840,7 +7856,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackHectorPose");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackHectorPose");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackHectorPose", scope_timer_logger_, scope_timer_enabled_);
 
   hector_pose_last_update_ = ros::Time::now();
 
@@ -8015,7 +8032,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackAloamOdom");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackAloamOdom");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackAloamOdom", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_aloam_);
@@ -8205,7 +8223,8 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackLioSamOdom");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackLioSamOdom");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackLioSamOdom", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_liosam_);
@@ -8454,7 +8473,8 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   if (!garmin_enabled_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGarmin");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackGarmin");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackGarmin", scope_timer_logger_, scope_timer_enabled_);
 
   if (got_range_) {
     {
@@ -8655,7 +8675,8 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackSonar");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackSonar");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackSonar", scope_timer_logger_, scope_timer_enabled_);
 
   if (got_range_) {
     {
@@ -8805,7 +8826,8 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPlane");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackPlane");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackPlane", scope_timer_logger_, scope_timer_enabled_);
 
   if (got_plane_) {
     {
@@ -8886,7 +8908,8 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackPixhawkUtm");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackPixhawkUtm");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackPixhawkUtm", scope_timer_logger_, scope_timer_enabled_);
 
   double out_x;
   double out_y;
@@ -8951,7 +8974,8 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackControlManagerDiag");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackControlManagerDiag");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackControlManagerDiag", scope_timer_logger_, scope_timer_enabled_);
 
   auto control_manager_diag = mrs_lib::get_mutexed(mutex_control_manager_diag_, control_manager_diag_);
 
@@ -8981,7 +9005,8 @@ void Odometry::callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg) {
     return;
 
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackUavMassEstimate");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackUavMassEstimate");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackUavMassEstimate", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_uav_mass_estimate_);
@@ -9000,7 +9025,8 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
   if (!_gps_fallback_allowed_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGPSCovariance");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackGPSCovariance");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackGPSCovariance", scope_timer_logger_, scope_timer_enabled_);
 
   double cov_tmp = msg->pose.covariance.at(0);
 
@@ -9181,7 +9207,8 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackGroundTruth");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackGroundTruth");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackGroundTruth", scope_timer_logger_, scope_timer_enabled_);
 
   {
     std::scoped_lock lock(mutex_ground_truth_);
@@ -9212,7 +9239,8 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackT265Odometry");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackT265Odometry");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackT265Odometry", scope_timer_logger_, scope_timer_enabled_);
 
   if (got_odom_t265_) {
 
@@ -10565,7 +10593,11 @@ void Odometry::stateEstimatorsCorrection(double x, double y, const std::string &
       double current_hdg;
       for (auto &hdg_estimator : heading_estimators_) {
 
-        if (estimator.first == "GPS" || estimator.first == "RTK") {
+        if (estimator.first == "GPS" || estimator.first == "RTK" ||
+            (estimator.first == "OPTFLOW" &&
+             current_hdg_estimator_name_ ==
+                 "PIXHAWK")) {  // condition in parentheses is quite hacky and won't allow switching to other hdg estimator with optflow lateral estimator, but
+                                // it is the simplest way before modular custom estimators are implemented
 
           geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
           try {
@@ -11377,7 +11409,7 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   //}
 
   is_updating_state_ = true;
-  if (isStringInVector(target_estimator.name, _altitude_estimators_names_)) {
+  if (isStringInVector(target_estimator.name, _active_altitude_estimators_names_)) {
     {
       std::scoped_lock lock(mutex_current_alt_estimator_);
 

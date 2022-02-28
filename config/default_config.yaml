@@ -1,4 +1,4 @@
-version: "1.0.1.0"
+version: "1.0.2.0"
 
 # Estimators used during takeoff
 # Lateral state estimator:
@@ -85,7 +85,7 @@ altitude:
     vel_vio: [0.01]
     height_aloam: [1.0]
     height_liosam: [10000.0]
-    height_baro: [100.0]
+    height_baro: [1.0]
     height_rtk: [100.0]
     vel_baro: [100.0]
     vel_liosam_z: [1000.0]
@@ -375,3 +375,7 @@ heading:
 # Time between mainTimer ticks to be considered as hiccup
 hiccup_time_threshold: 0.03 # [s] 
 
+scope_timer:
+
+  enabled: false
+  log_filename: "" # if empty, scope timers output to terminal; otherwise log to file
