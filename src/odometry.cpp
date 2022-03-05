@@ -246,9 +246,7 @@ private:
 
 private:
   std::shared_ptr<mrs_lib::TransformBroadcaster> broadcaster_;
-  tf2_ros::Buffer                                tf_buffer_;
-  std::unique_ptr<tf2_ros::TransformListener>    tf_listener_ptr_;
-  mrs_lib::Transformer                           transformer_;
+  std::unique_ptr<mrs_lib::Transformer>          transformer_;
 
   double         init_magnetic_heading_ = 0.0;
   double         init_brick_hdg_        = 0.0;
@@ -2193,8 +2191,10 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
   // |                         tf listener                        |
   // --------------------------------------------------------------
-  tf_listener_ptr_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_, "mrs_uav_odometry");
-  transformer_     = mrs_lib::Transformer("Odometry", _uav_name_);
+
+  transformer_ = std::make_unique<mrs_lib::Transformer>(nh_, "Odometry");
+  transformer_->setDefaultPrefix(_uav_name_);
+  transformer_->retryLookupNewest(true);
 
   // | ---------------------------------------------------------- |
   // | ------------------- scope timer logger ------------------- |
@@ -4037,7 +4037,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
 
     geometry_msgs::Vector3Stamped body_vel;
-    auto                          response = transformer_.transformSingle(fcu_frame_id_, global_vel);
+    auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
     if (response) {
       body_vel = response.value();
     } else {
@@ -4325,7 +4325,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
 
     geometry_msgs::Vector3Stamped body_vel;
-    auto                          response = transformer_.transformSingle(fcu_frame_id_, global_vel);
+    auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
     if (response) {
       body_vel = response.value();
     } else {
@@ -4605,7 +4605,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::PoseStamped pose_tmp;
   pose_tmp.header = odom_main.header;
   pose_tmp.pose   = odom_main.pose.pose;
-  auto response   = transformer_.transformSingle(first_frame_, pose_tmp);
+  auto response   = transformer_->transformSingle(pose_tmp, first_frame_);
   if (response) {
     got_stable                = true;
     odom_stable_tmp.pose.pose = response.value().pose;
@@ -5871,12 +5871,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     local_vel.vector.z        = vel_mavros_z;
 
     geometry_msgs::Vector3Stamped global_vel;
-    auto                          response = transformer_.transformSingle(_uav_name_ + "/gps_origin", local_vel);
+    auto                          response = transformer_->transformSingle(local_vel, "gps_origin");
     if (response) {
       global_vel = response.value();
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_main.", local_vel.header.frame_id.c_str(),
-                        (_uav_name_ + "gps_origin").c_str());
+                        (_uav_name_ + "/gps_origin").c_str());
       return;
     }
 
@@ -6096,7 +6096,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   acc_untilted.vector          = pixhawk_imu_.linear_acceleration;
   acc_untilted.header          = pixhawk_imu_.header;
   acc_untilted.header.frame_id = fcu_frame_id_;
-  auto response_acc            = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+  auto response_acc            = transformer_->transformSingle(acc_untilted, fcu_untilted_frame_id_);
 
   if (response_acc) {
     acc_untilted = response_acc.value();
@@ -6123,7 +6123,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   ang_vel_untilted.vector          = pixhawk_imu_.angular_velocity;
   ang_vel_untilted.header          = pixhawk_imu_.header;
   ang_vel_untilted.header.frame_id = fcu_frame_id_;
-  auto response_ang_vel            = transformer_.transformSingle(fcu_untilted_frame_id_, ang_vel_untilted);
+  auto response_ang_vel            = transformer_->transformSingle(ang_vel_untilted, fcu_untilted_frame_id_);
 
   if (response_ang_vel) {
     ang_vel_untilted = response_ang_vel.value();
@@ -6136,7 +6136,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   attitude_untilted.quaternion      = pixhawk_imu_.orientation;
   attitude_untilted.header          = pixhawk_imu_.header;
   attitude_untilted.header.frame_id = fcu_frame_id_;
-  auto response_attitude            = transformer_.transformSingle(fcu_untilted_frame_id_, attitude_untilted);
+  auto response_attitude            = transformer_->transformSingle(attitude_untilted, fcu_untilted_frame_id_);
   if (response_attitude) {
     attitude_untilted = response_attitude.value();
   } else {
@@ -8550,7 +8550,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   garmin_point.pose.position.z  = 0;
   garmin_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_.transformSingle("fcu_untilted", garmin_point);
+  auto res = transformer_->transformSingle(garmin_point, "fcu_untilted");
 
   double measurement;
 
@@ -8730,7 +8730,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   sonar_point.pose.position.z  = 0;
   sonar_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_.transformSingle("fcu_untilted", sonar_point);
+  auto res = transformer_->transformSingle(sonar_point, "fcu_untilted");
 
   double measurement;
 
@@ -10523,7 +10523,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     acc_untilted.vector          = acc_in;
     acc_untilted.header.frame_id = fcu_frame_id_;
     acc_untilted.header.stamp    = ros::Time::now();
-    auto response_acc            = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+    auto response_acc            = transformer_->transformSingle(acc_untilted, fcu_untilted_frame_id_);
     if (response_acc) {
       acc_untilted = response_acc.value();
     } else {
