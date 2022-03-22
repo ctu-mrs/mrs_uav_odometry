@@ -720,6 +720,7 @@ private:
   // current position in UTM as measure by pixhawk
   double     pixhawk_utm_position_x_, pixhawk_utm_position_y_;
   std::mutex mutex_pixhawk_utm_position_;
+  ros::Time  pixhawk_global_last_update_;
 
   // subscribing to tracker status
   mrs_msgs::ControlManagerDiagnostics control_manager_diag_;
@@ -5069,6 +5070,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
     got_odom_pixhawk_ = false;
   }
 
+  // pixhawk global position
+  interval = ros::Time::now() - pixhawk_global_last_update_;
+  if (got_pixhawk_utm_ && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds.", interval.toSec());
+    got_pixhawk_utm_ = false;
+  }
+
   // rtk odometry
   interval = ros::Time::now() - rtk_last_update_;
   if (got_rtk_ && rtk_reliable_ && interval.toSec() > 1.0) {
@@ -8744,6 +8752,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
     pixhawk_utm_position_y_ = out_y;
   }
 
+  pixhawk_global_last_update_ = ros::Time::now();
   got_pixhawk_utm_ = true;
   ROS_INFO_ONCE("[Odometry]: Got Pixhawk UTM.");
 
