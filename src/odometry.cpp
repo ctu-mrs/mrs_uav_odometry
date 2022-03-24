@@ -70,6 +70,7 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/transform_broadcaster.h>
+#include <mrs_lib/publisher_handler.h>
 
 #include <types.h>
 #include <support.h>
@@ -147,52 +148,51 @@ private:
   ros::NodeHandle nh_;
 
 private:
-  ros::Publisher pub_uav_state_;
-  ros::Publisher pub_odom_main_;
-  ros::Publisher pub_odom_main_inno_;
-  ros::Publisher pub_odom_local_;
-  ros::Publisher pub_odom_stable_;
-  ros::Publisher pub_slow_odom_;
-  ros::Publisher pub_esp_odom_;
-  ros::Publisher pub_rtk_local_;
-  ros::Publisher pub_rtk_local_odom_;
-  ros::Publisher pub_gps_local_odom_;
-  ros::Publisher pub_orientation_gt_;
-  ros::Publisher pub_orientation_mavros_;
-  ros::Publisher pub_des_attitude_global_;
-  ros::Publisher pub_odometry_diag_;
-  ros::Publisher pub_altitude_;
-  ros::Publisher pub_height_;
-  ros::Publisher pub_orientation_;
-  ros::Publisher pub_max_altitude_;
-  ros::Publisher pub_max_altitude_status_string_;
-  ros::Publisher pub_lkf_states_x_;
-  ros::Publisher pub_lkf_states_y_;
-  ros::Publisher pub_heading_states_;
-  ros::Publisher pub_altitude_state_;
-  ros::Publisher pub_alt_cov_;
-  ros::Publisher pub_hector_reset_;
-  ros::Publisher pub_imu_untilted_;
-  ros::Publisher pub_brick_diag_;
+  mrs_lib::PublisherHandler<mrs_msgs::UavState>            pub_uav_state_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_odom_main_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_odom_main_inno_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_odom_local_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_odom_stable_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_slow_odom_;
+  mrs_lib::PublisherHandler<mrs_msgs::EspOdometry>         pub_esp_odom_;
+  mrs_lib::PublisherHandler<mrs_msgs::RtkGps>              pub_rtk_local_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_rtk_local_odom_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_gps_local_odom_;
+  mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped> pub_orientation_gt_;
+  mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped> pub_orientation_mavros_;
+  mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped> pub_des_attitude_global_;
+  mrs_lib::PublisherHandler<mrs_msgs::OdometryDiag>        pub_odometry_diag_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>      pub_altitude_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>      pub_height_;
+  mrs_lib::PublisherHandler<nav_msgs::Odometry>            pub_orientation_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>      pub_max_altitude_;
+  mrs_lib::PublisherHandler<std_msgs::String>              pub_max_altitude_status_string_;
+  mrs_lib::PublisherHandler<mrs_msgs::LkfStates>           pub_lkf_states_x_;
+  mrs_lib::PublisherHandler<mrs_msgs::LkfStates>           pub_lkf_states_y_;
+  mrs_lib::PublisherHandler<mrs_msgs::EstimatedState>      pub_heading_states_;
+  mrs_lib::PublisherHandler<mrs_msgs::EstimatedState>      pub_altitude_state_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped> pub_alt_cov_;
+  mrs_lib::PublisherHandler<std_msgs::String>              pub_hector_reset_;
+  mrs_lib::PublisherHandler<sensor_msgs::Imu>              pub_imu_untilted_;
+  mrs_lib::PublisherHandler<mrs_msgs::ReferenceStamped>    pub_brick_diag_;
 
-  ros::Publisher pub_compass_hdg_corr_;
-  ros::Publisher pub_hector_hdg_corr_;
-  ros::Publisher pub_aloam_hdg_corr_;
-  ros::Publisher pub_liosam_hdg_corr_;
-  ros::Publisher pub_brick_hdg_corr_;
-  ros::Publisher pub_vio_hdg_corr_;
-  ros::Publisher pub_vslam_hdg_corr_;
-  ros::Publisher pub_vel_baro_corr_;
-  ros::Publisher pub_vel_liosam_twist_z_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_compass_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_hector_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_aloam_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_liosam_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_brick_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_vio_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_vslam_hdg_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_vel_baro_corr_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_vel_liosam_twist_z_corr_;
 
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_cmd_hdg_input_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_cmd_hdg_rate_input_;
 
-  ros::Publisher pub_cmd_hdg_input_;
-  ros::Publisher pub_cmd_hdg_rate_input_;
+  mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped> pub_debug_optflow_filter_;
+  mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped> pub_debug_icp_twist_filter_;
 
-  ros::Publisher pub_debug_optflow_filter_;
-  ros::Publisher pub_debug_icp_twist_filter_;
-
-  ros::Publisher pub_debug_aloam_delay_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_debug_aloam_delay_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -246,19 +246,17 @@ private:
 
 private:
   std::shared_ptr<mrs_lib::TransformBroadcaster> broadcaster_;
-  tf2_ros::Buffer                                tf_buffer_;
-  std::unique_ptr<tf2_ros::TransformListener>    tf_listener_ptr_;
-  mrs_lib::Transformer                           transformer_;
+  std::unique_ptr<mrs_lib::Transformer>          transformer_;
 
-  double         init_magnetic_heading_ = 0.0;
-  double         init_brick_hdg_        = 0.0;
-  double         hdg_diff_              = 0.0;
-  ros::Publisher pub_odom_mavros_;
+  double init_magnetic_heading_ = 0.0;
+  double init_brick_hdg_        = 0.0;
+  double hdg_diff_              = 0.0;
+
+  mrs_lib::PublisherHandler<nav_msgs::Odometry> pub_odom_mavros_;
 
   nav_msgs::Odometry odom_main_inno_;
   std::mutex         mutex_odom_main_inno_;
   std::mutex         mutex_uav_state_;
-
 
   // PIXHAWK
   nav_msgs::Odometry odom_pixhawk_;
@@ -761,7 +759,6 @@ private:
   std::map<std::string, int>                               map_hdg_measurement_name_id_;
   std::map<std::string, hdg_H_t>                           map_hdg_states_;
   std::map<std::string, mrs_msgs::Float64ArrayStamped>     map_hdg_estimator_msg_;
-  std::map<std::string, ros::Publisher>                    map_hdg_estimator_pub_;
   std::map<std::string, std::shared_ptr<HeadingEstimator>> heading_estimators_;
   std::shared_ptr<HeadingEstimator>                        current_hdg_estimator_;
   std::string                                              current_hdg_estimator_name_;
@@ -773,6 +770,8 @@ private:
   bool                                                     init_hdg_avg_done_;
   int                                                      init_hdg_avg_samples_;
   double                                                   init_hdg_avg_;
+
+  std::map<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>> map_hdg_estimator_pub_;
 
   int    _compass_hdg_filter_buffer_size_;
   double _compass_hdg_filter_max_diff_;
@@ -799,7 +798,6 @@ private:
   std::map<std::string, int>                                map_alt_measurement_name_id_;
   std::map<std::string, alt_H_t>                            map_alt_states_;
   std::map<std::string, mrs_msgs::Float64Stamped>           map_alt_estimator_msg_;
-  std::map<std::string, ros::Publisher>                     map_alt_estimator_pub_;
   std::map<std::string, std::shared_ptr<AltitudeEstimator>> _altitude_estimators_;
   std::shared_ptr<AltitudeEstimator>                        current_alt_estimator_;
   std::string                                               current_alt_estimator_name_;
@@ -810,6 +808,8 @@ private:
   bool                                                      lat_gps_est_pos_init_             = false;
   int                                                       counter_altitude_                 = 0;
   double                                                    _excessive_tilt_sq_;
+
+  std::map<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>> map_alt_estimator_pub_;
 
   // State estimation
   std::vector<std::string>                               _state_estimators_names_;
@@ -823,11 +823,12 @@ private:
   std::map<std::string, int>                             map_measurement_name_id_;
   std::map<std::string, LatStateCol1D>                   map_states_;
   std::map<std::string, nav_msgs::Odometry>              map_estimator_odom_;
-  std::map<std::string, ros::Publisher>                  map_estimator_pub_;
   std::map<std::string, std::shared_ptr<StateEstimator>> _lateral_estimators_;
   std::shared_ptr<StateEstimator>                        current_lat_estimator_;
   std::mutex                                             mutex_current_lat_estimator_;
   std::string                                            current_lat_estimator_name_;
+
+  std::map<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>> map_estimator_pub_;
 
   bool   _saturate_mavros_position_;
   double _max_mavros_pos_correction_;
@@ -1002,7 +1003,7 @@ private:
 
 void Odometry::onInit() {
 
-  ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
+  nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
   ros::Time::waitForValid();
 
@@ -1561,8 +1562,9 @@ void Odometry::onInit() {
     map_alt_estimator_msg_.insert(std::pair<std::string, mrs_msgs::Float64Stamped>(*it, alt_msg));
 
     // Map publisher to estimator name
-    ros::Publisher pub = nh_.advertise<mrs_msgs::Float64Stamped>(alt_estimator_name + "_out", 1);
-    map_alt_estimator_pub_.insert(std::pair<std::string, ros::Publisher>(*it, pub));
+    mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, alt_estimator_name + "_out", 1);
+
+    map_alt_estimator_pub_.insert(std::pair<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>>(*it, pub));
   }
 
   // Height Garmin filter
@@ -1960,8 +1962,8 @@ void Odometry::onInit() {
     map_estimator_odom_.insert(std::pair<std::string, nav_msgs::Odometry>(*it, odom));
 
     // Map publisher to estimator name
-    ros::Publisher pub = nh_.advertise<nav_msgs::Odometry>("odom_" + estimator_name + "_out", 1);
-    map_estimator_pub_.insert(std::pair<std::string, ros::Publisher>(*it, pub));
+    mrs_lib::PublisherHandler<nav_msgs::Odometry> pub = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_" + estimator_name + "_out", 1);
+    map_estimator_pub_.insert(std::pair<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>>(*it, pub));
   }
   is_lateral_estimator_initialized_ = true;
   //}
@@ -2182,8 +2184,9 @@ void Odometry::onInit() {
     map_hdg_estimator_msg_.insert(std::pair<std::string, mrs_msgs::Float64ArrayStamped>(*it, hdg_msg));
 
     // Map publisher to heading estimator name
-    ros::Publisher pub = nh_.advertise<mrs_msgs::Float64ArrayStamped>("hdg_" + hdg_estimator_name + "_out", 1);
-    map_hdg_estimator_pub_.insert(std::pair<std::string, ros::Publisher>(*it, pub));
+    mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped> pub =
+        mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>(nh_, "hdg_" + hdg_estimator_name + "_out", 1);
+    map_hdg_estimator_pub_.insert(std::pair<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>>(*it, pub));
   }
 
   ROS_INFO("[Odometry]: Heading estimators initialized");
@@ -2193,8 +2196,10 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
   // |                         tf listener                        |
   // --------------------------------------------------------------
-  tf_listener_ptr_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_, "mrs_uav_odometry");
-  transformer_     = mrs_lib::Transformer("Odometry", _uav_name_);
+
+  transformer_ = std::make_unique<mrs_lib::Transformer>(nh_, "Odometry");
+  transformer_->setDefaultPrefix(_uav_name_);
+  transformer_->retryLookupNewest(true);
 
   // | ---------------------------------------------------------- |
   // | ------------------- scope timer logger ------------------- |
@@ -2215,67 +2220,68 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   /* //{ publishers */
-  pub_uav_state_                  = nh_.advertise<mrs_msgs::UavState>("uav_state_out", 1);
-  pub_odom_main_                  = nh_.advertise<nav_msgs::Odometry>("odom_main_out", 1);
-  pub_odom_main_inno_             = nh_.advertise<nav_msgs::Odometry>("odom_main_inno_out", 1);
-  pub_odom_local_                 = nh_.advertise<nav_msgs::Odometry>("odom_local_out", 1);
-  pub_odom_stable_                = nh_.advertise<nav_msgs::Odometry>("odom_stable_out", 1);
-  pub_slow_odom_                  = nh_.advertise<nav_msgs::Odometry>("slow_odom_out", 1);
-  pub_odom_mavros_                = nh_.advertise<nav_msgs::Odometry>("odom_mavros_out", 1);
-  pub_esp_odom_                   = nh_.advertise<mrs_msgs::EspOdometry>("esp_odom_out", 1);
-  pub_odometry_diag_              = nh_.advertise<mrs_msgs::OdometryDiag>("odometry_diag_out", 1);
-  pub_altitude_                   = nh_.advertise<mrs_msgs::Float64Stamped>("altitude_out", 1);
-  pub_height_                     = nh_.advertise<mrs_msgs::Float64Stamped>("height_out", 1);
-  pub_max_altitude_               = nh_.advertise<mrs_msgs::Float64Stamped>("max_altitude_out", 1);
-  pub_max_altitude_status_string_ = nh_.advertise<std_msgs::String>("max_altitude_status_string_out", 1);
-  pub_orientation_                = nh_.advertise<nav_msgs::Odometry>("orientation_out", 1);
-  pub_lkf_states_x_               = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_x_out", 1);
-  pub_lkf_states_y_               = nh_.advertise<mrs_msgs::LkfStates>("lkf_states_y_out", 1);
-  pub_heading_states_             = nh_.advertise<mrs_msgs::EstimatedState>("heading_state_out", 1);
-  pub_altitude_state_             = nh_.advertise<mrs_msgs::EstimatedState>("altitude_state_out", 1);
-  pub_alt_cov_                    = nh_.advertise<mrs_msgs::Float64ArrayStamped>("altitude_covariance_out", 1);
-  pub_debug_optflow_filter_       = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>("optflow_filtered_out", 1);
-  pub_imu_untilted_               = nh_.advertise<sensor_msgs::Imu>("imu_untilted_out", 1);
-  pub_brick_diag_                 = nh_.advertise<mrs_msgs::ReferenceStamped>("brick_diag_out", 1);
+  pub_uav_state_                  = mrs_lib::PublisherHandler<mrs_msgs::UavState>(nh_, "uav_state_out", 1);
+  pub_odom_main_                  = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_main_out", 1);
+  pub_odom_main_inno_             = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_main_inno_out", 1);
+  pub_odom_local_                 = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_local_out", 1);
+  pub_odom_stable_                = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_stable_out", 1);
+  pub_slow_odom_                  = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "slow_odom_out", 1);
+  pub_odom_mavros_                = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "odom_mavros_out", 1);
+  pub_esp_odom_                   = mrs_lib::PublisherHandler<mrs_msgs::EspOdometry>(nh_, "esp_odom_out", 1);
+  pub_odometry_diag_              = mrs_lib::PublisherHandler<mrs_msgs::OdometryDiag>(nh_, "odometry_diag_out", 1);
+  pub_altitude_                   = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "altitude_out", 1);
+  pub_height_                     = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "height_out", 1);
+  pub_max_altitude_               = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "max_altitude_out", 1);
+  pub_max_altitude_status_string_ = mrs_lib::PublisherHandler<std_msgs::String>(nh_, "max_altitude_status_string_out", 1);
+  pub_orientation_                = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "orientation_out", 1);
+  pub_lkf_states_x_               = mrs_lib::PublisherHandler<mrs_msgs::LkfStates>(nh_, "lkf_states_x_out", 1);
+  pub_lkf_states_y_               = mrs_lib::PublisherHandler<mrs_msgs::LkfStates>(nh_, "lkf_states_y_out", 1);
+  pub_heading_states_             = mrs_lib::PublisherHandler<mrs_msgs::EstimatedState>(nh_, "heading_state_out", 1);
+  pub_altitude_state_             = mrs_lib::PublisherHandler<mrs_msgs::EstimatedState>(nh_, "altitude_state_out", 1);
+  pub_alt_cov_                    = mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>(nh_, "altitude_covariance_out", 1);
+  pub_debug_optflow_filter_       = mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped>(nh_, "optflow_filtered_out", 1);
+  pub_debug_icp_twist_filter_     = mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped>(nh_, "icp_filtered_out", 1);
+  pub_imu_untilted_               = mrs_lib::PublisherHandler<sensor_msgs::Imu>(nh_, "imu_untilted_out", 1);
+  pub_brick_diag_                 = mrs_lib::PublisherHandler<mrs_msgs::ReferenceStamped>(nh_, "brick_diag_out", 1);
 
   // republisher for rtk local
-  pub_rtk_local_ = nh_.advertise<mrs_msgs::RtkGps>("rtk_local_out", 1);
+  pub_rtk_local_ = mrs_lib::PublisherHandler<mrs_msgs::RtkGps>(nh_, "rtk_local_out", 1);
 
   // republisher for rtk local odometry (e.g. for rviz)
-  pub_rtk_local_odom_ = nh_.advertise<nav_msgs::Odometry>("rtk_local_odom_out", 1);
+  pub_rtk_local_odom_ = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "rtk_local_odom_out", 1);
 
   // republisher for gps local odometry (e.g. for rviz)
-  pub_gps_local_odom_ = nh_.advertise<nav_msgs::Odometry>("gps_local_odom_out", 1);
+  pub_gps_local_odom_ = mrs_lib::PublisherHandler<nav_msgs::Odometry>(nh_, "gps_local_odom_out", 1);
 
   // publisher for resetting hector map
-  pub_hector_reset_ = nh_.advertise<std_msgs::String>("hector_map_reset_out", 1);
+  pub_hector_reset_ = mrs_lib::PublisherHandler<std_msgs::String>(nh_, "hector_map_reset_out", 1);
 
   // publisher for tf
   broadcaster_ = std::make_shared<mrs_lib::TransformBroadcaster>();
 
   // publishers for orientations in local_origin frame
-  pub_des_attitude_global_ = nh_.advertise<geometry_msgs::Vector3Stamped>("des_attitude_global_out", 1);
-  pub_orientation_gt_      = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_gt_out", 1);
-  pub_orientation_mavros_  = nh_.advertise<geometry_msgs::Vector3Stamped>("orientation_mavros_out", 1);
+  pub_des_attitude_global_ = mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped>(nh_, "des_attitude_global_out", 1);
+  pub_orientation_gt_      = mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped>(nh_, "orientation_gt_out", 1);
+  pub_orientation_mavros_  = mrs_lib::PublisherHandler<geometry_msgs::Vector3Stamped>(nh_, "orientation_mavros_out", 1);
 
   // publishers for heading
 
   if (_debug_publish_corrections_) {
-    pub_compass_hdg_corr_   = nh_.advertise<mrs_msgs::Float64Stamped>("debug_compass_hdg_corr_out", 1);
-    pub_hector_hdg_corr_    = nh_.advertise<mrs_msgs::Float64Stamped>("debug_hector_hdg_corr_out", 1);
-    pub_aloam_hdg_corr_     = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_hdg_corr_out", 1);
-    pub_liosam_hdg_corr_    = nh_.advertise<mrs_msgs::Float64Stamped>("debug_liosam_hdg_corr_out", 1);
-    pub_brick_hdg_corr_     = nh_.advertise<mrs_msgs::Float64Stamped>("debug_brick_hdg_corr_out", 1);
-    pub_vio_hdg_corr_       = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vio_hdg_corr_out", 1);
-    pub_vslam_hdg_corr_     = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vslam_hdg_corr_out", 1);
-    pub_cmd_hdg_input_      = nh_.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_input_out", 1);
-    pub_cmd_hdg_rate_input_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_cmd_hdg_rate_input_out", 1);
+    pub_compass_hdg_corr_   = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_compass_hdg_corr_out", 1);
+    pub_hector_hdg_corr_    = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_hector_hdg_corr_out", 1);
+    pub_aloam_hdg_corr_     = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_aloam_hdg_corr_out", 1);
+    pub_liosam_hdg_corr_    = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_liosam_hdg_corr_out", 1);
+    pub_brick_hdg_corr_     = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_brick_hdg_corr_out", 1);
+    pub_vio_hdg_corr_       = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vio_hdg_corr_out", 1);
+    pub_vslam_hdg_corr_     = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vslam_hdg_corr_out", 1);
+    pub_cmd_hdg_input_      = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_cmd_hdg_input_out", 1);
+    pub_cmd_hdg_rate_input_ = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_cmd_hdg_rate_input_out", 1);
 
-    pub_vel_baro_corr_           = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_baro_out", 1);
-    pub_vel_liosam_twist_z_corr_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_vel_liosam_twist_z_out", 1);
+    pub_vel_baro_corr_           = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vel_baro_out", 1);
+    pub_vel_liosam_twist_z_corr_ = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vel_liosam_twist_z_out", 1);
   }
 
-  pub_debug_aloam_delay_ = nh_.advertise<mrs_msgs::Float64Stamped>("debug_aloam_delay", 1);
+  pub_debug_aloam_delay_ = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_aloam_delay", 1);
 
   //}
 
@@ -2800,18 +2806,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
     height_msg.value = sc_height_.x(0);
 
-    try {
-      pub_height_.publish(height_msg);
-      ROS_INFO_ONCE("[Odometry]: Publishing height");
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_height_.getTopic().c_str());
-    }
+    pub_height_.publish(height_msg);
+    ROS_INFO_ONCE("[Odometry]: Publishing height");
 
   } else {
     ROS_WARN_ONCE("[Odometry]: Garmin is not enabled, not publishing height");
   }
-
 
   //}
 
@@ -2974,12 +2974,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_INFO_ONCE("[Odometry]: Publishing altitude from estimator type: %d", alt_estimator_type_.type);
   }
 
-  try {
-    pub_altitude_.publish(new_altitude);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
-  }
+  pub_altitude_.publish(new_altitude);
 
   //}
 
@@ -3000,13 +2995,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     altitude_state_msg.state.push_back(alt_x(i));
     altitude_state_msg.covariance.push_back(alt_P(i, i));
   }
-  try {
-    pub_altitude_state_.publish(altitude_state_msg);
-    ROS_INFO_ONCE("[Odometry]: Publishing altitude");
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_state_.getTopic().c_str());
-  }
+
+  pub_altitude_state_.publish(altitude_state_msg);
+  ROS_INFO_ONCE("[Odometry]: Publishing altitude");
 
   //}
 
@@ -3080,12 +3071,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
 
-  try {
-    pub_orientation_.publish(orientation);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
-  }
+  pub_orientation_.publish(orientation);
 
   //}
 
@@ -3760,12 +3746,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     ROS_INFO("[Odometry]: Calling Hector map reset.");
     std_msgs::String reset_msg;
     reset_msg.data = "reset";
-    try {
-      pub_hector_reset_.publish(reset_msg);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
-    }
+
+    pub_hector_reset_.publish(reset_msg);
+
     hector_reset_called_ = true;
     ROS_INFO("[Odometry]: Hector map reset called.");
   }
@@ -4037,7 +4020,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
 
     geometry_msgs::Vector3Stamped body_vel;
-    auto                          response = transformer_.transformSingle(fcu_frame_id_, global_vel);
+    auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
     if (response) {
       body_vel = response.value();
     } else {
@@ -4049,15 +4032,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_aux->second.twist.twist.linear.y = body_vel.vector.y;
     odom_aux->second.twist.twist.linear.z = body_vel.vector.z;
 
-    std::map<std::string, ros::Publisher>::iterator pub_odom_aux = map_estimator_pub_.find(estimator.second->getName());
+    std::map<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>>::iterator pub_odom_aux = map_estimator_pub_.find(estimator.second->getName());
 
-    // Publish odom
-    try {
-      pub_odom_aux->second.publish(odom_aux->second);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_aux->second.getTopic().c_str());
-    }
+    pub_odom_aux->second.publish(odom_aux->second);
   }
 
   // publish the static transform between utm and local gps origin
@@ -4111,15 +4088,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       heading_aux.values.push_back(current_heading(i));
     }
 
-    std::map<std::string, ros::Publisher>::iterator pub_hdg_aux = map_hdg_estimator_pub_.find(estimator.second->getName());
+    std::map<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>>::iterator pub_hdg_aux =
+        map_hdg_estimator_pub_.find(estimator.second->getName());
 
-    try {
-      pub_hdg_aux->second.publish(heading_aux);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hdg_aux->second.getTopic().c_str());
-    }
+    pub_hdg_aux->second.publish(heading_aux);
   }
+
   ROS_INFO_ONCE("[Odometry]: Publishing auxiliary odometry");
 
   //}
@@ -4325,7 +4299,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
 
     geometry_msgs::Vector3Stamped body_vel;
-    auto                          response = transformer_.transformSingle(fcu_frame_id_, global_vel);
+    auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
     if (response) {
       body_vel = response.value();
     } else {
@@ -4507,12 +4481,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish local odometry //{ */
 
-    try {
-      pub_odom_local_.publish(odom_local_);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_local_.getTopic().c_str());
-    }
+    pub_odom_local_.publish(odom_local_);
 
     //}
 
@@ -4559,35 +4528,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish main odom //{ */
 
-  try {
-    pub_odom_main_.publish(odom_main);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
-  }
+  pub_odom_main_.publish(odom_main);
 
   //}
 
   /* publish uav state //{ */
 
-  try {
-    pub_uav_state_.publish(uav_state);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_uav_state_.getTopic().c_str());
-  }
+  pub_uav_state_.publish(uav_state);
+
   ROS_INFO_ONCE("[Odometry]: Publishing odometry");
 
   //}
 
   /* publish measurement innnovation //{ */
 
-  try {
-    pub_odom_main_inno_.publish(odom_main_inno_);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_inno_.getTopic().c_str());
-  }
+  pub_odom_main_inno_.publish(odom_main_inno_);
 
   //}
 
@@ -4605,7 +4560,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   geometry_msgs::PoseStamped pose_tmp;
   pose_tmp.header = odom_main.header;
   pose_tmp.pose   = odom_main.pose.pose;
-  auto response   = transformer_.transformSingle(first_frame_, pose_tmp);
+  auto response   = transformer_->transformSingle(pose_tmp, first_frame_);
   if (response) {
     got_stable                = true;
     odom_stable_tmp.pose.pose = response.value().pose;
@@ -4616,12 +4571,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   odom_stable_tmp.header.frame_id = stable_origin_frame_id_;
 
   if (got_stable) {
-    try {
-      pub_odom_stable_.publish(odom_stable_tmp);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_stable_.getTopic().c_str());
-    }
+    pub_odom_stable_.publish(odom_stable_tmp);
   }
 
   //}
@@ -4724,8 +4674,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     for (int i = 0; i < (int)vec_odom_mavros_.size(); i++) {
       if (aloam_timestamp_ < vec_odom_mavros_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff      = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
-        float time_diff_prev = 999999;
+        double time_diff      = std::fabs(vec_odom_mavros_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        double time_diff_prev = 999999;
         if (i > 0) {
           time_diff_prev = std::fabs(vec_odom_mavros_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
@@ -4849,12 +4799,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
     slow_odom = shared_odom_;
   }
 
-  try {
-    pub_slow_odom_.publish(slow_odom);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_slow_odom_.getTopic().c_str());
-  }
+  pub_slow_odom_.publish(slow_odom);
 
   mrs_msgs::EspOdometry esp_odom;
   esp_odom.header = slow_odom.header;
@@ -4865,12 +4810,7 @@ void Odometry::slowOdomTimer(const ros::TimerEvent &event) {
   esp_odom.vely   = slow_odom.twist.twist.linear.y;
   esp_odom.velz   = slow_odom.twist.twist.linear.z;
 
-  try {
-    pub_esp_odom_.publish(esp_odom);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_esp_odom_.getTopic().c_str());
-  }
+  pub_esp_odom_.publish(esp_odom);
 }
 
 //}
@@ -4927,12 +4867,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
 
   odometry_diag.max_altitude = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
-  try {
-    pub_odometry_diag_.publish(odometry_diag);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odometry_diag_.getTopic().c_str());
-  }
+  pub_odometry_diag_.publish(odometry_diag);
 
   if (_debug_publish_servoing_) {
     mrs_msgs::ReferenceStamped servoing_diag_out;
@@ -4945,12 +4880,7 @@ void Odometry::diagTimer(const ros::TimerEvent &event) {
     servoing_diag_out.reference.position.z = c_failed_brick_timeout_;
     servoing_diag_out.reference.heading    = c_failed_brick_hdg_;
 
-    try {
-      pub_brick_diag_.publish(servoing_diag_out);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_brick_diag_.getTopic().c_str());
-    }
+    pub_brick_diag_.publish(servoing_diag_out);
   }
 }
 
@@ -4989,19 +4919,9 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
   lkf_states_y.vel          = states_mat(1, 1);
   lkf_states_y.acc          = states_mat(2, 1);
 
-  try {
-    pub_lkf_states_x_.publish(lkf_states_x);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_x_.getTopic().c_str());
-  }
+  pub_lkf_states_x_.publish(lkf_states_x);
 
-  try {
-    pub_lkf_states_y_.publish(lkf_states_y);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_lkf_states_y_.getTopic().c_str());
-  }
+  pub_lkf_states_y_.publish(lkf_states_y);
 
   hdg_x_t hdg_state;
   hdg_P_t hdg_covariance;
@@ -5043,12 +4963,7 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
     }
   }
 
-  try {
-    pub_heading_states_.publish(hdg_state_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_heading_states_.getTopic().c_str());
-  }
+  pub_heading_states_.publish(hdg_state_msg);
 }
 
 //}
@@ -5069,12 +4984,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
   max_altitude_msg.value = mrs_lib::get_mutexed(mutex_max_altitude_, max_altitude_);
 
-  try {
-    pub_max_altitude_.publish(max_altitude_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_.getTopic().c_str());
-  }
+  pub_max_altitude_.publish(max_altitude_msg);
 
   std_msgs::String max_altitude_status_string_msg;
   max_altitude_status_string_msg.data = "-id odometry ";
@@ -5105,12 +5015,7 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
 
   max_altitude_status_string_msg.data += "Max flight alt: " + std::to_string((int)max_altitude_) + " m";
 
-  try {
-    pub_max_altitude_status_string_.publish(max_altitude_status_string_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_max_altitude_status_string_.getTopic().c_str());
-  }
+  pub_max_altitude_status_string_.publish(max_altitude_status_string_msg);
 }
 
 //}
@@ -5326,12 +5231,9 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
   ROS_INFO("[Odometry]: Calling Hector map reset.");
   std_msgs::String reset_msg;
   reset_msg.data = "reset";
-  try {
-    pub_hector_reset_.publish(reset_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
-  }
+
+  pub_hector_reset_.publish(reset_msg);
+
   hector_reset_called_ = true;
   ROS_INFO("[Odometry]: Hector map reset called.");
 
@@ -5476,12 +5378,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     des_hdg_msg.header = attitude_command.header;
     des_hdg_msg.value  = des_hdg;
 
-    try {
-      pub_cmd_hdg_input_.publish(des_hdg_msg);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_input_.getTopic().c_str());
-    }
+    pub_cmd_hdg_input_.publish(des_hdg_msg);
   }
 
   //}
@@ -5502,7 +5399,6 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     des_hdg_rate = 0.0;
   }
 
-
   if (!std::isfinite(des_hdg_rate)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"des_hdg_rate_\", prediction with zero input!!!");
     des_hdg_rate = 0.0;
@@ -5519,12 +5415,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
     des_hdg_rate_msg.header = attitude_command.header;
     des_hdg_rate_msg.value  = des_hdg_rate;
 
-    try {
-      pub_cmd_hdg_rate_input_.publish(des_hdg_rate_msg);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_cmd_hdg_rate_input_.getTopic().c_str());
-    }
+    pub_cmd_hdg_rate_input_.publish(des_hdg_rate_msg);
   }
 
   //}
@@ -5751,12 +5642,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   for (int i = 0; i < P.rows(); i++) {
     cov_msg.values.push_back(P(i, i));
   }
-  try {
-    pub_alt_cov_.publish(cov_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_alt_cov_.getTopic().c_str());
-  }
+
+  pub_alt_cov_.publish(cov_msg);
 
   //}
 
@@ -5793,12 +5680,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     vel_baro_corr_out.header.stamp    = ros::Time::now();
     vel_baro_corr_out.header.frame_id = local_origin_frame_id_;
     vel_baro_corr_out.value           = twist_z;
-    try {
-      pub_vel_baro_corr_.publish(vel_baro_corr_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_vel_baro_corr_.getTopic().c_str());
-    }
+
+    pub_vel_baro_corr_.publish(vel_baro_corr_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing barometer altitude");
@@ -5832,12 +5715,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   orientation_mavros_.vector.x = roll;
   orientation_mavros_.vector.y = pitch;
   orientation_mavros_.vector.z = yaw;
-  try {
-    pub_orientation_mavros_.publish(orientation_mavros_);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_mavros_.getTopic().c_str());
-  }
+
+  pub_orientation_mavros_.publish(orientation_mavros_);
 
   //}
 
@@ -5871,12 +5750,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     local_vel.vector.z        = vel_mavros_z;
 
     geometry_msgs::Vector3Stamped global_vel;
-    auto                          response = transformer_.transformSingle(_uav_name_ + "/gps_origin", local_vel);
+    auto                          response = transformer_->transformSingle(local_vel, "gps_origin");
     if (response) {
       global_vel = response.value();
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_main.", local_vel.header.frame_id.c_str(),
-                        (_uav_name_ + "gps_origin").c_str());
+                        (_uav_name_ + "/gps_origin").c_str());
       return;
     }
 
@@ -5967,12 +5846,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       lat_gps_est_pos_init_ = true;
     }
 
-    try {
-      pub_odom_mavros_.publish(odom_mavros_out);
-    }
-    catch (...) {
-      ROS_ERROR("Exception caught during publishing topic %s.", pub_odom_mavros_.getTopic().c_str());
-    }
+    pub_odom_mavros_.publish(odom_mavros_out);
 
     // Saturate correction
     for (auto &estimator : _lateral_estimators_) {
@@ -6096,7 +5970,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   acc_untilted.vector          = pixhawk_imu_.linear_acceleration;
   acc_untilted.header          = pixhawk_imu_.header;
   acc_untilted.header.frame_id = fcu_frame_id_;
-  auto response_acc            = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+  auto response_acc            = transformer_->transformSingle(acc_untilted, fcu_untilted_frame_id_);
 
   if (response_acc) {
     acc_untilted = response_acc.value();
@@ -6123,7 +5997,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   ang_vel_untilted.vector          = pixhawk_imu_.angular_velocity;
   ang_vel_untilted.header          = pixhawk_imu_.header;
   ang_vel_untilted.header.frame_id = fcu_frame_id_;
-  auto response_ang_vel            = transformer_.transformSingle(fcu_untilted_frame_id_, ang_vel_untilted);
+  auto response_ang_vel            = transformer_->transformSingle(ang_vel_untilted, fcu_untilted_frame_id_);
 
   if (response_ang_vel) {
     ang_vel_untilted = response_ang_vel.value();
@@ -6136,7 +6010,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   attitude_untilted.quaternion      = pixhawk_imu_.orientation;
   attitude_untilted.header          = pixhawk_imu_.header;
   attitude_untilted.header.frame_id = fcu_frame_id_;
-  auto response_attitude            = transformer_.transformSingle(fcu_untilted_frame_id_, attitude_untilted);
+  auto response_attitude            = transformer_->transformSingle(attitude_untilted, fcu_untilted_frame_id_);
   if (response_attitude) {
     attitude_untilted = response_attitude.value();
   } else {
@@ -6149,12 +6023,7 @@ void Odometry::callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg) {
   untilted_imu.angular_velocity    = ang_vel_untilted.vector;
   untilted_imu.orientation         = attitude_untilted.quaternion;
 
-  try {
-    pub_imu_untilted_.publish(untilted_imu);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_imu_untilted_.getTopic().c_str());
-  }
+  pub_imu_untilted_.publish(untilted_imu);
 
   //////////////////// Fuse Heading Kalman ////////////////////
 
@@ -6297,12 +6166,8 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
     compass_hdg_out.header.stamp    = ros::Time::now();
     compass_hdg_out.header.frame_id = local_origin_frame_id_;
     compass_hdg_out.value           = hdg;
-    try {
-      pub_compass_hdg_corr_.publish(compass_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_compass_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_compass_hdg_corr_.publish(compass_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from PixHawk compass");
@@ -6461,12 +6326,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   optflow_filtered.twist.twist.linear.x                      = optflow_vel_x;
   optflow_filtered.twist.twist.linear.y                      = optflow_vel_y;
 
-  try {
-    pub_debug_optflow_filter_.publish(optflow_filtered);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_debug_optflow_filter_.getTopic().c_str());
-  }
+  pub_debug_optflow_filter_.publish(optflow_filtered);
 
   // Set innoation variable if ccurnet estimator is OPTFLOW
   if (current_lat_estimator_->getName() == "OPTFLOW") {
@@ -6679,12 +6539,8 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   optflow_filtered.twist.twist.linear.x                      = optflow_vel_x;
   optflow_filtered.twist.twist.linear.y                      = optflow_vel_y;
 
-  try {
-    pub_debug_optflow_filter_.publish(optflow_filtered);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_debug_optflow_filter_.getTopic().c_str());
-  }
+  pub_debug_optflow_filter_.publish(optflow_filtered);
+
   // Set innoation variable if ccurnet estimator is OPTFLOW
   if (current_lat_estimator_->getName() == "OPTFLOW") {
     Vec2 vel_vec, innovation;
@@ -6789,12 +6645,8 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   icp_twist_filtered.twist.twist.linear.x                      = icp_vel_x;
   icp_twist_filtered.twist.twist.linear.y                      = icp_vel_y;
 
-  try {
-    pub_debug_icp_twist_filter_.publish(icp_twist_filtered);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_debug_icp_twist_filter_.getTopic().c_str());
-  }
+  pub_debug_icp_twist_filter_.publish(icp_twist_filtered);
+
   // Set innoation variable if ccurnet estimator is ICP
   if (current_lat_estimator_->getName() == "ICP") {
     Vec2 vel_vec, innovation;
@@ -6972,12 +6824,8 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   // | ------------------ publish the rtk local ----------------- |
   mrs_msgs::RtkGps rtk_local_out = rtk_local_;
 
-  try {
-    pub_rtk_local_.publish(rtk_local_out);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_.getTopic().c_str());
-  }
+  pub_rtk_local_.publish(rtk_local_out);
+
   // | ------------- publish the rtk local odometry ------------- |
   {
     std::scoped_lock lock(mutex_rtk_local_odom_);
@@ -6986,12 +6834,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     rtk_local_odom_.pose   = rtk_local_.pose;
     rtk_local_odom_.twist  = rtk_local_.twist;
 
-    try {
-      pub_rtk_local_odom_.publish(rtk_local_odom_);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_rtk_local_odom_.getTopic().c_str());
-    }
+    pub_rtk_local_odom_.publish(rtk_local_odom_);
   }
 
   if (rtk_active_) {
@@ -7219,12 +7062,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     vio_hdg_out.header.stamp    = ros::Time::now();
     vio_hdg_out.header.frame_id = local_origin_frame_id_;
     vio_hdg_out.value           = vio_hdg;
-    try {
-      pub_vio_hdg_corr_.publish(vio_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_vio_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_vio_hdg_corr_.publish(vio_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from VIO");
@@ -7458,12 +7297,8 @@ void Odometry::callbackVslamPose(const geometry_msgs::PoseWithCovarianceStampedC
     vslam_hdg_out.header.stamp    = ros::Time::now();
     vslam_hdg_out.header.frame_id = local_origin_frame_id_;
     vslam_hdg_out.value           = vslam_hdg;
-    try {
-      pub_vslam_hdg_corr_.publish(vslam_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_vslam_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_vslam_hdg_corr_.publish(vslam_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from VSLAM");
@@ -7742,12 +7577,8 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
     brick_hdg_out.header.stamp    = ros::Time::now();
     brick_hdg_out.header.frame_id = local_origin_frame_id_;
     brick_hdg_out.value           = hdg_brick;
-    try {
-      pub_brick_hdg_corr_.publish(brick_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_brick_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_brick_hdg_corr_.publish(brick_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from brick pose");
@@ -7972,12 +7803,8 @@ void Odometry::callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg)
     hector_hdg_out.header.stamp    = ros::Time::now();
     hector_hdg_out.header.frame_id = local_origin_frame_id_;
     hector_hdg_out.value           = hdg_hector;
-    try {
-      pub_hector_hdg_corr_.publish(hector_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_hector_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_hector_hdg_corr_.publish(hector_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from Hector SLAM");
@@ -8146,12 +7973,8 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     aloam_hdg_out.header.stamp    = ros::Time::now();
     aloam_hdg_out.header.frame_id = local_origin_frame_id_;
     aloam_hdg_out.value           = hdg_aloam;
-    try {
-      pub_aloam_hdg_corr_.publish(aloam_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_aloam_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_aloam_hdg_corr_.publish(aloam_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from ALOAM SLAM");
@@ -8318,12 +8141,8 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     vel_liosam_twist_z_corr_out.header.stamp    = ros::Time::now();
     vel_liosam_twist_z_corr_out.header.frame_id = local_origin_frame_id_;
     vel_liosam_twist_z_corr_out.value           = vel_z;
-    try {
-      pub_vel_liosam_twist_z_corr_.publish(vel_liosam_twist_z_corr_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_vel_liosam_twist_z_corr_.getTopic().c_str());
-    }
+
+    pub_vel_liosam_twist_z_corr_.publish(vel_liosam_twist_z_corr_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing LIOSAM height and z-axis velocity.");
@@ -8369,12 +8188,8 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     liosam_hdg_out.header.stamp    = ros::Time::now();
     liosam_hdg_out.header.frame_id = local_origin_frame_id_;
     liosam_hdg_out.value           = hdg_liosam;
-    try {
-      pub_liosam_hdg_corr_.publish(liosam_hdg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", pub_liosam_hdg_corr_.getTopic().c_str());
-    }
+
+    pub_liosam_hdg_corr_.publish(liosam_hdg_out);
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from LIOSAM SLAM");
@@ -8550,7 +8365,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   garmin_point.pose.position.z  = 0;
   garmin_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_.transformSingle("fcu_untilted", garmin_point);
+  auto res = transformer_->transformSingle(garmin_point, "fcu_untilted");
 
   double measurement;
 
@@ -8584,7 +8399,6 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
 
     return;
   }
-
 
   // fuse height estimate
   lkf_height_t::z_t z;
@@ -8730,7 +8544,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   sonar_point.pose.position.z  = 0;
   sonar_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_.transformSingle("fcu_untilted", sonar_point);
+  auto res = transformer_->transformSingle(sonar_point, "fcu_untilted");
 
   double measurement;
 
@@ -8953,12 +8767,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_gps_local_odom_);
 
-    try {
-      pub_gps_local_odom_.publish(gps_local_odom);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_gps_local_odom_.getTopic().c_str());
-    }
+    pub_gps_local_odom_.publish(gps_local_odom);
   }
 }
 
@@ -9221,12 +9030,7 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
   orientation_gt_.vector.y = rot_y;
   orientation_gt_.vector.z = rot_z;
 
-  try {
-    pub_orientation_gt_.publish(orientation_gt_);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_gt_.getTopic().c_str());
-  }
+  pub_orientation_gt_.publish(orientation_gt_);
 }
 //}
 
@@ -9356,12 +9160,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     new_altitude.header.frame_id = local_origin_frame_id_;
     new_altitude.header.stamp    = ros::Time::now();
 
-    try {
-      pub_altitude_.publish(new_altitude);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_altitude_.getTopic().c_str());
-    }
+    pub_altitude_.publish(new_altitude);
     //}
 
     /* publish t265 orientation  //{ */
@@ -9374,12 +9173,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
     }
     orientation.header.frame_id = local_origin_frame_id_;
 
-    try {
-      pub_orientation_.publish(orientation);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_orientation_.getTopic().c_str());
-    }
+    pub_orientation_.publish(orientation);
 
     //}
 
@@ -9433,12 +9227,7 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       odom_local_                 = applyOdomOffset(odom_main, pos_odom_offset_, rot_odom_offset_);
       odom_local_.header.frame_id = local_origin_frame_id_;
 
-      try {
-        pub_odom_local_.publish(odom_local_);
-      }
-      catch (...) {
-        ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_local_.getTopic().c_str());
-      }
+      pub_odom_local_.publish(odom_local_);
     }
 
     {
@@ -9447,14 +9236,8 @@ void Odometry::callbackT265Odometry(const nav_msgs::OdometryConstPtr &msg) {
       shared_odom_ = odom_main;
     }
 
-    try {
-      pub_odom_main_.publish(odom_main);
-    }
-    catch (...) {
-      ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_odom_main_.getTopic().c_str());
-    }
+    pub_odom_main_.publish(odom_main);
     ROS_INFO_ONCE("[Odometry]: Publishing odometry");
-
 
     //}
   }
@@ -10226,12 +10009,9 @@ bool Odometry::callbackResetHector([[maybe_unused]] std_srvs::Trigger::Request &
   ROS_INFO("[Odometry]: Calling Hector map reset.");
   std_msgs::String reset_msg;
   reset_msg.data = "reset";
-  try {
-    pub_hector_reset_.publish(reset_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during publishing topic %s.", pub_hector_reset_.getTopic().c_str());
-  }
+
+  pub_hector_reset_.publish(reset_msg);
+
   hector_reset_called_ = true;
   ROS_INFO("[Odometry]: Hector map reset called.");
 
@@ -10523,7 +10303,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     acc_untilted.vector          = acc_in;
     acc_untilted.header.frame_id = fcu_frame_id_;
     acc_untilted.header.stamp    = ros::Time::now();
-    auto response_acc            = transformer_.transformSingle(fcu_untilted_frame_id_, acc_untilted);
+    auto response_acc            = transformer_->transformSingle(acc_untilted, fcu_untilted_frame_id_);
     if (response_acc) {
       acc_untilted = response_acc.value();
     } else {
