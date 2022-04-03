@@ -125,7 +125,7 @@ private:
   float m_aloam_eig = 0;
   bool m_eigenvalue_received = false;
 
-  std::unique_ptr<MedianFilter> m_median_filter;
+  mrs_lib::MedianFilter m_median_filter;
 
   bool m_is_initialized = false;
 

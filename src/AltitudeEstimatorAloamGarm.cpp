@@ -167,7 +167,10 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     std::cout << m_H_multi[i] << std::endl;
   }
 
-  m_median_filter = std::make_unique<MedianFilter>(_mf_changes_buffer_size_, 100, 0, _mf_changes_max_diff_);
+  m_median_filter = mrs_lib::MedianFilter(_mf_changes_buffer_size_);
+  m_median_filter.setMinValue(0.0);
+  m_median_filter.setMaxValue(100.0);
+  m_median_filter.setMaxDifference(_mf_changes_max_diff_);
 
   if (_debug_) {
     debug_state_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_state", 1);
@@ -416,8 +419,8 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     algarm_alt_Q_t Q = m_Q;
 
     // RANGEFINDER//{
-    if (measurement_name == "height_range" && !m_median_filter->isValid(z(0)) && m_median_filter->isFilled() &&
-        (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter->getMedian() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
+    if (measurement_name == "height_range" && !m_median_filter.add(z(0)) && m_median_filter.full() &&
+        (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter.median() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
       // set H matrix so that only garmin bias is updated
       // calculate new bias measurement
       ROS_WARN_THROTTLE(0.5, "[AltitudeEstimatorAloamGarm] Garmin jump detected, altitude: %.2f, old bias: %.2f, measurement: %.2f.", m_sc.x(0), m_sc.x(3),
