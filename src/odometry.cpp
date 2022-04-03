@@ -6515,7 +6515,7 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     optflow_vel_ok = false;
   }
 
-  if (optflow_vel_ok) {
+  if (lat_mf_optflow_twist_x_.initialized() && optflow_vel_ok) {
     if (!lat_mf_optflow_twist_x_.add(optflow_vel_x)) {
 
       double median = lat_mf_optflow_twist_x_.median();
