@@ -419,7 +419,7 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     algarm_alt_Q_t Q = m_Q;
 
     // RANGEFINDER//{
-    if (measurement_name == "height_range" && !m_median_filter.add(z(0)) && m_median_filter.full() &&
+    if (measurement_name == "height_range" && !m_median_filter.addCheck(z(0)) && m_median_filter.full() &&
         (z(0) > _mf_close_to_ground_threshold_ || fabs(m_median_filter.median() - z(0)) > _mf_changes_max_diff_close_to_ground_)) {
       // set H matrix so that only garmin bias is updated
       // calculate new bias measurement

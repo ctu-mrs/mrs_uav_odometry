@@ -6303,14 +6303,14 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   }
 
   if (_use_lat_mf_optflow_twist_ && optflow_vel_ok) {
-    if (!lat_mf_optflow_twist_x_.add(optflow_vel_x)) {
+    if (!lat_mf_optflow_twist_x_.addCheck(optflow_vel_x)) {
 
       double median = lat_mf_optflow_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
       optflow_vel_x = median;
     }
 
-    if (!lat_mf_optflow_twist_y_.add(optflow_vel_y)) {
+    if (!lat_mf_optflow_twist_y_.addCheck(optflow_vel_y)) {
       double median = lat_mf_optflow_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
       optflow_vel_y = median;
@@ -6352,7 +6352,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     return;
   }
 
-  if (!hdg_mf_optflow_rate_.add(hdg_rate) && hdg_mf_optflow_rate_.full()) {
+  if (!hdg_mf_optflow_rate_.addCheck(hdg_rate) && hdg_mf_optflow_rate_.full()) {
     optflow_inconsistent_samples_++;
     ROS_WARN("[Odometry]: Optflow hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -6516,14 +6516,14 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
   }
 
   if (lat_mf_optflow_twist_x_.initialized() && optflow_vel_ok) {
-    if (!lat_mf_optflow_twist_x_.add(optflow_vel_x)) {
+    if (!lat_mf_optflow_twist_x_.addCheck(optflow_vel_x)) {
 
       double median = lat_mf_optflow_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
       optflow_vel_x = median;
     }
 
-    if (!lat_mf_optflow_twist_y_.add(optflow_vel_y)) {
+    if (!lat_mf_optflow_twist_y_.addCheck(optflow_vel_y)) {
       double median = lat_mf_optflow_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
       optflow_vel_y = median;
@@ -6622,14 +6622,14 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   }
 
   if (_use_lat_mf_icp_twist_ && icp_vel_ok) {
-    if (!lat_mf_icp_twist_x_.add(icp_vel_x)) {
+    if (!lat_mf_icp_twist_x_.addCheck(icp_vel_x)) {
 
       double median = lat_mf_icp_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP x velocity filtered by median filter. %f -> %f", icp_vel_x, median);
       icp_vel_x = median;
     }
 
-    if (!lat_mf_icp_twist_y_.add(icp_vel_y)) {
+    if (!lat_mf_icp_twist_y_.addCheck(icp_vel_y)) {
       double median = lat_mf_icp_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP y velocity filtered by median filter. %f -> %f", icp_vel_y, median);
       icp_vel_y = median;
@@ -6672,7 +6672,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     return;
   }
 
-  if (!hdg_mf_icp_rate_.add(hdg_rate) && hdg_mf_icp_rate_.full()) {
+  if (!hdg_mf_icp_rate_.addCheck(hdg_rate) && hdg_mf_icp_rate_.full()) {
     icp_hdg_rate_inconsistent_samples_++;
     ROS_WARN("[Odometry]: icp hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -7079,7 +7079,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // Median filter
     if (isUavFlying() && vio_altitude_ok) {
-      if (!alt_mf_vio_.add(measurement)) {
+      if (!alt_mf_vio_.addCheck(measurement)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f declined by median filter.", measurement);
         vio_altitude_ok = false;
       }
@@ -7583,7 +7583,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double measurement       = brick_pose_.pose.position.z;
   bool   fuse_brick_height = true;
   if (isUavFlying()) {
-    if (!alt_mf_brick_.add(measurement)) {
+    if (!alt_mf_brick_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f declined by median filter.", measurement);
       fuse_brick_height = false;
     }
@@ -7904,7 +7904,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     measurement = aloam_odom_.pose.pose.position.z;
   }
   if (isUavFlying()) {
-    if (!alt_mf_aloam_.add(measurement)) {
+    if (!alt_mf_aloam_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM height measurement %f declined by median filter.", measurement);
       aloam_height_ok = false;
     }
@@ -8092,7 +8092,7 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     vel_z  = liosam_odom.twist.twist.linear.z;
   }
   if (isUavFlying()) {
-    if (!alt_mf_liosam_.add(height)) {
+    if (!alt_mf_liosam_.addCheck(height)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM height measurement %f declined by median filter.", height);
       liosam_height_ok = false;
     }
@@ -8406,7 +8406,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   //////////////////// Filter out garmin measurement ////////////////////
   // do not fuse garmin measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_garmin_.add(measurement)) {
+    if (!alt_mf_garmin_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by median filter.", measurement);
       is_measurement_healthy = false;
     }
@@ -8561,7 +8561,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   //////////////////// Filter out sonar measurement ////////////////////
   // do not fuse sonar measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_sonar_.add(measurement)) {
+    if (!alt_mf_sonar_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f declined by median filter.", measurement);
       return;
     }
@@ -8666,7 +8666,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
   //////////////////// Filter out plane measurement ////////////////////
   // do not fuse plane measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_plane_.add(measurement)) {
+    if (!alt_mf_plane_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f declined by median filter.", measurement);
       return;
     }
