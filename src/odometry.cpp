@@ -746,7 +746,7 @@ private:
   double init_pose_hdg_ = 0.0;
 
   // heading estimation
-  hdg_Q_t                                                  _Q_hdg_;
+  hdg_Q_t                                                  _q_hdg_;
   std::mutex                                               mutex_heading_estimator_;
   std::mutex                                               mutex_hdg_estimator_type_;
   std::vector<std::string>                                 _heading_estimators_names_;
@@ -785,7 +785,7 @@ private:
   bool                          _gyro_fallback_;
 
   // altitude estimation
-  alt_Q_t                                                   _Q_alt_;
+  alt_Q_t                                                   _q_alt_;
   std::mutex                                                mutex_altitude_estimator_;
   std::vector<std::string>                                  _altitude_estimators_names_;
   std::vector<std::string>                                  _active_altitude_estimators_names_;
@@ -841,18 +841,17 @@ private:
   double max_safe_brick_jump_sq_;
   double max_safe_brick_hdg_jump_sq_;
 
-  LatMat        _A_lat_, _Q_lat_;
-  LatStateCol1D _B_lat_;
+  LatMat        _q_lat_;
 
   // RTK LKF
   using lkf_rtk_t = mrs_lib::LKF<2, 2, 2>;
   lkf_rtk_t::statecov_t sc_lat_rtk_;
-  lkf_rtk_t::A_t        _A_lat_rtk_;
-  lkf_rtk_t::B_t        _B_lat_rtk_;
-  lkf_rtk_t::H_t        _H_lat_rtk_;
-  lkf_rtk_t::R_t        _R_lat_rtk_;
-  lkf_rtk_t::Q_t        _Q_lat_rtk_;
-  lkf_rtk_t::P_t        _P_lat_rtk_;
+  lkf_rtk_t::A_t        _a_lat_rtk_;
+  lkf_rtk_t::B_t        _b_lat_rtk_;
+  lkf_rtk_t::H_t        _h_lat_rtk_;
+  lkf_rtk_t::R_t        _r_lat_rtk_;
+  lkf_rtk_t::Q_t        _q_lat_rtk_;
+  lkf_rtk_t::P_t        _p_lat_rtk_;
 
   std::unique_ptr<lkf_rtk_t> estimator_rtk_;
   std::mutex                 mutex_rtk_est_;
@@ -953,8 +952,8 @@ private:
 
   using lkf_height_t = mrs_lib::LKF<1, 1, 1>;
   std::unique_ptr<lkf_height_t> estimator_height_;
-  lkf_height_t::R_t             _R_height_;
-  lkf_height_t::Q_t             _Q_height_;
+  lkf_height_t::R_t             _r_height_;
+  lkf_height_t::Q_t             _q_height_;
   lkf_height_t::statecov_t      sc_height_;
   std::mutex                    mutex_estimator_height_;
   ros::Time                     time_main_timer_prev_;
@@ -1490,7 +1489,7 @@ void Odometry::onInit() {
 
   /* altitude process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("altitude/Q", _Q_alt_);
+  param_loader.loadMatrixStatic("altitude/Q", _q_alt_);
 
   //}
 
@@ -1546,13 +1545,13 @@ void Odometry::onInit() {
     // Add pointer to altitude estimator to array
     if (*it == "ALOAMREP") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, true)));
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt, true)));
     } else if (*it == "ALOAMGARM") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm>>(
-          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true)));
+          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt, nh_, true)));
     } else {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt)));
     }
 
     // Map odometry to estimator name
@@ -1576,8 +1575,8 @@ void Odometry::onInit() {
   H_height << 1;
   estimator_height_ = std::make_unique<lkf_height_t>(A_height, B_height, H_height);
 
-  param_loader.loadMatrixStatic("height/R", _R_height_);
-  param_loader.loadMatrixStatic("height/Q", _Q_height_);
+  param_loader.loadMatrixStatic("height/R", _r_height_);
+  param_loader.loadMatrixStatic("height/Q", _q_height_);
 
   lkf_height_t::x_t        x0_height = lkf_height_t::x_t::Zero();
   lkf_height_t::P_t        P0_height = lkf_height_t::P_t::Identity();
@@ -1641,12 +1640,12 @@ void Odometry::onInit() {
 
   /* rtk lateral parameters //{ */
 
-  param_loader.loadMatrixStatic("lateral/rtk/A", _A_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/B", _B_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/H", _H_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/R", _R_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/Q", _Q_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/P", _P_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/A", _a_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/B", _b_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/H", _h_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/R", _r_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/Q", _q_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/P", _p_lat_rtk_);
   param_loader.loadParam("lateral/use_full_rtk", _use_full_rtk_);
   param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
@@ -1863,7 +1862,7 @@ void Odometry::onInit() {
 
   /* lateral process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("lateral/Q", _Q_lat_);
+  param_loader.loadMatrixStatic("lateral/Q", _q_lat_);
 
   //}
 
@@ -1940,13 +1939,13 @@ void Odometry::onInit() {
     // Add state estimator to array
     if (*it == "ALOAMREP" || *it == "ALOAMGARM") {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _q_lat_, P_arr_lat, R_arr_lat, true)));
     } else {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _q_lat_, P_arr_lat, R_arr_lat)));
     }
 
-    estimator_rtk_ = std::make_unique<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
+    estimator_rtk_ = std::make_unique<lkf_rtk_t>(_a_lat_rtk_, _b_lat_rtk_, _h_lat_rtk_);
 
     const lkf_rtk_t::x_t        x0    = lkf_rtk_t::x_t::Zero();
     lkf_rtk_t::P_t              P_tmp = lkf_rtk_t::P_t::Identity();
@@ -2124,7 +2123,7 @@ void Odometry::onInit() {
 
   /* heading process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
+  param_loader.loadMatrixStatic("heading/Q", _q_hdg_);
 
   //}
 
@@ -2171,10 +2170,10 @@ void Odometry::onInit() {
     // Add pointer to heading estimator to array
     if (*it == "ALOAMREP") {
       heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg, true)));
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _q_hdg_, R_multi_hdg, true)));
     } else {
       heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg)));
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _q_hdg_, R_multi_hdg)));
     }
 
     // Map odometry to estimator name
@@ -2526,9 +2525,9 @@ void Odometry::onInit() {
   last_drs_config_.R_acc_imu_lat = map_measurement_covariance_.find("acc_imu")->second(0);
 
   // Lateral process covariances
-  last_drs_config_.Q_lat_pos = _Q_lat_(0, 0);
-  last_drs_config_.Q_lat_vel = _Q_lat_(1, 1);
-  last_drs_config_.Q_lat_acc = _Q_lat_(2, 2);
+  last_drs_config_.Q_lat_pos = _q_lat_(0, 0);
+  last_drs_config_.Q_lat_vel = _q_lat_(1, 1);
+  last_drs_config_.Q_lat_acc = _q_lat_(2, 2);
 
   // Altitude measurement covariances
   last_drs_config_.R_height_range  = map_alt_measurement_covariance_.find("height_range")->second(0);
@@ -2540,9 +2539,9 @@ void Odometry::onInit() {
   last_drs_config_.R_height_baro   = map_alt_measurement_covariance_.find("height_baro")->second(0);
 
   // Altitude process covariances
-  last_drs_config_.Q_alt_pos = _Q_alt_(0, 0);
-  last_drs_config_.Q_alt_vel = _Q_alt_(1, 1);
-  last_drs_config_.Q_alt_acc = _Q_alt_(2, 2);
+  last_drs_config_.Q_alt_pos = _q_alt_(0, 0);
+  last_drs_config_.Q_alt_vel = _q_alt_(1, 1);
+  last_drs_config_.Q_alt_acc = _q_alt_(2, 2);
 
   // Altitude velocity measurement covariances
   last_drs_config_.R_vel_baro     = map_alt_measurement_covariance_.find("vel_baro")->second(0);
@@ -2803,7 +2802,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     lkf_height_t::u_t u;
     u << 0;
-    sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
+    sc_height_       = estimator_height_->predict(sc_height_, u, _q_height_, dt);
     height_msg.value = sc_height_.x(0);
 
     pub_height_.publish(height_msg);
@@ -5788,7 +5787,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         B_new << dt, 0, 0, dt;
         estimator_rtk_->B = B_new;
         try {
-          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _q_lat_rtk_, dt);
         }
         catch (const std::exception &e) {
           ROS_ERROR_THROTTLE(1.0, "[Odometry]: RTK LKF prediction step failed: %s", e.what());
@@ -6953,7 +6952,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       std::scoped_lock lock(mutex_rtk_est_);
 
       try {
-        sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _R_lat_rtk_);
+        sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _r_lat_rtk_);
       }
       catch (const std::exception &e) {
         ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
@@ -8400,7 +8399,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_estimator_height_);
 
-    sc_height_ = estimator_height_->correct(sc_height_, z, _R_height_);
+    sc_height_ = estimator_height_->correct(sc_height_, z, _r_height_);
   }
 
   //////////////////// Filter out garmin measurement ////////////////////
