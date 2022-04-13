@@ -6754,7 +6754,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
     if (!got_rtk_local_origin_z_) {
       if (!isUavFlying()) {
         double rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
-        if (got_rtk_counter_ < 10 || (got_rtk_counter_ < 1000 && std::fabs(rtk_utm.pose.pose.position.z - rtk_avg) > 0.1)) {
+        if (got_rtk_counter_ < 10 || (got_rtk_counter_ < 300 && std::fabs(rtk_utm.pose.pose.position.z - rtk_avg) > 0.1)) {
           rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
           got_rtk_counter_++;
           rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
