@@ -299,8 +299,8 @@ private:
   geometry_msgs::TwistWithCovarianceStamped optflow_twist_previous_;
   ros::Time                                 optflow_twist_last_update_;
   bool                                      _use_lat_mf_optflow_twist_ = false;
-  std::unique_ptr<MedianFilter>             lat_mf_optflow_twist_x_;
-  std::unique_ptr<MedianFilter>             lat_mf_optflow_twist_y_;
+  mrs_lib::MedianFilter                     lat_mf_optflow_twist_x_;
+  mrs_lib::MedianFilter                     lat_mf_optflow_twist_y_;
   double                                    _optflow_max_valid_twist_;
   bool                                      fusing_optflow_low_ = true;
   bool                                      _use_optflow_low_   = false;
@@ -465,14 +465,14 @@ private:
   geometry_msgs::TwistWithCovarianceStamped icp_twist_previous_;
   ros::Time                                 icp_twist_last_update_;
   bool                                      _use_lat_mf_icp_twist_ = false;
-  std::unique_ptr<MedianFilter>             lat_mf_icp_twist_x_;
-  std::unique_ptr<MedianFilter>             lat_mf_icp_twist_y_;
+  mrs_lib::MedianFilter                     lat_mf_icp_twist_x_;
+  mrs_lib::MedianFilter                     lat_mf_icp_twist_y_;
   double                                    _icp_max_valid_twist_;
 
-  std::unique_ptr<MedianFilter> hdg_mf_icp_rate_;
-  bool                          _use_hdg_mf_icp_rate_;
-  double                        _icp_max_valid_hdg_rate_;
-  double                        icp_hdg_rate_inconsistent_samples_;
+  mrs_lib::MedianFilter hdg_mf_icp_rate_;
+  bool                  _use_hdg_mf_icp_rate_;
+  double                _icp_max_valid_hdg_rate_;
+  double                icp_hdg_rate_inconsistent_samples_;
 
   // brick messages
   std::mutex                 mutex_brick_;
@@ -624,57 +624,57 @@ private:
   tf2::Quaternion    fixed_map_origin_rot_offset_;
 
   // Garmin altitude subscriber and callback
-  ros::Subscriber               sub_garmin_;
-  sensor_msgs::Range            range_garmin_;
-  sensor_msgs::Range            range_garmin_previous_;
-  std::mutex                    mutex_range_garmin_;
-  void                          callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
-  std::unique_ptr<MedianFilter> alt_mf_garmin_;
-  ros::Time                     garmin_last_update_;
-  bool                          saturate_garmin_corrections_ = false;
-  double                        _garmin_inno_gate_value_sq_;
-  bool                          _use_garmin_inno_gate_;
-  double                        _garmin_min_valid_alt_;
-  double                        _garmin_max_valid_alt_;
+  ros::Subscriber       sub_garmin_;
+  sensor_msgs::Range    range_garmin_;
+  sensor_msgs::Range    range_garmin_previous_;
+  std::mutex            mutex_range_garmin_;
+  void                  callbackGarmin(const sensor_msgs::RangeConstPtr &msg);
+  mrs_lib::MedianFilter alt_mf_garmin_;
+  ros::Time             garmin_last_update_;
+  bool                  saturate_garmin_corrections_ = false;
+  double                _garmin_inno_gate_value_sq_;
+  bool                  _use_garmin_inno_gate_;
+  double                _garmin_min_valid_alt_;
+  double                _garmin_max_valid_alt_;
 
 
   bool callbacks_enabled_ = false;
 
   // sonar altitude subscriber and callback
-  ros::Subscriber               sub_sonar_;
-  sensor_msgs::Range            range_sonar_;
-  sensor_msgs::Range            range_sonar_previous_;
-  std::mutex                    mutex_range_sonar_;
-  void                          callbackSonar(const sensor_msgs::RangeConstPtr &msg);
-  std::unique_ptr<MedianFilter> alt_mf_sonar_;
-  double                        _sonar_min_valid_alt_, _sonar_max_valid_alt_;
-  ros::Time                     sonar_last_update_;
+  ros::Subscriber       sub_sonar_;
+  sensor_msgs::Range    range_sonar_;
+  sensor_msgs::Range    range_sonar_previous_;
+  std::mutex            mutex_range_sonar_;
+  void                  callbackSonar(const sensor_msgs::RangeConstPtr &msg);
+  mrs_lib::MedianFilter alt_mf_sonar_;
+  double                _sonar_min_valid_alt_, _sonar_max_valid_alt_;
+  ros::Time             sonar_last_update_;
 
   // Plane altitude subscriber and callback
-  ros::Subscriber               sub_plane_;
-  sensor_msgs::Range            range_plane_;
-  sensor_msgs::Range            range_plane_previous_;
-  std::mutex                    mutex_range_plane_;
-  void                          callbackPlane(const sensor_msgs::RangeConstPtr &msg);
-  std::unique_ptr<MedianFilter> alt_mf_plane_;
-  double                        _plane_min_valid_alt_, _plane_max_valid_alt_;
-  ros::Time                     plane_last_update_;
+  ros::Subscriber       sub_plane_;
+  sensor_msgs::Range    range_plane_;
+  sensor_msgs::Range    range_plane_previous_;
+  std::mutex            mutex_range_plane_;
+  void                  callbackPlane(const sensor_msgs::RangeConstPtr &msg);
+  mrs_lib::MedianFilter alt_mf_plane_;
+  double                _plane_min_valid_alt_, _plane_max_valid_alt_;
+  ros::Time             plane_last_update_;
 
   // Brick altitude median filter
-  std::unique_ptr<MedianFilter> alt_mf_brick_;
-  double                        _brick_min_valid_alt_, _brick_max_valid_alt_;
+  mrs_lib::MedianFilter alt_mf_brick_;
+  double                _brick_min_valid_alt_, _brick_max_valid_alt_;
 
   // VIO altitude median filter
-  std::unique_ptr<MedianFilter> alt_mf_vio_;
-  double                        _vio_min_valid_alt_, _vio_max_valid_alt_;
+  mrs_lib::MedianFilter alt_mf_vio_;
+  double                _vio_min_valid_alt_, _vio_max_valid_alt_;
 
   // ALOAM height median filter
-  std::unique_ptr<MedianFilter> alt_mf_aloam_;
-  double                        _aloam_min_valid_alt_, _aloam_max_valid_alt_;
+  mrs_lib::MedianFilter alt_mf_aloam_;
+  double                _aloam_min_valid_alt_, _aloam_max_valid_alt_;
 
   // LIOSAM height median filter
-  std::unique_ptr<MedianFilter> alt_mf_liosam_;
-  double                        _liosam_min_valid_alt_, _liosam_max_valid_alt_;
+  mrs_lib::MedianFilter alt_mf_liosam_;
+  double                _liosam_min_valid_alt_, _liosam_max_valid_alt_;
 
   // Flag set when received first message
   bool got_odom_pixhawk_     = false;
@@ -746,7 +746,7 @@ private:
   double init_pose_hdg_ = 0.0;
 
   // heading estimation
-  hdg_Q_t                                                  _Q_hdg_;
+  hdg_Q_t                                                  _q_hdg_;
   std::mutex                                               mutex_heading_estimator_;
   std::mutex                                               mutex_hdg_estimator_type_;
   std::vector<std::string>                                 _heading_estimators_names_;
@@ -776,16 +776,16 @@ private:
   int    _compass_hdg_filter_buffer_size_;
   double _compass_hdg_filter_max_diff_;
 
-  std::unique_ptr<MedianFilter> hdg_mf_optflow_rate_;
-  bool                          _use_hdg_mf_optflow_rate_;
-  double                        _optflow_max_valid_hdg_rate_;
-  int                           compass_inconsistent_samples_;
-  int                           optflow_inconsistent_samples_;
-  bool                          is_heading_estimator_initialized_ = false;
-  bool                          _gyro_fallback_;
+  mrs_lib::MedianFilter hdg_mf_optflow_rate_;
+  bool                  _use_hdg_mf_optflow_rate_;
+  double                _optflow_max_valid_hdg_rate_;
+  int                   compass_inconsistent_samples_;
+  int                   optflow_inconsistent_samples_;
+  bool                  is_heading_estimator_initialized_ = false;
+  bool                  _gyro_fallback_;
 
   // altitude estimation
-  alt_Q_t                                                   _Q_alt_;
+  alt_Q_t                                                   _q_alt_;
   std::mutex                                                mutex_altitude_estimator_;
   std::vector<std::string>                                  _altitude_estimators_names_;
   std::vector<std::string>                                  _active_altitude_estimators_names_;
@@ -841,18 +841,17 @@ private:
   double max_safe_brick_jump_sq_;
   double max_safe_brick_hdg_jump_sq_;
 
-  LatMat        _A_lat_, _Q_lat_;
-  LatStateCol1D _B_lat_;
+  LatMat _q_lat_;
 
   // RTK LKF
   using lkf_rtk_t = mrs_lib::LKF<2, 2, 2>;
   lkf_rtk_t::statecov_t sc_lat_rtk_;
-  lkf_rtk_t::A_t        _A_lat_rtk_;
-  lkf_rtk_t::B_t        _B_lat_rtk_;
-  lkf_rtk_t::H_t        _H_lat_rtk_;
-  lkf_rtk_t::R_t        _R_lat_rtk_;
-  lkf_rtk_t::Q_t        _Q_lat_rtk_;
-  lkf_rtk_t::P_t        _P_lat_rtk_;
+  lkf_rtk_t::A_t        _a_lat_rtk_;
+  lkf_rtk_t::B_t        _b_lat_rtk_;
+  lkf_rtk_t::H_t        _h_lat_rtk_;
+  lkf_rtk_t::R_t        _r_lat_rtk_;
+  lkf_rtk_t::Q_t        _q_lat_rtk_;
+  lkf_rtk_t::P_t        _p_lat_rtk_;
 
   std::unique_ptr<lkf_rtk_t> estimator_rtk_;
   std::mutex                 mutex_rtk_est_;
@@ -953,8 +952,8 @@ private:
 
   using lkf_height_t = mrs_lib::LKF<1, 1, 1>;
   std::unique_ptr<lkf_height_t> estimator_height_;
-  lkf_height_t::R_t             _R_height_;
-  lkf_height_t::Q_t             _Q_height_;
+  lkf_height_t::R_t             _r_height_;
+  lkf_height_t::Q_t             _q_height_;
   lkf_height_t::statecov_t      sc_height_;
   std::mutex                    mutex_estimator_height_;
   ros::Time                     time_main_timer_prev_;
@@ -1275,31 +1274,31 @@ void Odometry::onInit() {
   // Garmin
   param_loader.loadParam("altitude/median_filter/garmin/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/garmin/max_diff", max_diff);
-  alt_mf_garmin_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_garmin_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/sonar/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/sonar/max_diff", max_diff);
-  alt_mf_sonar_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_sonar_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/plane/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/plane/max_diff", max_diff);
-  alt_mf_plane_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_plane_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/brick/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/brick/max_diff", max_diff);
-  alt_mf_brick_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_brick_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/vio/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/vio/max_diff", max_diff);
-  alt_mf_vio_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_vio_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/aloam/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/aloam/max_diff", max_diff);
-  alt_mf_aloam_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_aloam_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   param_loader.loadParam("altitude/median_filter/liosam/buffer_size", buffer_size);
   param_loader.loadParam("altitude/median_filter/liosam/max_diff", max_diff);
-  alt_mf_liosam_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  alt_mf_liosam_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   //}
 
@@ -1490,7 +1489,7 @@ void Odometry::onInit() {
 
   /* altitude process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("altitude/Q", _Q_alt_);
+  param_loader.loadMatrixStatic("altitude/Q", _q_alt_);
 
   //}
 
@@ -1546,13 +1545,13 @@ void Odometry::onInit() {
     // Add pointer to altitude estimator to array
     if (*it == "ALOAMREP") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, true)));
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt, true)));
     } else if (*it == "ALOAMGARM") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimatorAloamGarm>>(
-          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt, nh_, true)));
+          *it, std::make_shared<AltitudeEstimatorAloamGarm>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt, nh_, true)));
     } else {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
-          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _Q_alt_, R_multi_alt)));
+          *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt)));
     }
 
     // Map odometry to estimator name
@@ -1576,8 +1575,8 @@ void Odometry::onInit() {
   H_height << 1;
   estimator_height_ = std::make_unique<lkf_height_t>(A_height, B_height, H_height);
 
-  param_loader.loadMatrixStatic("height/R", _R_height_);
-  param_loader.loadMatrixStatic("height/Q", _Q_height_);
+  param_loader.loadMatrixStatic("height/R", _r_height_);
+  param_loader.loadMatrixStatic("height/Q", _q_height_);
 
   lkf_height_t::x_t        x0_height = lkf_height_t::x_t::Zero();
   lkf_height_t::P_t        P0_height = lkf_height_t::P_t::Identity();
@@ -1641,12 +1640,12 @@ void Odometry::onInit() {
 
   /* rtk lateral parameters //{ */
 
-  param_loader.loadMatrixStatic("lateral/rtk/A", _A_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/B", _B_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/H", _H_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/R", _R_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/Q", _Q_lat_rtk_);
-  param_loader.loadMatrixStatic("lateral/rtk/P", _P_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/A", _a_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/B", _b_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/H", _h_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/R", _r_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/Q", _q_lat_rtk_);
+  param_loader.loadMatrixStatic("lateral/rtk/P", _p_lat_rtk_);
   param_loader.loadParam("lateral/use_full_rtk", _use_full_rtk_);
   param_loader.loadParam("lateral/rtk_fuse_sps", _rtk_fuse_sps_);
 
@@ -1684,15 +1683,15 @@ void Odometry::onInit() {
   param_loader.loadParam("lateral/median_filter/optflow/use", _use_lat_mf_optflow_twist_);
   param_loader.loadParam("lateral/median_filter/optflow/buffer_size", buffer_size);
   param_loader.loadParam("lateral/median_filter/optflow/max_diff", max_diff);
-  lat_mf_optflow_twist_x_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
-  lat_mf_optflow_twist_y_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  lat_mf_optflow_twist_x_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
+  lat_mf_optflow_twist_y_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   // ICP twist median filter
   param_loader.loadParam("lateral/median_filter/icp/use", _use_lat_mf_icp_twist_);
   param_loader.loadParam("lateral/median_filter/icp/buffer_size", buffer_size);
   param_loader.loadParam("lateral/median_filter/icp/max_diff", max_diff);
-  lat_mf_icp_twist_x_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
-  lat_mf_icp_twist_y_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  lat_mf_icp_twist_x_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
+  lat_mf_icp_twist_y_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   //}
 
@@ -1863,7 +1862,7 @@ void Odometry::onInit() {
 
   /* lateral process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("lateral/Q", _Q_lat_);
+  param_loader.loadMatrixStatic("lateral/Q", _q_lat_);
 
   //}
 
@@ -1940,13 +1939,13 @@ void Odometry::onInit() {
     // Add state estimator to array
     if (*it == "ALOAMREP" || *it == "ALOAMGARM") {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat, true)));
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _q_lat_, P_arr_lat, R_arr_lat, true)));
     } else {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
-          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _Q_lat_, P_arr_lat, R_arr_lat)));
+          *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _q_lat_, P_arr_lat, R_arr_lat)));
     }
 
-    estimator_rtk_ = std::make_unique<lkf_rtk_t>(_A_lat_rtk_, _B_lat_rtk_, _H_lat_rtk_);
+    estimator_rtk_ = std::make_unique<lkf_rtk_t>(_a_lat_rtk_, _b_lat_rtk_, _h_lat_rtk_);
 
     const lkf_rtk_t::x_t        x0    = lkf_rtk_t::x_t::Zero();
     lkf_rtk_t::P_t              P_tmp = lkf_rtk_t::P_t::Identity();
@@ -2003,13 +2002,13 @@ void Odometry::onInit() {
   param_loader.loadParam("heading/median_filter/optflow/use", _use_hdg_mf_optflow_rate_);
   param_loader.loadParam("heading/median_filter/optflow/buffer_size", buffer_size);
   param_loader.loadParam("heading/median_filter/optflow/max_diff", max_diff);
-  hdg_mf_optflow_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  hdg_mf_optflow_rate_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   // ICP heading rate median filter
   param_loader.loadParam("heading/median_filter/icp/use", _use_hdg_mf_icp_rate_);
   param_loader.loadParam("heading/median_filter/icp/buffer_size", buffer_size);
   param_loader.loadParam("heading/median_filter/icp/max_diff", max_diff);
-  hdg_mf_icp_rate_ = std::make_unique<MedianFilter>(buffer_size, max_valid, min_valid, max_diff);
+  hdg_mf_icp_rate_ = mrs_lib::MedianFilter(buffer_size, min_valid, max_valid, max_diff);
 
   //}
 
@@ -2124,7 +2123,7 @@ void Odometry::onInit() {
 
   /* heading process covariance (Q matrix) //{ */
 
-  param_loader.loadMatrixStatic("heading/Q", _Q_hdg_);
+  param_loader.loadMatrixStatic("heading/Q", _q_hdg_);
 
   //}
 
@@ -2171,10 +2170,10 @@ void Odometry::onInit() {
     // Add pointer to heading estimator to array
     if (*it == "ALOAMREP") {
       heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg, true)));
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _q_hdg_, R_multi_hdg, true)));
     } else {
       heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
-          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _Q_hdg_, R_multi_hdg)));
+          *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _q_hdg_, R_multi_hdg)));
     }
 
     // Map odometry to estimator name
@@ -2526,9 +2525,9 @@ void Odometry::onInit() {
   last_drs_config_.R_acc_imu_lat = map_measurement_covariance_.find("acc_imu")->second(0);
 
   // Lateral process covariances
-  last_drs_config_.Q_lat_pos = _Q_lat_(0, 0);
-  last_drs_config_.Q_lat_vel = _Q_lat_(1, 1);
-  last_drs_config_.Q_lat_acc = _Q_lat_(2, 2);
+  last_drs_config_.Q_lat_pos = _q_lat_(0, 0);
+  last_drs_config_.Q_lat_vel = _q_lat_(1, 1);
+  last_drs_config_.Q_lat_acc = _q_lat_(2, 2);
 
   // Altitude measurement covariances
   last_drs_config_.R_height_range  = map_alt_measurement_covariance_.find("height_range")->second(0);
@@ -2540,9 +2539,9 @@ void Odometry::onInit() {
   last_drs_config_.R_height_baro   = map_alt_measurement_covariance_.find("height_baro")->second(0);
 
   // Altitude process covariances
-  last_drs_config_.Q_alt_pos = _Q_alt_(0, 0);
-  last_drs_config_.Q_alt_vel = _Q_alt_(1, 1);
-  last_drs_config_.Q_alt_acc = _Q_alt_(2, 2);
+  last_drs_config_.Q_alt_pos = _q_alt_(0, 0);
+  last_drs_config_.Q_alt_vel = _q_alt_(1, 1);
+  last_drs_config_.Q_alt_acc = _q_alt_(2, 2);
 
   // Altitude velocity measurement covariances
   last_drs_config_.R_vel_baro     = map_alt_measurement_covariance_.find("vel_baro")->second(0);
@@ -2620,8 +2619,12 @@ bool Odometry::isReadyToTakeoff() {
     }
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::RTK) {
-    // return true, since RTK can work even with normal GPS
-    return true;
+    if (_use_full_rtk_ && !got_rtk_local_origin_z_) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for RTK msg to initialize takeoff estimator");
+      return false;
+    } else {
+      return true;
+    }
   }
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::T265) {
     if (got_odom_t265_) {
@@ -2803,7 +2806,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     lkf_height_t::u_t u;
     u << 0;
-    sc_height_       = estimator_height_->predict(sc_height_, u, _Q_height_, dt);
+    sc_height_       = estimator_height_->predict(sc_height_, u, _q_height_, dt);
     height_msg.value = sc_height_.x(0);
 
     pub_height_.publish(height_msg);
@@ -2945,31 +2948,25 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: Altitude estimator not initialized.");
       return;
     }
-    if (alt_estimator_type_.type == mrs_msgs::AltitudeType::HEIGHT) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::PLANE) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::BRICK) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::VIO) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAM) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAMGARM) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::ALOAMREP) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::BARO) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::RTK) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else if (alt_estimator_type_.type == mrs_msgs::AltitudeType::LIOSAM) {
-      new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-    } else {
-      ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d, %d, %d, %d, %d. Publishing mavros altitude instead.",
-                         alt_estimator_type_.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK,
-                         mrs_msgs::AltitudeType::VIO, mrs_msgs::AltitudeType::ALOAM, mrs_msgs::AltitudeType::BARO, mrs_msgs::AltitudeType::RTK,
-                         mrs_msgs::AltitudeType::LIOSAM);
+    switch (alt_estimator_type_.type) {
+      case mrs_msgs::AltitudeType::HEIGHT:
+      case mrs_msgs::AltitudeType::PLANE:
+      case mrs_msgs::AltitudeType::BRICK:
+      case mrs_msgs::AltitudeType::VIO:
+      case mrs_msgs::AltitudeType::ALOAM:
+      case mrs_msgs::AltitudeType::ALOAMGARM:
+      case mrs_msgs::AltitudeType::ALOAMREP:
+      case mrs_msgs::AltitudeType::BARO:
+      case mrs_msgs::AltitudeType::RTK:
+      case mrs_msgs::AltitudeType::LIOSAM:
+        new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+        break;
+      default:
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d, %d, %d, %d, %d. Publishing mavros altitude instead.",
+                           alt_estimator_type_.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK,
+                           mrs_msgs::AltitudeType::VIO, mrs_msgs::AltitudeType::ALOAM, mrs_msgs::AltitudeType::BARO, mrs_msgs::AltitudeType::RTK,
+                           mrs_msgs::AltitudeType::LIOSAM);
+        break;
     }
     ROS_INFO_ONCE("[Odometry]: Publishing altitude from estimator type: %d", alt_estimator_type_.type);
   }
@@ -5794,7 +5791,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
         B_new << dt, 0, 0, dt;
         estimator_rtk_->B = B_new;
         try {
-          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _Q_lat_rtk_, dt);
+          sc_lat_rtk_ = estimator_rtk_->predict(sc_lat_rtk_, rtk_input, _q_lat_rtk_, dt);
         }
         catch (const std::exception &e) {
           ROS_ERROR_THROTTLE(1.0, "[Odometry]: RTK LKF prediction step failed: %s", e.what());
@@ -6309,15 +6306,15 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
   }
 
   if (_use_lat_mf_optflow_twist_ && optflow_vel_ok) {
-    if (!lat_mf_optflow_twist_x_->isValid(optflow_vel_x)) {
+    if (!lat_mf_optflow_twist_x_.addCheck(optflow_vel_x)) {
 
-      double median = lat_mf_optflow_twist_x_->getMedian();
+      double median = lat_mf_optflow_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
       optflow_vel_x = median;
     }
 
-    if (!lat_mf_optflow_twist_y_->isValid(optflow_vel_y)) {
-      double median = lat_mf_optflow_twist_y_->getMedian();
+    if (!lat_mf_optflow_twist_y_.addCheck(optflow_vel_y)) {
+      double median = lat_mf_optflow_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
       optflow_vel_y = median;
     }
@@ -6358,7 +6355,7 @@ void Odometry::callbackOptflowTwist(const geometry_msgs::TwistWithCovarianceStam
     return;
   }
 
-  if (!hdg_mf_optflow_rate_->isValid(hdg_rate) && hdg_mf_optflow_rate_->isFilled()) {
+  if (!hdg_mf_optflow_rate_.addCheck(hdg_rate) && hdg_mf_optflow_rate_.full()) {
     optflow_inconsistent_samples_++;
     ROS_WARN("[Odometry]: Optflow hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -6521,16 +6518,16 @@ void Odometry::callbackOptflowTwistLow(const geometry_msgs::TwistWithCovarianceS
     optflow_vel_ok = false;
   }
 
-  if (lat_mf_optflow_twist_x_ && optflow_vel_ok) {
-    if (!lat_mf_optflow_twist_x_->isValid(optflow_vel_x)) {
+  if (lat_mf_optflow_twist_x_.initialized() && optflow_vel_ok) {
+    if (!lat_mf_optflow_twist_x_.addCheck(optflow_vel_x)) {
 
-      double median = lat_mf_optflow_twist_x_->getMedian();
+      double median = lat_mf_optflow_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow x velocity filtered by median filter. %f -> %f", optflow_vel_x, median);
       optflow_vel_x = median;
     }
 
-    if (!lat_mf_optflow_twist_y_->isValid(optflow_vel_y)) {
-      double median = lat_mf_optflow_twist_y_->getMedian();
+    if (!lat_mf_optflow_twist_y_.addCheck(optflow_vel_y)) {
+      double median = lat_mf_optflow_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Optic flow y velocity filtered by median filter. %f -> %f", optflow_vel_y, median);
       optflow_vel_y = median;
     }
@@ -6628,15 +6625,15 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
   }
 
   if (_use_lat_mf_icp_twist_ && icp_vel_ok) {
-    if (!lat_mf_icp_twist_x_->isValid(icp_vel_x)) {
+    if (!lat_mf_icp_twist_x_.addCheck(icp_vel_x)) {
 
-      double median = lat_mf_icp_twist_x_->getMedian();
+      double median = lat_mf_icp_twist_x_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP x velocity filtered by median filter. %f -> %f", icp_vel_x, median);
       icp_vel_x = median;
     }
 
-    if (!lat_mf_icp_twist_y_->isValid(icp_vel_y)) {
-      double median = lat_mf_icp_twist_y_->getMedian();
+    if (!lat_mf_icp_twist_y_.addCheck(icp_vel_y)) {
+      double median = lat_mf_icp_twist_y_.median();
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ICP y velocity filtered by median filter. %f -> %f", icp_vel_y, median);
       icp_vel_y = median;
     }
@@ -6678,7 +6675,7 @@ void Odometry::callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedC
     return;
   }
 
-  if (!hdg_mf_icp_rate_->isValid(hdg_rate) && hdg_mf_icp_rate_->isFilled()) {
+  if (!hdg_mf_icp_rate_.addCheck(hdg_rate) && hdg_mf_icp_rate_.full()) {
     icp_hdg_rate_inconsistent_samples_++;
     ROS_WARN("[Odometry]: icp hdg rate inconsistent: %f. Not fusing.", hdg_rate);
 
@@ -6754,24 +6751,25 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_rtk_);
 
-    if (!isUavFlying()) {
-      if (++got_rtk_counter_ <= 10) {
-        rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
-        ROS_INFO("[Odometry]: RTK ASL altitude sample #%d: %f", got_rtk_counter_, rtk_utm.pose.pose.position.z);
-        return;
+    if (!got_rtk_local_origin_z_) {
+      if (!isUavFlying()) {
+        double rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
+        if (got_rtk_counter_ < 10 || (got_rtk_counter_ < 300 && std::fabs(rtk_utm.pose.pose.position.z - rtk_avg) > 0.1)) {
+          rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
+          got_rtk_counter_++;
+          rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
+          ROS_INFO("[Odometry]: RTK ASL altitude sample #%d: %.2f; avg: %.2f", got_rtk_counter_, rtk_utm.pose.pose.position.z, rtk_avg);
+          return;
 
-      } else {
+        } else {
 
-        if (!got_rtk_local_origin_z_) {
-          rtk_local_origin_z_ /= 10;
+          rtk_local_origin_z_ = rtk_avg;
           rtk_local_origin_z_ -= _fcu_height_;
           got_rtk_local_origin_z_ = true;
-          ROS_INFO("[Odometry]: RTK ASL altitude avg: %f", rtk_local_origin_z_);
+          ROS_INFO("[Odometry]: RTK ASL altitude avg: %f", rtk_avg);
         }
-      }
 
-    } else {
-      if (!got_rtk_local_origin_z_) {
+      } else {
         rtk_local_origin_z_ = 0.0;
       }
     }
@@ -6959,7 +6957,7 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
       std::scoped_lock lock(mutex_rtk_est_);
 
       try {
-        sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _R_lat_rtk_);
+        sc_lat_rtk_ = estimator_rtk_->correct(sc_lat_rtk_, rtk_meas, _r_lat_rtk_);
       }
       catch (const std::exception &e) {
         ROS_ERROR("[Odometry]: RTK LKF correction step failed: %s", e.what());
@@ -7085,7 +7083,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
     // Median filter
     if (isUavFlying() && vio_altitude_ok) {
-      if (!alt_mf_vio_->isValid(measurement)) {
+      if (!alt_mf_vio_.addCheck(measurement)) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: VIO height measurement %f declined by median filter.", measurement);
         vio_altitude_ok = false;
       }
@@ -7589,7 +7587,7 @@ void Odometry::callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg) 
   double measurement       = brick_pose_.pose.position.z;
   bool   fuse_brick_height = true;
   if (isUavFlying()) {
-    if (!alt_mf_brick_->isValid(measurement)) {
+    if (!alt_mf_brick_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Brick height measurement %f declined by median filter.", measurement);
       fuse_brick_height = false;
     }
@@ -7910,7 +7908,7 @@ void Odometry::callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg) {
     measurement = aloam_odom_.pose.pose.position.z;
   }
   if (isUavFlying()) {
-    if (!alt_mf_aloam_->isValid(measurement)) {
+    if (!alt_mf_aloam_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: ALOAM height measurement %f declined by median filter.", measurement);
       aloam_height_ok = false;
     }
@@ -8098,7 +8096,7 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
     vel_z  = liosam_odom.twist.twist.linear.z;
   }
   if (isUavFlying()) {
-    if (!alt_mf_liosam_->isValid(height)) {
+    if (!alt_mf_liosam_.addCheck(height)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: LIOSAM height measurement %f declined by median filter.", height);
       liosam_height_ok = false;
     }
@@ -8406,13 +8404,13 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_estimator_height_);
 
-    sc_height_ = estimator_height_->correct(sc_height_, z, _R_height_);
+    sc_height_ = estimator_height_->correct(sc_height_, z, _r_height_);
   }
 
   //////////////////// Filter out garmin measurement ////////////////////
   // do not fuse garmin measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_garmin_->isValid(measurement)) {
+    if (!alt_mf_garmin_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Garmin measurement %f declined by median filter.", measurement);
       is_measurement_healthy = false;
     }
@@ -8567,7 +8565,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   //////////////////// Filter out sonar measurement ////////////////////
   // do not fuse sonar measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_sonar_->isValid(measurement)) {
+    if (!alt_mf_sonar_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: sonar measurement %f declined by median filter.", measurement);
       return;
     }
@@ -8672,7 +8670,7 @@ void Odometry::callbackPlane(const sensor_msgs::RangeConstPtr &msg) {
   //////////////////// Filter out plane measurement ////////////////////
   // do not fuse plane measurements when a height jump is detected - most likely the UAV is flying above an obstacle
   if (isUavFlying()) {
-    if (!alt_mf_plane_->isValid(measurement)) {
+    if (!alt_mf_plane_.addCheck(measurement)) {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Plane measurement %f declined by median filter.", measurement);
       return;
     }

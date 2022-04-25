@@ -13,7 +13,7 @@ heading_estimator: "ALOAMREP"
 
 # Active estimators are started at node launch and can be switched to during flight
 state_estimators:
-  active: ["ALOAMREP", "GPS"]
+  active: ["ALOAMREP"]
 
 altitude_estimators: 
   active: ["ALOAMREP", "BARO", "HEIGHT"] 
