@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   nodelet
   dynamic_reconfigure
+  positioning_systems_ros
   )
 
 find_package(mavros_msgs REQUIRED)
@@ -33,7 +34,7 @@ generate_dynamic_reconfigure_options(
   )
 
 set(LIBRARIES
-  Odometry RtkRepublisher TFConnectorDummy
+  Odometry RtkRepublisher TFConnectorDummy UWBRepublisher
   )
 
 catkin_package(
@@ -73,6 +74,15 @@ add_library(RtkRepublisher
   )
 
 target_link_libraries(RtkRepublisher
+  ${catkin_LIBRARIES}
+  ${mavros_msgs_LIBRARIES}
+  )
+
+add_library(UWBRepublisher
+  src/uwb_republisher.cpp
+  )
+
+target_link_libraries(UWBRepublisher
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   )

@@ -10,6 +10,12 @@
   </class>
 </library>
 
+<library path="lib/libUWBRepublisher">
+  <class name="mrs_uav_odometry/UWBRepublisher" type="mrs_uav_odometry::UWBRepublisher" base_class_type="nodelet::Nodelet">
+    <description>UWBRepublisher nodelet</description>
+  </class>
+</library>
+
 <library path="lib/libTFConnectorDummy">
   <class name="mrs_uav_odometry/TFConnectorDummy" type="mrs_uav_odometry::TFConnectorDummy" base_class_type="nodelet::Nodelet">
     <description>RtkRepublisher nodelet</description>

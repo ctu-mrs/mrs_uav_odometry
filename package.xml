@@ -25,6 +25,7 @@
   <depend>mavros_msgs</depend>
   <depend>nodelet</depend>
   <depend>dynamic_reconfigure</depend>
+  <depend>positioning_systems_ros</depend>
 
   <export>
     <nodelet plugin="${prefix}/plugins.xml" />
