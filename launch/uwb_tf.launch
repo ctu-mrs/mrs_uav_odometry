@@ -1,0 +1,10 @@
+<launch>
+
+  <arg name="UAV_NAME" default="$(env UAV_NAME)" />
+  <arg name="uwb_frame" default="$(arg UAV_NAME)/uwb_origin" />
+  <arg name="tracker_frame" default="map" />
+  <arg name="yaw_offset" default="0.897695" />
+
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="uwb_to_tracker" args="-62.54 -26.49 2.85 $(arg yaw_offset) 0.0 0.0 $(arg uwb_frame) $(arg tracker_frame)" />
+</launch>

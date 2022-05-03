@@ -191,6 +191,7 @@ lateral:
     pos_tower: [1000]
     pos_aloam: [1]
     pos_liosam: [10]
+    pos_uwb: [1]
     vel_liosam: [100]
     vel_icp: [10]
     pos_rtk: [0.001]

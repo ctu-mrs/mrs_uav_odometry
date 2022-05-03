@@ -104,6 +104,7 @@
       <remap from="~plane_in" to="brick_detection/altitude" />
       <remap from="~global_position_in" to="mavros/global_position/global" />
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
+      <remap from="~uwb_pose_in" to="uwb/pose" />
       <remap from="~tower_pose_in" to="tower_mapping/slam_out_pose" />
       <remap from="~aloam_odom_in" to="slam/odom" />
       <remap from="~slam_eigenvalues" to="slam/eigenvalues" />
@@ -127,6 +128,7 @@
       <remap from="~odom_optflow_out" to="~odom_optflow" />
       <remap from="~odom_gps_out" to="~odom_gps" />
       <remap from="~odom_hector_out" to="~odom_hector" />
+      <remap from="~odom_uwb_out" to="~odom_uwb" />
       <remap from="~odom_optflowgps_out" to="~odom_optflowgps" />
       <remap from="~odom_object_out" to="~odom_object" />
       <remap from="~odom_brick_out" to="~odom_brick" />
