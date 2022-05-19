@@ -43,6 +43,7 @@ namespace mrs_uav_odometry
     {
       std::string root_frame_id;
       std::string equal_frame_id;
+      bool same_frames;
       ros::Time last_update;
     };
 
@@ -89,7 +90,8 @@ namespace mrs_uav_odometry
           continue;
         }
 
-        if (new_tf.header.stamp == ros::Time(0))
+        // handle weird edge-cases like static transforms and transforms from-to the same frame
+        if (new_tf.header.stamp == ros::Time(0) || new_tf.child_frame_id == new_tf.header.frame_id)
           new_tf.header.stamp = now;
 
         new_tf.child_frame_id = root_frame_id;
@@ -118,6 +120,11 @@ namespace mrs_uav_odometry
         // check whether this frame id is of interest
         for (const auto& con_ptr : m_frame_connections)
         {
+          // skip connections that have the same equal and root frame
+          // to avoid weird publish/callback loops
+          if (con_ptr->same_frames)
+            continue;
+
           const auto& trigger_frame_id = con_ptr->equal_frame_id;
           if (tf.child_frame_id == trigger_frame_id)
             changed_connections.push_back(con_ptr);
@@ -185,6 +192,7 @@ namespace mrs_uav_odometry
         auto new_con_ptr = std::make_shared<frame_connection_t>();
         new_con_ptr->root_frame_id = root_frame_ids.at(it);
         new_con_ptr->equal_frame_id = equal_frame_ids.at(it);
+        new_con_ptr->same_frames = new_con_ptr->root_frame_id == new_con_ptr->equal_frame_id;
         new_con_ptr->last_update = now;
         m_frame_connections.push_back(std::move(new_con_ptr));
       }
