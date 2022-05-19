@@ -25,6 +25,7 @@
 // std
 #include <string>
 #include <mutex>
+#include <numeric>
 
 //}
 
@@ -47,8 +48,55 @@ namespace mrs_uav_odometry
 
     ros::Subscriber m_sub_tf;
     ros::Publisher m_pub_tf;
+    ros::Timer m_tim_tf;
+
+    ros::Time m_last_update;
+    ros::Duration m_max_update_period = ros::Duration(0.1);
 
   public:
+
+    /* update_tfs() method //{ */
+
+    void update_tfs(std::vector<size_t> changed_frame_its = {})
+    {
+      // if changed_frame_its is empty, update all frames
+      if (changed_frame_its.empty());
+      {
+        changed_frame_its.resize(m_root_frame_ids.size());
+        std::iota(std::begin(changed_frame_its), std::end(changed_frame_its), 0);
+      }
+
+      // create and publish an updated TF for each changed frame
+      tf2_msgs::TFMessage new_tf_msg;
+      new_tf_msg.transforms.reserve(changed_frame_its.size());
+      for (const size_t it : changed_frame_its)
+      {
+        const auto& root_frame_id = m_root_frame_ids.at(it);
+        const auto& equal_frame_id = m_equal_frame_ids.at(it);
+        geometry_msgs::TransformStamped new_tf ;
+        try
+        {
+          new_tf = m_tf_buffer.lookupTransform(equal_frame_id, root_frame_id, ros::Time(0));
+        }
+        catch (const tf2::TransformException& ex)
+        {
+          ROS_WARN_THROTTLE(1.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", root_frame_id.c_str(), equal_frame_id.c_str(), ex.what());
+          continue;
+        }
+        new_tf.child_frame_id = root_frame_id;
+        new_tf.header.frame_id = m_connecting_frame_id;
+        new_tf_msg.transforms.push_back(new_tf);
+      }
+    
+      if (!new_tf_msg.transforms.empty())
+      {
+        ROS_INFO_THROTTLE(1.0, "[TFConnectorDummy]: Publishing updated transform connection.");
+        m_pub_tf.publish(new_tf_msg);
+        m_last_update = ros::Time::now();
+      }
+    }
+
+    //}
 
     /* tf_callback() method //{ */
 
@@ -71,32 +119,19 @@ namespace mrs_uav_odometry
       if (changed_frame_its.empty())
         return;
     
-      // otherwise create and publish an updated TF for each changed frame
-      tf2_msgs::TFMessage new_tf_msg;
-      new_tf_msg.transforms.reserve(changed_frame_its.size());
-      for (const size_t it : changed_frame_its)
-      {
-        const auto& root_frame_id = m_root_frame_ids.at(it);
-        const auto& equal_frame_id = m_equal_frame_ids.at(it);
-        geometry_msgs::TransformStamped new_tf ;
-        try
-        {
-          new_tf = m_tf_buffer.lookupTransform(equal_frame_id, root_frame_id, ros::Time(0));
-        }
-        catch (const tf2::TransformException& ex)
-        {
-          ROS_WARN("Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", root_frame_id.c_str(), equal_frame_id.c_str(), ex.what());
-          continue;
-        }
-        new_tf.child_frame_id = root_frame_id;
-        new_tf.header.frame_id = m_connecting_frame_id;
-        new_tf_msg.transforms.push_back(new_tf);
-      }
-    
-      ROS_INFO_THROTTLE(3.0, "[TFConnectorDummy]: Publishing updated transform connection.");
-      m_pub_tf.publish(new_tf_msg);
+      update_tfs(changed_frame_its);
     }
 
+    //}
+
+    /* timer_callback() method //{ */
+    void timer_callback([[maybe_unused]] const ros::TimerEvent&)
+    {
+      const ros::Time now = ros::Time::now();
+    
+      if (now - m_last_update > m_max_update_period)
+        update_tfs();
+    }
     //}
 
     /* onInit() method //{ */
@@ -142,6 +177,10 @@ namespace mrs_uav_odometry
       m_sub_tf = nh.subscribe("tf_in", 10, &TFConnectorDummy::tf_callback, this);
 
       //}
+
+      m_last_update = ros::Time::now();
+
+      m_tim_tf = nh.createTimer(m_max_update_period, &TFConnectorDummy::timer_callback, this);
 
       ROS_INFO("[%s]: Initialized", m_node_name.c_str());
     }
