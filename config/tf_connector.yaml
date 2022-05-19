@@ -1,11 +1,11 @@
 # the connecting root frame will be named like this
 connecting_frame_id:
-  "common_origin"
+  "root"
 
 # root frame ids - names of frames, which are roots of the trees to be connected
 root_frame_ids:
-  ["uav1/fcu", "uav2/fcu"]
+  ["uav11/common_origin", "uav11/body"]
  
 # names of frames in each tree, which are equal - this will be used to connect the trees
 equal_frame_ids:
-  ["uav1/gps_origin", "uav2/gps_origin"]
+  ["uav11/rtk_origin", "uav11/slam_origin"]
