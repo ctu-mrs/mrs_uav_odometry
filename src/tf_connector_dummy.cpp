@@ -39,9 +39,16 @@ namespace mrs_uav_odometry
     std::string m_node_name;
 
   private:
+    struct frame_connection_t
+    {
+      std::string root_frame_id;
+      std::string equal_frame_id;
+      ros::Time last_update;
+    };
+
     std::string m_connecting_frame_id;
-    std::vector<std::string> m_root_frame_ids;
-    std::vector<std::string> m_equal_frame_ids;
+    using connection_vec_t = std::vector<std::shared_ptr<frame_connection_t>>;
+    connection_vec_t m_frame_connections;
 
     tf2_ros::Buffer m_tf_buffer;
     std::unique_ptr<tf2_ros::TransformListener> m_tf_listener_ptr;
@@ -50,32 +57,28 @@ namespace mrs_uav_odometry
     ros::Publisher m_pub_tf;
     ros::Timer m_tim_tf;
 
-    ros::Time m_last_update;
     ros::Duration m_max_update_period = ros::Duration(0.1);
 
   public:
 
     /* update_tfs() method //{ */
 
-    void update_tfs(std::vector<size_t> changed_frame_its = {})
+    void update_tfs(const connection_vec_t& changed_connections)
     {
       // if changed_frame_its is empty, update all frames
-      if (changed_frame_its.empty())
-      {
-        changed_frame_its.resize(m_root_frame_ids.size());
-        std::iota(std::begin(changed_frame_its), std::end(changed_frame_its), 0);
-      }
+      if (changed_connections.empty())
+        return;
 
       const ros::Time now = ros::Time::now();
 
       // create and publish an updated TF for each changed frame
       tf2_msgs::TFMessage new_tf_msg;
-      new_tf_msg.transforms.reserve(changed_frame_its.size());
-      for (const size_t it : changed_frame_its)
+      new_tf_msg.transforms.reserve(changed_connections.size());
+      for (const auto& con_ptr : changed_connections)
       {
-        const auto& root_frame_id = m_root_frame_ids.at(it);
-        const auto& equal_frame_id = m_equal_frame_ids.at(it);
-        geometry_msgs::TransformStamped new_tf ;
+        const auto& root_frame_id = con_ptr->root_frame_id;
+        const auto& equal_frame_id = con_ptr->equal_frame_id;
+        geometry_msgs::TransformStamped new_tf;
         try
         {
           new_tf = m_tf_buffer.lookupTransform(equal_frame_id, root_frame_id, ros::Time(0));
@@ -92,13 +95,13 @@ namespace mrs_uav_odometry
         new_tf.child_frame_id = root_frame_id;
         new_tf.header.frame_id = m_connecting_frame_id;
         new_tf_msg.transforms.push_back(new_tf);
+        con_ptr->last_update = now;
       }
     
       if (!new_tf_msg.transforms.empty())
       {
         ROS_INFO_THROTTLE(1.0, "[TFConnectorDummy]: Publishing updated transform connection.");
         m_pub_tf.publish(new_tf_msg);
-        m_last_update = now;
       }
     }
 
@@ -109,23 +112,23 @@ namespace mrs_uav_odometry
     void tf_callback(tf2_msgs::TFMessageConstPtr msg_ptr)
     {
       const tf2_msgs::TFMessage& tf_msg = *msg_ptr;
-      std::vector<size_t> changed_frame_its; // changed frame ids of interest in this TF message
+      connection_vec_t changed_connections;
       for (const geometry_msgs::TransformStamped& tf : tf_msg.transforms)
       {
         // check whether this frame id is of interest
-        for (size_t it = 0; it < m_equal_frame_ids.size(); it++)
+        for (const auto& con_ptr : m_frame_connections)
         {
-          const auto& trigger_frame_id = m_equal_frame_ids.at(it);
+          const auto& trigger_frame_id = con_ptr->equal_frame_id;
           if (tf.child_frame_id == trigger_frame_id)
-            changed_frame_its.push_back(it);
+            changed_connections.push_back(con_ptr);
         }
       }
     
       // if no interesting frame was changed, ignore the message
-      if (changed_frame_its.empty())
+      if (changed_connections.empty())
         return;
     
-      update_tfs(changed_frame_its);
+      update_tfs(changed_connections);
     }
 
     //}
@@ -135,8 +138,13 @@ namespace mrs_uav_odometry
     {
       const ros::Time now = ros::Time::now();
     
-      if (now - m_last_update > m_max_update_period)
-        update_tfs();
+      connection_vec_t changed_connections;
+      for (const auto& con_ptr : m_frame_connections)
+      {
+        if (now - con_ptr->last_update > m_max_update_period)
+          changed_connections.push_back(con_ptr);
+      }
+      update_tfs(changed_connections);
     }
     //}
 
@@ -154,8 +162,8 @@ namespace mrs_uav_odometry
       mrs_lib::ParamLoader pl(nh, m_node_name);
 
       pl.loadParam("connecting_frame_id", m_connecting_frame_id);
-      pl.loadParam("root_frame_ids", m_root_frame_ids);
-      pl.loadParam("equal_frame_ids", m_equal_frame_ids);
+      const auto root_frame_ids = pl.loadParam2<std::vector<std::string>>("root_frame_ids");
+      const auto equal_frame_ids = pl.loadParam2<std::vector<std::string>>("equal_frame_ids");
 
       if (!pl.loadedSuccessfully())
       {
@@ -163,13 +171,23 @@ namespace mrs_uav_odometry
         ros::shutdown();
       }
 
-      if (m_root_frame_ids.size() != m_equal_frame_ids.size())
+      if (root_frame_ids.size() != equal_frame_ids.size())
       {
-        ROS_ERROR("[%s]: Number of root frame ids (%lu) must equal the number of equal frame ids (%lu), ending the node", m_node_name.c_str(), m_root_frame_ids.size(), m_equal_frame_ids.size());
+        ROS_ERROR("[%s]: Number of root frame ids (%lu) must equal the number of equal frame ids (%lu), ending the node", m_node_name.c_str(), root_frame_ids.size(), equal_frame_ids.size());
         ros::shutdown();
       }
 
       //}
+
+      const auto now = ros::Time::now();
+      for (size_t it = 0; it < root_frame_ids.size(); it++)
+      {
+        auto new_con_ptr = std::make_shared<frame_connection_t>();
+        new_con_ptr->root_frame_id = root_frame_ids.at(it);
+        new_con_ptr->equal_frame_id = equal_frame_ids.at(it);
+        new_con_ptr->last_update = now;
+        m_frame_connections.push_back(std::move(new_con_ptr));
+      }
 
       /* publishers //{ */
 
@@ -184,7 +202,6 @@ namespace mrs_uav_odometry
 
       //}
 
-      m_last_update = ros::Time::now();
 
       m_tim_tf = nh.createTimer(m_max_update_period, &TFConnectorDummy::timer_callback, this);
 
