@@ -60,11 +60,13 @@ namespace mrs_uav_odometry
     void update_tfs(std::vector<size_t> changed_frame_its = {})
     {
       // if changed_frame_its is empty, update all frames
-      if (changed_frame_its.empty());
+      if (changed_frame_its.empty())
       {
         changed_frame_its.resize(m_root_frame_ids.size());
         std::iota(std::begin(changed_frame_its), std::end(changed_frame_its), 0);
       }
+
+      const ros::Time now = ros::Time::now();
 
       // create and publish an updated TF for each changed frame
       tf2_msgs::TFMessage new_tf_msg;
@@ -83,6 +85,10 @@ namespace mrs_uav_odometry
           ROS_WARN_THROTTLE(1.0, "Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", root_frame_id.c_str(), equal_frame_id.c_str(), ex.what());
           continue;
         }
+
+        if (new_tf.header.stamp == ros::Time(0))
+          new_tf.header.stamp = now;
+
         new_tf.child_frame_id = root_frame_id;
         new_tf.header.frame_id = m_connecting_frame_id;
         new_tf_msg.transforms.push_back(new_tf);
@@ -92,7 +98,7 @@ namespace mrs_uav_odometry
       {
         ROS_INFO_THROTTLE(1.0, "[TFConnectorDummy]: Publishing updated transform connection.");
         m_pub_tf.publish(new_tf_msg);
-        m_last_update = ros::Time::now();
+        m_last_update = now;
       }
     }
 
