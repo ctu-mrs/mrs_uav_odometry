@@ -20,6 +20,7 @@ state_estimators:
     "ALOAMGARM",
     "ALOAMREP",
     "LIOSAM",
+    "UWB",
   ] 
 
   # The measured states of the model
@@ -46,6 +47,7 @@ state_estimators:
     "pos_aloam",
     "pos_liosam",
     "vel_liosam",
+    "pos_uwb",
     "acc_imu",
   ]
 
@@ -66,6 +68,7 @@ state_estimators:
     ALOAMGARM: ["pos_aloam", "vel_icp"]
     ALOAMREP: ["pos_aloam", "vel_icp"]
     LIOSAM: ["pos_liosam", "vel_liosam"]
+    UWB: ["pos_uwb"]
 
   # Mapping of measurements to states
   measurement_states:
@@ -84,6 +87,7 @@ state_estimators:
     pos_aloam: POSITION
     pos_liosam: POSITION
     vel_liosam: VELOCITY
+    pos_uwb: POSITION
     acc_imu: ACCELERATION
 
   # Mapping states to model

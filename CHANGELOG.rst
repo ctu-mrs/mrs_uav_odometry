@@ -2,6 +2,28 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* uwb estimator tested with rosbag
+* removed gps from aloam config
+* decreased the timeout of rtk averaging
+* wait longer until RTK altitude average converges during initialization
+* median filter fix
+* refactored reserved variable names
+  Median refactor
+* put back one probably redundant check
+* refactored to use the new median filter
+* refactored against publisher handler
+* updated transformer interface
+* + install in cmakelists
+* add ScopeTimer to important methods
+* Removed unnecessary offsetting baro altitude during takeoff. Makes
+  midair activation with baro estimator possible
+* fixed opflow + pixhawk estimator combination
+* fixed drifting baro estimator
+* checking list of active altitude estimators instead of all altitude estimators when changing altitude estimator
+* Contributors: Matej Petrlik, Matouš Vrba, Pavel Petracek, Tomas Baca, Vaclav Pritzl, matemat13
+
 1.0.2 (2021-10-04)
 ------------------
 * setting initial values for height estimator statecov

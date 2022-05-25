@@ -1,4 +1,4 @@
-#define VERSION "1.0.2.0"
+#define VERSION "1.0.3.0"
 
 /* includes //{ */
 
@@ -219,6 +219,7 @@ private:
   ros::Subscriber sub_vio_state_;
   ros::Subscriber sub_uav_mass_estimate_;
   ros::Subscriber sub_gps_covariance_;
+  ros::Subscriber sub_uwb_pose_;
 
 private:
   ros::ServiceServer ser_reset_lateral_kalman_;
@@ -284,8 +285,6 @@ private:
 
   double des_hdg_rate_ = 0.0;
   double des_hdg_      = 0.0;
-
-  std::vector<nav_msgs::Odometry> vec_odom_aux_;
 
   // Mavros odometry and local odometry cache for aloam mapping tf
   std::vector<nav_msgs::Odometry> vec_odom_mavros_;
@@ -405,6 +404,18 @@ private:
   bool          slam_estimator_initialized_ = false;  // whether some lidar slam estimator was already created
   ros::Duration _ouster_scan_delay_;
 
+  // UWB pose messages
+  std::mutex         mutex_uwb_;
+  double             pos_uwb_x_, pos_uwb_y_;
+  geometry_msgs::PoseStamped uwb_pose_;
+  geometry_msgs::PoseStamped uwb_pose_previous_;
+  ros::Time          uwb_pose_last_update_;
+  Vec2               uwb_vel_state_;
+  double             uwb_offset_hdg_;
+  bool               uwb_corr_ready_ = false;
+  int c_uwb_init_msgs_ = 0.0;
+  int c_uwb_msg_ = 0.0;
+
   // brick heading msgs
   double     brick_hdg_previous_;
   std::mutex mutex_brick_hdg_;
@@ -505,6 +516,7 @@ private:
   std::string fcu_frame_id_;
   std::string fcu_untilted_frame_id_;
   std::string local_origin_frame_id_;
+  std::string gps_origin_frame_id_;
   std::string stable_origin_frame_id_;
   std::string fixed_map_origin_frame_id_;
   std::string aloam_mapping_origin_frame_id_;
@@ -512,6 +524,7 @@ private:
   std::string last_stable_name_;
   std::string last_local_name_;
   std::string first_frame_;
+  std::string uwb_frame_id_;
 
   bool   got_fcu_untilted_ = false;
   bool   got_init_heading_ = false;
@@ -534,6 +547,7 @@ private:
   void callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg);
   void callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg);
   void callbackHectorPose(const geometry_msgs::PoseStampedConstPtr &msg);
+  void callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackAloamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
@@ -685,6 +699,7 @@ private:
   bool got_pixhawk_utm_      = false;
   bool got_rtk_              = false;
   bool got_hector_pose_      = false;
+  bool got_uwb_      = false;
   bool got_aloam_odom_       = false;
   bool got_liosam_odom_      = false;
   bool got_brick_pose_       = false;
@@ -865,6 +880,7 @@ private:
   std::mutex mutex_max_altitude_;
   bool       gps_reliable_     = false;
   bool       hector_reliable_  = false;
+  bool       uwb_reliable_     = false;
   bool       aloam_reliable_   = false;
   bool       liosam_reliable_  = false;
   bool       vio_reliable_     = false;
@@ -882,6 +898,7 @@ private:
   bool optflow_active_    = false;
   bool optflowgps_active_ = false;
   bool hector_active_     = false;
+  bool uwb_active_        = false;
   bool vio_active_        = false;
   bool vslam_active_      = false;
   bool t265_active_       = false;
@@ -1112,6 +1129,7 @@ void Odometry::onInit() {
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMGARM));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMREP));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::LIOSAM));
+  _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::UWB));
 
   ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
@@ -1775,6 +1793,10 @@ void Odometry::onInit() {
       t265_active_   = true;
       t265_reliable_ = true;
     }
+    if (*it == "UWB") {
+      uwb_active_   = true;
+      uwb_reliable_ = true;
+    }
 
     //}
 
@@ -1873,12 +1895,14 @@ void Odometry::onInit() {
   fcu_frame_id_                   = _uav_name_ + "/fcu";
   fcu_untilted_frame_id_          = _uav_name_ + "/fcu_untilted";
   local_origin_frame_id_          = _uav_name_ + "/local_origin";
+  gps_origin_frame_id_          = _uav_name_ + "/gps_origin";
   stable_origin_frame_id_         = _uav_name_ + "/stable_origin";
   fixed_map_origin_frame_id_      = _uav_name_ + "/fixed_map_odom";
   aloam_mapping_origin_frame_id_  = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/aloam_mapping_origin";
   liosam_mapping_origin_frame_id_ = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/liosam_mapping_origin";
   last_local_name_                = _uav_name_ + "/null_origin";
   last_stable_name_               = _uav_name_ + "/null_origin";
+  uwb_frame_id_               = _uav_name_ + "/uwb_origin";
 
   //}
 
@@ -2197,7 +2221,7 @@ void Odometry::onInit() {
   // --------------------------------------------------------------
 
   transformer_ = std::make_unique<mrs_lib::Transformer>(nh_, "Odometry");
-  transformer_->setDefaultPrefix(_uav_name_);
+  /* transformer_->setDefaultPrefix(_uav_name_); */
   transformer_->retryLookupNewest(true);
 
   // | ---------------------------------------------------------- |
@@ -2356,6 +2380,11 @@ void Odometry::onInit() {
     sub_liosam_odom_ = nh_.subscribe("liosam_odom_in", 1, &Odometry::callbackLioSamOdom, this, ros::TransportHints().tcpNoDelay());
   }
 
+  // subscriber for uwb pose
+  if (uwb_active_) {
+    sub_uwb_pose_ = nh_.subscribe("uwb_pose_in", 1, &Odometry::callbackUWBPose, this, ros::TransportHints().tcpNoDelay());
+  }
+
   // subscriber for garmin range
   sub_garmin_ = nh_.subscribe("garmin_in", 1, &Odometry::callbackGarmin, this, ros::TransportHints().tcpNoDelay());
 
@@ -2512,6 +2541,7 @@ void Odometry::onInit() {
   last_drs_config_.R_pos_hector = map_measurement_covariance_.find("pos_hector")->second(0);
   last_drs_config_.R_pos_aloam  = map_measurement_covariance_.find("pos_aloam")->second(0);
   last_drs_config_.R_pos_liosam = map_measurement_covariance_.find("pos_liosam")->second(0);
+  last_drs_config_.R_pos_uwb = map_measurement_covariance_.find("pos_uwb")->second(0);
 
   // Lateral velocity measurement covariances
   last_drs_config_.R_vel_mavros  = map_measurement_covariance_.find("vel_mavros")->second(0);
@@ -2698,6 +2728,14 @@ bool Odometry::isReadyToTakeoff() {
       return false;
     }
   }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::UWB) {
+    if (got_uwb_) {
+      return true;
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for UWB pose msg to initialize takeoff estimator");
+      return false;
+    }
+  }
 
 
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK || _estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW) {
@@ -2788,7 +2826,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     first_main_timer_tick_ = false;
     return;
   }
-
 
   /* height estimator prediction //{ */
 
@@ -2897,6 +2934,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       auto pos_liosam_y_tmp = mrs_lib::get_mutexed(mutex_liosam_, pos_liosam_y_);
       stateEstimatorsCorrection(pos_liosam_x_tmp, pos_liosam_y_tmp, "pos_liosam");
     }
+
+    // correction step for uwb
+    if (got_uwb_ && uwb_corr_ready_) {
+      auto pos_uwb_x_tmp = mrs_lib::get_mutexed(mutex_uwb_, pos_uwb_x_);
+      auto pos_uwb_y_tmp = mrs_lib::get_mutexed(mutex_uwb_, pos_uwb_y_);
+      stateEstimatorsCorrection(pos_uwb_x_tmp, pos_uwb_y_tmp, "pos_uwb");
+    }
+
 
     // correction step for rtk
     /* if (_use_full_rtk_ && got_rtk_ && rtk_corr_ready_) { */
@@ -3035,7 +3080,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_odom_pixhawk_);
     orientation.header                = odom_pixhawk_.header;
-    orientation.header.frame_id       = _uav_name_ + "/" + "gps_origin";
+    orientation.header.frame_id       = gps_origin_frame_id_;
     orientation.child_frame_id        = fcu_frame_id_;
     orientation.pose.pose.orientation = odom_pixhawk_.pose.pose.orientation;
   }
@@ -3197,7 +3242,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
-
     // Fallback from T265
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::T265) {
     if ((!got_odom_t265_ || !t265_reliable_) && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
@@ -3221,6 +3265,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         failsafe_called_ = true;
       }
     }
+
     if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || !got_odom_t265_) {
       ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, t265: %s",
                         got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE",
@@ -3639,6 +3684,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         return;
       }
     }
+
     // Fallback from VIO
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::VIO) {
     if (!vio_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
@@ -3673,6 +3719,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
       return;
     }
+
     // Fallback from VSLAM
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::VSLAM) {
     if (!vslam_reliable_ && optflow_active_ && got_optflow_ && alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) < _max_optflow_altitude_) {
@@ -3708,6 +3755,31 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
+  // Fallback from UWB
+  } else if (estimator_type_.type == mrs_msgs::EstimatorType::UWB) {
+
+    if (!uwb_reliable_ && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
+      ROS_WARN("[Odometry]: UWB not reliable. Switching to GPS type.");
+      mrs_msgs::EstimatorType gps_type;
+      gps_type.type = mrs_msgs::EstimatorType::GPS;
+      if (!changeCurrentEstimator(gps_type)) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: Fallback odometry not available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+
+    } else if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_) || (!got_uwb_)) {
+      ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for data from sensors - received? pixhawk: %s, ranger: %s, global position: %s, uwb: %s",
+                        got_odom_pixhawk_ ? "TRUE" : "FALSE", got_range_ ? "TRUE" : "FALSE", got_pixhawk_utm_ ? "TRUE" : "FALSE", got_uwb_ ? "TRUE" : "FALSE");
+      if (got_lateral_sensors_ && !failsafe_called_) {
+        ROS_ERROR_THROTTLE(1.0, "[Odometry]: No fallback odometry available. Triggering failsafe.");
+        std_srvs::Trigger failsafe_out;
+        ser_client_failsafe_.call(failsafe_out);
+        failsafe_called_ = true;
+      }
+      return;
+    }
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Unknown odometry type. Not checking sensors.");
   }
@@ -3873,6 +3945,18 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
       for (auto &alt_estimator : _altitude_estimators_) {
         if (alt_estimator.first == "LIOSAM") {
+          alt_estimator.second->getState(0, alt);
+          odom_aux->second.pose.pose.position.z = alt;
+        }
+      }
+
+    } else if (estimator.first == "UWB") {
+      // Prevent publishing of TF before corrections are available
+      if (!got_uwb_) {
+        continue;
+      }
+      for (auto &alt_estimator : _altitude_estimators_) {
+        if (alt_estimator.first == "PIXHAWK") {
           alt_estimator.second->getState(0, alt);
           odom_aux->second.pose.pose.position.z = alt;
         }
@@ -4154,7 +4238,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       if (estimator.second->getName() == "OPTFLOW" || estimator.second->getName() == "HECTOR" || estimator.second->getName() == "ALOAM" ||
           estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "LIOSAM" || estimator.second->getName() == "BRICK" ||
           estimator.second->getName() == "VIO" || estimator.second->getName() == "VSLAM" || estimator.second->getName() == "BRICKFLOW" ||
-          estimator.second->getName() == "ICP" || estimator.second->getName() == "ALOAMREP") {
+          estimator.second->getName() == "ICP" || estimator.second->getName() == "ALOAMREP" || estimator.second->getName() == "UWB") {
 
         pos_state << _init_gps_offset_x_, _init_gps_offset_y_;
         estimator.second->setState(0, pos_state);
@@ -5159,6 +5243,15 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
              liosam_odom_last_update_.toSec());
     got_liosam_odom_ = false;
   }
+
+  // uwb pose (corrections of lateral kf)
+  interval = ros::Time::now() - uwb_pose_last_update_;
+  if (got_uwb_ && interval.toSec() > 0.1) {
+    ROS_WARN("[Odometry]: UWB pose not received for %f seconds.", interval.toSec());
+    if (got_uwb_ && interval.toSec() > 1.0) {
+      uwb_reliable_ = false;
+    }
+  }
 }
 
 //}
@@ -5747,12 +5840,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     local_vel.vector.z        = vel_mavros_z;
 
     geometry_msgs::Vector3Stamped global_vel;
-    auto                          response = transformer_->transformSingle(local_vel, "gps_origin");
+    auto                          response = transformer_->transformSingle(local_vel, gps_origin_frame_id_);
     if (response) {
       global_vel = response.value();
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_main.", local_vel.header.frame_id.c_str(),
-                        (_uav_name_ + "/gps_origin").c_str());
+                        (gps_origin_frame_id_).c_str());
       return;
     }
 
@@ -8273,6 +8366,150 @@ void Odometry::callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg) {
 }
 //}
 
+/* //{ callbackUWBPose() */
+
+void Odometry::callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg) {
+
+  if (!is_initialized_)
+    return;
+
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackUWBPose");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackUWBPose", scope_timer_logger_, scope_timer_enabled_);
+
+  uwb_pose_last_update_ = ros::Time::now();
+
+  {
+    std::scoped_lock lock(mutex_uwb_);
+
+    if (got_uwb_) {
+
+      uwb_pose_previous_ = uwb_pose_;
+      uwb_pose_          = *msg;
+
+    } else {
+
+      uwb_pose_previous_ = *msg;
+      uwb_pose_          = *msg;
+
+      // Wait for uwb convergence to initial position
+      if (c_uwb_init_msgs_++ < 10) {
+        ROS_INFO("[Odometry]: UWB pose #%d - x: %f y: %f", c_uwb_init_msgs_, uwb_pose_.pose.position.x, uwb_pose_.pose.position.y);
+        return;
+      }
+
+      // Reset estimator before first correction
+      Vec2 zero_state = zero_state.Zero();
+      Vec2 pos;
+      pos << uwb_pose_.pose.position.x, uwb_pose_.pose.position.y;
+      for (auto &estimator : _lateral_estimators_) {
+        if (estimator.first == "UWB") {
+          estimator.second->setState(0, pos);
+          estimator.second->setState(1, zero_state);
+          estimator.second->setState(2, zero_state);
+        }
+      }
+
+      got_uwb_ = true;
+      uwb_reliable_ = true;
+      return;
+    }
+
+    if (uwb_reliable_) {
+
+      // Detect jump since previous pose
+      if (std::pow(uwb_pose_.pose.position.x - uwb_pose_previous_.pose.position.x, 2) > 4 ||
+          std::pow(uwb_pose_.pose.position.y - uwb_pose_previous_.pose.position.y, 2) > 4) {
+        ROS_WARN("[Odometry]: Jump detected in UWB pose. Not reliable");
+
+        uwb_reliable_ = false;
+
+        Vec2 pos_vec, vel_vec;
+        for (auto &estimator : _lateral_estimators_) {
+          if (estimator.first == "UWB") {
+            estimator.second->getState(0, pos_vec);
+            estimator.second->getState(1, vel_vec);
+          }
+        }
+
+      }
+
+      if (current_lat_estimator_->getName() == "UWB") {
+        Vec2 vel_vec;
+        current_lat_estimator_->getState(1, vel_vec);
+        if (vel_vec(0) > 5 || vel_vec(1) > 5) {
+          ROS_WARN("[Odometry]: UWB velocity too large - x: %f, y: %f. Not reliable.", vel_vec(0), vel_vec(1));
+
+          uwb_reliable_ = false;
+        }
+      }
+    }
+
+
+    if (c_uwb_msg_ < 100) {
+      c_uwb_msg_++;
+    }
+  }
+
+  // --------------------------------------------------------------
+  // |                        callback body                       |
+  // --------------------------------------------------------------
+
+  if (!isTimestampOK(uwb_pose_.header.stamp.toSec(), uwb_pose_previous_.header.stamp.toSec())) {
+    ROS_DEBUG_THROTTLE(1.0, "[Odometry]: UWB pose timestamp not OK, not fusing correction.");
+    return;
+  }
+
+  //////////////////// Fuse Lateral Kalman ////////////////////
+
+  if (!got_lateral_sensors_) {
+    ROS_WARN_THROTTLE(1.0, "[Odometry]: Not fusing UWB pose. Waiting for other sensors.");
+    return;
+  }
+
+  // transform the position into the ENU-aligned frame
+  geometry_msgs::PoseStamped uwb_pose_pixhawk_frame_;
+  auto res = transformer_->transformSingle(uwb_pose_, uwb_frame_id_);
+  if (res) {
+    uwb_pose_pixhawk_frame_ = res.value();
+  } else {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Could not transform UWB pose to %s", uwb_frame_id_.c_str());
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_uwb_);
+
+    pos_uwb_x_      = uwb_pose_pixhawk_frame_.pose.position.x;
+    pos_uwb_y_      = uwb_pose_pixhawk_frame_.pose.position.y;
+
+    uwb_corr_ready_ = true;
+  }
+
+  // Set innovation variable if current estimator is UWB
+  if (current_lat_estimator_->getName() == "UWB") {
+    Vec2 pos_vec, innovation;
+    current_lat_estimator_->getState(0, pos_vec);
+
+    {
+      std::scoped_lock lock(mutex_uwb_);
+      innovation(0) = pos_uwb_x_ - pos_vec(0);
+      innovation(1) = pos_uwb_y_ - pos_vec(1);
+    }
+
+    {
+      std::scoped_lock lock(mutex_odom_main_inno_);
+      odom_main_inno_.pose.pose.position.x = innovation(0);
+      odom_main_inno_.pose.pose.position.y = innovation(1);
+      odom_main_inno_.pose.pose.position.z = 0;
+      odom_main_inno_.twist.twist.linear.x = 0;
+      odom_main_inno_.twist.twist.linear.y = 0;
+    }
+  }
+
+  ROS_INFO_ONCE("[Odometry]: Fusing UWB position");
+}
+//}
+
 /* //{ callbackGarmin() */
 
 void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
@@ -8363,7 +8600,7 @@ void Odometry::callbackGarmin(const sensor_msgs::RangeConstPtr &msg) {
   garmin_point.pose.position.z  = 0;
   garmin_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_->transformSingle(garmin_point, "fcu_untilted");
+  auto res = transformer_->transformSingle(garmin_point, fcu_untilted_frame_id_);
 
   double measurement;
 
@@ -8542,7 +8779,7 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
   sonar_point.pose.position.z  = 0;
   sonar_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
-  auto res = transformer_->transformSingle(sonar_point, "fcu_untilted");
+  auto res = transformer_->transformSingle(sonar_point, fcu_untilted_frame_id_);
 
   double measurement;
 
@@ -8747,7 +8984,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
   nav_msgs::Odometry gps_local_odom;
   gps_local_odom.header          = msg->header;
-  gps_local_odom.header.frame_id = _uav_name_ + "/gps_origin";
+  gps_local_odom.header.frame_id = gps_origin_frame_id_;
 
   // | ------------- offset the gps to local_origin ------------- |
   gps_local_odom.pose.pose.position.x = pixhawk_utm_position_x_ - _utm_origin_x_;
@@ -8891,7 +9128,7 @@ void Odometry::callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg) {
 
           ROS_INFO("[Odometry]: Calling set emergency reference service.");
           mrs_msgs::ReferenceStampedSrv reference_srv;
-          reference_srv.request.header.frame_id      = "fcu_untilted";
+          reference_srv.request.header.frame_id      = fcu_untilted_frame_id_;
           reference_srv.request.reference.position.x = 0.0;
           reference_srv.request.reference.position.y = 0.0;
           reference_srv.request.reference.position.z = target_altitude;
@@ -9341,6 +9578,10 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_estimator.type     = mrs_msgs::EstimatorType::LIOSAM;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::LIOSAM;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::LIOSAM;
+  } else if (type == "UWB") {
+    desired_estimator.type     = mrs_msgs::EstimatorType::UWB;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -9520,6 +9761,8 @@ bool Odometry::callbackChangeEstimatorString(mrs_msgs::String::Request &req, mrs
     desired_estimator.type = mrs_msgs::EstimatorType::ICP;
   } else if (type == "LIOSAM") {
     desired_estimator.type = mrs_msgs::EstimatorType::LIOSAM;
+  } else if (type == "UWB") {
+    desired_estimator.type = mrs_msgs::EstimatorType::UWB;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -10131,6 +10374,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "R_pos_rtk: %f\n"
       "R_pos_brick: %f\n"
       "R_pos_hector: %f\n"
+      "R_pos_uwb: %f\n"
 
       "\nVelocity:\n"
       "R_vel_mavros: %f\n"
@@ -10142,7 +10386,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "\nAcceleration:\n"
       "R_acc_imu: %f\n",
 
-      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector, config.R_vel_mavros,
+      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector, config.R_pos_uwb, config.R_vel_mavros,
       config.R_vel_vio, config.R_vel_icp, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
 
   for (auto &estimator : _lateral_estimators_) {
@@ -10154,6 +10398,7 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
     estimator.second->setR(config.R_pos_hector, map_measurement_name_id_.find("pos_hector")->second);
     estimator.second->setR(config.R_pos_aloam, map_measurement_name_id_.find("pos_aloam")->second);
     estimator.second->setR(config.R_pos_liosam, map_measurement_name_id_.find("pos_liosam")->second);
+    estimator.second->setR(config.R_pos_uwb, map_measurement_name_id_.find("pos_uwb")->second);
 
     estimator.second->setR(config.R_vel_mavros, map_measurement_name_id_.find("vel_mavros")->second);
     estimator.second->setR(config.R_vel_vio, map_measurement_name_id_.find("vel_vio")->second);
@@ -10272,7 +10517,8 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     // Rotate body frame measurements into estimator frame
     double current_hdg;
     for (auto &hdg_estimator : heading_estimators_) {
-      if (estimator.first == "GPS" || estimator.first == "RTK") {
+      if (estimator.first == "GPS" || estimator.first == "RTK" || estimator.first == 
+          "UWB") {
 
         geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
 
@@ -10923,6 +11169,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     aloam_reliable_ = true;
     //}
+    
     /* LIOSAM //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::LIOSAM) {
 
@@ -10942,6 +11189,25 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     //}
 
+    /* UWB //{ */
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::UWB) {
+
+    if (!uwb_active_) {
+      ROS_ERROR("[Odometry]: Cannot transition to UWB type. UWB estimator not active.");
+      return false;
+    }
+
+    if (!got_uwb_ && is_ready_to_takeoff_) {
+      ROS_ERROR("[Odometry]: Cannot transition to UWB type. No new UWB msgs received.");
+      return false;
+    }
+
+    uwb_reliable_ = true;
+
+    setMaxAltitude(_max_default_altitude_);
+
+    //}
+    
     /* ICP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -11327,7 +11593,7 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
       type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO || type.type == mrs_msgs::EstimatorType::VSLAM ||
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
       type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM ||
-      type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP || type.type == mrs_msgs::EstimatorType::LIOSAM) {
+      type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP || type.type == mrs_msgs::EstimatorType::LIOSAM || type.type == mrs_msgs::EstimatorType::UWB) {
     return true;
   }
 
@@ -11452,6 +11718,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "ICP";
   } else if (type.type == mrs_msgs::EstimatorType::LIOSAM) {
     s_diag += "LIOSAM";
+  } else if (type.type == mrs_msgs::EstimatorType::UWB) {
+    s_diag += "UWB";
   } else {
     s_diag += "UNKNOWN";
   }
