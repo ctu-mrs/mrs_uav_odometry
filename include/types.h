@@ -7,6 +7,7 @@
 #include <mrs_lib/lkf.h>
 #include <mrs_lib/jlkf.h>
 #include <mrs_lib/repredictor.h>
+#include <mrs_lib/repredictor_aloamgarm.h>
 
 /* defines //{ */
 
@@ -123,7 +124,7 @@ typedef lkf_hdg_t::P_t var_hdg_P_t;
 typedef mrs_lib::Repredictor<var_lkf_alt_t> rep_t;
 typedef mrs_lib::Repredictor<mrs_lib::LKF_MRS_odom> rep_lat_t;
 typedef mrs_lib::Repredictor<var_lkf_hdg_t> rep_hdg_t;
-typedef mrs_lib::Repredictor<algarm_alt_t> algarm_rep_t;
+typedef mrs_lib::RepredictorAloamgarm<algarm_alt_t> algarm_rep_t;
 
 //}
 

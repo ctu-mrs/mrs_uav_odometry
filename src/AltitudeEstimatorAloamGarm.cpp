@@ -58,7 +58,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
 
   // add columns for measurement biases
   for (auto H : m_H_multi_orig) {
-    algarm_alt_H_t H_new   = H_new.Zero();
+    algarm_alt_H_t H_new    = H_new.Zero();
     H_new.block(0, 0, 1, 3) = H;
     m_H_multi.push_back(H_new);
   }
@@ -146,9 +146,9 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
   algarm_alt_P_t              P_tmp = algarm_alt_P_t::Identity();
   const algarm_alt_P_t        P0    = 1000.0 * P_tmp * P_tmp.transpose();
   const algarm_alt_statecov_t sc0({x0, P0});
-  m_sc                     = sc0;
+  m_sc                    = sc0;
   const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
-  const ros::Time       t0 = ros::Time(0);
+  const ros::Time      t0 = ros::Time(0);
 
   std::cout << "[AltitudeEstimatorAloamGarm]: Using repredictor in " << m_estimator_name.c_str() << " estimator." << std::endl;
   // Initialize separate LKF models for each H matrix
@@ -162,7 +162,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     mp_rep = std::make_unique<algarm_rep_t>(x0, P0, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
   } else {
     mp_rep = std::make_unique<algarm_rep_t>(_initial_state_, _initial_cov_, u0, m_Q, _initial_time_stamp_, mp_lkf_vector.at(0), _repredictor_buffer_size_,
-                                             nis_buffer);
+                                            nis_buffer);
   }
 
   std::cout << "[AltitudeEstimatorAloamGarm]: New AltitudeEstimatorAloamGarm initialized " << std::endl;
@@ -196,7 +196,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     /* debug_duration_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_duration", 1); */
     debug_duration_publisher = m_nh.advertise<mrs_msgs::AloamgarmDebug>("debug_aloamgarm_duration", 1);
     debug_aloam_ok_publisher = m_nh.advertise<mrs_msgs::BoolStamped>("debug_aloamgarm_aloam_ok", 1);
-    debug_median_publisher = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_median", 1);
+    debug_median_publisher   = m_nh.advertise<mrs_msgs::Float64ArrayStamped>("debug_aloamgarm_median", 1);
   }
 
   m_eigenvalue_subscriber =
@@ -255,7 +255,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const double d
   ros::WallTime time_beginning = ros::WallTime::now();
 
   algarm_alt_u_t u = u.Zero();
-  u(0)              = input;
+  u(0)             = input;
 
   algarm_alt_Q_t Q = m_Q;
   if (m_aloam_ok) {
@@ -345,7 +345,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
   }
 
   algarm_alt_u_t u = u.Zero();
-  u(0)              = input;
+  u(0)             = input;
 
   algarm_alt_Q_t Q = m_Q;
   if (m_aloam_ok) {
@@ -392,7 +392,7 @@ bool AltitudeEstimatorAloamGarm::doPrediction(const double input, const ros::Tim
 /*  //{ doCorrection() */
 
 bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp,
-                                               const std::string &measurement_name) {
+                                              const std::string &measurement_name) {
 
   /*  //{ sanity checks */
 
@@ -482,8 +482,8 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
       /* if (z(0) < _mf_close_to_ground_threshold_) { */
       if (m_median_filter.median() < _mf_close_to_ground_threshold_) {
         /* if (z(0) < _mf_close_to_ground_threshold_) { */
-          m_close_to_ground = true;
-          R(0)              = R(0) * 100;
+        m_close_to_ground = true;
+        R(0)              = R(0) * 100;
         /* } */
         // else keep the original R
       }
@@ -732,9 +732,10 @@ bool AltitudeEstimatorAloamGarm::setState(int state_id, const double &state_val)
 
     m_sc.x(state_id) = state_val;
     // reset repredictor
-    const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
-    const ros::Time       t0 = ros::Time(0);
-    mp_rep                   = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
+    const algarm_alt_u_t                            u0         = algarm_alt_u_t::Zero();
+    const ros::Time                                 t0         = ros::Time(0);
+    std::shared_ptr<boost::circular_buffer<double>> nis_buffer = std::make_shared<boost::circular_buffer<double>>(_nis_buffer_size_);
+    mp_rep = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
   }
 
   return true;
@@ -1013,13 +1014,14 @@ bool AltitudeEstimatorAloamGarm::setCovariance(const alt_P_t &P) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    algarm_alt_P_t P_tmp    = algarm_alt_P_t::Identity();
+    algarm_alt_P_t P_tmp     = algarm_alt_P_t::Identity();
     m_sc.P                   = 1000.0 * P_tmp * P_tmp.transpose();
     m_sc.P.block(0, 0, 3, 3) = P;
     // reset repredictor
-    const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
-    const ros::Time       t0 = ros::Time(0);
-    mp_rep                   = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
+    const algarm_alt_u_t                            u0         = algarm_alt_u_t::Zero();
+    const ros::Time                                 t0         = ros::Time(0);
+    std::shared_ptr<boost::circular_buffer<double>> nis_buffer = std::make_shared<boost::circular_buffer<double>>(_nis_buffer_size_);
+    mp_rep = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
   }
 
   return true;
@@ -1051,11 +1053,12 @@ bool AltitudeEstimatorAloamGarm::reset(const alt_x_t &x) {
   {
     std::scoped_lock lock(mutex_lkf);
 
-    m_sc.x                   = algarm_alt_x_t::Zero();
-    m_sc.x.block(0, 0, 3, 1) = (x);
-    const algarm_alt_u_t u0 = algarm_alt_u_t::Zero();
-    const ros::Time       t0 = ros::Time(0);
-    mp_rep                   = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_);
+    m_sc.x                                                     = algarm_alt_x_t::Zero();
+    m_sc.x.block(0, 0, 3, 1)                                   = (x);
+    const algarm_alt_u_t                            u0         = algarm_alt_u_t::Zero();
+    const ros::Time                                 t0         = ros::Time(0);
+    std::shared_ptr<boost::circular_buffer<double>> nis_buffer = std::make_shared<boost::circular_buffer<double>>(_nis_buffer_size_);
+    mp_rep = std::make_unique<algarm_rep_t>(m_sc.x, m_sc.P, u0, m_Q, t0, mp_lkf_vector.at(0), _repredictor_buffer_size_, nis_buffer);
   }
 
   return true;
