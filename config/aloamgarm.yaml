@@ -2,7 +2,6 @@
 aloamgarm:
   debug: False # publish debug topics
 
-  # repredictor_buffer_size: 200
   repredictor_buffer_size: 200
 
   # Median filter detecting rangefinder value changes
@@ -14,8 +13,6 @@ aloamgarm:
 
   eigenvalue_hysteresis_upper: 120 # SLAM considered reliable if eigenvalue rises above this
   eigenvalue_hysteresis_lower: 100 # SLAM considered unreliable if eigenvalue drops below this
-  # eigenvalue_hysteresis_upper: 1200 # SLAM considered reliable if eigenvalue rises above this
-  # eigenvalue_hysteresis_lower: 1000 # SLAM considered unreliable if eigenvalue drops below this
 
   # Multiplication factors for process noise
   q_factor_range_bias_slam_ok: 1.0E+4
@@ -34,17 +31,10 @@ aloamgarm:
   
   # Bias process noise
   q_biases: 1.0
-  # q_biases: [1.0, 1.0, 0.1]
-  # q_biases: 0.1
 
-  # nis_buffer_size: 3
   nis_buffer_size: 5
-  nis_threshold: 3.0E-5 # 3.9E-5
-  nis_avg_threshold: 3.9E-5 # 3.9E-5
-  # nis_avg_threshold: 3.9E-5 # 3.9E-5
-
-  # nis_threshold: 5.0E-12 # 3.9E-5
-  # nis_avg_threshold: 2.0E-12 # 3.9E-5
+  nis_threshold: 3.0E-5
+  nis_avg_threshold: 3.9E-5
 
   use_initial_conditions: False
   initial_state: [0.06469667308509643, 0.008255636646541047, -8.556493680058822e-06, -0.18643197312526824, 0.114846457567612, 0.41031111641590556]

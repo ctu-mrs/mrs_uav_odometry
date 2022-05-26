@@ -512,7 +512,6 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
 
     // LIDAR SLAM//{
     if (measurement_name == "height_aloam") {
-      /* return true; // TODO remove */
       if (!m_eigenvalue_received) {
         ROS_WARN("[AltitudeEstimatorAloamGarm] SLAM altitude received, but no eigenvalue received yet.");
       } else {
