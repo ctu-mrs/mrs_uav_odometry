@@ -26,6 +26,7 @@ AltitudeEstimatorAloamGarm::AltitudeEstimatorAloamGarm(
     m_use_repredictor(use_repredictor)
   {
 
+
   // clang-format on
   // load parameters
   mrs_lib::ParamLoader param_loader(m_nh, "Odometry");
