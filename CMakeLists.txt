@@ -33,7 +33,7 @@ generate_dynamic_reconfigure_options(
   )
 
 set(LIBRARIES
-  Odometry RtkRepublisher TFConnectorDummy
+  Odometry RtkRepublisher
   )
 
 catkin_package(
@@ -73,15 +73,6 @@ add_library(RtkRepublisher
   )
 
 target_link_libraries(RtkRepublisher
-  ${catkin_LIBRARIES}
-  ${mavros_msgs_LIBRARIES}
-  )
-
-add_library(TFConnectorDummy
-  src/tf_connector_dummy.cpp
-  )
-
-target_link_libraries(TFConnectorDummy
   ${catkin_LIBRARIES}
   ${mavros_msgs_LIBRARIES}
   )
