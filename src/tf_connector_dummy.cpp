@@ -6,6 +6,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_eigen/tf2_eigen.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <nodelet/nodelet.h>
 
 // Msgs
@@ -43,6 +45,7 @@ namespace mrs_uav_odometry
     {
       std::string root_frame_id;
       std::string equal_frame_id;
+      tf2::Transform offset_tf;
       bool same_frames;
       ros::Time last_update;
     };
@@ -96,6 +99,13 @@ namespace mrs_uav_odometry
 
         new_tf.child_frame_id = root_frame_id;
         new_tf.header.frame_id = m_connecting_frame_id;
+
+        // apply the offset
+        tf2::Transform tf;
+        tf2::fromMsg(new_tf.transform, tf);
+        tf = con_ptr->offset_tf * tf;
+        new_tf.transform = tf2::toMsg(tf);
+
         new_tf_msg.transforms.push_back(new_tf);
         con_ptr->last_update = now;
       }
@@ -155,6 +165,58 @@ namespace mrs_uav_odometry
     }
     //}
 
+    /* load_offsets() method //{ */
+    std::vector<tf2::Transform> load_offsets(mrs_lib::ParamLoader& pl) const
+    {
+      std::vector<tf2::Transform> ret;
+      const auto offsets_xml = pl.loadParam2<XmlRpc::XmlRpcValue>("offsets");
+      if (offsets_xml.getType() != XmlRpc::XmlRpcValue::TypeArray)
+      {
+        ROS_ERROR("[%s]: The 'offsets' parameter doesn't have a type array, cannot load", m_node_name.c_str());
+        return ret;
+      }
+    
+      for (size_t it = 0; it < offsets_xml.size(); it++)
+      {
+        const auto offset = offsets_xml[it];
+        if (offset.getType() != XmlRpc::XmlRpcValue::TypeArray)
+        {
+          ROS_ERROR("[%s]: The %lu-th member of the 'offsets' array is not an array, skipping", m_node_name.c_str(), it);
+          continue;
+        }
+    
+        if (offset.size() == 4)
+        {
+          const tf2::Vector3 translation(offset[0], offset[1], offset[2]);
+          const Eigen::Quaterniond q(Eigen::AngleAxisd(offset[3], Eigen::Vector3d::UnitZ()));
+          const tf2::Quaternion rotation(q.x(), q.y(), q.z(), q.w());
+          ret.emplace_back(rotation, translation);
+        }
+        else if (offset.size() == 7)
+        {
+          const tf2::Vector3 translation (offset[0], offset[1], offset[2]);
+          // Eigen expects parameters of the constructor to be w, x, y, z
+          const Eigen::Quaterniond q = Eigen::Quaterniond(offset[6], offset[3], offset[4], offset[5]).normalized();
+          if (q.vec().hasNaN() || q.coeffs().array().cwiseEqual(0.0).all())
+          {
+            ROS_ERROR_STREAM("[" << m_node_name << "]: The member of the 'offsets' array at index " << it << " has an invalid rotation (" << q.coeffs().transpose() << "), skipping");
+            continue;
+          }
+          // tf2 expects parameters of the constructor to be x, y, z, w
+          const tf2::Quaternion rotation(q.x(), q.y(), q.z(), q.w());
+          ret.emplace_back(rotation, translation);
+        }
+        else
+        {
+          ROS_ERROR("[%s]: The member of the 'offsets' array at index %lu has incorrect size (%d, has to be 4 or 7), skipping", m_node_name.c_str(), it, offset.size());
+          continue;
+        }
+      }
+    
+      return ret;
+    }
+    //}
+
     /* onInit() method //{ */
 
     virtual void onInit() override
@@ -172,16 +234,20 @@ namespace mrs_uav_odometry
       const auto root_frame_ids = pl.loadParam2<std::vector<std::string>>("root_frame_ids");
       const auto equal_frame_ids = pl.loadParam2<std::vector<std::string>>("equal_frame_ids");
 
+      const auto offsets = load_offsets(pl);
+
       if (!pl.loadedSuccessfully())
       {
         ROS_ERROR("[%s]: Some compulsory parameters were not loaded successfully, ending the node", m_node_name.c_str());
         ros::shutdown();
+        return;
       }
 
-      if (root_frame_ids.size() != equal_frame_ids.size())
+      if (root_frame_ids.size() != equal_frame_ids.size()  || root_frame_ids.size() != offsets.size())
       {
-        ROS_ERROR("[%s]: Number of root frame ids (%lu) must equal the number of equal frame ids (%lu), ending the node", m_node_name.c_str(), root_frame_ids.size(), equal_frame_ids.size());
+        ROS_ERROR("[%s]: Number of root frame ids (%lu) must equal the number of equal frame ids (%lu) and the number of offsets (%lu), ending the node", m_node_name.c_str(), root_frame_ids.size(), equal_frame_ids.size(), offsets.size());
         ros::shutdown();
+        return;
       }
 
       //}
@@ -193,6 +259,7 @@ namespace mrs_uav_odometry
         new_con_ptr->root_frame_id = root_frame_ids.at(it);
         new_con_ptr->equal_frame_id = equal_frame_ids.at(it);
         new_con_ptr->same_frames = new_con_ptr->root_frame_id == new_con_ptr->equal_frame_id;
+        new_con_ptr->offset_tf = offsets.at(it);
         new_con_ptr->last_update = now;
         m_frame_connections.push_back(std::move(new_con_ptr));
       }
@@ -209,7 +276,6 @@ namespace mrs_uav_odometry
       m_sub_tf = nh.subscribe("tf_in", 10, &TFConnectorDummy::tf_callback, this);
 
       //}
-
 
       m_tim_tf = nh.createTimer(m_max_update_period, &TFConnectorDummy::timer_callback, this);
 
