@@ -90,6 +90,7 @@
       <!-- Subscribers -->
       <remap from="~attitude_command_in" to="control_manager/attitude_cmd" />
       <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
+      <remap from="~pixhawk_altitude_in" to="mavros/altitude" />
       <remap from="~control_acc_in" to="/imu/data" />
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
       <remap from="~pixhawk_odom_in" to="mavros/local_position/odom" />

@@ -15,6 +15,7 @@
 #include <geometry_msgs/Vector3.h>
 
 #include <mavros_msgs/AttitudeTarget.h>
+#include <mavros_msgs/Altitude.h>
 
 #include <diagnostic_msgs/DiagnosticArray.h>
 
@@ -200,6 +201,7 @@ private:
 
   ros::Subscriber sub_pixhawk_;
   ros::Subscriber sub_pixhawk_imu_;
+  ros::Subscriber sub_pixhawk_altitude_;
   ros::Subscriber sub_pixhawk_compass_;
   ros::Subscriber sub_optflow_;
   ros::Subscriber sub_optflow_low_;
@@ -340,6 +342,12 @@ private:
   sensor_msgs::Imu pixhawk_imu_previous_;
   std::mutex       mutex_pixhawk_imu_;
   ros::Time        pixhawk_imu_last_update_;
+
+  // Altitude msgs
+  mavros_msgs::Altitude pixhawk_altitude_;
+  mavros_msgs::Altitude pixhawk_altitude_previous_;
+  std::mutex            mutex_pixhawk_altitude_;
+  ros::Time             pixhawk_altitude_last_update_;
 
   // Control acceleration msgs
   sensor_msgs::Imu       control_accel_;
@@ -556,6 +564,7 @@ private:
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_uav_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
+  void callbackPixhawkAltitude(const mavros_msgs::AltitudeConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
   void callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg);
@@ -697,6 +706,7 @@ private:
   bool got_range_            = false;
   bool got_plane_            = false;
   bool got_pixhawk_utm_      = false;
+  bool got_pixhawk_altitude_ = false;
   bool got_rtk_              = false;
   bool got_hector_pose_      = false;
   bool got_uwb_      = false;
@@ -2319,6 +2329,9 @@ void Odometry::onInit() {
 
   // subscribe to pixhawk imu
   sub_pixhawk_imu_ = nh_.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
+
+  // subscribe to pixhawk altitude
+  sub_pixhawk_altitude_ = nh_.subscribe("pixhawk_altitude_in", 1, &Odometry::callbackPixhawkAltitude, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to compass heading
   if (compass_active_) {
@@ -4091,6 +4104,35 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
                           fcu_frame_id_.c_str());
       }
+
+      // publish AMSL TF
+      if (got_pixhawk_altitude_) {
+        geometry_msgs::TransformStamped amsl_tf;
+        amsl_tf.header.stamp          = time_now;
+        amsl_tf.header.frame_id       = odom_aux->second.header.frame_id;
+        amsl_tf.child_frame_id        = odom_aux->second.header.frame_id + "_amsl";
+        double amsl_altitude = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
+        amsl_tf.transform.translation.x = 0;
+        amsl_tf.transform.translation.y = 0;
+        amsl_tf.transform.translation.z = amsl_altitude - odom_aux->second.pose.pose.position.z;
+        amsl_tf.transform.rotation.x = 0;
+        amsl_tf.transform.rotation.y = 0;
+        amsl_tf.transform.rotation.z = 0;
+        amsl_tf.transform.rotation.w = 1;
+        if (noNans(amsl_tf)) {
+          try {
+            broadcaster_->sendTransform(amsl_tf);
+          }
+          catch (...) {
+            ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", amsl_tf.child_frame_id.c_str(), amsl_tf.header.frame_id.c_str());
+          }
+        } else {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s_amsl. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
+                            odom_aux->second.header.frame_id.c_str());
+        }
+      } else {
+        ROS_WARN_THROTTLE(10.0, "[Odometry]: Not receiving AMSL altitude from Pixhawk. Not publishing AMSL TF.");
+      }
     }
 
     // Transform global velocity to twist in fcu frame
@@ -5156,6 +5198,13 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   if (got_pixhawk_utm_ && interval.toSec() > 1.0) {
     ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds.", interval.toSec());
     got_pixhawk_utm_ = false;
+  }
+
+  // pixhawk altitude
+  interval = ros::Time::now() - pixhawk_altitude_last_update_;
+  if (got_pixhawk_altitude_ && interval.toSec() > 1.0) {
+    ROS_WARN("[Odometry]: Pixhawk altitude not received for %f seconds.", interval.toSec());
+    got_pixhawk_altitude_ = false;
   }
 
   // rtk odometry
@@ -6269,6 +6318,39 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
   }
 
   ROS_INFO_ONCE("[Odometry]: Fusing hdg from PixHawk compass");
+}
+
+//}
+
+/* //{ callbackPixhawkAltitude() */
+
+void Odometry::callbackPixhawkAltitude(const mavros_msgs::AltitudeConstPtr &msg) {
+
+  if (!is_initialized_)
+    return;
+
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackPixhawkAltitude");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackPixhawkAltitude", scope_timer_logger_, scope_timer_enabled_);
+
+  pixhawk_altitude_last_update_ = ros::Time::now();
+
+  {
+    std::scoped_lock lock(mutex_pixhawk_altitude_);
+
+    if (got_pixhawk_altitude_) {
+
+      pixhawk_altitude_previous_ = pixhawk_altitude_;
+      pixhawk_altitude_          = *msg;
+
+    } else {
+
+      pixhawk_altitude_previous_ = *msg;
+      pixhawk_altitude_          = *msg;
+      got_pixhawk_altitude_      = true;
+
+      return;
+    }
+  }
 }
 
 //}
