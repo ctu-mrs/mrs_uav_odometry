@@ -4114,7 +4114,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         double amsl_altitude = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
         amsl_tf.transform.translation.x = 0;
         amsl_tf.transform.translation.y = 0;
-        amsl_tf.transform.translation.z = amsl_altitude - odom_aux->second.pose.pose.position.z;
+        amsl_tf.transform.translation.z = odom_aux->second.pose.pose.position.z - amsl_altitude;
         amsl_tf.transform.rotation.x = 0;
         amsl_tf.transform.rotation.y = 0;
         amsl_tf.transform.rotation.z = 0;
