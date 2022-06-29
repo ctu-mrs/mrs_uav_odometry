@@ -413,16 +413,16 @@ private:
   ros::Duration _ouster_scan_delay_;
 
   // UWB pose messages
-  std::mutex         mutex_uwb_;
-  double             pos_uwb_x_, pos_uwb_y_;
+  std::mutex                 mutex_uwb_;
+  double                     pos_uwb_x_, pos_uwb_y_;
   geometry_msgs::PoseStamped uwb_pose_;
   geometry_msgs::PoseStamped uwb_pose_previous_;
-  ros::Time          uwb_pose_last_update_;
-  Vec2               uwb_vel_state_;
-  double             uwb_offset_hdg_;
-  bool               uwb_corr_ready_ = false;
-  int c_uwb_init_msgs_ = 0.0;
-  int c_uwb_msg_ = 0.0;
+  ros::Time                  uwb_pose_last_update_;
+  Vec2                       uwb_vel_state_;
+  double                     uwb_offset_hdg_;
+  bool                       uwb_corr_ready_  = false;
+  int                        c_uwb_init_msgs_ = 0.0;
+  int                        c_uwb_msg_       = 0.0;
 
   // brick heading msgs
   double     brick_hdg_previous_;
@@ -709,7 +709,7 @@ private:
   bool got_pixhawk_altitude_ = false;
   bool got_rtk_              = false;
   bool got_hector_pose_      = false;
-  bool got_uwb_      = false;
+  bool got_uwb_              = false;
   bool got_aloam_odom_       = false;
   bool got_liosam_odom_      = false;
   bool got_brick_pose_       = false;
@@ -741,7 +741,7 @@ private:
   double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
   bool   land_position_set_ = false;
-  double gps_altitude_ = 0;
+  double gps_altitude_      = 0;
 
   // current position in UTM as measure by pixhawk
   double     pixhawk_utm_position_x_, pixhawk_utm_position_y_, pixhawk_utm_position_z_;
@@ -1908,14 +1908,14 @@ void Odometry::onInit() {
   fcu_frame_id_                   = _uav_name_ + "/fcu";
   fcu_untilted_frame_id_          = _uav_name_ + "/fcu_untilted";
   local_origin_frame_id_          = _uav_name_ + "/local_origin";
-  gps_origin_frame_id_          = _uav_name_ + "/gps_origin";
+  gps_origin_frame_id_            = _uav_name_ + "/gps_origin";
   stable_origin_frame_id_         = _uav_name_ + "/stable_origin";
   fixed_map_origin_frame_id_      = _uav_name_ + "/fixed_map_odom";
   aloam_mapping_origin_frame_id_  = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/aloam_mapping_origin";
   liosam_mapping_origin_frame_id_ = _use_general_slam_origin_ ? _uav_name_ + "/slam_mapping_origin" : _uav_name_ + "/liosam_mapping_origin";
   last_local_name_                = _uav_name_ + "/null_origin";
   last_stable_name_               = _uav_name_ + "/null_origin";
-  uwb_frame_id_               = _uav_name_ + "/uwb_origin";
+  uwb_frame_id_                   = _uav_name_ + "/uwb_origin";
 
   //}
 
@@ -2557,7 +2557,7 @@ void Odometry::onInit() {
   last_drs_config_.R_pos_hector = map_measurement_covariance_.find("pos_hector")->second(0);
   last_drs_config_.R_pos_aloam  = map_measurement_covariance_.find("pos_aloam")->second(0);
   last_drs_config_.R_pos_liosam = map_measurement_covariance_.find("pos_liosam")->second(0);
-  last_drs_config_.R_pos_uwb = map_measurement_covariance_.find("pos_uwb")->second(0);
+  last_drs_config_.R_pos_uwb    = map_measurement_covariance_.find("pos_uwb")->second(0);
 
   // Lateral velocity measurement covariances
   last_drs_config_.R_vel_mavros  = map_measurement_covariance_.find("vel_mavros")->second(0);
@@ -3771,7 +3771,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       return;
     }
 
-  // Fallback from UWB
+    // Fallback from UWB
   } else if (estimator_type_.type == mrs_msgs::EstimatorType::UWB) {
 
     if (!uwb_reliable_ && gps_active_ && gps_reliable_ && got_odom_pixhawk_) {
@@ -3986,7 +3986,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           return;
         }
         odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-        gps_altitude_ = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+        gps_altitude_                         = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
       }
     } else {
       for (auto &alt_estimator : _altitude_estimators_) {
@@ -4111,17 +4111,17 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       // publish AMSL TF
       if (got_pixhawk_altitude_) {
         geometry_msgs::TransformStamped amsl_tf;
-        amsl_tf.header.stamp          = time_now;
-        amsl_tf.header.frame_id       = odom_aux->second.header.frame_id;
-        amsl_tf.child_frame_id        = odom_aux->second.header.frame_id + "_amsl";
-        double amsl_altitude = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
+        amsl_tf.header.stamp            = time_now;
+        amsl_tf.header.frame_id         = odom_aux->second.header.frame_id;
+        amsl_tf.child_frame_id          = odom_aux->second.header.frame_id + "_amsl";
+        double amsl_altitude            = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
         amsl_tf.transform.translation.x = 0;
         amsl_tf.transform.translation.y = 0;
         amsl_tf.transform.translation.z = odom_aux->second.pose.pose.position.z - amsl_altitude;
-        amsl_tf.transform.rotation.x = 0;
-        amsl_tf.transform.rotation.y = 0;
-        amsl_tf.transform.rotation.z = 0;
-        amsl_tf.transform.rotation.w = 1;
+        amsl_tf.transform.rotation.x    = 0;
+        amsl_tf.transform.rotation.y    = 0;
+        amsl_tf.transform.rotation.z    = 0;
+        amsl_tf.transform.rotation.w    = 1;
         if (noNans(amsl_tf)) {
           try {
             broadcaster_->sendTransform(amsl_tf);
@@ -4130,8 +4130,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
             ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", amsl_tf.child_frame_id.c_str(), amsl_tf.header.frame_id.c_str());
           }
         } else {
-          ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s_amsl. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
-                            odom_aux->second.header.frame_id.c_str());
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s_amsl. Not publishing tf.",
+                            odom_aux->second.header.frame_id.c_str(), odom_aux->second.header.frame_id.c_str());
         }
       } else {
         ROS_WARN_THROTTLE(10.0, "[Odometry]: Not receiving AMSL altitude from Pixhawk. Not publishing AMSL TF.");
@@ -4176,7 +4176,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.transform.translation.x = -_utm_origin_x_;
     tf.transform.translation.y = -_utm_origin_y_;
 
-    double utm_position_z = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
+    double utm_position_z      = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
     tf.transform.translation.z = gps_altitude_ - utm_position_z;
 
     tf.transform.rotation.x = 0;
@@ -5202,10 +5202,12 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   // pixhawk global position
   interval = ros::Time::now() - pixhawk_global_last_update_;
   if (got_pixhawk_utm_ && interval.toSec() > 1.0) {
-    ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds. If still on the ground do not try to takeoff. GPS is probably not available.", interval.toSec());
+    ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds. If still on the ground do not try to takeoff. GPS is probably not available.",
+             interval.toSec());
     // Uncommenting the next line should disallow takeoff when GPS becomes unavailable after starting odometry node.
     // Pixhawk publishes local odom even when it does not have GPS, but UTM position is published only when GPS is available
-    // This could however cause failsafe landing when GPS becomes unavailable for >1 s, which might be undesirable since the local odom estimate might be still healthy even without corrections for 1 s.
+    // This could however cause failsafe landing when GPS becomes unavailable for >1 s, which might be undesirable since the local odom estimate might be still
+    // healthy even without corrections for 1 s.
     /* got_pixhawk_utm_ = false; */
   }
 
@@ -8508,7 +8510,7 @@ void Odometry::callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg) {
         }
       }
 
-      got_uwb_ = true;
+      got_uwb_      = true;
       uwb_reliable_ = true;
       return;
     }
@@ -8529,7 +8531,6 @@ void Odometry::callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg) {
             estimator.second->getState(1, vel_vec);
           }
         }
-
       }
 
       if (current_lat_estimator_->getName() == "UWB") {
@@ -8567,7 +8568,7 @@ void Odometry::callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg) {
 
   // transform the position into the ENU-aligned frame
   geometry_msgs::PoseStamped uwb_pose_pixhawk_frame_;
-  auto res = transformer_->transformSingle(uwb_pose_, uwb_frame_id_);
+  auto                       res = transformer_->transformSingle(uwb_pose_, uwb_frame_id_);
   if (res) {
     uwb_pose_pixhawk_frame_ = res.value();
   } else {
@@ -8578,8 +8579,8 @@ void Odometry::callbackUWBPose(const geometry_msgs::PoseStampedConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_uwb_);
 
-    pos_uwb_x_      = uwb_pose_pixhawk_frame_.pose.position.x;
-    pos_uwb_y_      = uwb_pose_pixhawk_frame_.pose.position.y;
+    pos_uwb_x_ = uwb_pose_pixhawk_frame_.pose.position.x;
+    pos_uwb_y_ = uwb_pose_pixhawk_frame_.pose.position.y;
 
     uwb_corr_ready_ = true;
   }
@@ -9080,7 +9081,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
   }
 
   pixhawk_global_last_update_ = ros::Time::now();
-  got_pixhawk_utm_ = true;
+  got_pixhawk_utm_            = true;
   ROS_INFO_ONCE("[Odometry]: Got Pixhawk UTM.");
 
   nav_msgs::Odometry gps_local_odom;
@@ -10487,8 +10488,8 @@ void Odometry::callbackReconfigure([[maybe_unused]] mrs_uav_odometry::odometry_d
       "\nAcceleration:\n"
       "R_acc_imu: %f\n",
 
-      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector, config.R_pos_uwb, config.R_vel_mavros,
-      config.R_vel_vio, config.R_vel_icp, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
+      config.R_pos_mavros, config.R_pos_vio, config.R_pos_vslam, config.R_pos_rtk, config.R_pos_brick, config.R_pos_hector, config.R_pos_uwb,
+      config.R_vel_mavros, config.R_vel_vio, config.R_vel_icp, config.R_vel_optflow, config.R_vel_rtk, config.R_acc_imu_lat);
 
   for (auto &estimator : _lateral_estimators_) {
     estimator.second->setR(config.R_pos_mavros, map_measurement_name_id_.find("pos_mavros")->second);
@@ -10618,8 +10619,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
     // Rotate body frame measurements into estimator frame
     double current_hdg;
     for (auto &hdg_estimator : heading_estimators_) {
-      if (estimator.first == "GPS" || estimator.first == "RTK" || estimator.first == 
-          "UWB") {
+      if (estimator.first == "GPS" || estimator.first == "RTK" || estimator.first == "UWB") {
 
         geometry_msgs::Quaternion q_pixhawk = mrs_lib::get_mutexed(mutex_odom_pixhawk_, odom_pixhawk_.pose.pose.orientation);
 
@@ -11270,7 +11270,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     aloam_reliable_ = true;
     //}
-    
+
     /* LIOSAM //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::LIOSAM) {
 
@@ -11308,7 +11308,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     setMaxAltitude(_max_default_altitude_);
 
     //}
-    
+
     /* ICP //{ */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::ICP) {
 
@@ -11694,7 +11694,8 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
       type.type == mrs_msgs::EstimatorType::RTK || type.type == mrs_msgs::EstimatorType::VIO || type.type == mrs_msgs::EstimatorType::VSLAM ||
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
       type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM ||
-      type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP || type.type == mrs_msgs::EstimatorType::LIOSAM || type.type == mrs_msgs::EstimatorType::UWB) {
+      type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP || type.type == mrs_msgs::EstimatorType::LIOSAM ||
+      type.type == mrs_msgs::EstimatorType::UWB) {
     return true;
   }
 
