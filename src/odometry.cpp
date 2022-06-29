@@ -5196,8 +5196,11 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   // pixhawk global position
   interval = ros::Time::now() - pixhawk_global_last_update_;
   if (got_pixhawk_utm_ && interval.toSec() > 1.0) {
-    ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds.", interval.toSec());
-    got_pixhawk_utm_ = false;
+    ROS_WARN("[Odometry]: Pixhawk global not received for %f seconds. If still on the ground do not try to takeoff. GPS is probably not available.", interval.toSec());
+    // Uncommenting the next line should disallow takeoff when GPS becomes unavailable after starting odometry node.
+    // Pixhawk publishes local odom even when it does not have GPS, but UTM position is published only when GPS is available
+    // This could however cause failsafe landing when GPS becomes unavailable for >1 s, which might be undesirable since the local odom estimate might be still healthy even without corrections for 1 s.
+    /* got_pixhawk_utm_ = false; */
   }
 
   // pixhawk altitude
