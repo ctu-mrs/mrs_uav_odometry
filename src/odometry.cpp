@@ -741,9 +741,10 @@ private:
   double _init_gps_offset_x_, _init_gps_offset_y_;
   double land_position_x_, land_position_y_;
   bool   land_position_set_ = false;
+  double gps_altitude_ = 0;
 
   // current position in UTM as measure by pixhawk
-  double     pixhawk_utm_position_x_, pixhawk_utm_position_y_;
+  double     pixhawk_utm_position_x_, pixhawk_utm_position_y_, pixhawk_utm_position_z_;
   std::mutex mutex_pixhawk_utm_position_;
   ros::Time  pixhawk_global_last_update_;
 
@@ -1090,6 +1091,7 @@ void Odometry::onInit() {
 
   pixhawk_utm_position_x_ = 0;
   pixhawk_utm_position_y_ = 0;
+  pixhawk_utm_position_z_ = 0;
 
   rtk_local_origin_z_     = 0;
   got_rtk_local_origin_z_ = false;
@@ -3984,6 +3986,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
           return;
         }
         odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+        gps_altitude_ = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
       }
     } else {
       for (auto &alt_estimator : _altitude_estimators_) {
@@ -4172,6 +4175,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.child_frame_id          = _uav_name_ + "/utm_origin";
     tf.transform.translation.x = -_utm_origin_x_;
     tf.transform.translation.y = -_utm_origin_y_;
+
+    double utm_position_z = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
+    tf.transform.translation.z = gps_altitude_ - utm_position_z;
 
     tf.transform.rotation.x = 0;
     tf.transform.rotation.y = 0;
@@ -9070,6 +9076,7 @@ void Odometry::callbackPixhawkUtm(const sensor_msgs::NavSatFixConstPtr &msg) {
 
     pixhawk_utm_position_x_ = out_x;
     pixhawk_utm_position_y_ = out_y;
+    pixhawk_utm_position_z_ = msg->altitude;
   }
 
   pixhawk_global_last_update_ = ros::Time::now();
