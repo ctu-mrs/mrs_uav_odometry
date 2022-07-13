@@ -2940,7 +2940,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ros::Time time_start          = ros::Time::now();
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
       headingEstimatorsCorrection(hdg_aloam_tmp, "hdg_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
-      /* ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec()); */
+      ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec());
       /* aloam_corr_ready_ = false; */
     }
 
@@ -4032,13 +4032,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
         hdg_estimator.second->getState(0, hdg);
 
-      try {
-
-        odom_aux->second.pose.pose.orientation = mrs_lib::AttitudeConverter(mavros_orientation).setHeading(hdg);
-
-      } catch (...) {
-
-        ROS_ERROR("[Odometry]: Failed to setHeading() of odom_aux. Using fallback solution.");
         // Obtain mavros orientation
         tf2::Quaternion tf2_mavros_orient;
         try {
@@ -4081,7 +4074,6 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         }
 
         odom_aux->second.pose.pose.orientation = new_orientation;
-      }
       }
     }
 
@@ -4486,34 +4478,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
       }
 
-      try {
+      // Build rotation matrix from difference between new heading nad mavros heading
+      tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
 
-        odom_main.pose.pose.orientation = mrs_lib::AttitudeConverter(mavros_orientation).setHeading(hdg);
-        uav_state.pose.orientation      = mrs_lib::AttitudeConverter(mavros_orientation).setHeading(hdg);
+      // Transform the mavros orientation by the rotation matrix
+      geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
 
-      } catch (...) {
-
-        ROS_ERROR("[Odometry]: Failed to setHeading() of odom_main. Using fallback solution.");
-        // Obtain mavros orientation
-        tf2::Quaternion tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
-
-        // Obtain heading from mavros orientation
-        double mavros_hdg = 0;
-        try {
-          mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
-        }
-        catch (...) {
-          ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
-        }
-
-        // Build rotation matrix from difference between new heading nad mavros heading
-        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
-
-        // Transform the mavros orientation by the rotation matrix
-        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
-        odom_main.pose.pose.orientation = new_orientation;
-        uav_state.pose.orientation      = new_orientation;
-      }
+      odom_main.pose.pose.orientation = new_orientation;
+      uav_state.pose.orientation      = new_orientation;
     }
 
     //}
@@ -4863,23 +4835,14 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation_temp");
     }
 
+    // Build rotation matrix from difference between new heading nad mavros heading
+    tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
 
-      try {
+    // Transform the mavros orientation by the rotation matrix
+    geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
 
-        aloam_odom_tmp.pose.pose.orientation = mrs_lib::AttitudeConverter(mavros_orientation_temp).setHeading(aloam_hdg_previous_);
-
-      } catch (...) {
-
-        ROS_ERROR("[Odometry]: Failed to setHeading() of aloam_odom. Using fallback solution.");
-        // Build rotation matrix from difference between new heading nad mavros heading
-        tf2::Matrix3x3 rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(aloam_hdg_previous_ - mavros_hdg, Eigen::Vector3d::UnitZ()));
-
-        // Transform the mavros orientation by the rotation matrix
-        geometry_msgs::Quaternion new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
-
-        // Set new orientation
-        aloam_odom_tmp.pose.pose.orientation = new_orientation;
-      }
+    // Set new orientation
+    aloam_odom_tmp.pose.pose.orientation = new_orientation;
 
     // Find corresponding local odom
     double local_odom_z = 0;
