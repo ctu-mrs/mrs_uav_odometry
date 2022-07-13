@@ -2940,7 +2940,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       ros::Time time_start          = ros::Time::now();
       stateEstimatorsCorrection(pos_aloam_x_tmp, pos_aloam_y_tmp, "pos_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
       headingEstimatorsCorrection(hdg_aloam_tmp, "hdg_aloam", aloam_timestamp_tmp - _ouster_scan_delay_, time_now);
-      ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec());
+      /* ROS_INFO_THROTTLE(1.0, "[Odometry]: Correction took %.4f sec.", (ros::Time::now() - time_start).toSec()); */
       /* aloam_corr_ready_ = false; */
     }
 
