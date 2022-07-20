@@ -4177,7 +4177,9 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.transform.translation.y = -_utm_origin_y_;
 
     double utm_position_z      = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
-    tf.transform.translation.z = gps_altitude_ - utm_position_z;
+    // If we want absolute altitude in utm_origin TF, code for safety area publishing needs to be modified to reflect this change
+    /* tf.transform.translation.z = gps_altitude_ - utm_position_z; */
+    tf.transform.translation.z = 0;
 
     tf.transform.rotation.x = 0;
     tf.transform.rotation.y = 0;
