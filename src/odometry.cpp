@@ -6949,8 +6949,17 @@ void Odometry::callbackRtkGps(const mrs_msgs::RtkGpsConstPtr &msg) {
 
     if (!got_rtk_local_origin_z_) {
       if (!isUavFlying()) {
+
         double rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
+
         if (got_rtk_counter_ < 10 || (got_rtk_counter_ < 300 && std::fabs(rtk_utm.pose.pose.position.z - rtk_avg) > 0.1)) {
+
+          // sometimes RTK publishes 0.0 after initialization
+          if (rtk_utm.pose.pose.position.z == 0.0) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Waiting for RTK to publish other altitude than 0.0");
+            return;
+          }
+
           rtk_local_origin_z_ += rtk_utm.pose.pose.position.z;
           got_rtk_counter_++;
           rtk_avg = rtk_local_origin_z_ / got_rtk_counter_;
