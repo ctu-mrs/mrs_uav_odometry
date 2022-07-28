@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   nodelet
   dynamic_reconfigure
+  message_generation
   )
 
 find_package(mavros_msgs REQUIRED)
@@ -31,6 +32,16 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 ## catkin specific configuration ##
 ###################################
 
+add_message_files(DIRECTORY msg FILES
+  EstimatorDiagnostics.msg
+  EstimatorOutput.msg
+  )
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  )
+
 generate_dynamic_reconfigure_options(
   cfg/odometry_dynparam.cfg
   )
@@ -38,7 +49,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES Odometry
-  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs message_runtime
   DEPENDS mavros_msgs Eigen
   )
 

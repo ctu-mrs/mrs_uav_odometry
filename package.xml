@@ -25,8 +25,11 @@
   <depend>mavros_msgs</depend>
   <depend>nodelet</depend>
   <depend>dynamic_reconfigure</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
 
   <export>
+    generate_messages_cpp
     <nodelet plugin="${prefix}/plugins.xml" />
   </export>
 

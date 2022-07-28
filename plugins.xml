@@ -15,3 +15,9 @@
     <description>RtkRepublisher nodelet</description>
   </class>
 </library>
+
+<library path="lib/libEstimatorsTesting">
+  <class name="mrs_odometry/OdometryTesting" type="mrs_odometry::OdometryTesting" base_class_type="nodelet::Nodelet">
+    <description>EstimatorsTesting nodelet</description>
+  </class>
+</library>

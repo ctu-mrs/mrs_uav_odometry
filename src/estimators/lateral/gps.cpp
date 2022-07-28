@@ -13,6 +13,10 @@ namespace mrs_odometry
 /* initialize() //{*/
 void Gps::initialize(const ros::NodeHandle &parent_nh) {
 
+  // TODO parametrize
+  name_ = "gps_lateral";
+  frame_id_ = "pixhawk_gps_origin";
+
   nh_ = parent_nh;
 
   // TODO load parameters
@@ -56,17 +60,19 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
 
   // | --------------- Kalman filter intialization -------------- |
   const x_t        x0 = x_t::Zero();
-  const P_t        P0 = 1e6 * P_t::Identity();
+  const P_t        P0 = 1e3 * P_t::Identity();
   const statecov_t sc0({x0, P0});
   sc_ = sc0;
 
-  std::make_unique<lkf_t>(A_, B_, H_);
+  lkf_ = std::make_unique<lkf_t>(A_, B_, H_);
 
   // | ------------------ timers initialization ----------------- |
-  _update_timer_rate_ = 100; // TODO: parametrize
-  timer_update_       = nh_.createTimer(ros::Rate(_update_timer_rate_), &Gps::timerUpdate, this, false, false); // not running after init
-  _check_health_timer_rate_ = 1; // TODO: parametrize
+  _update_timer_rate_       = 100;                                                                                     // TODO: parametrize
+  timer_update_             = nh_.createTimer(ros::Rate(_update_timer_rate_), &Gps::timerUpdate, this, false, false);  // not running after init
+  _check_health_timer_rate_ = 1;                                                                                       // TODO: parametrize
   timer_check_health_       = nh_.createTimer(ros::Rate(_check_health_timer_rate_), &Gps::timerCheckHealth, this);
+
+  _critical_timeout_mavros_odom_ = 1.0;  // TODO: parametrize
 
 
   // | --------------- subscribers initialization --------------- |
@@ -74,7 +80,7 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
   // subscriber to mavros odometry
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh                 = nh_;
-  shopts.node_name          = "Gps";
+  shopts.node_name          = getName();
   shopts.no_message_timeout = ros::Duration(0.5);
   shopts.threadsafe         = true;
   shopts.autostart          = true;
@@ -82,12 +88,18 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
   sh_mavros_odom_ = mrs_lib::SubscribeHandler<nav_msgs::Odometry>(shopts, "mavros_odom_in");
-  /* sub_mavros_odom_ = nh_.subscribe("mavros_odom_in", 1, &Gps::callbackMavrosOdom, this, ros::TransportHints().tcpNoDelay()); */
+
+  // | ---------------- publishers initialization --------------- |
+  pub_output_      = nh_.advertise<mrs_odometry::EstimatorOutput>(getName() + "/output", 1);
+  pub_diagnostics_ = nh_.advertise<mrs_odometry::EstimatorDiagnostics>(getName() + "/diagnostics", 1);
 
   // | ------------------ finish initialization ----------------- |
-  changeState(INITIALIZED_STATE);
 
-  ROS_INFO("[%s]: Estimator initialized, version %s", getName().c_str(), VERSION);
+  if (changeState(INITIALIZED_STATE)) {
+    ROS_INFO("[%s]: Estimator initialized, version %s", getName().c_str(), VERSION);
+  } else {
+    ROS_INFO("[%s]: Estimator could not be initialized", getName().c_str());
+  }
 }
 /*//}*/
 
@@ -102,21 +114,19 @@ bool Gps::start(void) {
   } else {
     ROS_WARN("[%s]: Estimator must be in READY_STATE to start it", getName().c_str());
     return false;
-
   }
 }
 /*//}*/
 
 /*//{ pause() */
 bool Gps::pause(void) {
-  
+
   if (isInState(RUNNING_STATE)) {
     changeState(STOPPED_STATE);
     return true;
 
   } else {
     return false;
-
   }
 }
 /*//}*/
@@ -131,10 +141,14 @@ bool Gps::reset(void) {
 
   changeState(STOPPED_STATE);
 
+  // Initialize LKF state and covariance
   const x_t        x0 = x_t::Zero();
   const P_t        P0 = 1e6 * P_t::Identity();
   const statecov_t sc0({x0, P0});
   sc_ = sc0;
+
+  // Instantiate the LKF itself
+  lkf_ = std::make_unique<lkf_t>(A_, B_, H_);
 
   ROS_INFO("[%s]: Estimator reset", getName().c_str());
 
@@ -144,6 +158,7 @@ bool Gps::reset(void) {
 
 /* timerUpdate() //{*/
 void Gps::timerUpdate(const ros::TimerEvent &event) {
+
 
   if (!isInitialized()) {
     return;
@@ -168,7 +183,8 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
 
   if (sh_mavros_odom_.newMsg()) {
 
-    z_t                z               = z_t::Zero();
+    z_t z = z_t::Zero();
+
     nav_msgs::Odometry::ConstPtr mavros_odom_msg = sh_mavros_odom_.getMsg();
 
     z(0) = mavros_odom_msg->pose.pose.position.x;
@@ -186,14 +202,17 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
       ROS_ERROR("LKF failed: %s", e.what());
     }
   }
+
+  publishOutput();
+  publishDiagnostics();
 }
 /*//}*/
 
 /*//{ timerCheckHealth() */
 void Gps::timerCheckHealth(const ros::TimerEvent &event) {
-  
+
   if (!isInitialized()) {
-      return;
+    return;
   }
 
   if (isInState(INITIALIZED_STATE)) {
@@ -201,7 +220,6 @@ void Gps::timerCheckHealth(const ros::TimerEvent &event) {
     if (sh_mavros_odom_.hasMsg()) {
       changeState(READY_STATE);
       ROS_INFO("[%s]: Estimator is ready to start", getName().c_str());
-
     }
   }
 
@@ -211,32 +229,29 @@ void Gps::timerCheckHealth(const ros::TimerEvent &event) {
     if (isConverged()) {
       ROS_INFO("[%s]: LKF converged", getName().c_str());
       changeState(RUNNING_STATE);
-
     }
   }
-
 }
 /*//}*/
 
 /*//{ timeoutMavrosOdom() */
-void Gps::timeoutMavrosOdom(const std::string& topic, const ros::Time& last_msg, const int n_pubs)
-    {
-      ROS_ERROR_STREAM("[" << getName().c_str() << "]: Estimator has not received message from topic '" << topic << "' for " << (ros::Time::now()-last_msg).toSec() << " seconds (" << n_pubs << " publishers on topic)");
-      
-      if ((ros::Time::now()-last_msg).toSec() > _critical_timeout_mavros_odom_) {
-        ROS_ERROR("[%s]: Estimator not healthy", getName().c_str());
-      changeState(ERROR_STATE);
-      }
-    }
+void Gps::timeoutMavrosOdom(const std::string &topic, const ros::Time &last_msg, const int n_pubs) {
+  ROS_ERROR_STREAM("[" << getName().c_str() << "]: Estimator has not received message from topic '" << topic << "' for "
+                       << (ros::Time::now() - last_msg).toSec() << " seconds (" << n_pubs << " publishers on topic)");
+
+  if ((ros::Time::now() - last_msg).toSec() > _critical_timeout_mavros_odom_) {
+    ROS_ERROR("[%s]: Estimator not healthy", getName().c_str());
+    changeState(ERROR_STATE);
+  }
+}
 /*//}*/
 
 /*//{ isConverged() */
 bool Gps::isConverged() {
-  
+
   // TODO: check convergence by rate of change of determinant
-  
+
   return true;
-  
 }
 /*//}*/
 
@@ -279,74 +294,56 @@ bool Gps::isConverged() {
 /* } */
 /*//}*/
 
-/*//{ getName() */
-std::string Gps::getName(void) const {
-  return _name_;
-}
-/*//}*/
-
 /*//{ getState() */
-Gps::state_t Gps::getState(const int &state_id_in) {
+double Gps::getState(const int &state_id_in, const int& axis_in) const {
 
-  Gps::state_t state_out;
-  {
-    std::scoped_lock lock(mutex_lkf_);
-    state_out(0) = sc_.x(stateIdToIndex(state_id_in, AXIS_X));
-    state_out(1) = sc_.x(stateIdToIndex(state_id_in, AXIS_Y));
-  }
-  return state_out;
+  return getState(stateIdToIndex(state_id_in, axis_in));
+}
+
+double Gps::getState(const int &state_idx_in) const {
+
+  std::scoped_lock lock(mutex_lkf_);
+  return sc_.x(state_idx_in);
 }
 /*//}*/
 
 /*//{ setState() */
-void Gps::setState(const Gps::state_t &state_in, const int &state_id_in) {
-  {
+void Gps::setState(const double &state_in, const int &state_id_in, const int &axis_in) {
+    setState(state_in, stateIdToIndex(state_id_in, AXIS_X));
+}
+
+void Gps::setState(const double &state_in, const int &state_idx_in) {
     std::scoped_lock lock(mutex_lkf_);
-    sc_.x(stateIdToIndex(state_id_in, AXIS_X)) = state_in(AXIS_X);
-    sc_.x(stateIdToIndex(state_id_in, AXIS_Y)) = state_in(AXIS_Y);
-  }
+    sc_.x(state_idx_in) = state_in;
 }
 /*//}*/
 
 /*//{ getStates() */
-Gps::states_t Gps::getStates(void) {
-
-  Gps::states_t states_out;
-  {
-    std::scoped_lock lock(mutex_lkf_);
-    states_out(AXIS_X, POSITION)     = sc_.x(stateIdToIndex(AXIS_X, POSITION));
-    states_out(AXIS_Y, POSITION)     = sc_.x(stateIdToIndex(AXIS_Y, POSITION));
-    states_out(AXIS_X, VELOCITY)     = sc_.x(stateIdToIndex(AXIS_X, VELOCITY));
-    states_out(AXIS_Y, VELOCITY)     = sc_.x(stateIdToIndex(AXIS_Y, VELOCITY));
-    states_out(AXIS_X, ACCELERATION) = sc_.x(stateIdToIndex(AXIS_X, ACCELERATION));
-    states_out(AXIS_Y, ACCELERATION) = sc_.x(stateIdToIndex(AXIS_Y, ACCELERATION));
-  }
-  return states_out;
+Gps::states_t Gps::getStates(void) const {
+  std::scoped_lock lock(mutex_lkf_);
+  return sc_.x;
 }
 /*//}*/
 
 /*//{ setStates() */
-void Gps::setStates(const Gps::states_t &states_in) {
-
-  {
+void Gps::setStates(const states_t &states_in) {
     std::scoped_lock lock(mutex_lkf_);
-    sc_.x(stateIdToIndex(AXIS_X, POSITION))     = states_in(AXIS_X, POSITION);
-    sc_.x(stateIdToIndex(AXIS_Y, POSITION))     = states_in(AXIS_Y, POSITION);
-    sc_.x(stateIdToIndex(AXIS_X, VELOCITY))     = states_in(AXIS_X, VELOCITY);
-    sc_.x(stateIdToIndex(AXIS_Y, VELOCITY))     = states_in(AXIS_Y, VELOCITY);
-    sc_.x(stateIdToIndex(AXIS_X, ACCELERATION)) = states_in(AXIS_X, ACCELERATION);
-    sc_.x(stateIdToIndex(AXIS_Y, ACCELERATION)) = states_in(AXIS_Y, ACCELERATION);
-  }
+    sc_.x = states_in;
 }
 /*//}*/
 
-/* void setInput(const Input &input_in)                                                             = 0; */
-/* void setMeasurement(const Measurement &measurement_in, const MeasurementId_t &measurement_id_in) = 0; */
+/*//{ getCovariance() */
+Gps::covariance_t Gps::getCovariance(void) const {
+    std::scoped_lock lock(mutex_lkf_);
+    return sc_.P;
+}
+/*//}*/
 
-/* ProcessNoiseMatrix getProcessNoise()                                           = 0; */
-/* void               setProcessNoise(const ProcessNoiseMatrix &process_noise_in) = 0; */
-/* double             getMeasurementNoise(void)                                   = 0; */
-/* void               setMeasurementNoise(double covariance)                      = 0; */
-
+/*//{ setCovariance() */
+void Gps::setCovariance(const covariance_t& cov_in) {
+    std::scoped_lock lock(mutex_lkf_);
+    sc_.P = cov_in;
+}
+/*//}*/
 
 };  // namespace mrs_odometry
