@@ -16,6 +16,7 @@
 
 #include <nav_msgs/Odometry.h>
 
+
 //}
 
 namespace mrs_odometry
@@ -64,6 +65,27 @@ template <typename MsgType>
 void tryPublish(const ros::Publisher& pub, const MsgType& msg);
 
 bool noNans(const geometry_msgs::TransformStamped& tf);
+
+// new
+template <typename StateCov>
+std::string stateCovToString(const StateCov& sc) {
+  std::stringstream ss;
+  ss << "State:\n";
+  for (int i = 0; i < sc.x.rows(); i++) {
+    for (int j = 0; j < sc.x.cols(); j++) {
+      ss << sc.x(i,j) << " "; 
+    }
+    ss << "\n";
+  }
+  ss << "Cov:\n";
+  for (int i = 0; i < sc.P.rows(); i++) {
+    for (int j = 0; j < sc.P.cols(); j++) {
+      ss << sc.P(i,j) << " "; 
+    }
+    ss << "\n";
+  }
+  return ss.str();
+}
 
 }  // namespace mrs_odometry
 

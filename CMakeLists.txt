@@ -84,7 +84,7 @@ include_directories(
 # add_dependencies(Odometry ${PROJECT_NAME}_gencfg)
 
 ## Declare a C++ executable
-add_library(EstimatorsTesting src/estimators/lateral/gps.cpp src/estimators_testing.cpp )
+add_library(EstimatorsTesting src/estimators/altitude/garmin.cpp src/estimators/lateral/gps.cpp src/estimators_testing.cpp )
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(EstimatorsTesting

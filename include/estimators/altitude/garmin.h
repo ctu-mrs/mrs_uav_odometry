@@ -1,42 +1,42 @@
-#ifndef GPS_H_
-#define GPS_H_
+#ifndef GARMIN_H_
+#define GARMIN_H_
 
 /* includes //{ */
 
 #include <ros/ros.h>
 
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/Range.h>
 
 #include <mrs_lib/lkf.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/subscribe_handler.h>
 
-#include "lateral_estimator.h"
-#include "support.h"
+#include "altitude_estimator.h"
 
 //}
 
 namespace mrs_odometry
 {
 
-namespace gps
+namespace garmin
 {
 
-const int n_states       = 6;
-const int n_inputs       = 2;
-const int n_measurements = 2;
+const int n_states       = 2;
+const int n_inputs       = 1;
+const int n_measurements = 1;
 
-const std::string name     = "lateral_gps";
+const std::string name     = "altitude_garmin";
 const std::string frame_id = "pixhawk_gps_origin";
 
-}  // namespace gps
+}  // namespace garmin
 
 using namespace mrs_lib;
 
-class Gps : public LateralEstimator<gps::n_states> {
+class Garmin : public AltitudeEstimator<garmin::n_states> {
 
-  using lkf_t      = LKF<gps::n_states, gps::n_inputs, gps::n_measurements>;
+  using lkf_t      = LKF<garmin::n_states, garmin::n_inputs, garmin::n_measurements>;
   using A_t        = lkf_t::A_t;
   using B_t        = lkf_t::B_t;
   using H_t        = lkf_t::H_t;
@@ -64,6 +64,9 @@ private:
   mrs_lib::SubscribeHandler<nav_msgs::Odometry> sh_mavros_odom_;
   double                                        _critical_timeout_mavros_odom_;
 
+  mrs_lib::SubscribeHandler<sensor_msgs::Range> sh_garmin_range_;
+  double                                        _critical_timeout_garmin_range_;
+
   ros::Timer timer_update_;
   int        _update_timer_rate_;
   void       timerUpdate(const ros::TimerEvent &event);
@@ -75,9 +78,9 @@ private:
   bool isConverged();
 
 public:
-  Gps() : LateralEstimator<gps::n_states>(gps::name, gps::frame_id){};
+  Garmin() : AltitudeEstimator<garmin::n_states>(garmin::name, garmin::frame_id){};
 
-  ~Gps(void) {
+  ~Garmin(void) {
   }
 
   virtual void initialize(const ros::NodeHandle &parent_nh) override;
@@ -98,6 +101,7 @@ public:
   virtual void         setCovariance(const covariance_t &cov_in) override;
 
   void timeoutMavrosOdom(const std::string &topic, const ros::Time &last_msg, const int n_pubs);
+  void timeoutGarminRange(const std::string &topic, const ros::Time &last_msg, const int n_pubs);
 };
 }  // namespace mrs_odometry
 

@@ -24,6 +24,7 @@
 
       <!-- Subscribers -->
       <remap from="~mavros_odom_in" to="mavros/local_position/odom" />
+      <remap from="~garmin_range_in" to="garmin/range" />
 
       <!-- Publishers -->
       <remap from="~profiler" to="profiler" />

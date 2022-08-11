@@ -1,17 +1,16 @@
 #define VERSION "0.0.6.0"
-
 /* includes //{ */
 
-#include "estimators/lateral/gps.h"
+#include "estimators/altitude/garmin.h"
 
 //}
 
-
 namespace mrs_odometry
+
 {
 
 /* initialize() //{*/
-void Gps::initialize(const ros::NodeHandle &parent_nh) {
+void Garmin::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_ = parent_nh;
 
@@ -21,36 +20,23 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
     dt_ = 0.01;
 
     A_ <<
-      1, 0, dt_, 0, std::pow(dt_, 2)/2, 0,
-      0, 1, 0, dt_, 0, std::pow(dt_, 2)/2,
-      0, 0, 1, 0, dt_, 0,
-      0, 0, 0, 1, 0, dt_,
-      0, 0, 0, 0, 1, 0,
-      0, 0, 0, 0, 0, 1;
+      1, dt_,
+      0, 1;
 
     B_ <<
-      0, 0,
-      0, 0,
-      0, 0,
-      0, 0,
+      0,
+      1;
+
+    H_ <<
+      1, 0;
+      /* 0, 1; */
+
+    Q_ <<
       1, 0,
       0, 1;
 
-    H_ <<
-      1, 0, 0, 0, 0, 0,
-      0, 1, 0, 0, 0, 0;
-
-    Q_ <<
-      0.01, 0, 0, 0, 0, 0,
-      0, 0.01, 0, 0, 0, 0,
-      0, 0, 0.01, 0, 0, 0,
-      0, 0, 0, 0.01, 0, 0,
-      0, 0, 0, 0, 0.01, 0,
-      0, 0, 0, 0, 0, 0.01;
-
     R_ <<
-      0.1, 0,
-      0, 0.1;
+      0.1;
 
   // clang-format on
 
@@ -64,15 +50,16 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
 
   // | ------------------ timers initialization ----------------- |
   _update_timer_rate_       = 100;                                                                                     // TODO: parametrize
-  timer_update_             = nh_.createTimer(ros::Rate(_update_timer_rate_), &Gps::timerUpdate, this, false, false);  // not running after init
+  timer_update_             = nh_.createTimer(ros::Rate(_update_timer_rate_), &Garmin::timerUpdate, this, false, false);  // not running after init
   _check_health_timer_rate_ = 1;                                                                                       // TODO: parametrize
-  timer_check_health_       = nh_.createTimer(ros::Rate(_check_health_timer_rate_), &Gps::timerCheckHealth, this);
+  timer_check_health_       = nh_.createTimer(ros::Rate(_check_health_timer_rate_), &Garmin::timerCheckHealth, this);
 
   _critical_timeout_mavros_odom_ = 1.0;  // TODO: parametrize
+  _critical_timeout_garmin_range_ = 1.0;  // TODO: parametrize
 
 
   // | --------------- subscribers initialization --------------- |
-  //
+  
   // subscriber to mavros odometry
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh                 = nh_;
@@ -84,6 +71,7 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
   sh_mavros_odom_ = mrs_lib::SubscribeHandler<nav_msgs::Odometry>(shopts, "mavros_odom_in");
+  sh_garmin_range_ = mrs_lib::SubscribeHandler<sensor_msgs::Range>(shopts, "garmin_range_in");
 
   // | ---------------- publishers initialization --------------- |
   pub_output_      = nh_.advertise<mrs_odometry::EstimatorOutput>(getName() + "/output", 1);
@@ -100,7 +88,7 @@ void Gps::initialize(const ros::NodeHandle &parent_nh) {
 /*//}*/
 
 /*//{ start() */
-bool Gps::start(void) {
+bool Garmin::start(void) {
 
   if (isInState(READY_STATE)) {
     timer_update_.start();
@@ -115,7 +103,7 @@ bool Gps::start(void) {
 /*//}*/
 
 /*//{ pause() */
-bool Gps::pause(void) {
+bool Garmin::pause(void) {
 
   if (isInState(RUNNING_STATE)) {
     changeState(STOPPED_STATE);
@@ -128,7 +116,7 @@ bool Gps::pause(void) {
 /*//}*/
 
 /*//{ reset() */
-bool Gps::reset(void) {
+bool Garmin::reset(void) {
 
   if (!isInitialized()) {
     ROS_ERROR("[%s]: Cannot reset uninitialized estimator", getName().c_str());
@@ -153,7 +141,7 @@ bool Gps::reset(void) {
 /*//}*/
 
 /* timerUpdate() //{*/
-void Gps::timerUpdate(const ros::TimerEvent &event) {
+void Garmin::timerUpdate(const ros::TimerEvent &event) {
 
 
   if (!isInitialized()) {
@@ -173,6 +161,7 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
     }
   }
   catch (const std::exception &e) {
+    // In case of error, alert the user
     ROS_ERROR("[%s]: LKF prediction failed: %s", getName().c_str(), e.what());
   }
 
@@ -182,8 +171,8 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
 
     nav_msgs::Odometry::ConstPtr mavros_odom_msg = sh_mavros_odom_.getMsg();
 
-    z(0) = mavros_odom_msg->pose.pose.position.x;
-    z(1) = mavros_odom_msg->pose.pose.position.y;
+    /* z(0) = mavros_odom_msg->twist.twist.linear.z; */
+    z(0) = mavros_odom_msg->pose.pose.position.z;
 
     try {
       // Apply the correction step
@@ -193,6 +182,7 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
       }
     }
     catch (const std::exception &e) {
+      // In case of error, alert the user
     ROS_ERROR("[%s]: LKF correction failed: %s", getName().c_str(), e.what());
     }
   }
@@ -203,7 +193,7 @@ void Gps::timerUpdate(const ros::TimerEvent &event) {
 /*//}*/
 
 /*//{ timerCheckHealth() */
-void Gps::timerCheckHealth(const ros::TimerEvent &event) {
+void Garmin::timerCheckHealth(const ros::TimerEvent &event) {
 
   if (!isInitialized()) {
     return;
@@ -229,7 +219,7 @@ void Gps::timerCheckHealth(const ros::TimerEvent &event) {
 /*//}*/
 
 /*//{ timeoutMavrosOdom() */
-void Gps::timeoutMavrosOdom(const std::string &topic, const ros::Time &last_msg, const int n_pubs) {
+void Garmin::timeoutMavrosOdom(const std::string &topic, const ros::Time &last_msg, const int n_pubs) {
   ROS_ERROR_STREAM("[" << getName().c_str() << "]: Estimator has not received message from topic '" << topic << "' for "
                        << (ros::Time::now() - last_msg).toSec() << " seconds (" << n_pubs << " publishers on topic)");
 
@@ -241,7 +231,7 @@ void Gps::timeoutMavrosOdom(const std::string &topic, const ros::Time &last_msg,
 /*//}*/
 
 /*//{ isConverged() */
-bool Gps::isConverged() {
+bool Garmin::isConverged() {
 
   // TODO: check convergence by rate of change of determinant
 
@@ -250,12 +240,12 @@ bool Gps::isConverged() {
 /*//}*/
 
 /*//{ getState() */
-double Gps::getState(const int &state_id_in, const int& axis_in) const {
+double Garmin::getState(const int &state_id_in, const int& axis_in) const {
 
   return getState(stateIdToIndex(state_id_in, axis_in));
 }
 
-double Gps::getState(const int &state_idx_in) const {
+double Garmin::getState(const int &state_idx_in) const {
 
   std::scoped_lock lock(mutex_lkf_);
   return sc_.x(state_idx_in);
@@ -263,42 +253,41 @@ double Gps::getState(const int &state_idx_in) const {
 /*//}*/
 
 /*//{ setState() */
-void Gps::setState(const double &state_in, const int &state_id_in, const int &axis_in) {
+void Garmin::setState(const double &state_in, const int &state_id_in, const int &axis_in) {
     setState(state_in, stateIdToIndex(state_id_in, axis_in));
 }
 
-void Gps::setState(const double &state_in, const int &state_idx_in) {
+void Garmin::setState(const double &state_in, const int &state_idx_in) {
     std::scoped_lock lock(mutex_lkf_);
     sc_.x(state_idx_in) = state_in;
 }
 /*//}*/
 
 /*//{ getStates() */
-Gps::states_t Gps::getStates(void) const {
+Garmin::states_t Garmin::getStates(void) const {
   std::scoped_lock lock(mutex_lkf_);
   return sc_.x;
 }
 /*//}*/
 
 /*//{ setStates() */
-void Gps::setStates(const states_t &states_in) {
+void Garmin::setStates(const states_t &states_in) {
     std::scoped_lock lock(mutex_lkf_);
     sc_.x = states_in;
 }
 /*//}*/
 
 /*//{ getCovariance() */
-Gps::covariance_t Gps::getCovariance(void) const {
+Garmin::covariance_t Garmin::getCovariance(void) const {
     std::scoped_lock lock(mutex_lkf_);
     return sc_.P;
 }
 /*//}*/
 
 /*//{ setCovariance() */
-void Gps::setCovariance(const covariance_t& cov_in) {
+void Garmin::setCovariance(const covariance_t& cov_in) {
     std::scoped_lock lock(mutex_lkf_);
     sc_.P = cov_in;
 }
 /*//}*/
-
 };  // namespace mrs_odometry
