@@ -4176,7 +4176,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     tf.transform.translation.x = -_utm_origin_x_;
     tf.transform.translation.y = -_utm_origin_y_;
 
-    double utm_position_z      = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
+    double utm_position_z = mrs_lib::get_mutexed(mutex_pixhawk_utm_position_, pixhawk_utm_position_z_);
     // If we want absolute altitude in utm_origin TF, code for safety area publishing needs to be modified to reflect this change
     /* tf.transform.translation.z = gps_altitude_ - utm_position_z; */
     tf.transform.translation.z = 0;
@@ -5779,7 +5779,8 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
 
   // Transform twist from body frame to ENU frame
-  tf2::Transform         tf_pixhawk(mrs_lib::AttitudeConverter(odom_pixhawk_.pose.pose.orientation));
+  tf2::Quaternion        pixhawk_quat = mrs_lib::AttitudeConverter(odom_pixhawk_.pose.pose.orientation);
+  tf2::Transform         tf_pixhawk(pixhawk_quat);
   tf2::Vector3           vel_body(odom_pixhawk_.twist.twist.linear.x, odom_pixhawk_.twist.twist.linear.y, odom_pixhawk_.twist.twist.linear.z);
   tf2::Vector3           vel_enu_tmp = tf_pixhawk * vel_body;
   geometry_msgs::Vector3 vel_enu;
