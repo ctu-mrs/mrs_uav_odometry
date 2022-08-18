@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="UAV_NAME" default="$(env UAV_NAME)" />
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME)" />
   <arg name="uwb_frame" default="$(arg UAV_NAME)/uwb_origin" />
   <arg name="tracker_frame" default="map" />
   <arg name="yaw_offset" default="0.897695" />
