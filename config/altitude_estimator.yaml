@@ -11,7 +11,8 @@ altitude_estimators:
     "ALOAMREP",
     "BARO",
     "RTK",
-    "LIOSAM"
+    "LIOSAM",
+    "DUMMY"
   ] 
 
   # The measured states of the model
@@ -50,6 +51,7 @@ altitude_estimators:
     BARO: ["height_baro", "vel_baro"]
     ALOAMGARM: ["height_aloam", "height_range", "vel_baro"]
     RTK: ["height_rtk", "vel_baro"]
+    DUMMY: []
 
   # Mapping of measurements to states
   measurement_states:

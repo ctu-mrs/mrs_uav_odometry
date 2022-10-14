@@ -21,6 +21,7 @@ state_estimators:
     "ALOAMREP",
     "LIOSAM",
     "UWB",
+    "DUMMY",
   ] 
 
   # The measured states of the model
@@ -69,6 +70,7 @@ state_estimators:
     ALOAMREP: ["pos_aloam", "vel_icp"]
     LIOSAM: ["pos_liosam", "vel_liosam"]
     UWB: ["pos_uwb"]
+    DUMMY: []
 
   # Mapping of measurements to states
   measurement_states:

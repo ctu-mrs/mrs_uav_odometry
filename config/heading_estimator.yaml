@@ -15,6 +15,7 @@ heading_estimators:
     "ALOAM",
     "ALOAMREP",
     "LIOSAM",
+    "DUMMY",
   ] 
 
   # The measured states of the model
@@ -54,6 +55,7 @@ heading_estimators:
     ALOAM: ["rate_gyro", "hdg_aloam", "rate_icp"]
     ALOAMREP: ["rate_gyro", "hdg_aloam", "rate_icp"]
     LIOSAM: ["hdg_liosam", "rate_liosam"]
+    DUMMY: []
 
   # Mapping of measurements to states
   measurement_states:

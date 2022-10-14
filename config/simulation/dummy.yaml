@@ -1,0 +1,21 @@
+# Lateral state estimator:
+# OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
+lateral_estimator: "DUMMY"
+
+# Altitude state estimator:
+# HEIGHT - rangefinder
+altitude_estimator: "DUMMY"
+
+# Heading state estimator:
+# GYRO - gyro, COMPASS - gyro, compass, OPTFLOW - gyro, optflow, HECTOR - gyro, hector slam
+heading_estimator: "DUMMY" 
+
+# Active estimators are started at node launch and can be switched to during flight
+state_estimators:
+  active: ["DUMMY"]
+
+heading_estimators:
+  active: ["DUMMY"]
+
+altitude_estimators: 
+  active: ["DUMMY"] 

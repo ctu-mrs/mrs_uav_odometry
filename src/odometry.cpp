@@ -1143,6 +1143,7 @@ void Odometry::onInit() {
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::ALOAMREP));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::LIOSAM));
   _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::UWB));
+  _estimator_type_names_.push_back(NAME_OF(mrs_msgs::EstimatorType::DUMMY));
 
   ROS_WARN("[Odometry]: SAFETY Checking the EstimatorType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::EstimatorType::TYPE_COUNT; i++) {
@@ -1163,6 +1164,7 @@ void Odometry::onInit() {
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::BARO));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::RTK));
   _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::LIOSAM));
+  _altitude_type_names_.push_back(NAME_OF(mrs_msgs::AltitudeType::DUMMY));
 
   ROS_WARN("[Odometry]: SAFETY Checking the AltitudeType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::AltitudeType::TYPE_COUNT; i++) {
@@ -1186,6 +1188,7 @@ void Odometry::onInit() {
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::ALOAM));
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::ALOAMREP));
   _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::LIOSAM));
+  _heading_type_names_.push_back(NAME_OF(mrs_msgs::HeadingType::DUMMY));
 
   ROS_WARN("[Odometry]: SAFETY Checking the HeadingType2Name conversion. If it fails here, you should update the code above this ROS_INFO");
   for (int i = 0; i < mrs_msgs::HeadingType::TYPE_COUNT; i++) {
@@ -1614,6 +1617,7 @@ void Odometry::onInit() {
   lkf_height_t::statecov_t sc0_height({x0_height, P0_height});
   sc_height_ = sc0_height;
 
+  alt_input_stamp_ = ros::Time::now();
   ROS_INFO("[Odometry]: Altitude estimator prepared");
 
   //}
@@ -2499,16 +2503,18 @@ void Odometry::onInit() {
   // state estimators
   ROS_INFO_ONCE("[Odometry]: Requested %s type for takeoff.", _estimator_type_takeoff_.name.c_str());
 
-  if (!isStringInVector(_estimator_type_takeoff_.name, _active_state_estimators_names_) ||
-      (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !optflow_active_) ||
-      (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW && !optflow_active_)) {
+  if ((!isStringInVector(_estimator_type_takeoff_.name, _active_state_estimators_names_) ||
+       (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::OPTFLOWGPS && !optflow_active_) ||
+       (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW && !optflow_active_)) &&
+      _estimator_type_takeoff_.type != mrs_msgs::EstimatorType::DUMMY) {
     ROS_ERROR("[Odometry]: The takeoff lateral type %s could not be set. %s lateral estimator not active. Shutting down.",
               _estimator_type_takeoff_.name.c_str(), _estimator_type_takeoff_.name.c_str());
     ros::shutdown();
   }
 
   // altitude estimators
-  if (!isStringInVector(_alt_estimator_type_takeoff.name, _active_altitude_estimators_names_)) {
+  if (!isStringInVector(_alt_estimator_type_takeoff.name, _active_altitude_estimators_names_) &&
+      _estimator_type_takeoff_.type != mrs_msgs::EstimatorType::DUMMY) {
     ROS_ERROR("[Odometry]: The takeoff altitude type %s could not be set. %s altitude estimator not active. Shutting down.",
               _alt_estimator_type_takeoff.name.c_str(), _alt_estimator_type_takeoff.name.c_str());
     ros::shutdown();
@@ -2752,6 +2758,9 @@ bool Odometry::isReadyToTakeoff() {
       return false;
     }
   }
+  if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::DUMMY) {
+    return true;
+  }
 
 
   if (_estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICK || _estimator_type_takeoff_.type == mrs_msgs::EstimatorType::BRICKFLOW) {
@@ -2980,7 +2989,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   //}
 
   // return without publishing when pixhawk or rangefinder measurements are missing
-  if (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_)) {
+  if (current_lat_estimator_name_ != "DUMMY" && (!got_odom_pixhawk_ || (!got_range_ && garmin_enabled_))) {
     ROS_INFO_THROTTLE(1, "[Odometry]: Waiting for altitude data from sensors - received? pixhawk: %s, ranger: %s", got_odom_pixhawk_ ? "TRUE" : "FALSE",
                       got_range_ ? "TRUE" : "FALSE");
     return;
@@ -2990,46 +2999,51 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   got_altitude_sensors_ = true;
 
+  alt_x_t                  alt_x = alt_x.Zero();
   mrs_msgs::Float64Stamped new_altitude;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk_);
+  if (current_alt_estimator_name_ != "DUMMY") {
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk_);
 
-    new_altitude.header = odom_pixhawk_.header;
-    new_altitude.value  = odom_pixhawk_.pose.pose.position.z;
-  }
-
-  new_altitude.header.frame_id = local_origin_frame_id_;
-  new_altitude.header.stamp    = ros::Time::now();
-
-  // update the altitude state
-  alt_x_t alt_x = alt_x.Zero();
-  {
-    std::scoped_lock lock(mutex_altitude_estimator_);
-    if (!current_alt_estimator_->getStates(alt_x)) {
-      ROS_WARN("[Odometry]: Altitude estimator not initialized.");
-      return;
+      new_altitude.header = odom_pixhawk_.header;
+      new_altitude.value  = odom_pixhawk_.pose.pose.position.z;
     }
-    switch (alt_estimator_type_.type) {
-      case mrs_msgs::AltitudeType::HEIGHT:
-      case mrs_msgs::AltitudeType::PLANE:
-      case mrs_msgs::AltitudeType::BRICK:
-      case mrs_msgs::AltitudeType::VIO:
-      case mrs_msgs::AltitudeType::ALOAM:
-      case mrs_msgs::AltitudeType::ALOAMGARM:
-      case mrs_msgs::AltitudeType::ALOAMREP:
-      case mrs_msgs::AltitudeType::BARO:
-      case mrs_msgs::AltitudeType::RTK:
-      case mrs_msgs::AltitudeType::LIOSAM:
-        new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-        break;
-      default:
-        ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d, %d, %d, %d, %d. Publishing mavros altitude instead.",
-                           alt_estimator_type_.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK,
-                           mrs_msgs::AltitudeType::VIO, mrs_msgs::AltitudeType::ALOAM, mrs_msgs::AltitudeType::BARO, mrs_msgs::AltitudeType::RTK,
-                           mrs_msgs::AltitudeType::LIOSAM);
-        break;
+
+    new_altitude.header.frame_id = local_origin_frame_id_;
+    new_altitude.header.stamp    = ros::Time::now();
+
+    // update the altitude state
+    {
+      std::scoped_lock lock(mutex_altitude_estimator_);
+      if (!current_alt_estimator_->getStates(alt_x)) {
+        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+        return;
+      }
+      switch (alt_estimator_type_.type) {
+        case mrs_msgs::AltitudeType::HEIGHT:
+        case mrs_msgs::AltitudeType::PLANE:
+        case mrs_msgs::AltitudeType::BRICK:
+        case mrs_msgs::AltitudeType::VIO:
+        case mrs_msgs::AltitudeType::ALOAM:
+        case mrs_msgs::AltitudeType::ALOAMGARM:
+        case mrs_msgs::AltitudeType::ALOAMREP:
+        case mrs_msgs::AltitudeType::BARO:
+        case mrs_msgs::AltitudeType::RTK:
+        case mrs_msgs::AltitudeType::LIOSAM:
+          new_altitude.value = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+          break;
+        default:
+          ROS_ERROR_THROTTLE(1.0, "[Odometry]: unknown altitude type: %d, available types: %d, %d, %d, %d, %d, %d, %d, %d. Publishing mavros altitude instead.",
+                             alt_estimator_type_.type, mrs_msgs::AltitudeType::HEIGHT, mrs_msgs::AltitudeType::PLANE, mrs_msgs::AltitudeType::BRICK,
+                             mrs_msgs::AltitudeType::VIO, mrs_msgs::AltitudeType::ALOAM, mrs_msgs::AltitudeType::BARO, mrs_msgs::AltitudeType::RTK,
+                             mrs_msgs::AltitudeType::LIOSAM);
+          break;
+      }
+      ROS_INFO_ONCE("[Odometry]: Publishing altitude from estimator type: %d", alt_estimator_type_.type);
     }
-    ROS_INFO_ONCE("[Odometry]: Publishing altitude from estimator type: %d", alt_estimator_type_.type);
+  } else {
+    new_altitude.header.stamp = ros::Time::now();
+    new_altitude.value        = 0;
   }
 
   pub_altitude_.publish(new_altitude);
@@ -3038,14 +3052,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish altitude state //{ */
 
-  alt_P_t alt_P = alt_P.Zero();
-  current_alt_estimator_->getStates(alt_x);
-  current_alt_estimator_->getCovariance(alt_P);
-
+  alt_P_t                  alt_P = alt_P.Zero();
   mrs_msgs::EstimatedState altitude_state_msg;
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk_);
-    altitude_state_msg.header = odom_pixhawk_.header;
+  if (current_alt_estimator_name_ != "DUMMY") {
+    current_alt_estimator_->getStates(alt_x);
+    current_alt_estimator_->getCovariance(alt_P);
+
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk_);
+      altitude_state_msg.header = odom_pixhawk_.header;
+    }
   }
 
   altitude_state_msg.header.stamp = ros::Time::now();
@@ -3093,16 +3109,26 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   nav_msgs::Odometry orientation;
 
   // initialize with pixhawk orientation
-  {
-    std::scoped_lock lock(mutex_odom_pixhawk_);
-    orientation.header                = odom_pixhawk_.header;
-    orientation.header.frame_id       = gps_origin_frame_id_;
-    orientation.child_frame_id        = fcu_frame_id_;
-    orientation.pose.pose.orientation = odom_pixhawk_.pose.pose.orientation;
+  if (current_alt_estimator_name_ == "DUMMY") {
+    orientation.header.stamp            = ros::Time::now();
+    orientation.header.frame_id         = gps_origin_frame_id_;
+    orientation.child_frame_id          = fcu_frame_id_;
+    orientation.pose.pose.orientation.x = 0;
+    orientation.pose.pose.orientation.y = 0;
+    orientation.pose.pose.orientation.z = 0;
+    orientation.pose.pose.orientation.w = 1;
+  } else {
+    {
+      std::scoped_lock lock(mutex_odom_pixhawk_);
+      orientation.header                = odom_pixhawk_.header;
+      orientation.header.frame_id       = gps_origin_frame_id_;
+      orientation.child_frame_id        = fcu_frame_id_;
+      orientation.pose.pose.orientation = odom_pixhawk_.pose.pose.orientation;
+    }
   }
 
   // get correct hdg if current heading estimator is not pixhawk
-  if (current_hdg_estimator_->getName() != "PIXHAWK") {
+  if (current_hdg_estimator_name_ != "PIXHAWK" && current_hdg_estimator_name_ != "DUMMY") {
 
     double hdg, hdg_rate;
 
@@ -3849,319 +3875,328 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // Prepare mavros odometry for later use
   auto odom_pixhawk_shifted_local = mrs_lib::get_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_);
 
-  geometry_msgs::Quaternion mavros_orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
+  geometry_msgs::Quaternion mavros_orientation;
+  if (current_lat_estimator_name_ == "DUMMY") {
+    mavros_orientation.w = 1;
+  } else {
+    mavros_orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
+  }
+
 
   /* publish aux odometry //{ */
 
-  // Loop through each estimator
-  for (auto &estimator : _lateral_estimators_) {
+  if (current_lat_estimator_name_ != "DUMMY" && current_alt_estimator_name_ != "DUMMY") {
+    // Loop through each estimator
+    for (auto &estimator : _lateral_estimators_) {
 
-    std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom_.find(estimator.first);
+      std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom_.find(estimator.first);
 
-    // Initialize odom_aux with pixhawk_odom to obtain attitude and attitude_rate which are not estimated by us
-    mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_, odom_aux->second);
+      // Initialize odom_aux with pixhawk_odom to obtain attitude and attitude_rate which are not estimated by us
+      mrs_lib::set_mutexed(mutex_odom_pixhawk_shifted_, odom_pixhawk_shifted_, odom_aux->second);
 
-    std::string estimator_name = estimator.first;
-    if (_use_general_slam_origin_ &&
-        (estimator_name == "LIOSAM" || estimator_name == "ALOAM" || estimator_name == "ALOAMGARM" || estimator_name == "ALOAMREP")) {
-      odom_aux->second.header.frame_id = _uav_name_ + "/slam_origin";
-    } else {
-      std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
-      odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
-    }
-    odom_aux->second.header.stamp   = time_now;
-    odom_aux->second.child_frame_id = fcu_frame_id_;
+      std::string estimator_name = estimator.first;
+      if (_use_general_slam_origin_ &&
+          (estimator_name == "LIOSAM" || estimator_name == "ALOAM" || estimator_name == "ALOAMGARM" || estimator_name == "ALOAMREP")) {
+        odom_aux->second.header.frame_id = _uav_name_ + "/slam_origin";
+      } else {
+        std::transform(estimator_name.begin(), estimator_name.end(), estimator_name.begin(), ::tolower);
+        odom_aux->second.header.frame_id = _uav_name_ + "/" + estimator_name + "_origin";
+      }
+      odom_aux->second.header.stamp   = time_now;
+      odom_aux->second.child_frame_id = fcu_frame_id_;
 
-    alt_x_t alt_x = alt_x.Zero();
-    // update the altitude state
-    {
-      std::scoped_lock lock(mutex_altitude_estimator_);
-      if (!current_alt_estimator_->getStates(alt_x)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-        return;
-      }
-    }
-
-    double alt;
-    if (estimator.first == "BRICK" || estimator.first == "BRICKFLOW") {
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "PLANE") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-    } else if (estimator.first == "PLANE") {
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "PLANE") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-    } else if (estimator.first == "VIO") {
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "VIO") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-    } else if (estimator.first == "ALOAM") {
-      // Prevent publishing of TF before corrections are available
-      if (!got_aloam_odom_) {
-        continue;
-      }
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "ALOAM") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-    } else if (estimator.first == "ALOAMGARM") {
-      // Prevent publishing of TF before corrections are available
-      if (!got_aloam_odom_) {
-        continue;
-      }
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "ALOAMGARM") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-      // we might want other than height estimator when in GPS (baro)
-    } else if (estimator.first == "ALOAMREP") {
-      // Prevent publishing of TF before corrections are available
-      if (!got_aloam_odom_) {
-        continue;
-      }
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "ALOAMREP") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-
-    } else if (estimator.first == "RTK") {
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (_use_rtk_altitude_ && alt_estimator.first == "RTK") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        } else {
-
-          if (!current_alt_estimator_->getStates(alt_x)) {
-            ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-            return;
-          }
-          odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-        }
-      }
-
-    } else if (estimator.first == "LIOSAM") {
-      // Prevent publishing of TF before corrections are available
-      if (!got_liosam_odom_) {
-        continue;
-      }
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "LIOSAM") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-
-    } else if (estimator.first == "UWB") {
-      // Prevent publishing of TF before corrections are available
-      if (!got_uwb_) {
-        continue;
-      }
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "PIXHAWK") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
-        }
-      }
-      // we might want other than height estimator when in GPS (baro)
-    } else if (estimator.first == "GPS") {
+      alt_x_t alt_x = alt_x.Zero();
+      // update the altitude state
       {
         std::scoped_lock lock(mutex_altitude_estimator_);
         if (!current_alt_estimator_->getStates(alt_x)) {
           ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
           return;
         }
-        odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
-        gps_altitude_                         = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
       }
-    } else {
-      for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "HEIGHT") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
+
+      double alt;
+      if (estimator.first == "BRICK" || estimator.first == "BRICKFLOW") {
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "PLANE") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
         }
-      }
-    }
-
-
-    if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) == _fcu_height_) {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
-                        alt_x(mrs_msgs::AltitudeStateNames::HEIGHT), alt_x(mrs_msgs::AltitudeStateNames::VELOCITY),
-                        alt_x(mrs_msgs::AltitudeStateNames::ACCELERATION));
-    }
-
-    Vec2 pos_vec;
-    Vec2 vel_vec;
-
-    if (toUppercase(estimator.second->getName()) == "RTK" && !_use_full_rtk_) {
-      std::scoped_lock lock(mutex_rtk_est_);
-
-      pos_vec(0) = sc_lat_rtk_.x(0);
-      pos_vec(1) = sc_lat_rtk_.x(1);
-      ROS_INFO_ONCE("[Odometry]: Using imprecise RTK estimator.");
-    } else {
-
-      estimator.second->getState(0, pos_vec);
-    }
-    estimator.second->getState(1, vel_vec);
-
-    odom_aux->second.pose.pose.position.x = pos_vec(0);
-    odom_aux->second.pose.pose.position.y = pos_vec(1);
-
-
-    // Loop through each heading estimator
-    double hdg;
-    for (auto &hdg_estimator : heading_estimators_) {
-
-      if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") ||
-          (hdg_estimator.first == "ALOAMREP" && estimator.first == "ALOAMGARM")) {
-
-        hdg_estimator.second->getState(0, hdg);
-
-        // Obtain mavros orientation
-        tf2::Quaternion tf2_mavros_orient;
-        try {
-          tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
+      } else if (estimator.first == "PLANE") {
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "PLANE") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
         }
-        catch (...) {
-          ROS_WARN("[Odometry]: failed to obtain tf2 quaternion from mavros_orientation");
-          ROS_WARN_STREAM("[Odometry]: q: " << mavros_orientation);
-          return;
+      } else if (estimator.first == "VIO") {
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "VIO") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
         }
-
-        // Obtain heading from mavros orientation
-        double mavros_hdg = 0;
-        try {
-          mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+      } else if (estimator.first == "ALOAM") {
+        // Prevent publishing of TF before corrections are available
+        if (!got_aloam_odom_) {
+          continue;
         }
-        catch (...) {
-          ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
-          return;
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "ALOAM") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        }
+      } else if (estimator.first == "ALOAMGARM") {
+        // Prevent publishing of TF before corrections are available
+        if (!got_aloam_odom_) {
+          continue;
+        }
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "ALOAMGARM") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        }
+        // we might want other than height estimator when in GPS (baro)
+      } else if (estimator.first == "ALOAMREP") {
+        // Prevent publishing of TF before corrections are available
+        if (!got_aloam_odom_) {
+          continue;
+        }
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "ALOAMREP") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
         }
 
-        // Build rotation matrix from difference between new heading and mavros heading
-        tf2::Matrix3x3 rot_mat;
-        try {
-          rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
-        }
-        catch (...) {
-          ROS_WARN("[Odometry]: Failed to get attitude from heading");
-          return;
-        }
+      } else if (estimator.first == "RTK") {
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (_use_rtk_altitude_ && alt_estimator.first == "RTK") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          } else {
 
-        // Transform the mavros orientation by the rotation matrix
-        geometry_msgs::Quaternion new_orientation;
-        try {
-          new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
-        }
-        catch (...) {
-          ROS_WARN("[Odometry]: Failed to transform mavros orientation by rotation matrix");
-          return;
+            if (!current_alt_estimator_->getStates(alt_x)) {
+              ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+              return;
+            }
+            odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+          }
         }
 
-        odom_aux->second.pose.pose.orientation = new_orientation;
-      }
-    }
-
-    // Pass RTK through
-    if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
-
-      mrs_lib::set_mutexed(mutex_rtk_local_odom_, rtk_local_odom_, odom_aux->second);
-    }
-
-    // Get inverse trasnform
-    tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
-    tf_inv                       = tf_inv.inverse();
-    geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
-
-    // publish TF
-    if (map_estimator_publish_tf_.find(estimator.second->getName())->second) {
-      geometry_msgs::TransformStamped tf;
-      tf.header.stamp          = time_now;
-      tf.header.frame_id       = fcu_frame_id_;
-      tf.child_frame_id        = odom_aux->second.header.frame_id;
-      tf.transform.translation = pointToVector3(pose_inv.position);
-      tf.transform.rotation    = pose_inv.orientation;
-      if (noNans(tf)) {
-        try {
-          broadcaster_->sendTransform(tf);
+      } else if (estimator.first == "LIOSAM") {
+        // Prevent publishing of TF before corrections are available
+        if (!got_liosam_odom_) {
+          continue;
         }
-        catch (...) {
-          ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "LIOSAM") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        }
+
+      } else if (estimator.first == "UWB") {
+        // Prevent publishing of TF before corrections are available
+        if (!got_uwb_) {
+          continue;
+        }
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "PIXHAWK") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        }
+        // we might want other than height estimator when in GPS (baro)
+      } else if (estimator.first == "GPS") {
+        {
+          std::scoped_lock lock(mutex_altitude_estimator_);
+          if (!current_alt_estimator_->getStates(alt_x)) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+            return;
+          }
+          odom_aux->second.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
+          gps_altitude_                         = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
         }
       } else {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux->second.header.frame_id.c_str(),
-                          fcu_frame_id_.c_str());
+        for (auto &alt_estimator : _altitude_estimators_) {
+          if (alt_estimator.first == "HEIGHT") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        }
       }
 
-      // publish AMSL TF
-      if (got_pixhawk_altitude_) {
-        geometry_msgs::TransformStamped amsl_tf;
-        amsl_tf.header.stamp            = time_now;
-        amsl_tf.header.frame_id         = odom_aux->second.header.frame_id;
-        amsl_tf.child_frame_id          = odom_aux->second.header.frame_id + "_amsl";
-        double amsl_altitude            = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
-        amsl_tf.transform.translation.x = 0;
-        amsl_tf.transform.translation.y = 0;
-        amsl_tf.transform.translation.z = odom_aux->second.pose.pose.position.z - amsl_altitude;
-        amsl_tf.transform.rotation.x    = 0;
-        amsl_tf.transform.rotation.y    = 0;
-        amsl_tf.transform.rotation.z    = 0;
-        amsl_tf.transform.rotation.w    = 1;
-        if (noNans(amsl_tf)) {
+
+      if (alt_x(mrs_msgs::AltitudeStateNames::HEIGHT) == _fcu_height_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Suspicious height detected: %f, %f, %f. Check if altitude fusion is running correctly",
+                          alt_x(mrs_msgs::AltitudeStateNames::HEIGHT), alt_x(mrs_msgs::AltitudeStateNames::VELOCITY),
+                          alt_x(mrs_msgs::AltitudeStateNames::ACCELERATION));
+      }
+
+      Vec2 pos_vec;
+      Vec2 vel_vec;
+
+      if (toUppercase(estimator.second->getName()) == "RTK" && !_use_full_rtk_) {
+        std::scoped_lock lock(mutex_rtk_est_);
+
+        pos_vec(0) = sc_lat_rtk_.x(0);
+        pos_vec(1) = sc_lat_rtk_.x(1);
+        ROS_INFO_ONCE("[Odometry]: Using imprecise RTK estimator.");
+      } else {
+
+        estimator.second->getState(0, pos_vec);
+      }
+      estimator.second->getState(1, vel_vec);
+
+      odom_aux->second.pose.pose.position.x = pos_vec(0);
+      odom_aux->second.pose.pose.position.y = pos_vec(1);
+
+
+      // Loop through each heading estimator
+      double hdg;
+      for (auto &hdg_estimator : heading_estimators_) {
+
+        if (hdg_estimator.first == estimator.first || (hdg_estimator.first == "BRICK" && estimator.first == "BRICKFLOW") ||
+            (hdg_estimator.first == "ALOAMREP" && estimator.first == "ALOAMGARM")) {
+
+          hdg_estimator.second->getState(0, hdg);
+
+          // Obtain mavros orientation
+          tf2::Quaternion tf2_mavros_orient;
           try {
-            broadcaster_->sendTransform(amsl_tf);
+            tf2_mavros_orient = mrs_lib::AttitudeConverter(mavros_orientation);
           }
           catch (...) {
-            ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", amsl_tf.child_frame_id.c_str(), amsl_tf.header.frame_id.c_str());
+            ROS_WARN("[Odometry]: failed to obtain tf2 quaternion from mavros_orientation");
+            ROS_WARN_STREAM("[Odometry]: q: " << mavros_orientation);
+            return;
+          }
+
+          // Obtain heading from mavros orientation
+          double mavros_hdg = 0;
+          try {
+            mavros_hdg = mrs_lib::AttitudeConverter(mavros_orientation).getHeading();
+          }
+          catch (...) {
+            ROS_WARN("[Odometry]: failed to getHeading() from mavros_orientation");
+            return;
+          }
+
+          // Build rotation matrix from difference between new heading and mavros heading
+          tf2::Matrix3x3 rot_mat;
+          try {
+            rot_mat = mrs_lib::AttitudeConverter(Eigen::AngleAxisd(hdg - mavros_hdg, Eigen::Vector3d::UnitZ()));
+          }
+          catch (...) {
+            ROS_WARN("[Odometry]: Failed to get attitude from heading");
+            return;
+          }
+
+          // Transform the mavros orientation by the rotation matrix
+          geometry_msgs::Quaternion new_orientation;
+          try {
+            new_orientation = mrs_lib::AttitudeConverter(tf2::Transform(rot_mat) * tf2_mavros_orient);
+          }
+          catch (...) {
+            ROS_WARN("[Odometry]: Failed to transform mavros orientation by rotation matrix");
+            return;
+          }
+
+          odom_aux->second.pose.pose.orientation = new_orientation;
+        }
+      }
+
+      // Pass RTK through
+      if (estimator.second->getName() == "RTK" && _pass_rtk_as_odom_) {
+
+        mrs_lib::set_mutexed(mutex_rtk_local_odom_, rtk_local_odom_, odom_aux->second);
+      }
+
+      // Get inverse trasnform
+      tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
+      tf_inv                       = tf_inv.inverse();
+      geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
+
+      // publish TF
+      if (map_estimator_publish_tf_.find(estimator.second->getName())->second) {
+        geometry_msgs::TransformStamped tf;
+        tf.header.stamp          = time_now;
+        tf.header.frame_id       = fcu_frame_id_;
+        tf.child_frame_id        = odom_aux->second.header.frame_id;
+        tf.transform.translation = pointToVector3(pose_inv.position);
+        tf.transform.rotation    = pose_inv.orientation;
+        if (noNans(tf)) {
+          try {
+            broadcaster_->sendTransform(tf);
+          }
+          catch (...) {
+            ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
           }
         } else {
-          ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s_amsl. Not publishing tf.",
-                            odom_aux->second.header.frame_id.c_str(), odom_aux->second.header.frame_id.c_str());
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.",
+                            odom_aux->second.header.frame_id.c_str(), fcu_frame_id_.c_str());
         }
-      } else {
-        ROS_WARN_THROTTLE(10.0, "[Odometry]: Not receiving AMSL altitude from Pixhawk. Not publishing AMSL TF.");
+
+        // publish AMSL TF
+        if (got_pixhawk_altitude_) {
+          geometry_msgs::TransformStamped amsl_tf;
+          amsl_tf.header.stamp            = time_now;
+          amsl_tf.header.frame_id         = odom_aux->second.header.frame_id;
+          amsl_tf.child_frame_id          = odom_aux->second.header.frame_id + "_amsl";
+          double amsl_altitude            = mrs_lib::get_mutexed(mutex_pixhawk_altitude_, pixhawk_altitude_.amsl);
+          amsl_tf.transform.translation.x = 0;
+          amsl_tf.transform.translation.y = 0;
+          amsl_tf.transform.translation.z = odom_aux->second.pose.pose.position.z - amsl_altitude;
+          amsl_tf.transform.rotation.x    = 0;
+          amsl_tf.transform.rotation.y    = 0;
+          amsl_tf.transform.rotation.z    = 0;
+          amsl_tf.transform.rotation.w    = 1;
+          if (noNans(amsl_tf)) {
+            try {
+              broadcaster_->sendTransform(amsl_tf);
+            }
+            catch (...) {
+              ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", amsl_tf.child_frame_id.c_str(), amsl_tf.header.frame_id.c_str());
+            }
+          } else {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s_amsl. Not publishing tf.",
+                              odom_aux->second.header.frame_id.c_str(), odom_aux->second.header.frame_id.c_str());
+          }
+        } else {
+          ROS_WARN_THROTTLE(10.0, "[Odometry]: Not receiving AMSL altitude from Pixhawk. Not publishing AMSL TF.");
+        }
       }
+
+      // Transform global velocity to twist in fcu frame
+      geometry_msgs::Vector3Stamped global_vel;
+      global_vel.header.frame_id = odom_aux->second.header.frame_id;
+      global_vel.header.stamp    = ros::Time::now();
+      global_vel.vector.x        = vel_vec(0);
+      global_vel.vector.y        = vel_vec(1);
+      global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
+
+      geometry_msgs::Vector3Stamped body_vel;
+      auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
+      if (response) {
+        body_vel = response.value();
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_aux.", global_vel.header.frame_id.c_str(),
+                          fcu_frame_id_.c_str());
+        return;
+      }
+
+      odom_aux->second.twist.twist.linear.x = body_vel.vector.x;
+      odom_aux->second.twist.twist.linear.y = body_vel.vector.y;
+      odom_aux->second.twist.twist.linear.z = body_vel.vector.z;
+
+      std::map<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>>::iterator pub_odom_aux = map_estimator_pub_.find(estimator.second->getName());
+
+      pub_odom_aux->second.publish(odom_aux->second);
     }
-
-    // Transform global velocity to twist in fcu frame
-    geometry_msgs::Vector3Stamped global_vel;
-    global_vel.header.frame_id = odom_aux->second.header.frame_id;
-    global_vel.header.stamp    = ros::Time::now();
-    global_vel.vector.x        = vel_vec(0);
-    global_vel.vector.y        = vel_vec(1);
-    global_vel.vector.z        = alt_x(mrs_msgs::AltitudeStateNames::VELOCITY);
-
-    geometry_msgs::Vector3Stamped body_vel;
-    auto                          response = transformer_->transformSingle(global_vel, fcu_frame_id_);
-    if (response) {
-      body_vel = response.value();
-    } else {
-      ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_aux.", global_vel.header.frame_id.c_str(), fcu_frame_id_.c_str());
-      return;
-    }
-
-    odom_aux->second.twist.twist.linear.x = body_vel.vector.x;
-    odom_aux->second.twist.twist.linear.y = body_vel.vector.y;
-    odom_aux->second.twist.twist.linear.z = body_vel.vector.z;
-
-    std::map<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>>::iterator pub_odom_aux = map_estimator_pub_.find(estimator.second->getName());
-
-    pub_odom_aux->second.publish(odom_aux->second);
   }
 
   // publish the static transform between utm and local gps origin
@@ -4196,34 +4231,36 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     }
   }
 
-  // Loop through each heading estimator
-  for (auto &estimator : heading_estimators_) {
+  if (current_hdg_estimator_name_ != "DUMMY") {
+    // Loop through each heading estimator
+    for (auto &estimator : heading_estimators_) {
 
-    mrs_msgs::Float64ArrayStamped heading_aux;
+      mrs_msgs::Float64ArrayStamped heading_aux;
 
-    heading_aux.header.frame_id = _uav_name_ + "/" + toLowercase(estimator.first) + "_origin";
-    heading_aux.header.stamp    = time_now;
+      heading_aux.header.frame_id = _uav_name_ + "/" + toLowercase(estimator.first) + "_origin";
+      heading_aux.header.stamp    = time_now;
 
-    hdg_x_t current_heading = current_heading.Zero();
-    // update the altitude state
-    {
-      std::scoped_lock lock(mutex_heading_estimator_);
-      if (!estimator.second->getStates(current_heading)) {
-        ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
-        return;
+      hdg_x_t current_heading = current_heading.Zero();
+      // update the altitude state
+      {
+        std::scoped_lock lock(mutex_heading_estimator_);
+        if (!estimator.second->getStates(current_heading)) {
+          ROS_WARN_THROTTLE(1.0, "[Odometry]: Heading estimator not initialized.");
+          return;
+        }
       }
+
+      current_heading(0) = radians::wrap(current_heading(0));
+
+      for (int i = 0; i < current_heading.rows(); i++) {
+        heading_aux.values.push_back(current_heading(i));
+      }
+
+      std::map<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>>::iterator pub_hdg_aux =
+          map_hdg_estimator_pub_.find(estimator.second->getName());
+
+      pub_hdg_aux->second.publish(heading_aux);
     }
-
-    current_heading(0) = radians::wrap(current_heading(0));
-
-    for (int i = 0; i < current_heading.rows(); i++) {
-      heading_aux.values.push_back(current_heading(i));
-    }
-
-    std::map<std::string, mrs_lib::PublisherHandler<mrs_msgs::Float64ArrayStamped>>::iterator pub_hdg_aux =
-        map_hdg_estimator_pub_.find(estimator.second->getName());
-
-    pub_hdg_aux->second.publish(heading_aux);
   }
 
   ROS_INFO_ONCE("[Odometry]: Publishing auxiliary odometry");
@@ -4254,11 +4291,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // initialized odom_main from pixhawk odometry to obtain attitude and angular rate which is not estimated by us
   nav_msgs::Odometry odom_main;
 
-  odom_main                  = odom_pixhawk_shifted_local;
-  uav_state.pose.position    = odom_pixhawk_shifted_local.pose.pose.position;
-  uav_state.velocity.linear  = odom_pixhawk_shifted_local.twist.twist.linear;
-  uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
-  uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.angular;
+  if (current_lat_estimator_name_ == "DUMMY") {
+    odom_main.pose.pose.orientation.w = 1;
+    uav_state.pose.orientation.w      = 1;
+  } else {
+    odom_main                  = odom_pixhawk_shifted_local;
+    uav_state.pose.position    = odom_pixhawk_shifted_local.pose.pose.position;
+    uav_state.velocity.linear  = odom_pixhawk_shifted_local.twist.twist.linear;
+    uav_state.pose.orientation = odom_pixhawk_shifted_local.pose.pose.orientation;
+    uav_state.velocity.angular = odom_pixhawk_shifted_local.twist.twist.angular;
+  }
 
   // Fill in odometry headers according to the uav name and current estimator
   odom_main.header.stamp    = ros::Time::now();
@@ -4277,7 +4319,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   if (!odometry_published_) {
 
-    ROS_INFO("[Odometry]: Initializing the states of all estimators");
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: Initializing the states of all estimators");
 
     for (auto &estimator : _lateral_estimators_) {
 
@@ -4380,7 +4422,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       rot_odom_offset_ = mrs_lib::AttitudeConverter(0, 0, 0);
     }
 
-    ROS_INFO("[Odometry]: Initialized the states of all estimators");
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: Initialized the states of all estimators");
   }
 
   //}
@@ -4395,12 +4437,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* get altitude states from current filter //{ */
 
-    {
-      std::scoped_lock lock(mutex_altitude_estimator_);
+    if (toUppercase(current_alt_estimator_name_) == "DUMMY") {
+      alt_x = alt_x.Zero();
+    } else {
+      {
+        std::scoped_lock lock(mutex_altitude_estimator_);
 
-      if (!current_alt_estimator_->getStates(alt_x)) {
-        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
-        return;
+        if (!current_alt_estimator_->getStates(alt_x)) {
+          ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+          return;
+        }
       }
     }
 
@@ -4409,12 +4455,19 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     /* get lateral states from current filter //{ */
 
     Vec2 pos_vec, vel_vec, acc_vec;
-    {
-      std::scoped_lock lock(mutex_current_lat_estimator_);
 
-      current_lat_estimator_->getState(0, pos_vec);
-      current_lat_estimator_->getState(1, vel_vec);
-      current_lat_estimator_->getState(2, acc_vec);
+    if (toUppercase(current_lat_estimator_name_) == "DUMMY") {
+      pos_vec = pos_vec.Zero();
+      vel_vec = vel_vec.Zero();
+      acc_vec = acc_vec.Zero();
+    } else {
+      {
+        std::scoped_lock lock(mutex_current_lat_estimator_);
+
+        current_lat_estimator_->getState(0, pos_vec);
+        current_lat_estimator_->getState(1, vel_vec);
+        current_lat_estimator_->getState(2, acc_vec);
+      }
     }
 
     odom_main.pose.pose.position.z = alt_x(mrs_msgs::AltitudeStateNames::HEIGHT);
@@ -4437,7 +4490,13 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     } else {
       ROS_WARN_THROTTLE(1.0, "[Odometry]: Transform from %s to %s failed when publishing odom_main.", global_vel.header.frame_id.c_str(),
                         fcu_frame_id_.c_str());
-      return;  // TODO how to handle better? With GPS velocity directly from pixhawk can be used, similarly for optflow?
+      if (current_lat_estimator_name_ == "DUMMY") {
+        body_vel.vector.x = 0;
+        body_vel.vector.y = 0;
+        body_vel.vector.z = 0;
+      } else {
+        return;  // TODO how to handle better? With GPS velocity directly from pixhawk can be used, similarly for optflow?
+      }
     }
 
     /* fill in current estimator types //{ */
@@ -4455,17 +4514,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     std::string current_hdg_estimator_name_local;
     {
       std::scoped_lock lock(mutex_current_hdg_estimator_);
-      current_hdg_estimator_name_local = current_hdg_estimator_->getName();
+      current_hdg_estimator_name_local = current_hdg_estimator_name_;
     }
 
     if (current_hdg_estimator_name_local != "PIXHAWK") {
 
       double hdg;
 
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator_);
+      if (toUppercase(current_hdg_estimator_name_local) == "DUMMY") {
+        hdg = 0;
+      } else {
+        {
+          std::scoped_lock lock(mutex_current_hdg_estimator_);
 
-        current_hdg_estimator_->getState(0, hdg);
+          current_hdg_estimator_->getState(0, hdg);
+        }
       }
 
       // Obtain mavros orientation
@@ -5030,6 +5093,10 @@ void Odometry::lkfStatesTimer(const ros::TimerEvent &event) {
 
   LatState2D states_mat;
 
+  if (current_lat_estimator_name_ == "DUMMY" || current_alt_estimator_name_ == "DUMMY" || current_hdg_estimator_name_ == "DUMMY") {
+    return;
+  }
+
   // get states and covariances from lateral kalman
   {
     std::scoped_lock lock(mutex_current_lat_estimator_);
@@ -5124,12 +5191,17 @@ void Odometry::maxAltitudeTimer(const ros::TimerEvent &event) {
   /* get altitude states from current filter //{ */
 
   alt_x_t alt_x;
-  {
-    std::scoped_lock lock(mutex_altitude_estimator_);
 
-    if (!current_alt_estimator_->getStates(alt_x)) {
-      ROS_WARN("[Odometry]: Altitude estimator not initialized.");
-      return;
+  if (current_alt_estimator_name_ == "DUMMY") {
+    alt_x = alt_x.Zero();
+  } else {
+    {
+      std::scoped_lock lock(mutex_altitude_estimator_);
+
+      if (!current_alt_estimator_->getStates(alt_x)) {
+        ROS_WARN("[Odometry]: Altitude estimator not initialized.");
+        return;
+      }
     }
   }
 
@@ -5760,7 +5832,7 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
     odom_pixhawk_shifted_.pose.pose.position.z -= mavros_glitch_.z;
   }
 
-  if (!got_init_heading_) {
+  if (!got_init_heading_ && current_hdg_estimator_name_ != "DUMMY") {
 
     double hdg        = getCurrentHeading();
     init_heading_     = hdg;
@@ -5793,9 +5865,12 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* publish covariance of altitude states //{ */
 
   alt_P_t P = P.Zero();
-  {
-    std::scoped_lock lock(mutex_altitude_estimator_);
-    current_alt_estimator_->getCovariance(P);
+
+  if (current_alt_estimator_name_ != "DUMMY") {
+    {
+      std::scoped_lock lock(mutex_altitude_estimator_);
+      current_alt_estimator_->getCovariance(P);
+    }
   }
   mrs_msgs::Float64ArrayStamped cov_msg;
   cov_msg.header.stamp    = ros::Time::now();
@@ -5813,9 +5888,11 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
   // fusing measurements as velocity allows compensating barometer offset with garmin measurements
   alt_x_t alt_x = alt_x.Zero();
 
-  if (!current_alt_estimator_->getStates(alt_x)) {
-    ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
-    return;
+  if (current_alt_estimator_name_ != "DUMMY") {
+    if (!current_alt_estimator_->getStates(alt_x)) {
+      ROS_WARN_THROTTLE(1.0, "[Odometry]: Altitude estimator not initialized.");
+      return;
+    }
   }
 
   double    altitude;
@@ -9140,8 +9217,10 @@ void Odometry::callbackControlManagerDiag(const mrs_msgs::ControlManagerDiagnost
   if (uav_in_the_air_ && control_manager_diag.active_tracker == null_tracker_) {
 
     // save the current position
-    Vec2 pose;
-    current_lat_estimator_->getState(0, pose);
+    Vec2 pose = pose.Zero();
+    if (current_lat_estimator_name_ != "DUMMY") {
+      current_lat_estimator_->getState(0, pose);
+    }
     land_position_x_   = pose[0];
     land_position_y_   = pose[1];
     land_position_set_ = true;
@@ -9696,6 +9775,10 @@ bool Odometry::callbackChangeOdometrySource(mrs_msgs::String::Request &req, mrs_
     desired_estimator.type     = mrs_msgs::EstimatorType::UWB;
     desired_hdg_estimator.type = mrs_msgs::HeadingType::PIXHAWK;
     desired_alt_estimator.type = mrs_msgs::AltitudeType::HEIGHT;
+  } else if (type == "DUMMY") {
+    desired_estimator.type     = mrs_msgs::EstimatorType::DUMMY;
+    desired_hdg_estimator.type = mrs_msgs::HeadingType::DUMMY;
+    desired_alt_estimator.type = mrs_msgs::AltitudeType::DUMMY;
   } else {
     ROS_WARN("[Odometry]: Invalid type %s requested", type.c_str());
     res.success = false;
@@ -11422,6 +11505,13 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     //}
 
+    /* DUMMY //{ */
+  } else if (target_estimator.type == mrs_msgs::EstimatorType::DUMMY) {
+
+    setMaxAltitude(_max_default_altitude_);
+
+    //}
+
   } else {
 
     ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
@@ -11439,6 +11529,11 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
     }
 
     ROS_WARN("[Odometry]: Transition to %s state estimator successful", toUppercase(current_lat_estimator_name_).c_str());
+
+  } else if (target_estimator.name == "DUMMY") {
+
+    current_lat_estimator_name_ = target_estimator.name;
+    ROS_WARN("[Odometry]: Transition to %s state estimator successful", toUppercase(current_hdg_estimator_name_).c_str());
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to non-active state estimator %s", target_estimator.name.c_str());
@@ -11468,7 +11563,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
       target_estimator.type != mrs_msgs::AltitudeType::ALOAM && target_estimator.type != mrs_msgs::AltitudeType::LIOSAM &&
       target_estimator.type != mrs_msgs::AltitudeType::ALOAMGARM && target_estimator.type != mrs_msgs::AltitudeType::ALOAMREP &&
-      target_estimator.type != mrs_msgs::AltitudeType::BARO && target_estimator.type != mrs_msgs::AltitudeType::RTK) {
+      target_estimator.type != mrs_msgs::AltitudeType::BARO && target_estimator.type != mrs_msgs::AltitudeType::RTK &&
+      target_estimator.type != mrs_msgs::AltitudeType::DUMMY) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
@@ -11570,7 +11666,11 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
       current_alt_estimator_      = _altitude_estimators_.find(target_estimator.name)->second;
       current_alt_estimator_name_ = current_alt_estimator_->getName();
     }
+    ROS_WARN("[Odometry]: Transition to %s heading estimator successful", toUppercase(current_hdg_estimator_name_).c_str());
 
+  } else if (target_estimator.name == "DUMMY") {
+
+    current_alt_estimator_name_ = target_estimator.name;
     ROS_WARN("[Odometry]: Transition to %s altitude estimator successful", current_alt_estimator_name_.c_str());
 
   } else {
@@ -11608,7 +11708,7 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
       target_estimator.type != mrs_msgs::HeadingType::VIO && target_estimator.type != mrs_msgs::HeadingType::VSLAM &&
       target_estimator.type != mrs_msgs::HeadingType::ICP && target_estimator.type != mrs_msgs::HeadingType::BRICKFLOW &&
       target_estimator.type != mrs_msgs::HeadingType::ALOAM && target_estimator.type != mrs_msgs::HeadingType::ALOAMREP &&
-      target_estimator.type != mrs_msgs::HeadingType::LIOSAM) {
+      target_estimator.type != mrs_msgs::HeadingType::LIOSAM && target_estimator.type != mrs_msgs::HeadingType::DUMMY) {
     ROS_ERROR("[Odometry]: Rejected transition to invalid type %s.", target_estimator.name.c_str());
     return false;
   }
@@ -11661,27 +11761,18 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
 
   is_updating_state_ = true;
   if (isStringInVector(target_estimator.name, _active_heading_estimators_names_)) {
-    if (is_initialized_) {
 
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator_);
-        current_hdg_estimator_      = heading_estimators_.find(target_estimator.name)->second;
-        current_hdg_estimator_name_ = current_hdg_estimator_->getName();
-      }
-
-    } else {
-
-      {
-        std::scoped_lock lock(mutex_current_hdg_estimator_);
-
-        current_hdg_estimator_      = heading_estimators_.find(target_estimator.name)->second;
-        current_hdg_estimator_name_ = current_hdg_estimator_->getName();
-      }
+    {
+      std::scoped_lock lock(mutex_current_hdg_estimator_);
+      current_hdg_estimator_      = heading_estimators_.find(target_estimator.name)->second;
+      current_hdg_estimator_name_ = current_hdg_estimator_->getName();
     }
-
-
     ROS_WARN("[Odometry]: Transition to %s heading estimator successful", toUppercase(current_hdg_estimator_name_).c_str());
 
+  } else if (target_estimator.name == "DUMMY") {
+
+    current_hdg_estimator_name_ = target_estimator.name;
+    ROS_WARN("[Odometry]: Transition to %s heading estimator successful", toUppercase(current_hdg_estimator_name_).c_str());
   } else {
     ROS_WARN("[Odometry]: Requested transition to nonexistent heading estimator %s", toUppercase(target_estimator.name).c_str());
     is_updating_state_ = false;
@@ -11707,7 +11798,7 @@ bool Odometry::isValidType(const mrs_msgs::EstimatorType &type) {
       type.type == mrs_msgs::EstimatorType::BRICK || type.type == mrs_msgs::EstimatorType::T265 || type.type == mrs_msgs::EstimatorType::HECTOR ||
       type.type == mrs_msgs::EstimatorType::BRICKFLOW || type.type == mrs_msgs::EstimatorType::ICP || type.type == mrs_msgs::EstimatorType::ALOAM ||
       type.type == mrs_msgs::EstimatorType::ALOAMGARM || type.type == mrs_msgs::EstimatorType::ALOAMREP || type.type == mrs_msgs::EstimatorType::LIOSAM ||
-      type.type == mrs_msgs::EstimatorType::UWB) {
+      type.type == mrs_msgs::EstimatorType::UWB || type.type == mrs_msgs::EstimatorType::DUMMY) {
     return true;
   }
 
@@ -11723,7 +11814,7 @@ bool Odometry::isValidType(const mrs_msgs::HeadingType &type) {
       type.type == mrs_msgs::HeadingType::OPTFLOW || type.type == mrs_msgs::HeadingType::HECTOR || type.type == mrs_msgs::HeadingType::BRICK ||
       type.type == mrs_msgs::HeadingType::VIO || type.type == mrs_msgs::HeadingType::VSLAM || type.type == mrs_msgs::HeadingType::ICP ||
       type.type == mrs_msgs::HeadingType::BRICKFLOW || type.type == mrs_msgs::HeadingType::ALOAM || type.type == mrs_msgs::HeadingType::ALOAMREP ||
-      type.type == mrs_msgs::HeadingType::LIOSAM) {
+      type.type == mrs_msgs::HeadingType::LIOSAM || type.type == mrs_msgs::HeadingType::DUMMY) {
     return true;
   }
 
@@ -11738,7 +11829,7 @@ bool Odometry::isValidType(const mrs_msgs::AltitudeType &type) {
   if (type.type == mrs_msgs::AltitudeType::HEIGHT || type.type == mrs_msgs::AltitudeType::PLANE || type.type == mrs_msgs::AltitudeType::BRICK ||
       type.type == mrs_msgs::AltitudeType::VIO || type.type == mrs_msgs::AltitudeType::ALOAM || type.type == mrs_msgs::AltitudeType::BARO ||
       type.type == mrs_msgs::AltitudeType::ALOAMGARM || type.type == mrs_msgs::AltitudeType::ALOAMREP || type.type == mrs_msgs::AltitudeType::RTK ||
-      type.type == mrs_msgs::AltitudeType::LIOSAM) {
+      type.type == mrs_msgs::AltitudeType::LIOSAM || type.type == mrs_msgs::AltitudeType::DUMMY) {
     return true;
   }
 
@@ -11834,6 +11925,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "LIOSAM";
   } else if (type.type == mrs_msgs::EstimatorType::UWB) {
     s_diag += "UWB";
+  } else if (type.type == mrs_msgs::EstimatorType::DUMMY) {
+    s_diag += "DUMMY";
   } else {
     s_diag += "UNKNOWN";
   }
@@ -11879,6 +11972,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "BRICKFLOW";
   } else if (hdg_type.type == mrs_msgs::HeadingType::LIOSAM) {
     s_diag += "LIOSAM";
+  } else if (hdg_type.type == mrs_msgs::HeadingType::DUMMY) {
+    s_diag += "DUMMY";
   } else {
     s_diag += "UNKNOWN";
   }
@@ -11917,6 +12012,8 @@ std::string Odometry::printOdometryDiag() {
     s_diag += "RTK";
   } else if (alt_type.type == mrs_msgs::AltitudeType::LIOSAM) {
     s_diag += "LIOSAM";
+  } else if (alt_type.type == mrs_msgs::AltitudeType::DUMMY) {
+    s_diag += "DUMMY";
   } else {
     s_diag += "UNKNOWN";
   }
