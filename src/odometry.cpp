@@ -3822,6 +3822,12 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
       return;
     }
+
+  } else if (estimator_type_.type == mrs_msgs::EstimatorType::DUMMY) {
+    ROS_ERROR_THROTTLE(1.0, "[Odometry]: Cannot fly with DUMMY estimator. Triggering failsafe.");
+    std_srvs::Trigger failsafe_out;
+    ser_client_failsafe_.call(failsafe_out);
+
   } else {
     ROS_WARN_THROTTLE(1.0, "[Odometry]: Unknown odometry type. Not checking sensors.");
   }
@@ -3885,9 +3891,39 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* publish aux odometry //{ */
 
-  if (current_lat_estimator_name_ != "DUMMY" && current_alt_estimator_name_ != "DUMMY") {
-    // Loop through each estimator
-    for (auto &estimator : _lateral_estimators_) {
+  /* if (current_lat_estimator_name_ != "DUMMY" && current_alt_estimator_name_ != "DUMMY") { */
+  // Loop through each estimator
+  for (auto &estimator : _lateral_estimators_) {
+
+    if (estimator.first == "DUMMY") {
+
+      nav_msgs::Odometry odom_aux;
+      odom_aux.header.frame_id         = _uav_name_ + "/dummy_origin";
+      odom_aux.header.stamp            = time_now;
+      odom_aux.child_frame_id          = fcu_frame_id_;
+      odom_aux.pose.pose.orientation.w = 1;
+
+      geometry_msgs::TransformStamped tf;
+      tf.header.stamp       = time_now;
+      tf.header.frame_id    = fcu_frame_id_;
+      tf.child_frame_id     = odom_aux.header.frame_id;
+      tf.transform.rotation = odom_aux.pose.pose.orientation;
+      if (noNans(tf)) {
+        try {
+          broadcaster_->sendTransform(tf);
+        }
+        catch (...) {
+          ROS_ERROR("[Odometry]: Exception caught during publishing TF: %s - %s.", tf.child_frame_id.c_str(), tf.header.frame_id.c_str());
+        }
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: Indian flatbread detected in transform from %s to %s. Not publishing tf.", odom_aux.header.frame_id.c_str(),
+                          fcu_frame_id_.c_str());
+      }
+
+      std::map<std::string, mrs_lib::PublisherHandler<nav_msgs::Odometry>>::iterator pub_odom_aux = map_estimator_pub_.find(estimator.first);
+      pub_odom_aux->second.publish(odom_aux);
+
+    } else {
 
       std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom_.find(estimator.first);
 
@@ -10877,7 +10913,6 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
 
 /*//}*/
 
-
 /*  //{ altitudeEstimatorCorrection() */
 
 void Odometry::altitudeEstimatorCorrection(double value, const std::string &measurement_name, const ros::Time &meas_stamp, const ros::Time &predict_stamp) {
@@ -11505,12 +11540,17 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
 
     //}
 
-    /* DUMMY //{ */
+    /*//{ DUMMY */
   } else if (target_estimator.type == mrs_msgs::EstimatorType::DUMMY) {
 
-    setMaxAltitude(_max_default_altitude_);
+    if (isUavFlying()) {
 
-    //}
+      ROS_ERROR("[Odometry]: Rejected transition to DUMMY estimator during flight.");
+      return false;
+    }
+
+    setMaxAltitude(_max_default_altitude_);
+    /*//}*/
 
   } else {
 
@@ -11533,7 +11573,7 @@ bool Odometry::changeCurrentEstimator(const mrs_msgs::EstimatorType &desired_est
   } else if (target_estimator.name == "DUMMY") {
 
     current_lat_estimator_name_ = target_estimator.name;
-    ROS_WARN("[Odometry]: Transition to %s state estimator successful", toUppercase(current_hdg_estimator_name_).c_str());
+    ROS_WARN("[Odometry]: Transition to %s state estimator successful", toUppercase(current_lat_estimator_name_).c_str());
 
   } else {
     ROS_WARN("[Odometry]: Requested transition to non-active state estimator %s", target_estimator.name.c_str());
@@ -11557,7 +11597,6 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
   mrs_msgs::AltitudeType target_estimator = desired_estimator;
   target_estimator.name                   = _altitude_type_names_[target_estimator.type];
 
-  ROS_INFO("[Odometry]: Changing altitude estimator to %s. (desired_estimator: %s)", target_estimator.name.c_str(), desired_estimator.name.c_str());
 
   if (target_estimator.type != mrs_msgs::AltitudeType::HEIGHT && target_estimator.type != mrs_msgs::AltitudeType::PLANE &&
       target_estimator.type != mrs_msgs::AltitudeType::BRICK && target_estimator.type != mrs_msgs::AltitudeType::VIO &&
@@ -11568,6 +11607,8 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     ROS_ERROR("[Odometry]: Rejected transition to invalid altitude type %d: %s.", target_estimator.type, target_estimator.name.c_str());
     return false;
   }
+
+  ROS_INFO("[Odometry]: Changing altitude estimator to %s. (desired_estimator: %s)", target_estimator.name.c_str(), desired_estimator.name.c_str());
 
   // Return if already active
   if (toUppercase(current_alt_estimator_name_) == toUppercase(target_estimator.name)) {
@@ -11654,9 +11695,21 @@ bool Odometry::changeCurrentAltitudeEstimator(const mrs_msgs::AltitudeType &desi
     }
 
     setMaxAltitude(_plane_max_valid_alt_);
-  }
 
-  //}
+    //}
+
+    /*//{ dummy type */
+  } else if (target_estimator.type == mrs_msgs::AltitudeType::DUMMY) {
+
+    if (isUavFlying()) {
+
+      ROS_ERROR("[Odometry]: Rejected transition to DUMMY estimator during flight.");
+      return false;
+    }
+
+    setMaxAltitude(_max_default_altitude_);
+  }
+  /*//}*/
 
   is_updating_state_ = true;
   if (isStringInVector(target_estimator.name, _active_altitude_estimators_names_)) {
@@ -11755,9 +11808,22 @@ bool Odometry::changeCurrentHeadingEstimator(const mrs_msgs::HeadingType &desire
       ROS_ERROR("[Odometry]: Cannot transition to HECTOR type. No new hector msgs received.");
       return false;
     }
-  }
 
-  //}
+    //}
+
+    /*//{ DUMMY */
+  } else if (target_estimator.type == mrs_msgs::HeadingType::DUMMY) {
+
+    if (isUavFlying()) {
+
+      ROS_ERROR("[Odometry]: Rejected transition to DUMMY estimator during flight.");
+      return false;
+    }
+
+    setMaxAltitude(_max_default_altitude_);
+  }
+  /*//}*/
+
 
   is_updating_state_ = true;
   if (isStringInVector(target_estimator.name, _active_heading_estimators_names_)) {
