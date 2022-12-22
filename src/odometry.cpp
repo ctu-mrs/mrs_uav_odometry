@@ -8848,7 +8848,9 @@ void Odometry::callbackSonar(const sensor_msgs::RangeConstPtr &msg) {
       range_sonar_previous_ = *msg;
       range_sonar_          = *msg;
     }
-    got_range_ = true;
+
+    // got_range is used for initiating takeoff - we don't want to use sonar as height source as it is too noisy
+    /* got_range_ = true; */
   }
 
   if (!isTimestampOK(range_sonar_.header.stamp.toSec(), range_sonar_previous_.header.stamp.toSec())) {
