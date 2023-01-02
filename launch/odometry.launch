@@ -42,10 +42,10 @@
   <arg if="$(eval 'garmin_down' in arg('SENSORS'))" name="garmin_enabled" value="true" />
   <arg unless="$(eval 'garmin_down' in arg('SENSORS'))" name="garmin_enabled" value="false" />
 
-  <arg if="$(eval arg('simulation'))" name="range_topic" value="garmin/range" />
+  <arg if="$(eval arg('simulation'))" name="range_topic" value="hw_api/distance_sensor" />
 
-  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin" />
-  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="mavros/distance_sensor/garmin_filtered" />
+  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="hw_api/distance_sensor" />
+  <arg if="$(eval not arg('simulation') and arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="hw_api/distance_sensor_filtered" />
 
   <arg if="$(eval not arg('simulation') and not arg('PIXGARM') and arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range_filtered" />
   <arg if="$(eval not arg('simulation') and not arg('PIXGARM') and not arg('GARMIN_FILTERED'))" name="range_topic" value="garmin/range" />
@@ -89,11 +89,11 @@
 
       <!-- Subscribers -->
       <remap from="~attitude_command_in" to="control_manager/attitude_cmd" />
-      <remap from="~pixhawk_imu_in" to="mavros/imu/data" />
-      <remap from="~pixhawk_altitude_in" to="mavros/altitude" />
+      <remap from="~pixhawk_imu_in" to="hw_api/imu" />
+      <remap from="~pixhawk_altitude_in" to="hw_api/altitude" />
       <remap from="~control_acc_in" to="/imu/data" />
-      <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
-      <remap from="~pixhawk_odom_in" to="mavros/local_position/odom" />
+      <remap from="~pixhawk_compass_in" to="hw_api/magnetometer_hdg" />
+      <remap from="~pixhawk_odom_in" to="hw_api/odometry_local" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_low_in" to="optic_flow/velocity_longrange" />
       <remap from="~vio_in" to="vins_republisher/odom" />
@@ -103,7 +103,7 @@
       <remap from="~garmin_in" to="$(arg range_topic)" />
       <remap from="~sonar_in" to="ultrasound/range" />
       <remap from="~plane_in" to="brick_detection/altitude" />
-      <remap from="~global_position_in" to="mavros/global_position/global" />
+      <remap from="~global_position_in" to="hw_api/gnss" />
       <remap from="~hector_pose_in" to="hector_mapping/slam_out_pose" />
       <remap from="~uwb_pose_in" to="uwb/pose" />
       <remap from="~tower_pose_in" to="tower_mapping/slam_out_pose" />
@@ -115,7 +115,9 @@
       <remap from="~icp_twist_in" to="mrs_icp2d/twist_body" />
       <remap from="~ground_truth_in" to="ground_truth" />
       <remap from="~uav_mass_estimate_in" to="control_manager/mass_estimate" />
-      <remap from="~gps_covariance_in" to="mavros/global_position/local" />
+
+      <!-- Will not work with HW API -->
+      <remap from="~gps_covariance_in" to="m_a_v_r_o_s/global_position/local" />
 
       <!-- Publishers -->
       <!-- UAV state used for control -->

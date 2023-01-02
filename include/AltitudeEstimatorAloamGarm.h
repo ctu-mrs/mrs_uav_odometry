@@ -8,8 +8,6 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
-#include <mrs_msgs/MavrosDiagnostics.h>
-#include <mrs_msgs/MavrosState.h>
 #include <mrs_msgs/Float64ArrayStamped.h>
 #include <mrs_msgs/Float64Stamped.h>
 #include <mrs_msgs/BoolStamped.h>

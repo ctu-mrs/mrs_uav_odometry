@@ -14,8 +14,7 @@
 #include <geometry_msgs/AccelStamped.h>
 #include <geometry_msgs/Vector3.h>
 
-#include <mavros_msgs/AttitudeTarget.h>
-#include <mavros_msgs/Altitude.h>
+#include <mrs_msgs/Altitude.h>
 
 #include <diagnostic_msgs/DiagnosticArray.h>
 
@@ -58,6 +57,7 @@
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/ReferenceStampedSrv.h>
+#include <mrs_msgs/HwApiAltitude.h>
 
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/scope_timer.h>
@@ -344,10 +344,10 @@ private:
   ros::Time        pixhawk_imu_last_update_;
 
   // Altitude msgs
-  mavros_msgs::Altitude pixhawk_altitude_;
-  mavros_msgs::Altitude pixhawk_altitude_previous_;
-  std::mutex            mutex_pixhawk_altitude_;
-  ros::Time             pixhawk_altitude_last_update_;
+  mrs_msgs::HwApiAltitude pixhawk_altitude_;
+  mrs_msgs::HwApiAltitude pixhawk_altitude_previous_;
+  std::mutex              mutex_pixhawk_altitude_;
+  ros::Time               pixhawk_altitude_last_update_;
 
   // Control acceleration msgs
   sensor_msgs::Imu       control_accel_;
@@ -564,7 +564,7 @@ private:
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_uav_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
-  void callbackPixhawkAltitude(const mavros_msgs::AltitudeConstPtr &msg);
+  void callbackPixhawkAltitude(const mrs_msgs::HwApiAltitudeConstPtr &msg);
   void callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg);
   void callbackUavMassEstimate(const std_msgs::Float64ConstPtr &msg);
   void callbackGPSCovariance(const nav_msgs::OdometryConstPtr &msg);
@@ -6338,7 +6338,7 @@ void Odometry::callbackPixhawkCompassHdg(const std_msgs::Float64ConstPtr &msg) {
 
 /* //{ callbackPixhawkAltitude() */
 
-void Odometry::callbackPixhawkAltitude(const mavros_msgs::AltitudeConstPtr &msg) {
+void Odometry::callbackPixhawkAltitude(const mrs_msgs::HwApiAltitudeConstPtr &msg) {
 
   if (!is_initialized_)
     return;

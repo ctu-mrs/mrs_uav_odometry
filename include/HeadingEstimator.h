@@ -8,9 +8,6 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 
-#include <mrs_msgs/MavrosDiagnostics.h>
-#include <mrs_msgs/MavrosState.h>
-
 #include <string>
 #include <vector>
 #include <mutex>

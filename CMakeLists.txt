@@ -15,8 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   )
 
-find_package(mavros_msgs REQUIRED)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -40,13 +38,12 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${LIBRARIES}
   CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2_geometry_msgs geometry_msgs mrs_lib mrs_msgs
-  DEPENDS mavros_msgs Eigen
+  DEPENDS Eigen
   )
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${mavros_msgs_INCLUDE_DIRS}
   ${Eigen_INCLUDE_DIRS}
   )
 
@@ -60,7 +57,6 @@ add_library(Odometry
 
 target_link_libraries(Odometry
   ${catkin_LIBRARIES}
-  ${mavros_msgs_LIBRARIES}
   ${Eigen_LIBRARIES}
   )
 
@@ -74,7 +70,6 @@ add_library(RtkRepublisher
 
 target_link_libraries(RtkRepublisher
   ${catkin_LIBRARIES}
-  ${mavros_msgs_LIBRARIES}
   )
 
 ## --------------------------------------------------------------
