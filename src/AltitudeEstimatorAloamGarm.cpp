@@ -432,6 +432,16 @@ bool AltitudeEstimatorAloamGarm::doCorrection(const double &measurement, int mea
     return false;
   }
 
+  // skip non-height measurements before the first height measurement if using repredictor
+  if (m_use_repredictor && !m_got_height_measurement) {
+    if (m_H_multi[measurement_type](0, 0) == 0) {
+      ROS_WARN_THROTTLE(1.0, "[AltitudeEstimatorAloamGarm]: Skipping non-height measurements before receiving the first height measurement.");
+      return false;
+    } else {
+      m_got_height_measurement = true;
+    }
+  }
+
   ros::WallTime time_beginning = ros::WallTime::now();
 
   // Prepare the measurement vector

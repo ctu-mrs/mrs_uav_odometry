@@ -98,6 +98,8 @@ private:
   std::mutex mutex_lkf;
 
   bool m_is_initialized = false;
+
+  bool m_got_height_measurement = false;
 };
 
 }  // namespace mrs_uav_odometry
