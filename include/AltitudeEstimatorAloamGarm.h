@@ -164,6 +164,8 @@ private:
 
   bool m_close_to_ground = false;
 
+  bool m_got_height_measurement = false;
+
 };
 
 }  // namespace mrs_uav_odometry
