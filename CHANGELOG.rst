@@ -4,6 +4,56 @@ Changelog for package mrs_uav_odometry
 
 Forthcoming
 -----------
+* skipping non-height measurements before the first height measurement is received in repredictor altitude estimators (`#15 <https://github.com/ctu-mrs/mrs_uav_odometry/issues/15>`_)
+  Co-authored-by: Vaclav Pritzl <pritzvac@fel.cvut.cz>
+* updated readme, updated ci
+* fixed possible takeoff with sonar and no garmin
+* fixed launch, env->optenv
+* fixed ambiguous use of attitude converter
+* not counting 0 to rtk avg position during initialization
+* fixed wrong safety area height
+* commented out unnecessary print
+* Revert "updated legacy heading calculation to use mrs_lib" This reverts commit 2a1f10076902fcd5dabea3446a7eb3b14cd91660.
+* updated legacy heading calculation to use mrs_lib
+* publishing global altitude in utm_origin tf
+* print warning when gps becomes unavailable before takeoff
+* inverted amsl transform
+* added amsl tfs
+* [tf connector]: forgot to remove some files
+* [tf connector]: moved to mrs_utils to not spam this repo with unrelated commits
+* [tf_connector]: it's now possible to specify offsets of the specific frames
+* Merge pull request `#14 <https://github.com/ctu-mrs/mrs_uav_odometry/issues/14>`_ from ctu-mrs/aloamgarm
+* added new line to trigger github build
+* removed some commented out stuff from aloamgarm
+* using repredictor_aloamgarm for ALOAMGARM altitude estimator
+* [TFConnector]: fixes for various weird edge cases
+* [TFConnector]: rewrote it a bit to handle a mix of static and non-static TFs
+* [TFConnector]: minor fix with timestamps
+* [TfConnector]: Now also with static frames! Get your TF connector now and get one extra for free!!
+* updated changelog, updated version in configs
+* uwb estimator tested with rosbag
+* removed gps from aloam config
+* decreased the timeout of rtk averaging
+* wait longer until RTK altitude average converges during initialization
+* median filter fix
+* refactored reserved variable names
+* put back one probably redundant check
+* refactored to use the new median filter
+* takeoff should not be possible after loosing GPS
+* refactored against publisher handler
+* updated transformer interface
+* deleted old aloamgarm version, replaced with the new one
+* + install in cmakelists
+* add ScopeTimer to important methods
+* Removed unnecessary offsetting baro altitude during takeoff. Makes
+* fixed opflow + pixhawk estimator combination
+* aloamgarm - polishing code
+* fixed drifting baro estimator
+* checking list of active altitude estimators instead of all altitude estimators when changing altitude estimator
+* updated aloamgarm params
+* aloamgarm update - posibility to enter initial lkf conditions for debug
+* aloamgarm - filtering invalid measurements, setting larger R for measurements above 4 m
+* testing new version of aloamgarm
 * uwb estimator tested with rosbag
 * removed gps from aloam config
 * decreased the timeout of rtk averaging
