@@ -194,6 +194,7 @@ private:
   mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped> pub_debug_icp_twist_filter_;
 
   mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_debug_aloam_delay_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_debug_vio_delay_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -2318,6 +2319,7 @@ void Odometry::onInit() {
   }
 
   pub_debug_aloam_delay_ = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_aloam_delay", 1);
+  pub_debug_vio_delay_   = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vio_delay", 1);
 
   //}
 
@@ -7308,7 +7310,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (vio_altitude_ok) {
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
-          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second, msg->header.stamp);
           if (fabs(measurement) > 100) {
             ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
           }
@@ -10867,6 +10869,14 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     msg.header.stamp = predict_stamp;
     msg.value        = predict_stamp.toSec() - meas_stamp.toSec();
     pub_debug_aloam_delay_.publish(msg);
+  }
+
+  // Publisher of VIO computational delay
+  if (estimator->getName() == "VIO" && measurement_name == "height_vio") {
+    mrs_msgs::Float64Stamped msg;
+    msg.header.stamp = predict_stamp;
+    msg.value        = predict_stamp.toSec() - meas_stamp.toSec();
+    pub_debug_vio_delay_.publish(msg);
   }
 }
 
