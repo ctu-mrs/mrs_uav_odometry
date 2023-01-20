@@ -2,7 +2,7 @@
 Changelog for package mrs_uav_odometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1.0.3 (2023-01-20)
+1.0.4 (2023-01-20)
 ------------------
 * skipping non-height measurements before the first height measurement is received in repredictor altitude estimators (`#15 <https://github.com/ctu-mrs/mrs_uav_odometry/issues/15>`_)
   Co-authored-by: Vaclav Pritzl <pritzvac@fel.cvut.cz>
