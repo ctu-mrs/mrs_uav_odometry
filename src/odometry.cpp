@@ -194,6 +194,7 @@ private:
   mrs_lib::PublisherHandler<geometry_msgs::TwistWithCovarianceStamped> pub_debug_icp_twist_filter_;
 
   mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_debug_aloam_delay_;
+  mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped> pub_debug_vio_delay_;
 
 private:
   ros::Subscriber sub_global_position_;
@@ -1574,7 +1575,7 @@ void Odometry::onInit() {
     }
 
     // Add pointer to altitude estimator to array
-    if (*it == "ALOAMREP") {
+    if (*it == "ALOAMREP" || *it == "VIO") {
       _altitude_estimators_.insert(std::pair<std::string, std::shared_ptr<AltitudeEstimator>>(
           *it, std::make_shared<AltitudeEstimator>(*it, alt_fusing_measurement, H_multi_alt, _q_alt_, R_multi_alt, true)));
     } else if (*it == "ALOAMGARM") {
@@ -1974,7 +1975,7 @@ void Odometry::onInit() {
     }
 
     // Add state estimator to array
-    if (*it == "ALOAMREP" || *it == "ALOAMGARM") {
+    if (*it == "ALOAMREP" || *it == "ALOAMGARM" || *it == "VIO") {
       _lateral_estimators_.insert(std::pair<std::string, std::shared_ptr<StateEstimator>>(
           *it, std::make_shared<StateEstimator>(*it, fusing_measurement, _q_lat_, P_arr_lat, R_arr_lat, true)));
     } else {
@@ -2205,7 +2206,7 @@ void Odometry::onInit() {
     std::cout << "R:" << R_multi_hdg.size() << std::endl;
 
     // Add pointer to heading estimator to array
-    if (*it == "ALOAMREP") {
+    if (*it == "ALOAMREP" || *it == "VIO") {
       heading_estimators_.insert(std::pair<std::string, std::shared_ptr<HeadingEstimator>>(
           *it, std::make_shared<HeadingEstimator>(*it, hdg_fusing_measurement, H_multi_hdg, _q_hdg_, R_multi_hdg, true)));
     } else {
@@ -2318,6 +2319,7 @@ void Odometry::onInit() {
   }
 
   pub_debug_aloam_delay_ = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_aloam_delay", 1);
+  pub_debug_vio_delay_   = mrs_lib::PublisherHandler<mrs_msgs::Float64Stamped>(nh_, "debug_vio_delay", 1);
 
   //}
 
@@ -7257,7 +7259,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   vio_hdg_previous_ = vio_hdg;
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(vio_hdg, "hdg_vio");
+  headingEstimatorsCorrection(vio_hdg, "hdg_vio", msg->header.stamp);
 
   // Publish VIO heading correction
   if (_debug_publish_corrections_) {
@@ -7308,7 +7310,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (vio_altitude_ok) {
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
-          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second);
+          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second, msg->header.stamp);
           if (fabs(measurement) > 100) {
             ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
           }
@@ -7340,7 +7342,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (vio_altitude_speed_ok) {
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
-          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second);
+          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second, msg->header.stamp);
         }
       }
     }
@@ -7376,7 +7378,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio");
+  stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio", msg->header.stamp);
 
   ROS_INFO_ONCE("[Odometry]: Fusing VIO velocity");
   //}
@@ -7421,7 +7423,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio");
+  stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio", msg->header.stamp);
 
   ROS_INFO_ONCE("[Odometry]: Fusing VIO position");
   //}
@@ -10867,6 +10869,11 @@ void Odometry::altitudeEstimatorCorrection(double value, const std::string &meas
     msg.header.stamp = predict_stamp;
     msg.value        = predict_stamp.toSec() - meas_stamp.toSec();
     pub_debug_aloam_delay_.publish(msg);
+  } else if (estimator->getName() == "VIO") {
+    mrs_msgs::Float64Stamped msg;
+    msg.header.stamp = predict_stamp;
+    msg.value        = predict_stamp.toSec() - meas_stamp.toSec();
+    pub_debug_vio_delay_.publish(msg);
   }
 }
 
