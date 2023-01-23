@@ -265,7 +265,8 @@ bool AltitudeEstimator::doPrediction(const double input, const ros::Time &input_
 
 /*  //{ doCorrection() */
 
-bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp, const std::string &measurement_name) {
+bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_type, const ros::Time &meas_stamp, const ros::Time &predict_stamp,
+                                     const std::string &measurement_name) {
 
   /*  //{ sanity checks */
 
@@ -299,6 +300,16 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
     return false;
   }
 
+  // skip non-height measurements before the first height measurement if using repredictor
+  if (m_use_repredictor && !m_got_height_measurement) {
+    if (m_H_multi[measurement_type](0, 0) == 0) {
+      ROS_WARN_THROTTLE(1.0, "[AltitudeEstimator]: Skipping non-height measurements before receiving the first height measurement.");
+      return false;
+    } else {
+      m_got_height_measurement = true;
+    }
+  }
+
   // Prepare the measurement vector
   alt_z_t z;
   z << measurement;
@@ -312,6 +323,7 @@ bool AltitudeEstimator::doCorrection(const double &measurement, int measurement_
 
     try {
       if (m_use_repredictor) {
+
         mp_rep->addMeasurement(z, m_R_multi[measurement_type], meas_stamp, mp_lkf_vector[measurement_type]);
         m_sc = mp_rep->predictTo(predict_stamp);
       } else {
