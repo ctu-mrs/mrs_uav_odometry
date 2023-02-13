@@ -88,7 +88,7 @@
       <param name="altitude/garmin_enabled" type="bool" value="$(arg garmin_enabled)" />
 
       <!-- Subscribers -->
-      <remap from="~attitude_command_in" to="control_manager/attitude_cmd" />
+      <remap from="~odometry_input_in" to="control_manager/odometry_input" />
       <remap from="~pixhawk_imu_in" to="hw_api/imu" />
       <remap from="~pixhawk_altitude_in" to="hw_api/altitude" />
       <remap from="~control_acc_in" to="/imu/data" />

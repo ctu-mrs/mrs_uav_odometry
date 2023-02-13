@@ -55,9 +55,9 @@
 #include <mrs_msgs/HeadingType.h>
 #include <mrs_msgs/EstimatedState.h>
 #include <mrs_msgs/UavState.h>
-#include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/HwApiAltitude.h>
+#include <mrs_msgs/MrsOdometryInput.h>
 
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/scope_timer.h>
@@ -447,10 +447,10 @@ private:
   std::mutex mutex_uav_mass_estimate_;
 
   // Target attitude msgs
-  mrs_msgs::AttitudeCommand attitude_command_;
-  mrs_msgs::AttitudeCommand attitude_command_prev_;
-  ros::Time                 attitude_command_last_update_;
-  std::mutex                mutex_attitude_command_;
+  mrs_msgs::MrsOdometryInput odometry_input_;
+  mrs_msgs::MrsOdometryInput odometry_input_previous_;
+  ros::Time                  odometry_input_last_update_;
+  std::mutex                 mutex_odometry_input_;
 
   // RTK
   std::mutex       mutex_rtk_;
@@ -560,7 +560,7 @@ private:
   void callbackLioSamOdom(const nav_msgs::OdometryConstPtr &msg);
   void callbackICPTwist(const geometry_msgs::TwistWithCovarianceStampedConstPtr &msg);
   void callbackBrickPose(const geometry_msgs::PoseStampedConstPtr &msg);
-  void callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg);
+  void callbackOdometryInput(const mrs_msgs::MrsOdometryInputConstPtr &msg);
   void callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg);
   void callbackReconfigure(mrs_uav_odometry::odometry_dynparamConfig &config, uint32_t level);
   void callbackPixhawkImu(const sensor_msgs::ImuConstPtr &msg);
@@ -2327,7 +2327,7 @@ void Odometry::onInit() {
 
   /* //{ subscribers */
   // subsribe to target attitude
-  sub_attitude_command_ = nh_.subscribe("attitude_command_in", 1, &Odometry::callbackAttitudeCommand, this, ros::TransportHints().tcpNoDelay());
+  sub_attitude_command_ = nh_.subscribe("odometry_input_in", 1, &Odometry::callbackOdometryInput, this, ros::TransportHints().tcpNoDelay());
 
   // subscribe to pixhawk imu
   sub_pixhawk_imu_ = nh_.subscribe("pixhawk_imu_in", 1, &Odometry::callbackPixhawkImu, this, ros::TransportHints().tcpNoDelay());
@@ -2886,7 +2886,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   // set target attitude input to zero when not receiving target attitude msgs
   if (got_attitude_command_) {
-    std::scoped_lock lock(mutex_attitude_command_);
+    std::scoped_lock lock(mutex_odometry_input_);
 
     des_hdg      = des_hdg_;
     des_hdg_rate = des_hdg_rate_;
@@ -2903,12 +2903,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
   /* lateral estimator prediction //{ */
 
-  geometry_msgs::Point   des_acc_point = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_.desired_acceleration);
-  geometry_msgs::Vector3 des_acc;
-  des_acc.x               = des_acc_point.x;
-  des_acc.y               = des_acc_point.y;
-  des_acc.z               = des_acc_point.z;
-  ros::Time des_acc_stamp = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_.header.stamp);
+  geometry_msgs::Vector3 des_acc       = mrs_lib::get_mutexed(mutex_odometry_input_, odometry_input_.control_acceleration);
+  ros::Time              des_acc_stamp = mrs_lib::get_mutexed(mutex_odometry_input_, odometry_input_.header.stamp);
 
   if (!is_updating_state_) {
 
@@ -2918,7 +2914,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       des_acc.x = 0.0;
       des_acc.y = 0.0;
       des_acc.z = 0.0;
-      ROS_WARN_THROTTLE(2.0, "[Odometry] Last attitude command too old, passing zero input to state estimator.");
+      ROS_WARN_THROTTLE(2.0, "[Odometry] Last odometry input too old, passing zero input to state estimator.");
       stateEstimatorsPrediction(des_acc, dt, time_now, time_now);
     }
 
@@ -4851,8 +4847,8 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     for (int i = 0; i < (int)vec_odom_local_.size(); i++) {
       if (aloam_timestamp_ < vec_odom_local_.at(i).header.stamp) {
         // Choose mavros orientation with closest timestamp
-        float time_diff      = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
-        float time_diff_prev = 999999;
+        double time_diff      = std::fabs(vec_odom_local_.at(i).header.stamp.toSec() - aloam_timestamp_.toSec());
+        double time_diff_prev = std::numeric_limits<double>::max();
         if (i > 0) {
           time_diff_prev = std::fabs(vec_odom_local_.at(i - 1).header.stamp.toSec() - aloam_timestamp_.toSec());
         }
@@ -5248,7 +5244,7 @@ void Odometry::topicWatcherTimer(const ros::TimerEvent &event) {
   }
 
   //  target attitude (input to lateral kf)
-  interval = ros::Time::now() - attitude_command_last_update_;
+  interval = ros::Time::now() - odometry_input_last_update_;
   if (got_attitude_command_ && interval.toSec() > 0.1) {
     ROS_WARN("[Odometry]: Attitude command not received for %f seconds.", interval.toSec());
     if (got_attitude_command_ && interval.toSec() > 1.0) {
@@ -5457,32 +5453,32 @@ void Odometry::callbackTimerHectorResetRoutine(const ros::TimerEvent &event) {
 
 // | ------------------ subscriber callbacks ------------------ |
 
-/* //{ callbackAttitudeCommand() */
-void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &msg) {
+/* //{ callbackOdometryInput() */
+void Odometry::callbackOdometryInput(const mrs_msgs::MrsOdometryInputConstPtr &msg) {
 
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackAttitudeCommand");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackAttitudeCommand", scope_timer_logger_, scope_timer_enabled_);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackOdometryInput");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackOdometryInput", scope_timer_logger_, scope_timer_enabled_);
 
   {
-    std::scoped_lock lock(mutex_attitude_command_);
+    std::scoped_lock lock(mutex_odometry_input_);
 
     if (got_attitude_command_) {
 
-      attitude_command_prev_ = attitude_command_;
-      attitude_command_      = *msg;
+      odometry_input_previous_ = odometry_input_;
+      odometry_input_          = *msg;
 
-      attitude_command_last_update_ = ros::Time::now();
+      odometry_input_last_update_ = ros::Time::now();
 
     } else {
 
-      attitude_command_      = *msg;
-      attitude_command_prev_ = attitude_command_;
+      odometry_input_          = *msg;
+      odometry_input_previous_ = odometry_input_;
 
-      attitude_command_last_update_ = ros::Time::now();
-      got_attitude_command_         = true;
+      odometry_input_last_update_ = ros::Time::now();
+      got_attitude_command_       = true;
       return;
     }
   }
@@ -5493,71 +5489,35 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
 
   {
-    std::scoped_lock lock(mutex_attitude_command_);
-    if (!isTimestampOK(attitude_command_.header.stamp.toSec(), attitude_command_prev_.header.stamp.toSec())) {
-      ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Target attitude timestamp not OK, skipping prediction of lateral estimators.");
+    std::scoped_lock lock(mutex_odometry_input_);
+    if (!isTimestampOK(odometry_input_.header.stamp.toSec(), odometry_input_previous_.header.stamp.toSec())) {
+      ROS_DEBUG_THROTTLE(1.0, "[Odometry]: Odometry input timestamp not OK, skipping prediction of lateral estimators.");
       return;
     }
   }
 
   //////////////////// Fuse Lateral Kalman ////////////////////
 
-  double dt = (attitude_command_.header.stamp - attitude_command_prev_.header.stamp).toSec();
+  double dt = (odometry_input_.header.stamp - odometry_input_previous_.header.stamp).toSec();
 
   if (!std::isfinite(dt)) {
     dt = 0;
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: NaN detected in attitude cmd variable \"dt\", setting it to 0 and returning!!!");
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: NaN detected in odometry input variable \"dt\", setting it to 0 and returning!!!");
     return;
   } else if (dt > 1) {
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: Attitude cmd variable \"dt\" > 1, setting it to 1 and returning!!!");
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: Odometry input variable \"dt\" > 1, setting it to 1 and returning!!!");
     dt = 1;
     return;
   } else if (dt < 0) {
-    ROS_INFO_THROTTLE(1.0, "[Odometry]: Attitude cmd variable \"dt\" < 0, setting it to 0 and returning!!!");
+    ROS_INFO_THROTTLE(1.0, "[Odometry]: Odometry input variable \"dt\" < 0, setting it to 0 and returning!!!");
     dt = 0;
     return;
   }
-  auto attitude_command = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_);
-
-  /* attitude command //{ */
-
-  double des_hdg;
-
-  try {
-    des_hdg = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeading();
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during getting heading (attitude command)");
-    des_hdg = 0.0;
-  }
-
-  des_hdg_ = des_hdg;
-
-  if (_debug_publish_corrections_) {
-    mrs_msgs::Float64Stamped des_hdg_msg;
-    des_hdg_msg.header = attitude_command.header;
-    des_hdg_msg.value  = des_hdg;
-
-    pub_cmd_hdg_input_.publish(des_hdg_msg);
-  }
-
-  //}
+  auto odometry_input = mrs_lib::get_mutexed(mutex_odometry_input_, odometry_input_);
 
   /* attitude rate command //{ */
 
-  geometry_msgs::Vector3 attitude_rate;
-  attitude_rate.x = attitude_command.attitude_rate.x;
-  attitude_rate.y = attitude_command.attitude_rate.y;
-  attitude_rate.z = attitude_command.attitude_rate.z;
-
-  double des_hdg_rate;
-  try {
-    des_hdg_rate = mrs_lib::AttitudeConverter(attitude_command.attitude).getHeadingRate(attitude_rate);
-  }
-  catch (...) {
-    ROS_ERROR("[Odometry]: Exception caught during getting heading rate (attitude command)");
-    des_hdg_rate = 0.0;
-  }
+  double des_hdg_rate = odometry_input.control_hdg_rate;
 
   if (!std::isfinite(des_hdg_rate)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"des_hdg_rate_\", prediction with zero input!!!");
@@ -5572,7 +5532,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   if (_debug_publish_corrections_) {
     mrs_msgs::Float64Stamped des_hdg_rate_msg;
-    des_hdg_rate_msg.header = attitude_command.header;
+    des_hdg_rate_msg.header = odometry_input.header;
     des_hdg_rate_msg.value  = des_hdg_rate;
 
     pub_cmd_hdg_rate_input_.publish(des_hdg_rate_msg);
@@ -5580,7 +5540,7 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
 
   //}
 
-  /* altitude acceleration command //{ */
+  /* attitude acceleration command //{ */
 
   {
     if (got_odom_pixhawk_) {
@@ -5592,14 +5552,14 @@ void Odometry::callbackAttitudeCommand(const mrs_msgs::AttitudeCommandConstPtr &
       Eigen::Matrix3d uav_orientation = mrs_lib::AttitudeConverter(odom_pixhawk_.pose.pose.orientation);
 
       Eigen::Vector3d desired_acceleration_fcu;
-      desired_acceleration_fcu[0] = attitude_command.desired_acceleration.x;
-      desired_acceleration_fcu[1] = attitude_command.desired_acceleration.y;
-      desired_acceleration_fcu[2] = attitude_command.desired_acceleration.z;
+      desired_acceleration_fcu[0] = odometry_input.control_acceleration.x;
+      desired_acceleration_fcu[1] = odometry_input.control_acceleration.y;
+      desired_acceleration_fcu[2] = odometry_input.control_acceleration.z;
 
       Eigen::Vector3d desired_acceleration_fcu_untilted = uav_orientation * desired_acceleration_fcu;
 
       mrs_lib::set_mutexed(mutex_alt_input_, desired_acceleration_fcu_untilted[2], alt_input_);
-      mrs_lib::set_mutexed(mutex_alt_input_, attitude_command.header.stamp, alt_input_stamp_);
+      mrs_lib::set_mutexed(mutex_alt_input_, odometry_input.header.stamp, alt_input_stamp_);
     }
   }
 
