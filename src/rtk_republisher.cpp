@@ -356,6 +356,20 @@ void RtkRepublisher::timerMain(const ros::TimerEvent &event) {
   rtk_msg_out.status.status = sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
   rtk_msg_out.fix_type      = fix_type_;
 
+  // set orientation and twist to zero to unify the data provided by physical and simulated RTK
+  rtk_msg_out.pose.pose.orientation.x = 0;
+  rtk_msg_out.pose.pose.orientation.y = 0;
+  rtk_msg_out.pose.pose.orientation.z = 0;
+  rtk_msg_out.pose.pose.orientation.w = 1;
+
+  rtk_msg_out.twist.twist.linear.x = 0;
+  rtk_msg_out.twist.twist.linear.y = 0;
+  rtk_msg_out.twist.twist.linear.z = 0;
+
+  rtk_msg_out.twist.twist.angular.x = 0;
+  rtk_msg_out.twist.twist.angular.y = 0;
+  rtk_msg_out.twist.twist.angular.z = 0;
+
   if (add_random_jumps_) {
     if (!random_jump_active_ && --until_next_jump_ <= 0) {
       random_jump_        = jump_amplitude_;
