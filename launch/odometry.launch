@@ -93,7 +93,7 @@
       <remap from="~pixhawk_altitude_in" to="hw_api/altitude" />
       <remap from="~control_acc_in" to="/imu/data" />
       <remap from="~pixhawk_compass_in" to="hw_api/magnetometer_hdg" />
-      <remap from="~pixhawk_odom_in" to="hw_api/odometry_local" />
+      <remap from="~pixhawk_odom_in" to="hw_api/odometry" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_low_in" to="optic_flow/velocity_longrange" />
       <remap from="~vio_in" to="vins_republisher/odom" />
