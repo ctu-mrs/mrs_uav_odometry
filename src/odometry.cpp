@@ -4085,7 +4085,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       mrs_lib::set_mutexed(mutex_rtk_local_odom_, rtk_local_odom_, odom_aux->second);
     }
 
-    // Get inverse trasnform
+    // Get inverse transform
     tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_aux->second.pose.pose);
     tf_inv                       = tf_inv.inverse();
     geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
@@ -4621,7 +4621,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish local origin tf //{ */
 
-    // Get inverse trasnform
+    // Get inverse transform
     tf2::Transform tf_inv        = mrs_uav_odometry::tf2FromPose(odom_local_.pose.pose);
     tf_inv                       = tf_inv.inverse();
     geometry_msgs::Pose pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
@@ -4648,7 +4648,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
 
     /* publish fixed map origin tf //{ */
 
-    // Get inverse trasnform
+    // Publish fixed-map-origin odometry
     publishTFFromOdom(odom_fixed_map_, broadcaster_, time_now);
 
     //}
@@ -4713,7 +4713,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   /* publish stable origin tf //{ */
 
   if (got_stable) {
-    // Get inverse trasnform
+    // Get inverse transform
     tf2::Transform tf_stable_inv        = mrs_uav_odometry::tf2FromPose(odom_stable_tmp.pose.pose);
     tf_stable_inv                       = tf_stable_inv.inverse();
     geometry_msgs::Pose pose_stable_inv = mrs_uav_odometry::poseFromTf2(tf_stable_inv);
@@ -9369,14 +9369,20 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackGroundTruth");
   mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("Odometry::callbackGroundTruth", scope_timer_logger_, scope_timer_enabled_);
 
+  nav_msgs::Odometry odom = *msg;
+
+  // Overwrite Gazebo's default "ground_truth_link" frame
+  odom.child_frame_id = fcu_frame_id_;
+
   {
     std::scoped_lock lock(mutex_ground_truth_);
 
-    ground_truth_ = *msg;
+    ground_truth_ = odom;
   }
 
+  // Publish Euler-angles orientation
   double rot_x, rot_y, rot_z;
-  getGlobalRot(ground_truth_.pose.pose.orientation, rot_x, rot_y, rot_z);
+  getGlobalRot(odom.pose.pose.orientation, rot_x, rot_y, rot_z);
 
   orientation_gt_.header   = odom_pixhawk_.header;
   orientation_gt_.vector.x = rot_x;
@@ -9384,6 +9390,9 @@ void Odometry::callbackGroundTruth(const nav_msgs::OdometryConstPtr &msg) {
   orientation_gt_.vector.z = rot_z;
 
   pub_orientation_gt_.publish(orientation_gt_);
+
+  // Republish ground truth to TF
+  publishTFFromOdom(odom, broadcaster_, odom.header.stamp);
 }
 //}
 

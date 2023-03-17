@@ -133,20 +133,22 @@ bool isZeroQuaternion(const geometry_msgs::Quaternion& q) {
 void publishTFFromOdom(const nav_msgs::Odometry& odom, const std::shared_ptr<mrs_lib::TransformBroadcaster>& broadcaster, const ros::Time& time) {
 
   tf2::Transform tf, tf_inv;
-  tf                           = tf2FromPose(odom.pose.pose);
-  tf_inv                       = tf.inverse();
+  tf     = tf2FromPose(odom.pose.pose);
+  tf_inv = tf.inverse();
 
   geometry_msgs::Pose pose_inv;
   pose_inv = mrs_uav_odometry::poseFromTf2(tf_inv);
 
   geometry_msgs::TransformStamped tf_msg;
-  tf_msg.header.stamp          = time;
-  tf_msg.header.frame_id       = odom.child_frame_id;
-  tf_msg.child_frame_id        = odom.header.frame_id;
   tf_msg.transform.translation = pointToVector3(pose_inv.position);
   tf_msg.transform.rotation    = pose_inv.orientation;
 
   if (noNans(tf_msg)) {
+
+    tf_msg.header.stamp    = time;
+    tf_msg.header.frame_id = odom.child_frame_id;
+    tf_msg.child_frame_id  = odom.header.frame_id;
+
     try {
       broadcaster->sendTransform(tf_msg);
     }
