@@ -3858,6 +3858,10 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   // Loop through each estimator
   for (auto &estimator : _lateral_estimators_) {
 
+    if (estimator.first == "VIO" && !got_vio_) {
+      continue; 
+    }
+
     std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom_.find(estimator.first);
 
     // Initialize odom_aux with pixhawk_odom to obtain attitude and attitude_rate which are not estimated by us
@@ -10641,6 +10645,10 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
 
   for (auto &estimator : _lateral_estimators_) {
 
+    if (estimator.first == "VIO" && !got_vio_) {
+      continue; 
+    }
+
     // Rotate body frame measurements into estimator frame
     double current_hdg;
     for (auto &hdg_estimator : heading_estimators_) {
@@ -10786,6 +10794,10 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
 
   for (auto &estimator : _altitude_estimators_) {
 
+    if (estimator.first == "VIO" && !got_vio_) {
+      continue; 
+    }
+
     /* do not run repredictor estimators when missing aloam data //{*/
     if ((estimator.second->getName() == "ALOAMGARM" || estimator.second->getName() == "ALOAMREP") && !got_aloam_odom_) {
       ROS_WARN_ONCE("[Odometry]: ALOAMGARM/ALOAMREP active, but not received aloam odom yet. Skipping altitude prediction until aloam odom starts coming.");
@@ -10806,7 +10818,6 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
 }
 
 /*//}*/
-
 
 /*  //{ altitudeEstimatorCorrection() */
 
@@ -10910,6 +10921,10 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
 
 
   for (auto &estimator : heading_estimators_) {
+
+    if (estimator.first == "VIO" && !got_vio_) {
+      continue; 
+    }
 
     hdg_u_t input = input.Zero();
     input << hdg, hdg_rate;
