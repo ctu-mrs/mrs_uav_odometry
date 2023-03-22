@@ -313,6 +313,7 @@ private:
   nav_msgs::Odometry odom_vio_previous_;
   std::mutex         mutex_odom_vio_previous_;
   ros::Time          odom_vio_last_update_;
+  double             vio_origin_z_offset_ = 0.0;
 
   // VSLAM
   geometry_msgs::PoseWithCovarianceStamped pose_vslam_;
@@ -3859,7 +3860,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
   for (auto &estimator : _lateral_estimators_) {
 
     if (estimator.first == "VIO" && !got_vio_) {
-      continue; 
+      continue;
     }
 
     std::map<std::string, nav_msgs::Odometry>::iterator odom_aux = map_estimator_odom_.find(estimator.first);
@@ -7217,11 +7218,19 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       odom_vio_previous_ = odom_vio_;
       odom_vio_          = *msg;
+      odom_vio_.pose.pose.position.z += vio_origin_z_offset_;
 
     } else {
 
+      {
+        std::scoped_lock lock(mutex_odom_local_);
+        vio_origin_z_offset_ = odom_local_.pose.pose.position.z;  // this offset shifts the vio_origin height to local_origin height when initialized in the air
+      }
+
       odom_vio_previous_ = *msg;
       odom_vio_          = *msg;
+      odom_vio_.pose.pose.position.z += vio_origin_z_offset_;
+      odom_vio_previous_.pose.pose.position.z += vio_origin_z_offset_;
 
       try {
         vio_hdg_previous_ = mrs_lib::AttitudeConverter(odom_vio_.pose.pose.orientation).getHeading();
@@ -7244,7 +7253,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   auto odom_vio_previous = mrs_lib::get_mutexed(mutex_odom_vio_, odom_vio_previous_);
   auto odom_vio          = mrs_lib::get_mutexed(mutex_odom_vio_, odom_vio_);
 
-  if (!isTimestampOK(msg->header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
+  if (!isTimestampOK(odom_vio.header.stamp.toSec(), odom_vio_previous.header.stamp.toSec())) {
     ROS_DEBUG_THROTTLE(1.0, "[Odometry]: VIO timestamp not OK, not fusing correction.");
     return;
   }
@@ -7263,7 +7272,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   vio_hdg_previous_ = vio_hdg;
 
   // Apply correction step to all heading estimators
-  headingEstimatorsCorrection(vio_hdg, "hdg_vio", msg->header.stamp);
+  headingEstimatorsCorrection(vio_hdg, "hdg_vio", odom_vio.header.stamp);
 
   // Publish VIO heading correction
   if (_debug_publish_corrections_) {
@@ -7286,7 +7295,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
   {
     bool   vio_altitude_ok = true;
-    double measurement     = msg->pose.pose.position.z;
+    double measurement     = odom_vio.pose.pose.position.z;
 
     // Value gate
     if (!isValidGate(measurement, _vio_min_valid_alt_, _vio_max_valid_alt_, "vio altitude")) {
@@ -7314,7 +7323,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (vio_altitude_ok) {
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
-          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second, msg->header.stamp);
+          altitudeEstimatorCorrection(measurement, "height_vio", estimator.second, odom_vio.header.stamp);
           if (fabs(measurement) > 100) {
             ROS_WARN("[Odometry]: VIO height correction: %f", measurement);
           }
@@ -7326,9 +7335,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   {
-    // TODO Matej check after TOMAS
 
-    double measurement           = msg->twist.twist.linear.z;
+    double measurement           = odom_vio.twist.twist.linear.z;
     bool   vio_altitude_speed_ok = true;
 
     //////////////////// Fuse main altitude speed kalman ////////////////////
@@ -7346,7 +7354,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
       if (vio_altitude_speed_ok) {
         {
           std::scoped_lock lock(mutex_altitude_estimator_);
-          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second, msg->header.stamp);
+          altitudeEstimatorCorrection(measurement, "vel_vio", estimator.second, odom_vio.header.stamp);
         }
       }
     }
@@ -7361,8 +7369,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse vio velocity */
 
   double vel_vio_x, vel_vio_y;
-  vel_vio_x = msg->twist.twist.linear.x;
-  vel_vio_y = msg->twist.twist.linear.y;
+  vel_vio_x = odom_vio.twist.twist.linear.x;
+  vel_vio_y = odom_vio.twist.twist.linear.y;
 
   // Set innovation variable if current estimator is VIO
   if (current_lat_estimator_->getName() == "VIO") {
@@ -7382,7 +7390,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio", msg->header.stamp);
+  stateEstimatorsCorrection(vel_vio_x, vel_vio_y, "vel_vio", odom_vio.header.stamp);
 
   ROS_INFO_ONCE("[Odometry]: Fusing VIO velocity");
   //}
@@ -7390,8 +7398,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
   /* //{ fuse vio position */
 
   double vio_pos_x, vio_pos_y;
-  vio_pos_x = msg->pose.pose.position.x;
-  vio_pos_y = msg->pose.pose.position.y;
+  vio_pos_x = odom_vio.pose.pose.position.x;
+  vio_pos_y = odom_vio.pose.pose.position.y;
 
   if (!std::isfinite(vio_pos_x) || !std::isfinite(vio_pos_y)) {
     ROS_ERROR_THROTTLE(1.0, "[Odometry]: NaN detected in variable \"vio_pos_x\" or \"vio_pos_y\", returning!!!");
@@ -7420,14 +7428,14 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
     }
   }
 
-  if (vio_reliable_ && (std::fabs(msg->pose.pose.position.x - odom_vio_previous.pose.pose.position.x) > 10 ||
-                        std::fabs(msg->pose.pose.position.y - odom_vio_previous.pose.pose.position.y) > 10)) {
+  if (vio_reliable_ && (std::fabs(odom_vio.pose.pose.position.x - odom_vio_previous.pose.pose.position.x) > 10 ||
+                        std::fabs(odom_vio.pose.pose.position.y - odom_vio_previous.pose.pose.position.y) > 10)) {
     ROS_WARN("[Odometry]: Estimated difference between successive VIO positions > 10. VIO is not reliable.");
     vio_reliable_ = false;
   }
 
   // Apply correction step to all state estimators
-  stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio", msg->header.stamp);
+  stateEstimatorsCorrection(vio_pos_x, vio_pos_y, "pos_vio", odom_vio.header.stamp);
 
   ROS_INFO_ONCE("[Odometry]: Fusing VIO position");
   //}
@@ -10646,7 +10654,7 @@ void Odometry::stateEstimatorsPrediction(const geometry_msgs::Vector3 &acc_in, d
   for (auto &estimator : _lateral_estimators_) {
 
     if (estimator.first == "VIO" && !got_vio_) {
-      continue; 
+      continue;
     }
 
     // Rotate body frame measurements into estimator frame
@@ -10795,7 +10803,7 @@ void Odometry::altitudeEstimatorsPrediction(const double input, const double dt,
   for (auto &estimator : _altitude_estimators_) {
 
     if (estimator.first == "VIO" && !got_vio_) {
-      continue; 
+      continue;
     }
 
     /* do not run repredictor estimators when missing aloam data //{*/
@@ -10923,7 +10931,7 @@ void Odometry::headingEstimatorsPrediction(const double hdg, const double hdg_ra
   for (auto &estimator : heading_estimators_) {
 
     if (estimator.first == "VIO" && !got_vio_) {
-      continue; 
+      continue;
     }
 
     hdg_u_t input = input.Zero();
