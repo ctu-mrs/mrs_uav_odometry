@@ -313,7 +313,8 @@ private:
   nav_msgs::Odometry odom_vio_previous_;
   std::mutex         mutex_odom_vio_previous_;
   ros::Time          odom_vio_last_update_;
-  double             vio_origin_z_offset_ = 0.0;
+  double             vio_origin_z_offset_    = 0.0;
+  bool               _use_garmin_for_vio_tf_ = false;
 
   // VSLAM
   geometry_msgs::PoseWithCovarianceStamped pose_vslam_;
@@ -1533,6 +1534,8 @@ void Odometry::onInit() {
   //}
 
   param_loader.loadParam("altitude/use_rtk_altitude", _use_rtk_altitude_);
+  param_loader.loadParam("altitude/use_garmin_for_vio_tf", _use_garmin_for_vio_tf_);
+
 
   //}
 
@@ -3906,9 +3909,16 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       }
     } else if (estimator.first == "VIO") {
       for (auto &alt_estimator : _altitude_estimators_) {
-        if (alt_estimator.first == "VIO") {
-          alt_estimator.second->getState(0, alt);
-          odom_aux->second.pose.pose.position.z = alt;
+        if (_use_garmin_for_vio_tf_) {
+          if (alt_estimator.first == "HEIGHT") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
+        } else {
+          if (alt_estimator.first == "VIO") {
+            alt_estimator.second->getState(0, alt);
+            odom_aux->second.pose.pose.position.z = alt;
+          }
         }
       }
     } else if (estimator.first == "ALOAM") {
@@ -7224,7 +7234,8 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       {
         std::scoped_lock lock(mutex_odom_local_);
-        vio_origin_z_offset_ = odom_local_.pose.pose.position.z - msg->pose.pose.position.z;  // this offset shifts the vio_origin height to local_origin height when initialized in the air
+        vio_origin_z_offset_ = odom_local_.pose.pose.position.z -
+                               msg->pose.pose.position.z;  // this offset shifts the vio_origin height to local_origin height when initialized in the air
       }
 
       odom_vio_previous_ = *msg;

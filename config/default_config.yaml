@@ -65,8 +65,9 @@ altitude:
   max_optflow: 10.0 # Do not allow switching to optflow above this altitude
   max_allowed_flight_height_garmin: 10.0 # Do not allow flying higher with garmin-based altitude estimator
 
-  # Use RTK altitude
+  # Custom TF rules
   use_rtk_altitude: false # has to be true for correct TF when using RTK altitude
+  use_garmin_for_vio_tf: false # has to be true for correct TF when using Garmin height with VIO lateral estimator
 
 # covariances# #{
 
