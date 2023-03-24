@@ -7224,7 +7224,7 @@ void Odometry::callbackVioOdometry(const nav_msgs::OdometryConstPtr &msg) {
 
       {
         std::scoped_lock lock(mutex_odom_local_);
-        vio_origin_z_offset_ = odom_local_.pose.pose.position.z;  // this offset shifts the vio_origin height to local_origin height when initialized in the air
+        vio_origin_z_offset_ = odom_local_.pose.pose.position.z - msg->pose.pose.position.z;  // this offset shifts the vio_origin height to local_origin height when initialized in the air
       }
 
       odom_vio_previous_ = *msg;
