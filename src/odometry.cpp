@@ -4312,6 +4312,22 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
         estimator.second->setState(0, pos_state);
         estimator.second->setState(1, vel_state);
 
+      } else if (estimator.second->getName() == "RTK") {
+
+        {
+          std::scoped_lock lock(mutex_rtk_);
+
+          if (!got_rtk_) {
+            ROS_WARN_THROTTLE(1.0, "[Odometry]: waiting for rtk message to initialize rtk estimator");
+            return;
+          }
+
+          double pos_x = rtk_local_.pose.pose.position.x;
+          double pos_y = rtk_local_.pose.pose.position.y;
+          pos_state << pos_x, pos_y;
+          estimator.second->setState(0, pos_state);
+          estimator.second->setState(1, vel_state);
+        }
 
         // GNSS based estimators (GPS)
       } else {
@@ -4350,11 +4366,21 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
     odom_stable_rot_offset_ = mrs_lib::AttitudeConverter(0, 0, 0);
 
     // initialize local odometry
-    if (toUppercase(current_lat_estimator_name_) == "GPS" || toUppercase(current_lat_estimator_name_) == "RTK") {
+    if (toUppercase(current_lat_estimator_name_) == "GPS") {
       odom_local_ = odom_main;
       pos_odom_offset_.setX(odom_main.pose.pose.position.x);
       pos_odom_offset_.setY(odom_main.pose.pose.position.y);
       pos_odom_offset_.setZ(odom_main.pose.pose.position.z);
+    } else if (toUppercase(current_lat_estimator_name_) == "RTK") {
+      std::scoped_lock lock(mutex_rtk_);
+      if (!got_rtk_) {
+        ROS_WARN_THROTTLE(1.0, "[Odometry]: waiting for rtk message to initialize local origin");
+        return;
+      }
+      odom_local_ = rtk_local_odom_;
+      pos_odom_offset_.setX(rtk_local_odom_.pose.pose.position.x);
+      pos_odom_offset_.setY(rtk_local_odom_.pose.pose.position.y);
+      pos_odom_offset_.setZ(rtk_local_odom_.pose.pose.position.z);
     } else {
       odom_local_.header         = odom_main.header;
       odom_local_.child_frame_id = odom_main.child_frame_id;
@@ -4362,6 +4388,7 @@ void Odometry::mainTimer(const ros::TimerEvent &event) {
       pos_odom_offset_.setY(0.0);
       pos_odom_offset_.setZ(0.0);
     }
+    ROS_INFO("[Odometry]: local pos odom offset: %.2f %.2f %.2f", pos_odom_offset_.x(), pos_odom_offset_.y(), pos_odom_offset_.z());
     last_local_name_ = odom_main.header.frame_id;
 
     // intialize fixed_map_origin
@@ -6008,9 +6035,9 @@ void Odometry::callbackMavrosOdometry(const nav_msgs::OdometryConstPtr &msg) {
       Vec2 zero_state = zero_state.Zero();
       Vec2 pos;
       pos << pos_mavros_x, pos_mavros_y;
-      ROS_INFO("[Odometry]: Initializing GPS and RTK estimators to x: %f y: %f", pos(0), pos(1));
+      ROS_INFO("[Odometry]: Initializing GPS estimators to x: %f y: %f", pos(0), pos(1));
       for (auto &estimator : _lateral_estimators_) {
-        if (estimator.first == "GPS" || estimator.first == "RTK") {
+        if (estimator.first == "GPS") {
 
           estimator.second->setState(0, pos);
           estimator.second->setState(1, zero_state);
