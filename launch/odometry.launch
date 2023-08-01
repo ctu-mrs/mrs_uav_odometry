@@ -12,6 +12,7 @@
   <arg name="SENSORS" default="$(optenv SENSORS)" />
   <arg name="GARMIN_FILTERED" default="$(optenv GARMIN_FILTERED false)" />
   <arg name="LOGGER_DEBUG" default="$(optenv LOGGER_DEBUG false)" />
+	<arg name="OLD_PX4_FW" default="$(optenv OLD_PX4_FW false)" />
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="true" />
   <arg unless="$(eval arg('RUN_TYPE') == 'simulation')" name="simulation" value="false" />
@@ -93,7 +94,8 @@
       <remap from="~pixhawk_altitude_in" to="mavros/altitude" />
       <remap from="~control_acc_in" to="/imu/data" />
       <remap from="~pixhawk_compass_in" to="mavros/global_position/compass_hdg" />
-      <remap from="~pixhawk_odom_in" to="mavros/local_position/odom" />
+      <remap if="$(eval arg('OLD_PX4_FW') == 0)" from="~pixhawk_odom_in" to="mavros/odometry/in" />
+      <remap if="$(eval arg('OLD_PX4_FW') == 1)" from="~pixhawk_odom_in" to="mavros/local_position/odom" />
       <remap from="~optflow_in" to="optic_flow/velocity" />
       <remap from="~optflow_low_in" to="optic_flow/velocity_longrange" />
       <remap from="~vio_in" to="vins_republisher/odom" />
